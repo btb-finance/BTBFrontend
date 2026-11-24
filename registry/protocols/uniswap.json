@@ -1,0 +1,4228 @@
+{
+  "slug": "uniswap",
+  "name": "Uniswap",
+  "category": "Dexs",
+  "description": "The largest AMM DEX family (v2 constant-product, v3 concentrated liquidity, v4 singleton PoolManager with hooks). An agent can swap tokens (UniversalRouter, SwapRouter02, v2 Router02), get on-chain quotes (QuoterV2, V4Quoter), read pool state (v3 pools, v4 StateView) and open, add to, remove from and collect fees on LP positions (v3 NonfungiblePositionManager, v4 PositionManager).",
+  "website": "https://uniswap.org",
+  "docs": "https://developers.uniswap.org/docs/protocols/overview",
+  "defillama": "https://defillama.com/protocol/uniswap",
+  "chains": [
+    "ethereum",
+    "base",
+    "arbitrum",
+    "optimism",
+    "polygon",
+    "bnb",
+    "unichain",
+    "avalanche"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+      "name": "UniswapV3Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-ethereum-deployments",
+      "keyFunctions": [
+        {
+          "signature": "getPool(address,address,uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address for a token pair and fee tier (fee in hundredths of a bip: 100, 500, 3000, 10000). Returns zero address if none."
+        },
+        {
+          "signature": "createPool(address,address,uint24)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a new v3 pool for a pair and enabled fee tier (pool must then be initialized with a price)."
+        },
+        {
+          "signature": "feeAmountTickSpacing(uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tick spacing for a fee tier; 0 means the fee tier is not enabled."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
+      "name": "NonfungiblePositionManager (v3)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-ethereum-deployments",
+      "keyFunctions": [
+        {
+          "signature": "mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Open a new concentrated-liquidity position NFT. Params: token0, token1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline. token0 < token1 by address; ticks must be multiples of the tick spacing. Approve both tokens to this contract first."
+        },
+        {
+          "signature": "increaseLiquidity((uint256,uint256,uint256,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity to an existing position. Params: tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline."
+        },
+        {
+          "signature": "decreaseLiquidity((uint256,uint128,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Remove liquidity from a position. Params: tokenId, liquidity, amount0Min, amount1Min, deadline. Tokens are credited as owed; call collect to actually withdraw them."
+        },
+        {
+          "signature": "collect((uint256,address,uint128,uint128))",
+          "kind": "write",
+          "payable": true,
+          "description": "Withdraw owed tokens (fees plus decreased liquidity). Params: tokenId, recipient, amount0Max, amount1Max (use 2^128-1 to collect all)."
+        },
+        {
+          "signature": "burn(uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Burn a position NFT; it must have zero liquidity and nothing left to collect."
+        },
+        {
+          "signature": "createAndInitializePoolIfNecessary(address,address,uint24,uint160)",
+          "kind": "write",
+          "payable": true,
+          "description": "Create and initialize a pool at sqrtPriceX96 if it does not exist yet (usually batched with mint via multicall)."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch several calls (e.g. decreaseLiquidity + collect, or mint + refundETH) in one transaction."
+        },
+        {
+          "signature": "positions(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position details: nonce, operator, token0, token1, fee, tickLower, tickUpper, liquidity, feeGrowthInside0/1LastX128, tokensOwed0, tokensOwed1."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of v3 position NFTs owned by an address."
+        },
+        {
+          "signature": "tokenOfOwnerByIndex(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Enumerate an owner's position token IDs."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+      "name": "SwapRouter02",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-ethereum-deployments",
+      "keyFunctions": [
+        {
+          "signature": "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap an exact amount in through one v3 pool. Params: tokenIn, tokenOut, fee, recipient, amountIn, amountOutMinimum, sqrtPriceLimitX96 (0 = no limit). SwapRouter02 has no deadline in the struct; use multicall(uint256 deadline, bytes[]) for a deadline. Approve tokenIn to the router first."
+        },
+        {
+          "signature": "exactInput((bytes,address,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop exact-input swap. Params: path (abi.encodePacked tokenIn, fee, token, fee, tokenOut), recipient, amountIn, amountOutMinimum."
+        },
+        {
+          "signature": "exactOutputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap for an exact amount out through one pool. Params: tokenIn, tokenOut, fee, recipient, amountOut, amountInMaximum, sqrtPriceLimitX96."
+        },
+        {
+          "signature": "exactOutput((bytes,address,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop exact-output swap. Params: path (reversed: tokenOut first), recipient, amountOut, amountInMaximum."
+        },
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Uniswap v2-pool swap via SwapRouter02. Params: amountIn, amountOutMin, path, to."
+        },
+        {
+          "signature": "multicall(uint256,bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch calls with a deadline (unix seconds), e.g. swap + unwrapWETH9."
+        },
+        {
+          "signature": "unwrapWETH9(uint256,address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Unwrap WETH held by the router to native ETH and send it (amountMinimum, recipient); use after a swap to WETH with recipient = router."
+        },
+        {
+          "signature": "refundETH()",
+          "kind": "write",
+          "payable": true,
+          "description": "Return any unused native ETH sent with the call."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x61fFE014bA17989E743c5F6cB21bF9697530B21e",
+      "name": "QuoterV2 (v3)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-ethereum-deployments",
+      "keyFunctions": [
+        {
+          "signature": "quoteExactInputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool exact-input swap. Params: tokenIn, tokenOut, amountIn, fee, sqrtPriceLimitX96. Returns amountOut, sqrtPriceX96After, initializedTicksCrossed, gasEstimate. Not a view function: call it with eth_call / staticcall, never send it as a transaction."
+        },
+        {
+          "signature": "quoteExactInput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop exact-input swap (path, amountIn). Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool exact-output swap. Params: tokenIn, tokenOut, amount, fee, sqrtPriceLimitX96. Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop exact-output swap (reversed path, amountOut). Use eth_call."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x000000000004444c5dc75cB358380D2e3dE08A90",
+      "name": "PoolManager (v4)",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "initialize((address,address,uint24,int24,address),uint160)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create a v4 pool. PoolKey: currency0, currency1 (address(0) = native ETH; currency0 < currency1), fee, tickSpacing, hooks; then sqrtPriceX96. Returns the initial tick."
+        },
+        {
+          "signature": "unlock(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Entry point for all swaps/liquidity changes (flash accounting). Only callable by contracts implementing unlockCallback; agents should use PositionManager or UniversalRouter instead."
+        },
+        {
+          "signature": "extsload(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Read raw pool storage. Use the StateView contract for decoded reads."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xbD216513d74C8cf14cf4747E6AaA6420FF64ee9e",
+      "name": "PositionManager (v4)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "modifyLiquidities(bytes,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Main v4 liquidity entry point. unlockData = abi.encode(bytes actions, bytes[] params), e.g. actions MINT_POSITION + SETTLE_PAIR, INCREASE_LIQUIDITY, DECREASE_LIQUIDITY + TAKE_PAIR (fees are collected by DECREASE_LIQUIDITY with 0 liquidity), BURN_POSITION; second arg is the deadline. Tokens are pulled via Permit2, so approve tokens to Permit2 and Permit2-approve this PositionManager first."
+        },
+        {
+          "signature": "initializePool((address,address,uint24,int24,address),uint160)",
+          "kind": "write",
+          "payable": true,
+          "description": "Initialize a v4 pool (PoolKey, sqrtPriceX96); can be batched with modifyLiquidities via multicall."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch calls, e.g. initializePool + modifyLiquidities, or permit + modifyLiquidities."
+        },
+        {
+          "signature": "getPoolAndPositionInfo(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolKey and packed position info (tickLower, tickUpper, poolId) for a tokenId."
+        },
+        {
+          "signature": "getPositionLiquidity(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current liquidity of a position tokenId."
+        },
+        {
+          "signature": "nextTokenId()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token ID the next minted position will receive."
+        },
+        {
+          "signature": "ownerOf(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Owner of a v4 position NFT."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x99bd42B2B22e531f283b7F8a86dFf631EB16A9D1",
+      "name": "V4Quoter",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "quoteExactInputSingle(((address,address,uint24,int24,address),bool,uint128,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool v4 exact-input swap. Params: (PoolKey, zeroForOne, exactAmount, hookData). Returns amountOut, gasEstimate. Not a view: call with eth_call only."
+        },
+        {
+          "signature": "quoteExactInput((address,(address,uint24,int24,address,bytes)[],uint128))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop v4 exact-input swap. Params: (exactCurrency, PathKey[] {intermediateCurrency, fee, tickSpacing, hooks, hookData}, exactAmount). Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutputSingle(((address,address,uint24,int24,address),bool,uint128,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool v4 exact-output swap. Returns amountIn, gasEstimate. Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutput((address,(address,uint24,int24,address,bytes)[],uint128))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop v4 exact-output swap. Use eth_call."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x7fFE42C4a5DEeA5b0feC41C94C136Cf115597227",
+      "name": "StateView (v4)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getSlot0(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool state by poolId (keccak256(abi.encode(PoolKey))): sqrtPriceX96, tick, protocolFee, lpFee."
+        },
+        {
+          "signature": "getLiquidity(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Active in-range liquidity of a v4 pool."
+        },
+        {
+          "signature": "getPositionInfo(bytes32,address,int24,int24,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position info (liquidity, feeGrowthInside0/1LastX128) by poolId, owner (the PositionManager for NFT positions), tickLower, tickUpper, salt (bytes32(tokenId) for PositionManager positions)."
+        },
+        {
+          "signature": "getPositionLiquidity(bytes32,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidity of a position by poolId and positionId."
+        },
+        {
+          "signature": "getTickInfo(bytes32,int24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tick data: liquidityGross, liquidityNet, feeGrowthOutside0/1X128."
+        },
+        {
+          "signature": "getFeeGrowthGlobals(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Global fee growth for both currencies of a pool."
+        },
+        {
+          "signature": "getFeeGrowthInside(bytes32,int24,int24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee growth inside a tick range, used to compute uncollected fees."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af",
+      "name": "UniversalRouter",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-ethereum-deployments",
+      "keyFunctions": [
+        {
+          "signature": "execute(bytes,bytes[],uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Run a sequence of commands (one byte each: e.g. V3_SWAP_EXACT_IN 0x00, V2_SWAP_EXACT_IN 0x08, V4_SWAP 0x10, WRAP_ETH 0x0b, UNWRAP_WETH 0x0c, PERMIT2_PERMIT 0x0a, SWEEP 0x04) with ABI-encoded inputs per command and a deadline. Routes across v2, v3 and v4. Tokens are pulled through Permit2: approve token to Permit2, then Permit2.approve(token, UniversalRouter, amount, expiration) or include a PERMIT2_PERMIT command."
+        },
+        {
+          "signature": "execute(bytes,bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Same as above without a deadline."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+      "name": "Permit2",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-ethereum-deployments",
+      "keyFunctions": [
+        {
+          "signature": "approve(address,address,uint160,uint48)",
+          "kind": "write",
+          "payable": false,
+          "description": "AllowanceTransfer approval: (token, spender, amount, expiration). Lets a spender such as UniversalRouter or v4 PositionManager pull the token through Permit2. Requires a prior ERC-20 approve(token -> Permit2)."
+        },
+        {
+          "signature": "allowance(address,address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current Permit2 allowance for (owner, token, spender): amount, expiration, nonce."
+        },
+        {
+          "signature": "permit(address,((address,uint160,uint48,uint48),address,uint256),bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set an allowance with an EIP-712 signature: (owner, PermitSingle {details {token, amount, expiration, nonce}, spender, sigDeadline}, signature)."
+        },
+        {
+          "signature": "lockdown((address,address)[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Emergency: revoke allowances for a list of (token, spender) pairs."
+        },
+        {
+          "signature": "invalidateNonces(address,address,uint48)",
+          "kind": "write",
+          "payable": false,
+          "description": "Invalidate outstanding signed permits for (token, spender) by raising the nonce."
+        },
+        {
+          "signature": "DOMAIN_SEPARATOR()",
+          "kind": "read",
+          "payable": false,
+          "description": "EIP-712 domain separator for signing permits on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
+      "name": "UniswapV2Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v2/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getPair(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "v2 pair address for two tokens; zero address if none."
+        },
+        {
+          "signature": "createPair(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a new v2 pair."
+        },
+        {
+          "signature": "allPairsLength()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total number of v2 pairs."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+      "name": "UniswapV2Router02",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v2/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap exact tokens in along a v2 path: amountIn, amountOutMin, path, to, deadline. Approve the router first."
+        },
+        {
+          "signature": "swapExactETHForTokens(uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap exact native ETH (msg.value) for tokens: amountOutMin, path (starts with WETH), to, deadline."
+        },
+        {
+          "signature": "swapExactTokensForETH(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap exact tokens for native ETH: amountIn, amountOutMin, path (ends with WETH), to, deadline."
+        },
+        {
+          "signature": "addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add v2 liquidity: tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin, to, deadline."
+        },
+        {
+          "signature": "addLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add v2 liquidity with native ETH (msg.value): token, amountTokenDesired, amountTokenMin, amountETHMin, to, deadline."
+        },
+        {
+          "signature": "removeLiquidity(address,address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn LP tokens for the underlying tokens: tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline. Approve the pair (LP token) to the router first."
+        },
+        {
+          "signature": "getAmountsOut(uint256,address[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote output amounts along a v2 path."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x33128a8fC17869897dcE68Ed026d694621f6FDfD",
+      "name": "UniswapV3Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-base-deployments",
+      "keyFunctions": [
+        {
+          "signature": "getPool(address,address,uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address for a token pair and fee tier (fee in hundredths of a bip: 100, 500, 3000, 10000). Returns zero address if none."
+        },
+        {
+          "signature": "createPool(address,address,uint24)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a new v3 pool for a pair and enabled fee tier (pool must then be initialized with a price)."
+        },
+        {
+          "signature": "feeAmountTickSpacing(uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tick spacing for a fee tier; 0 means the fee tier is not enabled."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1",
+      "name": "NonfungiblePositionManager (v3)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-base-deployments",
+      "keyFunctions": [
+        {
+          "signature": "mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Open a new concentrated-liquidity position NFT. Params: token0, token1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline. token0 < token1 by address; ticks must be multiples of the tick spacing. Approve both tokens to this contract first."
+        },
+        {
+          "signature": "increaseLiquidity((uint256,uint256,uint256,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity to an existing position. Params: tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline."
+        },
+        {
+          "signature": "decreaseLiquidity((uint256,uint128,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Remove liquidity from a position. Params: tokenId, liquidity, amount0Min, amount1Min, deadline. Tokens are credited as owed; call collect to actually withdraw them."
+        },
+        {
+          "signature": "collect((uint256,address,uint128,uint128))",
+          "kind": "write",
+          "payable": true,
+          "description": "Withdraw owed tokens (fees plus decreased liquidity). Params: tokenId, recipient, amount0Max, amount1Max (use 2^128-1 to collect all)."
+        },
+        {
+          "signature": "burn(uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Burn a position NFT; it must have zero liquidity and nothing left to collect."
+        },
+        {
+          "signature": "createAndInitializePoolIfNecessary(address,address,uint24,uint160)",
+          "kind": "write",
+          "payable": true,
+          "description": "Create and initialize a pool at sqrtPriceX96 if it does not exist yet (usually batched with mint via multicall)."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch several calls (e.g. decreaseLiquidity + collect, or mint + refundETH) in one transaction."
+        },
+        {
+          "signature": "positions(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position details: nonce, operator, token0, token1, fee, tickLower, tickUpper, liquidity, feeGrowthInside0/1LastX128, tokensOwed0, tokensOwed1."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of v3 position NFTs owned by an address."
+        },
+        {
+          "signature": "tokenOfOwnerByIndex(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Enumerate an owner's position token IDs."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x2626664c2603336E57B271c5C0b26F421741e481",
+      "name": "SwapRouter02",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-base-deployments",
+      "keyFunctions": [
+        {
+          "signature": "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap an exact amount in through one v3 pool. Params: tokenIn, tokenOut, fee, recipient, amountIn, amountOutMinimum, sqrtPriceLimitX96 (0 = no limit). SwapRouter02 has no deadline in the struct; use multicall(uint256 deadline, bytes[]) for a deadline. Approve tokenIn to the router first."
+        },
+        {
+          "signature": "exactInput((bytes,address,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop exact-input swap. Params: path (abi.encodePacked tokenIn, fee, token, fee, tokenOut), recipient, amountIn, amountOutMinimum."
+        },
+        {
+          "signature": "exactOutputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap for an exact amount out through one pool. Params: tokenIn, tokenOut, fee, recipient, amountOut, amountInMaximum, sqrtPriceLimitX96."
+        },
+        {
+          "signature": "exactOutput((bytes,address,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop exact-output swap. Params: path (reversed: tokenOut first), recipient, amountOut, amountInMaximum."
+        },
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Uniswap v2-pool swap via SwapRouter02. Params: amountIn, amountOutMin, path, to."
+        },
+        {
+          "signature": "multicall(uint256,bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch calls with a deadline (unix seconds), e.g. swap + unwrapWETH9."
+        },
+        {
+          "signature": "unwrapWETH9(uint256,address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Unwrap WETH held by the router to native ETH and send it (amountMinimum, recipient); use after a swap to WETH with recipient = router."
+        },
+        {
+          "signature": "refundETH()",
+          "kind": "write",
+          "payable": true,
+          "description": "Return any unused native ETH sent with the call."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a",
+      "name": "QuoterV2 (v3)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-base-deployments",
+      "keyFunctions": [
+        {
+          "signature": "quoteExactInputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool exact-input swap. Params: tokenIn, tokenOut, amountIn, fee, sqrtPriceLimitX96. Returns amountOut, sqrtPriceX96After, initializedTicksCrossed, gasEstimate. Not a view function: call it with eth_call / staticcall, never send it as a transaction."
+        },
+        {
+          "signature": "quoteExactInput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop exact-input swap (path, amountIn). Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool exact-output swap. Params: tokenIn, tokenOut, amount, fee, sqrtPriceLimitX96. Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop exact-output swap (reversed path, amountOut). Use eth_call."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x498581fF718922c3f8e6A244956aF099B2652b2b",
+      "name": "PoolManager (v4)",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "initialize((address,address,uint24,int24,address),uint160)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create a v4 pool. PoolKey: currency0, currency1 (address(0) = native ETH; currency0 < currency1), fee, tickSpacing, hooks; then sqrtPriceX96. Returns the initial tick."
+        },
+        {
+          "signature": "unlock(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Entry point for all swaps/liquidity changes (flash accounting). Only callable by contracts implementing unlockCallback; agents should use PositionManager or UniversalRouter instead."
+        },
+        {
+          "signature": "extsload(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Read raw pool storage. Use the StateView contract for decoded reads."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x7C5f5A4bBd8fD63184577525326123B519429bDc",
+      "name": "PositionManager (v4)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "modifyLiquidities(bytes,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Main v4 liquidity entry point. unlockData = abi.encode(bytes actions, bytes[] params), e.g. actions MINT_POSITION + SETTLE_PAIR, INCREASE_LIQUIDITY, DECREASE_LIQUIDITY + TAKE_PAIR (fees are collected by DECREASE_LIQUIDITY with 0 liquidity), BURN_POSITION; second arg is the deadline. Tokens are pulled via Permit2, so approve tokens to Permit2 and Permit2-approve this PositionManager first."
+        },
+        {
+          "signature": "initializePool((address,address,uint24,int24,address),uint160)",
+          "kind": "write",
+          "payable": true,
+          "description": "Initialize a v4 pool (PoolKey, sqrtPriceX96); can be batched with modifyLiquidities via multicall."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch calls, e.g. initializePool + modifyLiquidities, or permit + modifyLiquidities."
+        },
+        {
+          "signature": "getPoolAndPositionInfo(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolKey and packed position info (tickLower, tickUpper, poolId) for a tokenId."
+        },
+        {
+          "signature": "getPositionLiquidity(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current liquidity of a position tokenId."
+        },
+        {
+          "signature": "nextTokenId()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token ID the next minted position will receive."
+        },
+        {
+          "signature": "ownerOf(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Owner of a v4 position NFT."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xE1A6C5803e3c44368b171BD680c7D32dfc92CA47",
+      "name": "V4Quoter",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "quoteExactInputSingle(((address,address,uint24,int24,address),bool,uint128,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool v4 exact-input swap. Params: (PoolKey, zeroForOne, exactAmount, hookData). Returns amountOut, gasEstimate. Not a view: call with eth_call only."
+        },
+        {
+          "signature": "quoteExactInput((address,(address,uint24,int24,address,bytes)[],uint128))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop v4 exact-input swap. Params: (exactCurrency, PathKey[] {intermediateCurrency, fee, tickSpacing, hooks, hookData}, exactAmount). Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutputSingle(((address,address,uint24,int24,address),bool,uint128,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool v4 exact-output swap. Returns amountIn, gasEstimate. Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutput((address,(address,uint24,int24,address,bytes)[],uint128))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop v4 exact-output swap. Use eth_call."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xA3c0c9b65baD0b08107Aa264b0f3dB444b867A71",
+      "name": "StateView (v4)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getSlot0(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool state by poolId (keccak256(abi.encode(PoolKey))): sqrtPriceX96, tick, protocolFee, lpFee."
+        },
+        {
+          "signature": "getLiquidity(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Active in-range liquidity of a v4 pool."
+        },
+        {
+          "signature": "getPositionInfo(bytes32,address,int24,int24,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position info (liquidity, feeGrowthInside0/1LastX128) by poolId, owner (the PositionManager for NFT positions), tickLower, tickUpper, salt (bytes32(tokenId) for PositionManager positions)."
+        },
+        {
+          "signature": "getPositionLiquidity(bytes32,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidity of a position by poolId and positionId."
+        },
+        {
+          "signature": "getTickInfo(bytes32,int24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tick data: liquidityGross, liquidityNet, feeGrowthOutside0/1X128."
+        },
+        {
+          "signature": "getFeeGrowthGlobals(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Global fee growth for both currencies of a pool."
+        },
+        {
+          "signature": "getFeeGrowthInside(bytes32,int24,int24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee growth inside a tick range, used to compute uncollected fees."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x6fF5693b99212Da76ad316178A184AB56D299b43",
+      "name": "UniversalRouter",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-base-deployments",
+      "keyFunctions": [
+        {
+          "signature": "execute(bytes,bytes[],uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Run a sequence of commands (one byte each: e.g. V3_SWAP_EXACT_IN 0x00, V2_SWAP_EXACT_IN 0x08, V4_SWAP 0x10, WRAP_ETH 0x0b, UNWRAP_WETH 0x0c, PERMIT2_PERMIT 0x0a, SWEEP 0x04) with ABI-encoded inputs per command and a deadline. Routes across v2, v3 and v4. Tokens are pulled through Permit2: approve token to Permit2, then Permit2.approve(token, UniversalRouter, amount, expiration) or include a PERMIT2_PERMIT command."
+        },
+        {
+          "signature": "execute(bytes,bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Same as above without a deadline."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+      "name": "Permit2",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-base-deployments",
+      "keyFunctions": [
+        {
+          "signature": "approve(address,address,uint160,uint48)",
+          "kind": "write",
+          "payable": false,
+          "description": "AllowanceTransfer approval: (token, spender, amount, expiration). Lets a spender such as UniversalRouter or v4 PositionManager pull the token through Permit2. Requires a prior ERC-20 approve(token -> Permit2)."
+        },
+        {
+          "signature": "allowance(address,address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current Permit2 allowance for (owner, token, spender): amount, expiration, nonce."
+        },
+        {
+          "signature": "permit(address,((address,uint160,uint48,uint48),address,uint256),bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set an allowance with an EIP-712 signature: (owner, PermitSingle {details {token, amount, expiration, nonce}, spender, sigDeadline}, signature)."
+        },
+        {
+          "signature": "lockdown((address,address)[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Emergency: revoke allowances for a list of (token, spender) pairs."
+        },
+        {
+          "signature": "invalidateNonces(address,address,uint48)",
+          "kind": "write",
+          "payable": false,
+          "description": "Invalidate outstanding signed permits for (token, spender) by raising the nonce."
+        },
+        {
+          "signature": "DOMAIN_SEPARATOR()",
+          "kind": "read",
+          "payable": false,
+          "description": "EIP-712 domain separator for signing permits on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6",
+      "name": "UniswapV2Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v2/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getPair(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "v2 pair address for two tokens; zero address if none."
+        },
+        {
+          "signature": "createPair(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a new v2 pair."
+        },
+        {
+          "signature": "allPairsLength()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total number of v2 pairs."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24",
+      "name": "UniswapV2Router02",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v2/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap exact tokens in along a v2 path: amountIn, amountOutMin, path, to, deadline. Approve the router first."
+        },
+        {
+          "signature": "swapExactETHForTokens(uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap exact native ETH (msg.value) for tokens: amountOutMin, path (starts with WETH), to, deadline."
+        },
+        {
+          "signature": "swapExactTokensForETH(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap exact tokens for native ETH: amountIn, amountOutMin, path (ends with WETH), to, deadline."
+        },
+        {
+          "signature": "addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add v2 liquidity: tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin, to, deadline."
+        },
+        {
+          "signature": "addLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add v2 liquidity with native ETH (msg.value): token, amountTokenDesired, amountTokenMin, amountETHMin, to, deadline."
+        },
+        {
+          "signature": "removeLiquidity(address,address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn LP tokens for the underlying tokens: tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline. Approve the pair (LP token) to the router first."
+        },
+        {
+          "signature": "getAmountsOut(uint256,address[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote output amounts along a v2 path."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+      "name": "UniswapV3Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-arbitrum-deployments",
+      "keyFunctions": [
+        {
+          "signature": "getPool(address,address,uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address for a token pair and fee tier (fee in hundredths of a bip: 100, 500, 3000, 10000). Returns zero address if none."
+        },
+        {
+          "signature": "createPool(address,address,uint24)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a new v3 pool for a pair and enabled fee tier (pool must then be initialized with a price)."
+        },
+        {
+          "signature": "feeAmountTickSpacing(uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tick spacing for a fee tier; 0 means the fee tier is not enabled."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
+      "name": "NonfungiblePositionManager (v3)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-arbitrum-deployments",
+      "keyFunctions": [
+        {
+          "signature": "mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Open a new concentrated-liquidity position NFT. Params: token0, token1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline. token0 < token1 by address; ticks must be multiples of the tick spacing. Approve both tokens to this contract first."
+        },
+        {
+          "signature": "increaseLiquidity((uint256,uint256,uint256,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity to an existing position. Params: tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline."
+        },
+        {
+          "signature": "decreaseLiquidity((uint256,uint128,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Remove liquidity from a position. Params: tokenId, liquidity, amount0Min, amount1Min, deadline. Tokens are credited as owed; call collect to actually withdraw them."
+        },
+        {
+          "signature": "collect((uint256,address,uint128,uint128))",
+          "kind": "write",
+          "payable": true,
+          "description": "Withdraw owed tokens (fees plus decreased liquidity). Params: tokenId, recipient, amount0Max, amount1Max (use 2^128-1 to collect all)."
+        },
+        {
+          "signature": "burn(uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Burn a position NFT; it must have zero liquidity and nothing left to collect."
+        },
+        {
+          "signature": "createAndInitializePoolIfNecessary(address,address,uint24,uint160)",
+          "kind": "write",
+          "payable": true,
+          "description": "Create and initialize a pool at sqrtPriceX96 if it does not exist yet (usually batched with mint via multicall)."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch several calls (e.g. decreaseLiquidity + collect, or mint + refundETH) in one transaction."
+        },
+        {
+          "signature": "positions(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position details: nonce, operator, token0, token1, fee, tickLower, tickUpper, liquidity, feeGrowthInside0/1LastX128, tokensOwed0, tokensOwed1."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of v3 position NFTs owned by an address."
+        },
+        {
+          "signature": "tokenOfOwnerByIndex(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Enumerate an owner's position token IDs."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+      "name": "SwapRouter02",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-arbitrum-deployments",
+      "keyFunctions": [
+        {
+          "signature": "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap an exact amount in through one v3 pool. Params: tokenIn, tokenOut, fee, recipient, amountIn, amountOutMinimum, sqrtPriceLimitX96 (0 = no limit). SwapRouter02 has no deadline in the struct; use multicall(uint256 deadline, bytes[]) for a deadline. Approve tokenIn to the router first."
+        },
+        {
+          "signature": "exactInput((bytes,address,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop exact-input swap. Params: path (abi.encodePacked tokenIn, fee, token, fee, tokenOut), recipient, amountIn, amountOutMinimum."
+        },
+        {
+          "signature": "exactOutputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap for an exact amount out through one pool. Params: tokenIn, tokenOut, fee, recipient, amountOut, amountInMaximum, sqrtPriceLimitX96."
+        },
+        {
+          "signature": "exactOutput((bytes,address,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop exact-output swap. Params: path (reversed: tokenOut first), recipient, amountOut, amountInMaximum."
+        },
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Uniswap v2-pool swap via SwapRouter02. Params: amountIn, amountOutMin, path, to."
+        },
+        {
+          "signature": "multicall(uint256,bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch calls with a deadline (unix seconds), e.g. swap + unwrapWETH9."
+        },
+        {
+          "signature": "unwrapWETH9(uint256,address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Unwrap WETH held by the router to native ETH and send it (amountMinimum, recipient); use after a swap to WETH with recipient = router."
+        },
+        {
+          "signature": "refundETH()",
+          "kind": "write",
+          "payable": true,
+          "description": "Return any unused native ETH sent with the call."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x61fFE014bA17989E743c5F6cB21bF9697530B21e",
+      "name": "QuoterV2 (v3)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-arbitrum-deployments",
+      "keyFunctions": [
+        {
+          "signature": "quoteExactInputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool exact-input swap. Params: tokenIn, tokenOut, amountIn, fee, sqrtPriceLimitX96. Returns amountOut, sqrtPriceX96After, initializedTicksCrossed, gasEstimate. Not a view function: call it with eth_call / staticcall, never send it as a transaction."
+        },
+        {
+          "signature": "quoteExactInput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop exact-input swap (path, amountIn). Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool exact-output swap. Params: tokenIn, tokenOut, amount, fee, sqrtPriceLimitX96. Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop exact-output swap (reversed path, amountOut). Use eth_call."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x360E68faCcca8cA495c1B759Fd9EEe466db9FB32",
+      "name": "PoolManager (v4)",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "initialize((address,address,uint24,int24,address),uint160)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create a v4 pool. PoolKey: currency0, currency1 (address(0) = native ETH; currency0 < currency1), fee, tickSpacing, hooks; then sqrtPriceX96. Returns the initial tick."
+        },
+        {
+          "signature": "unlock(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Entry point for all swaps/liquidity changes (flash accounting). Only callable by contracts implementing unlockCallback; agents should use PositionManager or UniversalRouter instead."
+        },
+        {
+          "signature": "extsload(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Read raw pool storage. Use the StateView contract for decoded reads."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xd88F38F930b7952f2DB2432Cb002E7abbF3dD869",
+      "name": "PositionManager (v4)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "modifyLiquidities(bytes,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Main v4 liquidity entry point. unlockData = abi.encode(bytes actions, bytes[] params), e.g. actions MINT_POSITION + SETTLE_PAIR, INCREASE_LIQUIDITY, DECREASE_LIQUIDITY + TAKE_PAIR (fees are collected by DECREASE_LIQUIDITY with 0 liquidity), BURN_POSITION; second arg is the deadline. Tokens are pulled via Permit2, so approve tokens to Permit2 and Permit2-approve this PositionManager first."
+        },
+        {
+          "signature": "initializePool((address,address,uint24,int24,address),uint160)",
+          "kind": "write",
+          "payable": true,
+          "description": "Initialize a v4 pool (PoolKey, sqrtPriceX96); can be batched with modifyLiquidities via multicall."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch calls, e.g. initializePool + modifyLiquidities, or permit + modifyLiquidities."
+        },
+        {
+          "signature": "getPoolAndPositionInfo(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolKey and packed position info (tickLower, tickUpper, poolId) for a tokenId."
+        },
+        {
+          "signature": "getPositionLiquidity(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current liquidity of a position tokenId."
+        },
+        {
+          "signature": "nextTokenId()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token ID the next minted position will receive."
+        },
+        {
+          "signature": "ownerOf(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Owner of a v4 position NFT."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x8928074CA1b241D8Ec02815881c1Af11E8bC5219",
+      "name": "V4Quoter",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "quoteExactInputSingle(((address,address,uint24,int24,address),bool,uint128,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool v4 exact-input swap. Params: (PoolKey, zeroForOne, exactAmount, hookData). Returns amountOut, gasEstimate. Not a view: call with eth_call only."
+        },
+        {
+          "signature": "quoteExactInput((address,(address,uint24,int24,address,bytes)[],uint128))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop v4 exact-input swap. Params: (exactCurrency, PathKey[] {intermediateCurrency, fee, tickSpacing, hooks, hookData}, exactAmount). Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutputSingle(((address,address,uint24,int24,address),bool,uint128,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool v4 exact-output swap. Returns amountIn, gasEstimate. Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutput((address,(address,uint24,int24,address,bytes)[],uint128))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop v4 exact-output swap. Use eth_call."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x76Fd297e2D437cd7f76d50F01AfE6160f86e9990",
+      "name": "StateView (v4)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getSlot0(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool state by poolId (keccak256(abi.encode(PoolKey))): sqrtPriceX96, tick, protocolFee, lpFee."
+        },
+        {
+          "signature": "getLiquidity(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Active in-range liquidity of a v4 pool."
+        },
+        {
+          "signature": "getPositionInfo(bytes32,address,int24,int24,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position info (liquidity, feeGrowthInside0/1LastX128) by poolId, owner (the PositionManager for NFT positions), tickLower, tickUpper, salt (bytes32(tokenId) for PositionManager positions)."
+        },
+        {
+          "signature": "getPositionLiquidity(bytes32,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidity of a position by poolId and positionId."
+        },
+        {
+          "signature": "getTickInfo(bytes32,int24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tick data: liquidityGross, liquidityNet, feeGrowthOutside0/1X128."
+        },
+        {
+          "signature": "getFeeGrowthGlobals(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Global fee growth for both currencies of a pool."
+        },
+        {
+          "signature": "getFeeGrowthInside(bytes32,int24,int24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee growth inside a tick range, used to compute uncollected fees."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xA51afAFe0263b40EdaEf0Df8781eA9aa03E381a3",
+      "name": "UniversalRouter",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-arbitrum-deployments",
+      "keyFunctions": [
+        {
+          "signature": "execute(bytes,bytes[],uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Run a sequence of commands (one byte each: e.g. V3_SWAP_EXACT_IN 0x00, V2_SWAP_EXACT_IN 0x08, V4_SWAP 0x10, WRAP_ETH 0x0b, UNWRAP_WETH 0x0c, PERMIT2_PERMIT 0x0a, SWEEP 0x04) with ABI-encoded inputs per command and a deadline. Routes across v2, v3 and v4. Tokens are pulled through Permit2: approve token to Permit2, then Permit2.approve(token, UniversalRouter, amount, expiration) or include a PERMIT2_PERMIT command."
+        },
+        {
+          "signature": "execute(bytes,bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Same as above without a deadline."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+      "name": "Permit2",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-arbitrum-deployments",
+      "keyFunctions": [
+        {
+          "signature": "approve(address,address,uint160,uint48)",
+          "kind": "write",
+          "payable": false,
+          "description": "AllowanceTransfer approval: (token, spender, amount, expiration). Lets a spender such as UniversalRouter or v4 PositionManager pull the token through Permit2. Requires a prior ERC-20 approve(token -> Permit2)."
+        },
+        {
+          "signature": "allowance(address,address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current Permit2 allowance for (owner, token, spender): amount, expiration, nonce."
+        },
+        {
+          "signature": "permit(address,((address,uint160,uint48,uint48),address,uint256),bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set an allowance with an EIP-712 signature: (owner, PermitSingle {details {token, amount, expiration, nonce}, spender, sigDeadline}, signature)."
+        },
+        {
+          "signature": "lockdown((address,address)[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Emergency: revoke allowances for a list of (token, spender) pairs."
+        },
+        {
+          "signature": "invalidateNonces(address,address,uint48)",
+          "kind": "write",
+          "payable": false,
+          "description": "Invalidate outstanding signed permits for (token, spender) by raising the nonce."
+        },
+        {
+          "signature": "DOMAIN_SEPARATOR()",
+          "kind": "read",
+          "payable": false,
+          "description": "EIP-712 domain separator for signing permits on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xf1D7CC64Fb4452F05c498126312eBE29f30Fbcf9",
+      "name": "UniswapV2Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v2/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getPair(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "v2 pair address for two tokens; zero address if none."
+        },
+        {
+          "signature": "createPair(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a new v2 pair."
+        },
+        {
+          "signature": "allPairsLength()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total number of v2 pairs."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24",
+      "name": "UniswapV2Router02",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v2/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap exact tokens in along a v2 path: amountIn, amountOutMin, path, to, deadline. Approve the router first."
+        },
+        {
+          "signature": "swapExactETHForTokens(uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap exact native ETH (msg.value) for tokens: amountOutMin, path (starts with WETH), to, deadline."
+        },
+        {
+          "signature": "swapExactTokensForETH(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap exact tokens for native ETH: amountIn, amountOutMin, path (ends with WETH), to, deadline."
+        },
+        {
+          "signature": "addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add v2 liquidity: tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin, to, deadline."
+        },
+        {
+          "signature": "addLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add v2 liquidity with native ETH (msg.value): token, amountTokenDesired, amountTokenMin, amountETHMin, to, deadline."
+        },
+        {
+          "signature": "removeLiquidity(address,address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn LP tokens for the underlying tokens: tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline. Approve the pair (LP token) to the router first."
+        },
+        {
+          "signature": "getAmountsOut(uint256,address[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote output amounts along a v2 path."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+      "name": "UniswapV3Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-optimism-deployments",
+      "keyFunctions": [
+        {
+          "signature": "getPool(address,address,uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address for a token pair and fee tier (fee in hundredths of a bip: 100, 500, 3000, 10000). Returns zero address if none."
+        },
+        {
+          "signature": "createPool(address,address,uint24)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a new v3 pool for a pair and enabled fee tier (pool must then be initialized with a price)."
+        },
+        {
+          "signature": "feeAmountTickSpacing(uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tick spacing for a fee tier; 0 means the fee tier is not enabled."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
+      "name": "NonfungiblePositionManager (v3)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-optimism-deployments",
+      "keyFunctions": [
+        {
+          "signature": "mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Open a new concentrated-liquidity position NFT. Params: token0, token1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline. token0 < token1 by address; ticks must be multiples of the tick spacing. Approve both tokens to this contract first."
+        },
+        {
+          "signature": "increaseLiquidity((uint256,uint256,uint256,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity to an existing position. Params: tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline."
+        },
+        {
+          "signature": "decreaseLiquidity((uint256,uint128,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Remove liquidity from a position. Params: tokenId, liquidity, amount0Min, amount1Min, deadline. Tokens are credited as owed; call collect to actually withdraw them."
+        },
+        {
+          "signature": "collect((uint256,address,uint128,uint128))",
+          "kind": "write",
+          "payable": true,
+          "description": "Withdraw owed tokens (fees plus decreased liquidity). Params: tokenId, recipient, amount0Max, amount1Max (use 2^128-1 to collect all)."
+        },
+        {
+          "signature": "burn(uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Burn a position NFT; it must have zero liquidity and nothing left to collect."
+        },
+        {
+          "signature": "createAndInitializePoolIfNecessary(address,address,uint24,uint160)",
+          "kind": "write",
+          "payable": true,
+          "description": "Create and initialize a pool at sqrtPriceX96 if it does not exist yet (usually batched with mint via multicall)."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch several calls (e.g. decreaseLiquidity + collect, or mint + refundETH) in one transaction."
+        },
+        {
+          "signature": "positions(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position details: nonce, operator, token0, token1, fee, tickLower, tickUpper, liquidity, feeGrowthInside0/1LastX128, tokensOwed0, tokensOwed1."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of v3 position NFTs owned by an address."
+        },
+        {
+          "signature": "tokenOfOwnerByIndex(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Enumerate an owner's position token IDs."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+      "name": "SwapRouter02",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-optimism-deployments",
+      "keyFunctions": [
+        {
+          "signature": "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap an exact amount in through one v3 pool. Params: tokenIn, tokenOut, fee, recipient, amountIn, amountOutMinimum, sqrtPriceLimitX96 (0 = no limit). SwapRouter02 has no deadline in the struct; use multicall(uint256 deadline, bytes[]) for a deadline. Approve tokenIn to the router first."
+        },
+        {
+          "signature": "exactInput((bytes,address,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop exact-input swap. Params: path (abi.encodePacked tokenIn, fee, token, fee, tokenOut), recipient, amountIn, amountOutMinimum."
+        },
+        {
+          "signature": "exactOutputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap for an exact amount out through one pool. Params: tokenIn, tokenOut, fee, recipient, amountOut, amountInMaximum, sqrtPriceLimitX96."
+        },
+        {
+          "signature": "exactOutput((bytes,address,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop exact-output swap. Params: path (reversed: tokenOut first), recipient, amountOut, amountInMaximum."
+        },
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Uniswap v2-pool swap via SwapRouter02. Params: amountIn, amountOutMin, path, to."
+        },
+        {
+          "signature": "multicall(uint256,bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch calls with a deadline (unix seconds), e.g. swap + unwrapWETH9."
+        },
+        {
+          "signature": "unwrapWETH9(uint256,address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Unwrap WETH held by the router to native ETH and send it (amountMinimum, recipient); use after a swap to WETH with recipient = router."
+        },
+        {
+          "signature": "refundETH()",
+          "kind": "write",
+          "payable": true,
+          "description": "Return any unused native ETH sent with the call."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x61fFE014bA17989E743c5F6cB21bF9697530B21e",
+      "name": "QuoterV2 (v3)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-optimism-deployments",
+      "keyFunctions": [
+        {
+          "signature": "quoteExactInputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool exact-input swap. Params: tokenIn, tokenOut, amountIn, fee, sqrtPriceLimitX96. Returns amountOut, sqrtPriceX96After, initializedTicksCrossed, gasEstimate. Not a view function: call it with eth_call / staticcall, never send it as a transaction."
+        },
+        {
+          "signature": "quoteExactInput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop exact-input swap (path, amountIn). Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool exact-output swap. Params: tokenIn, tokenOut, amount, fee, sqrtPriceLimitX96. Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop exact-output swap (reversed path, amountOut). Use eth_call."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x9a13F98Cb987694C9F086b1F5eB990EeA8264Ec3",
+      "name": "PoolManager (v4)",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "initialize((address,address,uint24,int24,address),uint160)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create a v4 pool. PoolKey: currency0, currency1 (address(0) = native ETH; currency0 < currency1), fee, tickSpacing, hooks; then sqrtPriceX96. Returns the initial tick."
+        },
+        {
+          "signature": "unlock(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Entry point for all swaps/liquidity changes (flash accounting). Only callable by contracts implementing unlockCallback; agents should use PositionManager or UniversalRouter instead."
+        },
+        {
+          "signature": "extsload(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Read raw pool storage. Use the StateView contract for decoded reads."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x3C3Ea4B57a46241e54610e5f022E5c45859A1017",
+      "name": "PositionManager (v4)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "modifyLiquidities(bytes,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Main v4 liquidity entry point. unlockData = abi.encode(bytes actions, bytes[] params), e.g. actions MINT_POSITION + SETTLE_PAIR, INCREASE_LIQUIDITY, DECREASE_LIQUIDITY + TAKE_PAIR (fees are collected by DECREASE_LIQUIDITY with 0 liquidity), BURN_POSITION; second arg is the deadline. Tokens are pulled via Permit2, so approve tokens to Permit2 and Permit2-approve this PositionManager first."
+        },
+        {
+          "signature": "initializePool((address,address,uint24,int24,address),uint160)",
+          "kind": "write",
+          "payable": true,
+          "description": "Initialize a v4 pool (PoolKey, sqrtPriceX96); can be batched with modifyLiquidities via multicall."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch calls, e.g. initializePool + modifyLiquidities, or permit + modifyLiquidities."
+        },
+        {
+          "signature": "getPoolAndPositionInfo(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolKey and packed position info (tickLower, tickUpper, poolId) for a tokenId."
+        },
+        {
+          "signature": "getPositionLiquidity(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current liquidity of a position tokenId."
+        },
+        {
+          "signature": "nextTokenId()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token ID the next minted position will receive."
+        },
+        {
+          "signature": "ownerOf(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Owner of a v4 position NFT."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0xd673F731EDFe5AaF1bDa7FD43D13Bbb5150B87Ca",
+      "name": "V4Quoter",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "quoteExactInputSingle(((address,address,uint24,int24,address),bool,uint128,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool v4 exact-input swap. Params: (PoolKey, zeroForOne, exactAmount, hookData). Returns amountOut, gasEstimate. Not a view: call with eth_call only."
+        },
+        {
+          "signature": "quoteExactInput((address,(address,uint24,int24,address,bytes)[],uint128))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop v4 exact-input swap. Params: (exactCurrency, PathKey[] {intermediateCurrency, fee, tickSpacing, hooks, hookData}, exactAmount). Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutputSingle(((address,address,uint24,int24,address),bool,uint128,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool v4 exact-output swap. Returns amountIn, gasEstimate. Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutput((address,(address,uint24,int24,address,bytes)[],uint128))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop v4 exact-output swap. Use eth_call."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0xc18a3169788F4F75A170290584ECA6395C75Ecdb",
+      "name": "StateView (v4)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getSlot0(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool state by poolId (keccak256(abi.encode(PoolKey))): sqrtPriceX96, tick, protocolFee, lpFee."
+        },
+        {
+          "signature": "getLiquidity(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Active in-range liquidity of a v4 pool."
+        },
+        {
+          "signature": "getPositionInfo(bytes32,address,int24,int24,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position info (liquidity, feeGrowthInside0/1LastX128) by poolId, owner (the PositionManager for NFT positions), tickLower, tickUpper, salt (bytes32(tokenId) for PositionManager positions)."
+        },
+        {
+          "signature": "getPositionLiquidity(bytes32,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidity of a position by poolId and positionId."
+        },
+        {
+          "signature": "getTickInfo(bytes32,int24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tick data: liquidityGross, liquidityNet, feeGrowthOutside0/1X128."
+        },
+        {
+          "signature": "getFeeGrowthGlobals(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Global fee growth for both currencies of a pool."
+        },
+        {
+          "signature": "getFeeGrowthInside(bytes32,int24,int24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee growth inside a tick range, used to compute uncollected fees."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x851116D9223fabED8E56C0E6b8Ad0c31d98B3507",
+      "name": "UniversalRouter",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-optimism-deployments",
+      "keyFunctions": [
+        {
+          "signature": "execute(bytes,bytes[],uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Run a sequence of commands (one byte each: e.g. V3_SWAP_EXACT_IN 0x00, V2_SWAP_EXACT_IN 0x08, V4_SWAP 0x10, WRAP_ETH 0x0b, UNWRAP_WETH 0x0c, PERMIT2_PERMIT 0x0a, SWEEP 0x04) with ABI-encoded inputs per command and a deadline. Routes across v2, v3 and v4. Tokens are pulled through Permit2: approve token to Permit2, then Permit2.approve(token, UniversalRouter, amount, expiration) or include a PERMIT2_PERMIT command."
+        },
+        {
+          "signature": "execute(bytes,bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Same as above without a deadline."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+      "name": "Permit2",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-optimism-deployments",
+      "keyFunctions": [
+        {
+          "signature": "approve(address,address,uint160,uint48)",
+          "kind": "write",
+          "payable": false,
+          "description": "AllowanceTransfer approval: (token, spender, amount, expiration). Lets a spender such as UniversalRouter or v4 PositionManager pull the token through Permit2. Requires a prior ERC-20 approve(token -> Permit2)."
+        },
+        {
+          "signature": "allowance(address,address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current Permit2 allowance for (owner, token, spender): amount, expiration, nonce."
+        },
+        {
+          "signature": "permit(address,((address,uint160,uint48,uint48),address,uint256),bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set an allowance with an EIP-712 signature: (owner, PermitSingle {details {token, amount, expiration, nonce}, spender, sigDeadline}, signature)."
+        },
+        {
+          "signature": "lockdown((address,address)[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Emergency: revoke allowances for a list of (token, spender) pairs."
+        },
+        {
+          "signature": "invalidateNonces(address,address,uint48)",
+          "kind": "write",
+          "payable": false,
+          "description": "Invalidate outstanding signed permits for (token, spender) by raising the nonce."
+        },
+        {
+          "signature": "DOMAIN_SEPARATOR()",
+          "kind": "read",
+          "payable": false,
+          "description": "EIP-712 domain separator for signing permits on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x0c3c1c532F1e39EdF36BE9Fe0bE1410313E074Bf",
+      "name": "UniswapV2Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v2/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getPair(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "v2 pair address for two tokens; zero address if none."
+        },
+        {
+          "signature": "createPair(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a new v2 pair."
+        },
+        {
+          "signature": "allPairsLength()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total number of v2 pairs."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x4A7b5Da61326A6379179b40d00F57E5bbDC962c2",
+      "name": "UniswapV2Router02",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v2/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap exact tokens in along a v2 path: amountIn, amountOutMin, path, to, deadline. Approve the router first."
+        },
+        {
+          "signature": "swapExactETHForTokens(uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap exact native ETH (msg.value) for tokens: amountOutMin, path (starts with WETH), to, deadline."
+        },
+        {
+          "signature": "swapExactTokensForETH(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap exact tokens for native ETH: amountIn, amountOutMin, path (ends with WETH), to, deadline."
+        },
+        {
+          "signature": "addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add v2 liquidity: tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin, to, deadline."
+        },
+        {
+          "signature": "addLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add v2 liquidity with native ETH (msg.value): token, amountTokenDesired, amountTokenMin, amountETHMin, to, deadline."
+        },
+        {
+          "signature": "removeLiquidity(address,address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn LP tokens for the underlying tokens: tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline. Approve the pair (LP token) to the router first."
+        },
+        {
+          "signature": "getAmountsOut(uint256,address[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote output amounts along a v2 path."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+      "name": "UniswapV3Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-polygon-deployments",
+      "keyFunctions": [
+        {
+          "signature": "getPool(address,address,uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address for a token pair and fee tier (fee in hundredths of a bip: 100, 500, 3000, 10000). Returns zero address if none."
+        },
+        {
+          "signature": "createPool(address,address,uint24)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a new v3 pool for a pair and enabled fee tier (pool must then be initialized with a price)."
+        },
+        {
+          "signature": "feeAmountTickSpacing(uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tick spacing for a fee tier; 0 means the fee tier is not enabled."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
+      "name": "NonfungiblePositionManager (v3)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-polygon-deployments",
+      "keyFunctions": [
+        {
+          "signature": "mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Open a new concentrated-liquidity position NFT. Params: token0, token1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline. token0 < token1 by address; ticks must be multiples of the tick spacing. Approve both tokens to this contract first."
+        },
+        {
+          "signature": "increaseLiquidity((uint256,uint256,uint256,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity to an existing position. Params: tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline."
+        },
+        {
+          "signature": "decreaseLiquidity((uint256,uint128,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Remove liquidity from a position. Params: tokenId, liquidity, amount0Min, amount1Min, deadline. Tokens are credited as owed; call collect to actually withdraw them."
+        },
+        {
+          "signature": "collect((uint256,address,uint128,uint128))",
+          "kind": "write",
+          "payable": true,
+          "description": "Withdraw owed tokens (fees plus decreased liquidity). Params: tokenId, recipient, amount0Max, amount1Max (use 2^128-1 to collect all)."
+        },
+        {
+          "signature": "burn(uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Burn a position NFT; it must have zero liquidity and nothing left to collect."
+        },
+        {
+          "signature": "createAndInitializePoolIfNecessary(address,address,uint24,uint160)",
+          "kind": "write",
+          "payable": true,
+          "description": "Create and initialize a pool at sqrtPriceX96 if it does not exist yet (usually batched with mint via multicall)."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch several calls (e.g. decreaseLiquidity + collect, or mint + refundETH) in one transaction."
+        },
+        {
+          "signature": "positions(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position details: nonce, operator, token0, token1, fee, tickLower, tickUpper, liquidity, feeGrowthInside0/1LastX128, tokensOwed0, tokensOwed1."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of v3 position NFTs owned by an address."
+        },
+        {
+          "signature": "tokenOfOwnerByIndex(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Enumerate an owner's position token IDs."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+      "name": "SwapRouter02",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-polygon-deployments",
+      "keyFunctions": [
+        {
+          "signature": "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap an exact amount in through one v3 pool. Params: tokenIn, tokenOut, fee, recipient, amountIn, amountOutMinimum, sqrtPriceLimitX96 (0 = no limit). SwapRouter02 has no deadline in the struct; use multicall(uint256 deadline, bytes[]) for a deadline. Approve tokenIn to the router first."
+        },
+        {
+          "signature": "exactInput((bytes,address,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop exact-input swap. Params: path (abi.encodePacked tokenIn, fee, token, fee, tokenOut), recipient, amountIn, amountOutMinimum."
+        },
+        {
+          "signature": "exactOutputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap for an exact amount out through one pool. Params: tokenIn, tokenOut, fee, recipient, amountOut, amountInMaximum, sqrtPriceLimitX96."
+        },
+        {
+          "signature": "exactOutput((bytes,address,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop exact-output swap. Params: path (reversed: tokenOut first), recipient, amountOut, amountInMaximum."
+        },
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Uniswap v2-pool swap via SwapRouter02. Params: amountIn, amountOutMin, path, to."
+        },
+        {
+          "signature": "multicall(uint256,bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch calls with a deadline (unix seconds), e.g. swap + unwrapWETH9."
+        },
+        {
+          "signature": "unwrapWETH9(uint256,address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Unwrap WETH held by the router to native ETH and send it (amountMinimum, recipient); use after a swap to WETH with recipient = router."
+        },
+        {
+          "signature": "refundETH()",
+          "kind": "write",
+          "payable": true,
+          "description": "Return any unused native ETH sent with the call."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x61fFE014bA17989E743c5F6cB21bF9697530B21e",
+      "name": "QuoterV2 (v3)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-polygon-deployments",
+      "keyFunctions": [
+        {
+          "signature": "quoteExactInputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool exact-input swap. Params: tokenIn, tokenOut, amountIn, fee, sqrtPriceLimitX96. Returns amountOut, sqrtPriceX96After, initializedTicksCrossed, gasEstimate. Not a view function: call it with eth_call / staticcall, never send it as a transaction."
+        },
+        {
+          "signature": "quoteExactInput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop exact-input swap (path, amountIn). Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool exact-output swap. Params: tokenIn, tokenOut, amount, fee, sqrtPriceLimitX96. Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop exact-output swap (reversed path, amountOut). Use eth_call."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x67366782805870060151383F4BbFF9daB53e5cD6",
+      "name": "PoolManager (v4)",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "initialize((address,address,uint24,int24,address),uint160)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create a v4 pool. PoolKey: currency0, currency1 (address(0) = native ETH; currency0 < currency1), fee, tickSpacing, hooks; then sqrtPriceX96. Returns the initial tick."
+        },
+        {
+          "signature": "unlock(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Entry point for all swaps/liquidity changes (flash accounting). Only callable by contracts implementing unlockCallback; agents should use PositionManager or UniversalRouter instead."
+        },
+        {
+          "signature": "extsload(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Read raw pool storage. Use the StateView contract for decoded reads."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x1Ec2eBf4F37E7363FDfe3551602425af0B3ceef9",
+      "name": "PositionManager (v4)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "modifyLiquidities(bytes,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Main v4 liquidity entry point. unlockData = abi.encode(bytes actions, bytes[] params), e.g. actions MINT_POSITION + SETTLE_PAIR, INCREASE_LIQUIDITY, DECREASE_LIQUIDITY + TAKE_PAIR (fees are collected by DECREASE_LIQUIDITY with 0 liquidity), BURN_POSITION; second arg is the deadline. Tokens are pulled via Permit2, so approve tokens to Permit2 and Permit2-approve this PositionManager first."
+        },
+        {
+          "signature": "initializePool((address,address,uint24,int24,address),uint160)",
+          "kind": "write",
+          "payable": true,
+          "description": "Initialize a v4 pool (PoolKey, sqrtPriceX96); can be batched with modifyLiquidities via multicall."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch calls, e.g. initializePool + modifyLiquidities, or permit + modifyLiquidities."
+        },
+        {
+          "signature": "getPoolAndPositionInfo(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolKey and packed position info (tickLower, tickUpper, poolId) for a tokenId."
+        },
+        {
+          "signature": "getPositionLiquidity(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current liquidity of a position tokenId."
+        },
+        {
+          "signature": "nextTokenId()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token ID the next minted position will receive."
+        },
+        {
+          "signature": "ownerOf(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Owner of a v4 position NFT."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x31AB0Dea31FC0ad5A54F03cD59C896eCD067447B",
+      "name": "V4Quoter",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "quoteExactInputSingle(((address,address,uint24,int24,address),bool,uint128,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool v4 exact-input swap. Params: (PoolKey, zeroForOne, exactAmount, hookData). Returns amountOut, gasEstimate. Not a view: call with eth_call only."
+        },
+        {
+          "signature": "quoteExactInput((address,(address,uint24,int24,address,bytes)[],uint128))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop v4 exact-input swap. Params: (exactCurrency, PathKey[] {intermediateCurrency, fee, tickSpacing, hooks, hookData}, exactAmount). Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutputSingle(((address,address,uint24,int24,address),bool,uint128,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool v4 exact-output swap. Returns amountIn, gasEstimate. Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutput((address,(address,uint24,int24,address,bytes)[],uint128))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop v4 exact-output swap. Use eth_call."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x5eA1bD7974c8A611cBAB0bDCAFcB1D9CC9b3BA5a",
+      "name": "StateView (v4)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getSlot0(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool state by poolId (keccak256(abi.encode(PoolKey))): sqrtPriceX96, tick, protocolFee, lpFee."
+        },
+        {
+          "signature": "getLiquidity(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Active in-range liquidity of a v4 pool."
+        },
+        {
+          "signature": "getPositionInfo(bytes32,address,int24,int24,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position info (liquidity, feeGrowthInside0/1LastX128) by poolId, owner (the PositionManager for NFT positions), tickLower, tickUpper, salt (bytes32(tokenId) for PositionManager positions)."
+        },
+        {
+          "signature": "getPositionLiquidity(bytes32,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidity of a position by poolId and positionId."
+        },
+        {
+          "signature": "getTickInfo(bytes32,int24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tick data: liquidityGross, liquidityNet, feeGrowthOutside0/1X128."
+        },
+        {
+          "signature": "getFeeGrowthGlobals(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Global fee growth for both currencies of a pool."
+        },
+        {
+          "signature": "getFeeGrowthInside(bytes32,int24,int24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee growth inside a tick range, used to compute uncollected fees."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x1095692A6237d83C6a72F3F5eFEdb9A670C49223",
+      "name": "UniversalRouter",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-polygon-deployments",
+      "keyFunctions": [
+        {
+          "signature": "execute(bytes,bytes[],uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Run a sequence of commands (one byte each: e.g. V3_SWAP_EXACT_IN 0x00, V2_SWAP_EXACT_IN 0x08, V4_SWAP 0x10, WRAP_ETH 0x0b, UNWRAP_WETH 0x0c, PERMIT2_PERMIT 0x0a, SWEEP 0x04) with ABI-encoded inputs per command and a deadline. Routes across v2, v3 and v4. Tokens are pulled through Permit2: approve token to Permit2, then Permit2.approve(token, UniversalRouter, amount, expiration) or include a PERMIT2_PERMIT command."
+        },
+        {
+          "signature": "execute(bytes,bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Same as above without a deadline."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+      "name": "Permit2",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-polygon-deployments",
+      "keyFunctions": [
+        {
+          "signature": "approve(address,address,uint160,uint48)",
+          "kind": "write",
+          "payable": false,
+          "description": "AllowanceTransfer approval: (token, spender, amount, expiration). Lets a spender such as UniversalRouter or v4 PositionManager pull the token through Permit2. Requires a prior ERC-20 approve(token -> Permit2)."
+        },
+        {
+          "signature": "allowance(address,address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current Permit2 allowance for (owner, token, spender): amount, expiration, nonce."
+        },
+        {
+          "signature": "permit(address,((address,uint160,uint48,uint48),address,uint256),bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set an allowance with an EIP-712 signature: (owner, PermitSingle {details {token, amount, expiration, nonce}, spender, sigDeadline}, signature)."
+        },
+        {
+          "signature": "lockdown((address,address)[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Emergency: revoke allowances for a list of (token, spender) pairs."
+        },
+        {
+          "signature": "invalidateNonces(address,address,uint48)",
+          "kind": "write",
+          "payable": false,
+          "description": "Invalidate outstanding signed permits for (token, spender) by raising the nonce."
+        },
+        {
+          "signature": "DOMAIN_SEPARATOR()",
+          "kind": "read",
+          "payable": false,
+          "description": "EIP-712 domain separator for signing permits on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x9e5A52f57b3038F1B8EeE45F28b3C1967e22799C",
+      "name": "UniswapV2Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v2/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getPair(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "v2 pair address for two tokens; zero address if none."
+        },
+        {
+          "signature": "createPair(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a new v2 pair."
+        },
+        {
+          "signature": "allPairsLength()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total number of v2 pairs."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xedf6066a2b290C185783862C7F4776A2C8077AD1",
+      "name": "UniswapV2Router02",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v2/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap exact tokens in along a v2 path: amountIn, amountOutMin, path, to, deadline. Approve the router first."
+        },
+        {
+          "signature": "swapExactETHForTokens(uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap exact native ETH (msg.value) for tokens: amountOutMin, path (starts with WETH), to, deadline."
+        },
+        {
+          "signature": "swapExactTokensForETH(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap exact tokens for native ETH: amountIn, amountOutMin, path (ends with WETH), to, deadline."
+        },
+        {
+          "signature": "addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add v2 liquidity: tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin, to, deadline."
+        },
+        {
+          "signature": "addLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add v2 liquidity with native ETH (msg.value): token, amountTokenDesired, amountTokenMin, amountETHMin, to, deadline."
+        },
+        {
+          "signature": "removeLiquidity(address,address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn LP tokens for the underlying tokens: tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline. Approve the pair (LP token) to the router first."
+        },
+        {
+          "signature": "getAmountsOut(uint256,address[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote output amounts along a v2 path."
+        }
+      ]
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0xdB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7",
+      "name": "UniswapV3Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-bnb-deployments",
+      "keyFunctions": [
+        {
+          "signature": "getPool(address,address,uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address for a token pair and fee tier (fee in hundredths of a bip: 100, 500, 3000, 10000). Returns zero address if none."
+        },
+        {
+          "signature": "createPool(address,address,uint24)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a new v3 pool for a pair and enabled fee tier (pool must then be initialized with a price)."
+        },
+        {
+          "signature": "feeAmountTickSpacing(uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tick spacing for a fee tier; 0 means the fee tier is not enabled."
+        }
+      ]
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x7b8A01B39D58278b5DE7e48c8449c9f4F5170613",
+      "name": "NonfungiblePositionManager (v3)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-bnb-deployments",
+      "keyFunctions": [
+        {
+          "signature": "mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Open a new concentrated-liquidity position NFT. Params: token0, token1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline. token0 < token1 by address; ticks must be multiples of the tick spacing. Approve both tokens to this contract first."
+        },
+        {
+          "signature": "increaseLiquidity((uint256,uint256,uint256,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity to an existing position. Params: tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline."
+        },
+        {
+          "signature": "decreaseLiquidity((uint256,uint128,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Remove liquidity from a position. Params: tokenId, liquidity, amount0Min, amount1Min, deadline. Tokens are credited as owed; call collect to actually withdraw them."
+        },
+        {
+          "signature": "collect((uint256,address,uint128,uint128))",
+          "kind": "write",
+          "payable": true,
+          "description": "Withdraw owed tokens (fees plus decreased liquidity). Params: tokenId, recipient, amount0Max, amount1Max (use 2^128-1 to collect all)."
+        },
+        {
+          "signature": "burn(uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Burn a position NFT; it must have zero liquidity and nothing left to collect."
+        },
+        {
+          "signature": "createAndInitializePoolIfNecessary(address,address,uint24,uint160)",
+          "kind": "write",
+          "payable": true,
+          "description": "Create and initialize a pool at sqrtPriceX96 if it does not exist yet (usually batched with mint via multicall)."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch several calls (e.g. decreaseLiquidity + collect, or mint + refundETH) in one transaction."
+        },
+        {
+          "signature": "positions(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position details: nonce, operator, token0, token1, fee, tickLower, tickUpper, liquidity, feeGrowthInside0/1LastX128, tokensOwed0, tokensOwed1."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of v3 position NFTs owned by an address."
+        },
+        {
+          "signature": "tokenOfOwnerByIndex(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Enumerate an owner's position token IDs."
+        }
+      ]
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0xB971eF87ede563556b2ED4b1C0b0019111Dd85d2",
+      "name": "SwapRouter02",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-bnb-deployments",
+      "keyFunctions": [
+        {
+          "signature": "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap an exact amount in through one v3 pool. Params: tokenIn, tokenOut, fee, recipient, amountIn, amountOutMinimum, sqrtPriceLimitX96 (0 = no limit). SwapRouter02 has no deadline in the struct; use multicall(uint256 deadline, bytes[]) for a deadline. Approve tokenIn to the router first."
+        },
+        {
+          "signature": "exactInput((bytes,address,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop exact-input swap. Params: path (abi.encodePacked tokenIn, fee, token, fee, tokenOut), recipient, amountIn, amountOutMinimum."
+        },
+        {
+          "signature": "exactOutputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap for an exact amount out through one pool. Params: tokenIn, tokenOut, fee, recipient, amountOut, amountInMaximum, sqrtPriceLimitX96."
+        },
+        {
+          "signature": "exactOutput((bytes,address,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop exact-output swap. Params: path (reversed: tokenOut first), recipient, amountOut, amountInMaximum."
+        },
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Uniswap v2-pool swap via SwapRouter02. Params: amountIn, amountOutMin, path, to."
+        },
+        {
+          "signature": "multicall(uint256,bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch calls with a deadline (unix seconds), e.g. swap + unwrapWETH9."
+        },
+        {
+          "signature": "unwrapWETH9(uint256,address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Unwrap WETH held by the router to native ETH and send it (amountMinimum, recipient); use after a swap to WETH with recipient = router."
+        },
+        {
+          "signature": "refundETH()",
+          "kind": "write",
+          "payable": true,
+          "description": "Return any unused native ETH sent with the call."
+        }
+      ]
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x78D78E420Da98ad378D7799bE8f4AF69033EB077",
+      "name": "QuoterV2 (v3)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-bnb-deployments",
+      "keyFunctions": [
+        {
+          "signature": "quoteExactInputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool exact-input swap. Params: tokenIn, tokenOut, amountIn, fee, sqrtPriceLimitX96. Returns amountOut, sqrtPriceX96After, initializedTicksCrossed, gasEstimate. Not a view function: call it with eth_call / staticcall, never send it as a transaction."
+        },
+        {
+          "signature": "quoteExactInput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop exact-input swap (path, amountIn). Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool exact-output swap. Params: tokenIn, tokenOut, amount, fee, sqrtPriceLimitX96. Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop exact-output swap (reversed path, amountOut). Use eth_call."
+        }
+      ]
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x28e2Ea090877bF75740558f6BFB36A5ffeE9e9dF",
+      "name": "PoolManager (v4)",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "initialize((address,address,uint24,int24,address),uint160)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create a v4 pool. PoolKey: currency0, currency1 (address(0) = native ETH; currency0 < currency1), fee, tickSpacing, hooks; then sqrtPriceX96. Returns the initial tick."
+        },
+        {
+          "signature": "unlock(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Entry point for all swaps/liquidity changes (flash accounting). Only callable by contracts implementing unlockCallback; agents should use PositionManager or UniversalRouter instead."
+        },
+        {
+          "signature": "extsload(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Read raw pool storage. Use the StateView contract for decoded reads."
+        }
+      ]
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x7A4a5c919aE2541AeD11041A1AEeE68f1287f95b",
+      "name": "PositionManager (v4)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "modifyLiquidities(bytes,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Main v4 liquidity entry point. unlockData = abi.encode(bytes actions, bytes[] params), e.g. actions MINT_POSITION + SETTLE_PAIR, INCREASE_LIQUIDITY, DECREASE_LIQUIDITY + TAKE_PAIR (fees are collected by DECREASE_LIQUIDITY with 0 liquidity), BURN_POSITION; second arg is the deadline. Tokens are pulled via Permit2, so approve tokens to Permit2 and Permit2-approve this PositionManager first."
+        },
+        {
+          "signature": "initializePool((address,address,uint24,int24,address),uint160)",
+          "kind": "write",
+          "payable": true,
+          "description": "Initialize a v4 pool (PoolKey, sqrtPriceX96); can be batched with modifyLiquidities via multicall."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch calls, e.g. initializePool + modifyLiquidities, or permit + modifyLiquidities."
+        },
+        {
+          "signature": "getPoolAndPositionInfo(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolKey and packed position info (tickLower, tickUpper, poolId) for a tokenId."
+        },
+        {
+          "signature": "getPositionLiquidity(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current liquidity of a position tokenId."
+        },
+        {
+          "signature": "nextTokenId()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token ID the next minted position will receive."
+        },
+        {
+          "signature": "ownerOf(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Owner of a v4 position NFT."
+        }
+      ]
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x95C086d7fE28AdD842ee220fef225a777474d781",
+      "name": "V4Quoter",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "quoteExactInputSingle(((address,address,uint24,int24,address),bool,uint128,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool v4 exact-input swap. Params: (PoolKey, zeroForOne, exactAmount, hookData). Returns amountOut, gasEstimate. Not a view: call with eth_call only."
+        },
+        {
+          "signature": "quoteExactInput((address,(address,uint24,int24,address,bytes)[],uint128))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop v4 exact-input swap. Params: (exactCurrency, PathKey[] {intermediateCurrency, fee, tickSpacing, hooks, hookData}, exactAmount). Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutputSingle(((address,address,uint24,int24,address),bool,uint128,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool v4 exact-output swap. Returns amountIn, gasEstimate. Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutput((address,(address,uint24,int24,address,bytes)[],uint128))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop v4 exact-output swap. Use eth_call."
+        }
+      ]
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0xd13Dd3D6E93f276FAfc9Db9E6BB47C1180aeE0c4",
+      "name": "StateView (v4)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getSlot0(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool state by poolId (keccak256(abi.encode(PoolKey))): sqrtPriceX96, tick, protocolFee, lpFee."
+        },
+        {
+          "signature": "getLiquidity(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Active in-range liquidity of a v4 pool."
+        },
+        {
+          "signature": "getPositionInfo(bytes32,address,int24,int24,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position info (liquidity, feeGrowthInside0/1LastX128) by poolId, owner (the PositionManager for NFT positions), tickLower, tickUpper, salt (bytes32(tokenId) for PositionManager positions)."
+        },
+        {
+          "signature": "getPositionLiquidity(bytes32,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidity of a position by poolId and positionId."
+        },
+        {
+          "signature": "getTickInfo(bytes32,int24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tick data: liquidityGross, liquidityNet, feeGrowthOutside0/1X128."
+        },
+        {
+          "signature": "getFeeGrowthGlobals(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Global fee growth for both currencies of a pool."
+        },
+        {
+          "signature": "getFeeGrowthInside(bytes32,int24,int24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee growth inside a tick range, used to compute uncollected fees."
+        }
+      ]
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x1906c1d672b88cD1B9aC7593301cA990F94Eae07",
+      "name": "UniversalRouter",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-bnb-deployments",
+      "keyFunctions": [
+        {
+          "signature": "execute(bytes,bytes[],uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Run a sequence of commands (one byte each: e.g. V3_SWAP_EXACT_IN 0x00, V2_SWAP_EXACT_IN 0x08, V4_SWAP 0x10, WRAP_ETH 0x0b, UNWRAP_WETH 0x0c, PERMIT2_PERMIT 0x0a, SWEEP 0x04) with ABI-encoded inputs per command and a deadline. Routes across v2, v3 and v4. Tokens are pulled through Permit2: approve token to Permit2, then Permit2.approve(token, UniversalRouter, amount, expiration) or include a PERMIT2_PERMIT command."
+        },
+        {
+          "signature": "execute(bytes,bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Same as above without a deadline."
+        }
+      ]
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+      "name": "Permit2",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-bnb-deployments",
+      "keyFunctions": [
+        {
+          "signature": "approve(address,address,uint160,uint48)",
+          "kind": "write",
+          "payable": false,
+          "description": "AllowanceTransfer approval: (token, spender, amount, expiration). Lets a spender such as UniversalRouter or v4 PositionManager pull the token through Permit2. Requires a prior ERC-20 approve(token -> Permit2)."
+        },
+        {
+          "signature": "allowance(address,address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current Permit2 allowance for (owner, token, spender): amount, expiration, nonce."
+        },
+        {
+          "signature": "permit(address,((address,uint160,uint48,uint48),address,uint256),bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set an allowance with an EIP-712 signature: (owner, PermitSingle {details {token, amount, expiration, nonce}, spender, sigDeadline}, signature)."
+        },
+        {
+          "signature": "lockdown((address,address)[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Emergency: revoke allowances for a list of (token, spender) pairs."
+        },
+        {
+          "signature": "invalidateNonces(address,address,uint48)",
+          "kind": "write",
+          "payable": false,
+          "description": "Invalidate outstanding signed permits for (token, spender) by raising the nonce."
+        },
+        {
+          "signature": "DOMAIN_SEPARATOR()",
+          "kind": "read",
+          "payable": false,
+          "description": "EIP-712 domain separator for signing permits on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6",
+      "name": "UniswapV2Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v2/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getPair(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "v2 pair address for two tokens; zero address if none."
+        },
+        {
+          "signature": "createPair(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a new v2 pair."
+        },
+        {
+          "signature": "allPairsLength()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total number of v2 pairs."
+        }
+      ]
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24",
+      "name": "UniswapV2Router02",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v2/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap exact tokens in along a v2 path: amountIn, amountOutMin, path, to, deadline. Approve the router first."
+        },
+        {
+          "signature": "swapExactETHForTokens(uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap exact native ETH (msg.value) for tokens: amountOutMin, path (starts with WETH), to, deadline."
+        },
+        {
+          "signature": "swapExactTokensForETH(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap exact tokens for native ETH: amountIn, amountOutMin, path (ends with WETH), to, deadline."
+        },
+        {
+          "signature": "addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add v2 liquidity: tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin, to, deadline."
+        },
+        {
+          "signature": "addLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add v2 liquidity with native ETH (msg.value): token, amountTokenDesired, amountTokenMin, amountETHMin, to, deadline."
+        },
+        {
+          "signature": "removeLiquidity(address,address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn LP tokens for the underlying tokens: tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline. Approve the pair (LP token) to the router first."
+        },
+        {
+          "signature": "getAmountsOut(uint256,address[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote output amounts along a v2 path."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x1F98400000000000000000000000000000000003",
+      "name": "UniswapV3Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-unichain-deployments",
+      "keyFunctions": [
+        {
+          "signature": "getPool(address,address,uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address for a token pair and fee tier (fee in hundredths of a bip: 100, 500, 3000, 10000). Returns zero address if none."
+        },
+        {
+          "signature": "createPool(address,address,uint24)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a new v3 pool for a pair and enabled fee tier (pool must then be initialized with a price)."
+        },
+        {
+          "signature": "feeAmountTickSpacing(uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tick spacing for a fee tier; 0 means the fee tier is not enabled."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x943e6e07a7E8E791dAFC44083e54041D743C46E9",
+      "name": "NonfungiblePositionManager (v3)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-unichain-deployments",
+      "keyFunctions": [
+        {
+          "signature": "mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Open a new concentrated-liquidity position NFT. Params: token0, token1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline. token0 < token1 by address; ticks must be multiples of the tick spacing. Approve both tokens to this contract first."
+        },
+        {
+          "signature": "increaseLiquidity((uint256,uint256,uint256,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity to an existing position. Params: tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline."
+        },
+        {
+          "signature": "decreaseLiquidity((uint256,uint128,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Remove liquidity from a position. Params: tokenId, liquidity, amount0Min, amount1Min, deadline. Tokens are credited as owed; call collect to actually withdraw them."
+        },
+        {
+          "signature": "collect((uint256,address,uint128,uint128))",
+          "kind": "write",
+          "payable": true,
+          "description": "Withdraw owed tokens (fees plus decreased liquidity). Params: tokenId, recipient, amount0Max, amount1Max (use 2^128-1 to collect all)."
+        },
+        {
+          "signature": "burn(uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Burn a position NFT; it must have zero liquidity and nothing left to collect."
+        },
+        {
+          "signature": "createAndInitializePoolIfNecessary(address,address,uint24,uint160)",
+          "kind": "write",
+          "payable": true,
+          "description": "Create and initialize a pool at sqrtPriceX96 if it does not exist yet (usually batched with mint via multicall)."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch several calls (e.g. decreaseLiquidity + collect, or mint + refundETH) in one transaction."
+        },
+        {
+          "signature": "positions(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position details: nonce, operator, token0, token1, fee, tickLower, tickUpper, liquidity, feeGrowthInside0/1LastX128, tokensOwed0, tokensOwed1."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of v3 position NFTs owned by an address."
+        },
+        {
+          "signature": "tokenOfOwnerByIndex(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Enumerate an owner's position token IDs."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x73855d06DE49d0fe4A9c42636Ba96c62da12FF9C",
+      "name": "SwapRouter02",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-unichain-deployments",
+      "keyFunctions": [
+        {
+          "signature": "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap an exact amount in through one v3 pool. Params: tokenIn, tokenOut, fee, recipient, amountIn, amountOutMinimum, sqrtPriceLimitX96 (0 = no limit). SwapRouter02 has no deadline in the struct; use multicall(uint256 deadline, bytes[]) for a deadline. Approve tokenIn to the router first."
+        },
+        {
+          "signature": "exactInput((bytes,address,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop exact-input swap. Params: path (abi.encodePacked tokenIn, fee, token, fee, tokenOut), recipient, amountIn, amountOutMinimum."
+        },
+        {
+          "signature": "exactOutputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap for an exact amount out through one pool. Params: tokenIn, tokenOut, fee, recipient, amountOut, amountInMaximum, sqrtPriceLimitX96."
+        },
+        {
+          "signature": "exactOutput((bytes,address,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop exact-output swap. Params: path (reversed: tokenOut first), recipient, amountOut, amountInMaximum."
+        },
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Uniswap v2-pool swap via SwapRouter02. Params: amountIn, amountOutMin, path, to."
+        },
+        {
+          "signature": "multicall(uint256,bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch calls with a deadline (unix seconds), e.g. swap + unwrapWETH9."
+        },
+        {
+          "signature": "unwrapWETH9(uint256,address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Unwrap WETH held by the router to native ETH and send it (amountMinimum, recipient); use after a swap to WETH with recipient = router."
+        },
+        {
+          "signature": "refundETH()",
+          "kind": "write",
+          "payable": true,
+          "description": "Return any unused native ETH sent with the call."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x385A5cf5F83e99f7BB2852b6A19C3538b9FA7658",
+      "name": "QuoterV2 (v3)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-unichain-deployments",
+      "keyFunctions": [
+        {
+          "signature": "quoteExactInputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool exact-input swap. Params: tokenIn, tokenOut, amountIn, fee, sqrtPriceLimitX96. Returns amountOut, sqrtPriceX96After, initializedTicksCrossed, gasEstimate. Not a view function: call it with eth_call / staticcall, never send it as a transaction."
+        },
+        {
+          "signature": "quoteExactInput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop exact-input swap (path, amountIn). Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool exact-output swap. Params: tokenIn, tokenOut, amount, fee, sqrtPriceLimitX96. Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop exact-output swap (reversed path, amountOut). Use eth_call."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x1F98400000000000000000000000000000000004",
+      "name": "PoolManager (v4)",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "initialize((address,address,uint24,int24,address),uint160)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create a v4 pool. PoolKey: currency0, currency1 (address(0) = native ETH; currency0 < currency1), fee, tickSpacing, hooks; then sqrtPriceX96. Returns the initial tick."
+        },
+        {
+          "signature": "unlock(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Entry point for all swaps/liquidity changes (flash accounting). Only callable by contracts implementing unlockCallback; agents should use PositionManager or UniversalRouter instead."
+        },
+        {
+          "signature": "extsload(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Read raw pool storage. Use the StateView contract for decoded reads."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x4529A01c7A0410167c5740C487A8DE60232617bf",
+      "name": "PositionManager (v4)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "modifyLiquidities(bytes,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Main v4 liquidity entry point. unlockData = abi.encode(bytes actions, bytes[] params), e.g. actions MINT_POSITION + SETTLE_PAIR, INCREASE_LIQUIDITY, DECREASE_LIQUIDITY + TAKE_PAIR (fees are collected by DECREASE_LIQUIDITY with 0 liquidity), BURN_POSITION; second arg is the deadline. Tokens are pulled via Permit2, so approve tokens to Permit2 and Permit2-approve this PositionManager first."
+        },
+        {
+          "signature": "initializePool((address,address,uint24,int24,address),uint160)",
+          "kind": "write",
+          "payable": true,
+          "description": "Initialize a v4 pool (PoolKey, sqrtPriceX96); can be batched with modifyLiquidities via multicall."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch calls, e.g. initializePool + modifyLiquidities, or permit + modifyLiquidities."
+        },
+        {
+          "signature": "getPoolAndPositionInfo(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolKey and packed position info (tickLower, tickUpper, poolId) for a tokenId."
+        },
+        {
+          "signature": "getPositionLiquidity(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current liquidity of a position tokenId."
+        },
+        {
+          "signature": "nextTokenId()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token ID the next minted position will receive."
+        },
+        {
+          "signature": "ownerOf(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Owner of a v4 position NFT."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0xF885781cB68A0BE66AA2AC7eDa5Fe72Bde7dA907",
+      "name": "V4Quoter",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "quoteExactInputSingle(((address,address,uint24,int24,address),bool,uint128,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool v4 exact-input swap. Params: (PoolKey, zeroForOne, exactAmount, hookData). Returns amountOut, gasEstimate. Not a view: call with eth_call only."
+        },
+        {
+          "signature": "quoteExactInput((address,(address,uint24,int24,address,bytes)[],uint128))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop v4 exact-input swap. Params: (exactCurrency, PathKey[] {intermediateCurrency, fee, tickSpacing, hooks, hookData}, exactAmount). Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutputSingle(((address,address,uint24,int24,address),bool,uint128,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool v4 exact-output swap. Returns amountIn, gasEstimate. Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutput((address,(address,uint24,int24,address,bytes)[],uint128))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop v4 exact-output swap. Use eth_call."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x86e8631A016F9068C3f085fAF484Ee3F5fDee8f2",
+      "name": "StateView (v4)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getSlot0(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool state by poolId (keccak256(abi.encode(PoolKey))): sqrtPriceX96, tick, protocolFee, lpFee."
+        },
+        {
+          "signature": "getLiquidity(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Active in-range liquidity of a v4 pool."
+        },
+        {
+          "signature": "getPositionInfo(bytes32,address,int24,int24,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position info (liquidity, feeGrowthInside0/1LastX128) by poolId, owner (the PositionManager for NFT positions), tickLower, tickUpper, salt (bytes32(tokenId) for PositionManager positions)."
+        },
+        {
+          "signature": "getPositionLiquidity(bytes32,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidity of a position by poolId and positionId."
+        },
+        {
+          "signature": "getTickInfo(bytes32,int24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tick data: liquidityGross, liquidityNet, feeGrowthOutside0/1X128."
+        },
+        {
+          "signature": "getFeeGrowthGlobals(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Global fee growth for both currencies of a pool."
+        },
+        {
+          "signature": "getFeeGrowthInside(bytes32,int24,int24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee growth inside a tick range, used to compute uncollected fees."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0xEf740bf23aCaE26f6492B10de645D6B98dC8Eaf3",
+      "name": "UniversalRouter",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "execute(bytes,bytes[],uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Run a sequence of commands (one byte each: e.g. V3_SWAP_EXACT_IN 0x00, V2_SWAP_EXACT_IN 0x08, V4_SWAP 0x10, WRAP_ETH 0x0b, UNWRAP_WETH 0x0c, PERMIT2_PERMIT 0x0a, SWEEP 0x04) with ABI-encoded inputs per command and a deadline. Routes across v2, v3 and v4. Tokens are pulled through Permit2: approve token to Permit2, then Permit2.approve(token, UniversalRouter, amount, expiration) or include a PERMIT2_PERMIT command."
+        },
+        {
+          "signature": "execute(bytes,bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Same as above without a deadline."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+      "name": "Permit2",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "approve(address,address,uint160,uint48)",
+          "kind": "write",
+          "payable": false,
+          "description": "AllowanceTransfer approval: (token, spender, amount, expiration). Lets a spender such as UniversalRouter or v4 PositionManager pull the token through Permit2. Requires a prior ERC-20 approve(token -> Permit2)."
+        },
+        {
+          "signature": "allowance(address,address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current Permit2 allowance for (owner, token, spender): amount, expiration, nonce."
+        },
+        {
+          "signature": "permit(address,((address,uint160,uint48,uint48),address,uint256),bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set an allowance with an EIP-712 signature: (owner, PermitSingle {details {token, amount, expiration, nonce}, spender, sigDeadline}, signature)."
+        },
+        {
+          "signature": "lockdown((address,address)[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Emergency: revoke allowances for a list of (token, spender) pairs."
+        },
+        {
+          "signature": "invalidateNonces(address,address,uint48)",
+          "kind": "write",
+          "payable": false,
+          "description": "Invalidate outstanding signed permits for (token, spender) by raising the nonce."
+        },
+        {
+          "signature": "DOMAIN_SEPARATOR()",
+          "kind": "read",
+          "payable": false,
+          "description": "EIP-712 domain separator for signing permits on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x1F98400000000000000000000000000000000002",
+      "name": "UniswapV2Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v2/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getPair(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "v2 pair address for two tokens; zero address if none."
+        },
+        {
+          "signature": "createPair(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a new v2 pair."
+        },
+        {
+          "signature": "allPairsLength()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total number of v2 pairs."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x284F11109359a7e1306C3e447ef14D38400063FF",
+      "name": "UniswapV2Router02",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v2/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap exact tokens in along a v2 path: amountIn, amountOutMin, path, to, deadline. Approve the router first."
+        },
+        {
+          "signature": "swapExactETHForTokens(uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap exact native ETH (msg.value) for tokens: amountOutMin, path (starts with WETH), to, deadline."
+        },
+        {
+          "signature": "swapExactTokensForETH(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap exact tokens for native ETH: amountIn, amountOutMin, path (ends with WETH), to, deadline."
+        },
+        {
+          "signature": "addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add v2 liquidity: tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin, to, deadline."
+        },
+        {
+          "signature": "addLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add v2 liquidity with native ETH (msg.value): token, amountTokenDesired, amountTokenMin, amountETHMin, to, deadline."
+        },
+        {
+          "signature": "removeLiquidity(address,address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn LP tokens for the underlying tokens: tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline. Approve the pair (LP token) to the router first."
+        },
+        {
+          "signature": "getAmountsOut(uint256,address[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote output amounts along a v2 path."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x740b1c1de25031C31FF4fC9A62f554A55cdC1baD",
+      "name": "UniswapV3Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-avalanche-deployments",
+      "keyFunctions": [
+        {
+          "signature": "getPool(address,address,uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address for a token pair and fee tier (fee in hundredths of a bip: 100, 500, 3000, 10000). Returns zero address if none."
+        },
+        {
+          "signature": "createPool(address,address,uint24)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a new v3 pool for a pair and enabled fee tier (pool must then be initialized with a price)."
+        },
+        {
+          "signature": "feeAmountTickSpacing(uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tick spacing for a fee tier; 0 means the fee tier is not enabled."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x655C406EBFa14EE2006250925e54ec43AD184f8B",
+      "name": "NonfungiblePositionManager (v3)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-avalanche-deployments",
+      "keyFunctions": [
+        {
+          "signature": "mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Open a new concentrated-liquidity position NFT. Params: token0, token1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline. token0 < token1 by address; ticks must be multiples of the tick spacing. Approve both tokens to this contract first."
+        },
+        {
+          "signature": "increaseLiquidity((uint256,uint256,uint256,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity to an existing position. Params: tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline."
+        },
+        {
+          "signature": "decreaseLiquidity((uint256,uint128,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Remove liquidity from a position. Params: tokenId, liquidity, amount0Min, amount1Min, deadline. Tokens are credited as owed; call collect to actually withdraw them."
+        },
+        {
+          "signature": "collect((uint256,address,uint128,uint128))",
+          "kind": "write",
+          "payable": true,
+          "description": "Withdraw owed tokens (fees plus decreased liquidity). Params: tokenId, recipient, amount0Max, amount1Max (use 2^128-1 to collect all)."
+        },
+        {
+          "signature": "burn(uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Burn a position NFT; it must have zero liquidity and nothing left to collect."
+        },
+        {
+          "signature": "createAndInitializePoolIfNecessary(address,address,uint24,uint160)",
+          "kind": "write",
+          "payable": true,
+          "description": "Create and initialize a pool at sqrtPriceX96 if it does not exist yet (usually batched with mint via multicall)."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch several calls (e.g. decreaseLiquidity + collect, or mint + refundETH) in one transaction."
+        },
+        {
+          "signature": "positions(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position details: nonce, operator, token0, token1, fee, tickLower, tickUpper, liquidity, feeGrowthInside0/1LastX128, tokensOwed0, tokensOwed1."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of v3 position NFTs owned by an address."
+        },
+        {
+          "signature": "tokenOfOwnerByIndex(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Enumerate an owner's position token IDs."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0xbb00FF08d01D300023C629E8fFfFcb65A5a578cE",
+      "name": "SwapRouter02",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-avalanche-deployments",
+      "keyFunctions": [
+        {
+          "signature": "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap an exact amount in through one v3 pool. Params: tokenIn, tokenOut, fee, recipient, amountIn, amountOutMinimum, sqrtPriceLimitX96 (0 = no limit). SwapRouter02 has no deadline in the struct; use multicall(uint256 deadline, bytes[]) for a deadline. Approve tokenIn to the router first."
+        },
+        {
+          "signature": "exactInput((bytes,address,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop exact-input swap. Params: path (abi.encodePacked tokenIn, fee, token, fee, tokenOut), recipient, amountIn, amountOutMinimum."
+        },
+        {
+          "signature": "exactOutputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap for an exact amount out through one pool. Params: tokenIn, tokenOut, fee, recipient, amountOut, amountInMaximum, sqrtPriceLimitX96."
+        },
+        {
+          "signature": "exactOutput((bytes,address,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop exact-output swap. Params: path (reversed: tokenOut first), recipient, amountOut, amountInMaximum."
+        },
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Uniswap v2-pool swap via SwapRouter02. Params: amountIn, amountOutMin, path, to."
+        },
+        {
+          "signature": "multicall(uint256,bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch calls with a deadline (unix seconds), e.g. swap + unwrapWETH9."
+        },
+        {
+          "signature": "unwrapWETH9(uint256,address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Unwrap WETH held by the router to native ETH and send it (amountMinimum, recipient); use after a swap to WETH with recipient = router."
+        },
+        {
+          "signature": "refundETH()",
+          "kind": "write",
+          "payable": true,
+          "description": "Return any unused native ETH sent with the call."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0xbe0F5544EC67e9B3b2D979aaA43f18Fd87E6257F",
+      "name": "QuoterV2 (v3)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-avalanche-deployments",
+      "keyFunctions": [
+        {
+          "signature": "quoteExactInputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool exact-input swap. Params: tokenIn, tokenOut, amountIn, fee, sqrtPriceLimitX96. Returns amountOut, sqrtPriceX96After, initializedTicksCrossed, gasEstimate. Not a view function: call it with eth_call / staticcall, never send it as a transaction."
+        },
+        {
+          "signature": "quoteExactInput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop exact-input swap (path, amountIn). Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool exact-output swap. Params: tokenIn, tokenOut, amount, fee, sqrtPriceLimitX96. Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop exact-output swap (reversed path, amountOut). Use eth_call."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x06380C0e0912312B5150364B9DC4542BA0DbBc85",
+      "name": "PoolManager (v4)",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "initialize((address,address,uint24,int24,address),uint160)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create a v4 pool. PoolKey: currency0, currency1 (address(0) = native ETH; currency0 < currency1), fee, tickSpacing, hooks; then sqrtPriceX96. Returns the initial tick."
+        },
+        {
+          "signature": "unlock(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Entry point for all swaps/liquidity changes (flash accounting). Only callable by contracts implementing unlockCallback; agents should use PositionManager or UniversalRouter instead."
+        },
+        {
+          "signature": "extsload(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Read raw pool storage. Use the StateView contract for decoded reads."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0xB74b1F14d2754AcfcbBe1a221023a5cf50Ab8ACD",
+      "name": "PositionManager (v4)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "modifyLiquidities(bytes,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Main v4 liquidity entry point. unlockData = abi.encode(bytes actions, bytes[] params), e.g. actions MINT_POSITION + SETTLE_PAIR, INCREASE_LIQUIDITY, DECREASE_LIQUIDITY + TAKE_PAIR (fees are collected by DECREASE_LIQUIDITY with 0 liquidity), BURN_POSITION; second arg is the deadline. Tokens are pulled via Permit2, so approve tokens to Permit2 and Permit2-approve this PositionManager first."
+        },
+        {
+          "signature": "initializePool((address,address,uint24,int24,address),uint160)",
+          "kind": "write",
+          "payable": true,
+          "description": "Initialize a v4 pool (PoolKey, sqrtPriceX96); can be batched with modifyLiquidities via multicall."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch calls, e.g. initializePool + modifyLiquidities, or permit + modifyLiquidities."
+        },
+        {
+          "signature": "getPoolAndPositionInfo(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolKey and packed position info (tickLower, tickUpper, poolId) for a tokenId."
+        },
+        {
+          "signature": "getPositionLiquidity(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current liquidity of a position tokenId."
+        },
+        {
+          "signature": "nextTokenId()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token ID the next minted position will receive."
+        },
+        {
+          "signature": "ownerOf(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Owner of a v4 position NFT."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0xf27e532878B622d6b916F524E8711880107D4eF0",
+      "name": "V4Quoter",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "quoteExactInputSingle(((address,address,uint24,int24,address),bool,uint128,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool v4 exact-input swap. Params: (PoolKey, zeroForOne, exactAmount, hookData). Returns amountOut, gasEstimate. Not a view: call with eth_call only."
+        },
+        {
+          "signature": "quoteExactInput((address,(address,uint24,int24,address,bytes)[],uint128))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop v4 exact-input swap. Params: (exactCurrency, PathKey[] {intermediateCurrency, fee, tickSpacing, hooks, hookData}, exactAmount). Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutputSingle(((address,address,uint24,int24,address),bool,uint128,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool v4 exact-output swap. Returns amountIn, gasEstimate. Use eth_call."
+        },
+        {
+          "signature": "quoteExactOutput((address,(address,uint24,int24,address,bytes)[],uint128))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop v4 exact-output swap. Use eth_call."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0xc3c9e198C735a4b97e3e683f391cCBDD60B69286",
+      "name": "StateView (v4)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getSlot0(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool state by poolId (keccak256(abi.encode(PoolKey))): sqrtPriceX96, tick, protocolFee, lpFee."
+        },
+        {
+          "signature": "getLiquidity(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Active in-range liquidity of a v4 pool."
+        },
+        {
+          "signature": "getPositionInfo(bytes32,address,int24,int24,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position info (liquidity, feeGrowthInside0/1LastX128) by poolId, owner (the PositionManager for NFT positions), tickLower, tickUpper, salt (bytes32(tokenId) for PositionManager positions)."
+        },
+        {
+          "signature": "getPositionLiquidity(bytes32,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidity of a position by poolId and positionId."
+        },
+        {
+          "signature": "getTickInfo(bytes32,int24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tick data: liquidityGross, liquidityNet, feeGrowthOutside0/1X128."
+        },
+        {
+          "signature": "getFeeGrowthGlobals(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Global fee growth for both currencies of a pool."
+        },
+        {
+          "signature": "getFeeGrowthInside(bytes32,int24,int24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee growth inside a tick range, used to compute uncollected fees."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x94b75331AE8d42C1b61065089B7d48FE14aA73b7",
+      "name": "UniversalRouter",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-avalanche-deployments",
+      "keyFunctions": [
+        {
+          "signature": "execute(bytes,bytes[],uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Run a sequence of commands (one byte each: e.g. V3_SWAP_EXACT_IN 0x00, V2_SWAP_EXACT_IN 0x08, V4_SWAP 0x10, WRAP_ETH 0x0b, UNWRAP_WETH 0x0c, PERMIT2_PERMIT 0x0a, SWEEP 0x04) with ABI-encoded inputs per command and a deadline. Routes across v2, v3 and v4. Tokens are pulled through Permit2: approve token to Permit2, then Permit2.approve(token, UniversalRouter, amount, expiration) or include a PERMIT2_PERMIT command."
+        },
+        {
+          "signature": "execute(bytes,bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Same as above without a deadline."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+      "name": "Permit2",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-avalanche-deployments",
+      "keyFunctions": [
+        {
+          "signature": "approve(address,address,uint160,uint48)",
+          "kind": "write",
+          "payable": false,
+          "description": "AllowanceTransfer approval: (token, spender, amount, expiration). Lets a spender such as UniversalRouter or v4 PositionManager pull the token through Permit2. Requires a prior ERC-20 approve(token -> Permit2)."
+        },
+        {
+          "signature": "allowance(address,address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current Permit2 allowance for (owner, token, spender): amount, expiration, nonce."
+        },
+        {
+          "signature": "permit(address,((address,uint160,uint48,uint48),address,uint256),bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set an allowance with an EIP-712 signature: (owner, PermitSingle {details {token, amount, expiration, nonce}, spender, sigDeadline}, signature)."
+        },
+        {
+          "signature": "lockdown((address,address)[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Emergency: revoke allowances for a list of (token, spender) pairs."
+        },
+        {
+          "signature": "invalidateNonces(address,address,uint48)",
+          "kind": "write",
+          "payable": false,
+          "description": "Invalidate outstanding signed permits for (token, spender) by raising the nonce."
+        },
+        {
+          "signature": "DOMAIN_SEPARATOR()",
+          "kind": "read",
+          "payable": false,
+          "description": "EIP-712 domain separator for signing permits on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x9e5A52f57b3038F1B8EeE45F28b3C1967e22799C",
+      "name": "UniswapV2Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v2/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getPair(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "v2 pair address for two tokens; zero address if none."
+        },
+        {
+          "signature": "createPair(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a new v2 pair."
+        },
+        {
+          "signature": "allPairsLength()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total number of v2 pairs."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24",
+      "name": "UniswapV2Router02",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developers.uniswap.org/docs/protocols/v2/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap exact tokens in along a v2 path: amountIn, amountOutMin, path, to, deadline. Approve the router first."
+        },
+        {
+          "signature": "swapExactETHForTokens(uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap exact native ETH (msg.value) for tokens: amountOutMin, path (starts with WETH), to, deadline."
+        },
+        {
+          "signature": "swapExactTokensForETH(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap exact tokens for native ETH: amountIn, amountOutMin, path (ends with WETH), to, deadline."
+        },
+        {
+          "signature": "addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add v2 liquidity: tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin, to, deadline."
+        },
+        {
+          "signature": "addLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add v2 liquidity with native ETH (msg.value): token, amountTokenDesired, amountTokenMin, amountETHMin, to, deadline."
+        },
+        {
+          "signature": "removeLiquidity(address,address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn LP tokens for the underlying tokens: tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline. Approve the pair (LP token) to the router first."
+        },
+        {
+          "signature": "getAmountsOut(uint256,address[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote output amounts along a v2 path."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Uniswap Trading API",
+      "url": "https://trade-api.gateway.uniswap.org/v1",
+      "auth": "api-key",
+      "use": "Routed swap quotes and ready-to-sign transactions across v2/v3/v4 and UniswapX: POST /check_approval (does the token need an approval), POST /quote (best route; 'routing' field says what to call next), POST /swap (turn a CLASSIC quote into an unsigned transaction), POST /order (submit a gasless UniswapX order). API key goes in the x-api-key header and must be kept server-side.",
+      "source": "https://developers.uniswap.org/docs/trading/swapping-api/start-building/integration-guide.md"
+    }
+  ],
+  "actions": [
+    {
+      "name": "swap (simple, v3)",
+      "description": "Swap an exact amount of one token for another through a single v3 pool",
+      "how": "ERC-20 approve(SwapRouter02, amountIn), then SwapRouter02.exactInputSingle((tokenIn, tokenOut, fee, recipient, amountIn, amountOutMinimum, 0)). Get amountOutMinimum from QuoterV2.quoteExactInputSingle via eth_call minus slippage."
+    },
+    {
+      "name": "swap (best route, v2/v3/v4)",
+      "description": "Swap across any Uniswap version via the UniversalRouter",
+      "how": "ERC-20 approve(Permit2, amount); Permit2.approve(token, UniversalRouter, amount, expiration); UniversalRouter.execute(commands, inputs, deadline). Easiest: get the calldata from the Trading API /quote + /swap."
+    },
+    {
+      "name": "quote",
+      "description": "Get the expected output for a swap without sending a transaction",
+      "how": "eth_call QuoterV2.quoteExactInputSingle((tokenIn, tokenOut, amountIn, fee, 0)) for v3, or V4Quoter.quoteExactInputSingle((poolKey, zeroForOne, amount, hookData)) for v4."
+    },
+    {
+      "name": "add liquidity (v3)",
+      "description": "Open a concentrated-liquidity position",
+      "how": "approve both tokens to NonfungiblePositionManager, then mint((token0, token1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline)). Add more with increaseLiquidity."
+    },
+    {
+      "name": "remove liquidity / collect fees (v3)",
+      "description": "Withdraw liquidity and fees from a v3 position NFT",
+      "how": "NonfungiblePositionManager.multicall([decreaseLiquidity((tokenId, liquidity, amount0Min, amount1Min, deadline)), collect((tokenId, recipient, 2^128-1, 2^128-1))]). Fees only: collect alone."
+    },
+    {
+      "name": "add / remove liquidity (v4)",
+      "description": "Manage a v4 position",
+      "how": "approve tokens to Permit2, Permit2.approve(token, PositionManager, amount, expiration), then PositionManager.modifyLiquidities(abi.encode(actions, params), deadline) with MINT_POSITION/INCREASE_LIQUIDITY/DECREASE_LIQUIDITY + SETTLE_PAIR/TAKE_PAIR actions."
+    },
+    {
+      "name": "read pool state",
+      "description": "Price, tick and liquidity of a pool",
+      "how": "v3: UniswapV3Factory.getPool(tokenA, tokenB, fee) then pool.slot0() / pool.liquidity(). v4: StateView.getSlot0(poolId) / getLiquidity(poolId)."
+    },
+    {
+      "name": "swap / add liquidity (v2)",
+      "description": "Classic constant-product pools",
+      "how": "approve UniswapV2Router02, then swapExactTokensForTokens(amountIn, amountOutMin, path, to, deadline) or addLiquidity(...)."
+    }
+  ],
+  "risks": [
+    "Addresses differ per chain: Uniswap's docs say integrators must not assume the same address across chains (e.g. Base, BNB, Avalanche and Unichain v3 contracts differ from Ethereum's).",
+    "Always set a minimum-output / maximum-input (slippage) and a deadline; swaps without them can be sandwiched by MEV bots.",
+    "QuoterV2 and V4Quoter quote functions are not view functions (they simulate and revert); call them with eth_call only, never as a transaction.",
+    "Concentrated liquidity (v3/v4) earns fees only while the price is inside the range and suffers impermanent loss; out-of-range positions hold a single token.",
+    "v4 pools can have hooks: arbitrary external contracts that run on swaps and liquidity changes and can change fees or behaviour. Check the hooks address in the PoolKey (zero address = no hook) before using an unknown pool.",
+    "UniversalRouter and v4 PositionManager pull tokens through Permit2; Permit2 approvals are separate from ERC-20 approvals and carry an expiration. Revoke unused ones with Permit2.lockdown.",
+    "Anyone can create a pool for any token, including scam tokens with the same symbol; verify token addresses.",
+    "SwapRouter02 exactInputSingle has no deadline field (unlike the original SwapRouter); wrap it in multicall(deadline, data) to enforce one."
+  ],
+  "notes": "BTB Finance already builds Uniswap V3 deposits itself (build_add_liquidity / add_liquidity_link in the BTB MCP), so for v3 LP agents can use those tools instead of calling NonfungiblePositionManager directly. This file covers the core contracts on 8 major chains only; Uniswap is deployed on about 51 chains (DefiLlama). Full official deployment lists: v3 index https://developers.uniswap.org/docs/protocols/v3/deployments with per-chain pages https://developers.uniswap.org/docs/protocols/v3/deployments/v3-<chain>-deployments for celo, elysium, hyperevm, megaeth, monad, tempo, robinhood-chain, world-chain, xlayer, zksync, zora (plus the 8 chains here); v4 (all chains incl. Zora, Worldchain, X Layer, Ink, Soneium, Celo, Monad, MegaETH, Tempo, Robinhood Chain and testnets) https://developers.uniswap.org/docs/protocols/v4/deployments ; v2 (also Zora, WorldChain, Monad, X Layer, MegaETH, Tempo, Robinhood Chain, HyperEVM, Elysium) https://developers.uniswap.org/docs/protocols/v2/deployments . The old docs.uniswap.org deployment URLs now redirect to developers.uniswap.org. The UniversalRouter listed per chain is the one on both the v3 and v4 deployment pages (Universal Router 2.0, supports v4); the v4 page additionally lists newer 'Universal Router 2.1.1' and '2.1.2' addresses per chain, not included here. The original SwapRouter (0xE592427A0AEce92De3Edee1F18E0157C05861564) and Quoter (v1) are still listed on Ethereum, Arbitrum, Optimism and Polygon but are superseded by SwapRouter02/QuoterV2. Permit2 is at 0x000000000022D473030F116dDEE9F6B43aC78BA3 on all 8 chains. v4 native ETH is address(0) in PoolKeys; v3/v2 use WETH. Unichain v3 page does not list Permit2/UniversalRouter, so those Unichain entries are sourced from the v4 page. All addresses were EIP-55 checksummed from the docs' values (several docs entries are lower-case).",
+  "sources": [
+    "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-ethereum-deployments",
+    "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-base-deployments",
+    "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-arbitrum-deployments",
+    "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-optimism-deployments",
+    "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-polygon-deployments",
+    "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-bnb-deployments",
+    "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-unichain-deployments",
+    "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-avalanche-deployments",
+    "https://developers.uniswap.org/docs/protocols/v4/deployments.md",
+    "https://developers.uniswap.org/docs/protocols/v2/deployments.md",
+    "https://developers.uniswap.org/docs/trading/swapping-api/start-building/integration-guide.md",
+    "https://docs.uniswap.org/contracts/v3/reference/deployments/ethereum-deployments"
+  ],
+  "researchedAt": "2026-11-24"
+}

@@ -1,0 +1,485 @@
+{
+  "slug": "saturn",
+  "name": "Saturn",
+  "category": "Stablecoin Wrapper",
+  "description": "Saturn (saturn.credit) issues USDat, a dollar stablecoin backed by PYUSDx (tokenized-treasury backed) built as an M0 extension, and sUSDat, an ERC-4626 vault on USDat whose value tracks Strategy's STRC preferred stock (via Ondo STRCon). Agents can deposit USDat into sUSDat, queue and claim withdrawals, and trade both on Curve/PancakeSwap.",
+  "website": "https://app.saturn.credit",
+  "docs": "https://saturncredit.gitbook.io/saturn-docs",
+  "defillama": "https://defillama.com/protocol/saturn",
+  "chains": [
+    "ethereum",
+    "bsc",
+    "monad"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x23238f20b894f29041f48D88eE91131C395Aaa71",
+      "name": "USDat (Saturn Dollar, M0 extension stablecoin)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDat balance."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer USDat (reverts if sender/recipient frozen)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the sUSDat vault before depositing."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-2612 permit."
+        },
+        {
+          "signature": "isFrozen(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether an account is frozen."
+        },
+        {
+          "signature": "isWhitelisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether an account is on the wrap/mint whitelist."
+        },
+        {
+          "signature": "isWhitelistEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether the whitelist is enforced."
+        },
+        {
+          "signature": "isAllowedToWrap(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether an amount of a given asset can currently be wrapped (minted) into USDat."
+        },
+        {
+          "signature": "isAllowedAsset(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether an asset is accepted as USDat backing."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDat supply."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Backing assets held."
+        },
+        {
+          "signature": "swapFacility()",
+          "kind": "read",
+          "payable": false,
+          "description": "M0 SwapFacility that performs wraps/unwraps."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xD166337499E176bbC38a1FBd113Ab144e5bd2Df7",
+      "name": "sUSDat (ERC-4626 vault share, async redemption)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626 deposit: assets (USDat, approve first), receiver. Returns shares. A deposit fee may apply depending on market mode."
+        },
+        {
+          "signature": "depositWithMinShares(uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit with slippage guard: assets, receiver, minShares."
+        },
+        {
+          "signature": "depositWithPermit(uint256,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit using a USDat permit: assets, receiver, minShares, deadline, v, r, s."
+        },
+        {
+          "signature": "mintWithMaxAssets(uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint exact shares: shares, receiver, maxAssets."
+        },
+        {
+          "signature": "requestRedeem(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Queue a withdrawal: shares (minimum MIN_REQUEST_SHARES; docs: at least 10 sUSDat), minSharePrice (minimum USDat per share). Returns a requestId; an NFT receipt is minted by the Withdraw contract. Standard redeem()/withdraw() are disabled (pure functions)."
+        },
+        {
+          "signature": "previewDeposit(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares for a USDat deposit, net of deposit fee."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Net USDat for shares, after the redemption fee."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDat value of shares."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total vault assets."
+        },
+        {
+          "signature": "depositFeeBps()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current deposit fee (bps)."
+        },
+        {
+          "signature": "redemptionFeeBps()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current redemption fee (bps)."
+        },
+        {
+          "signature": "marketMode()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current fee mode (Regular / Elevated)."
+        },
+        {
+          "signature": "maxDeposit(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Max deposit for receiver (0 when paused/restricted)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether an account is blacklisted."
+        },
+        {
+          "signature": "getWithdrawalQueue()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the withdrawal-queue (Withdraw) contract."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x4Bc9FEC04F0F95e9b42a3EF18F3C96fB57923D2e",
+      "name": "sUSDat Withdraw contract (ERC-721 withdrawal-request receipts)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "getUserRequests(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Request NFT ids held by a user."
+        },
+        {
+          "signature": "requests(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Request details: shares, usdatOwed, timestamp, minSharePrice, status."
+        },
+        {
+          "signature": "claim(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim USDat for a processed request (tokenId); burns the receipt NFT. Returns USDat, not USDC."
+        },
+        {
+          "signature": "cancelRequest(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Cancel an unprocessed request (tokenId); shares are returned."
+        },
+        {
+          "signature": "updateMinSharePrice(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Change the minimum USDat per share of an unprocessed request: tokenId, newMinSharePrice."
+        },
+        {
+          "signature": "processRequests(uint256[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Operator-only: processes requests. Users cannot call it."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x0bC305e7e13113cAEd3f5486849e9518a1cC4173",
+      "name": "PYUSDx SwapFacility (M0)",
+      "role": "router",
+      "proxy": true,
+      "source": "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x5f7eCD0D045c393da6cb6c933c671AC305A871BF",
+      "name": "Saturn STRC Price Feed",
+      "role": "other",
+      "proxy": null,
+      "source": "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xf4d2076277fff631EFC4385Ab36b1f7734218d23",
+      "name": "Chainlink STRC Price Feed",
+      "role": "other",
+      "proxy": null,
+      "source": "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xF4d0CF32908b2C7f1021339c43Df0F77f06896d7",
+      "name": "Curve USDC/USDat pool",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x04710a7B238386Da58EfAd8b65E150e5E17AA522",
+      "name": "Curve USDC/sUSDat pool",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x0Bb150DFa86EA5d7742F07FEfCD8E8edA81D64eF",
+      "name": "USDat (bridged)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer tokens."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x9cd57D3685E6868caCaA8BDCaAf52CBdEBf4fA25",
+      "name": "sUSDat (bridged)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer tokens."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xF80Ab3Cc041d8Ccc1c51AcC295AFdba26AD70Aa9",
+      "name": "PancakeSwap USDT/USDat pool",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xf3396a9a79257D89f98143d8AB73da1dFF4e0e81",
+      "name": "PancakeSwap USDT/sUSDat pool",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "monad",
+      "chainId": 143,
+      "address": "0x0Bb150DFa86EA5d7742F07FEfCD8E8edA81D64eF",
+      "name": "USDat (bridged)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer tokens."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        }
+      ]
+    },
+    {
+      "chain": "monad",
+      "chainId": 143,
+      "address": "0x9cd57D3685E6868caCaA8BDCaAf52CBdEBf4fA25",
+      "name": "sUSDat (bridged)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer tokens."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "buy-usdat",
+      "description": "Get USDat without KYC",
+      "how": "Swap USDC->USDat on the Curve pool 0xF4d0CF32908b2C7f1021339c43Df0F77f06896d7 (Ethereum) or USDT->USDat on PancakeSwap (BSC). Direct 1:1 minting needs KYC and an approved wallet."
+    },
+    {
+      "name": "deposit",
+      "description": "Deposit USDat into sUSDat",
+      "how": "USDat.approve(sUSDat, amount) then sUSDat.depositWithMinShares(amount, receiver, minShares) (or deposit(amount, receiver))"
+    },
+    {
+      "name": "request-withdrawal",
+      "description": "Queue an sUSDat withdrawal",
+      "how": "sUSDat.requestRedeem(shares, minSharePrice); returns requestId / NFT receipt in the Withdraw contract"
+    },
+    {
+      "name": "claim",
+      "description": "Claim USDat after processing",
+      "how": "Withdraw.getUserRequests(user) then Withdraw.claim(tokenId) once status is processed"
+    },
+    {
+      "name": "cancel",
+      "description": "Cancel or reprice a pending request",
+      "how": "Withdraw.cancelRequest(tokenId) or Withdraw.updateMinSharePrice(tokenId, newMin)"
+    }
+  ],
+  "risks": [
+    "Direct USDat minting requires KYC and an approved wallet (official FAQ); sUSDat deposits/withdrawals do not use that list but \"can still be restricted\".",
+    "sUSDat is not a staked stablecoin: its value moves with STRC price and dividends (100% STRC exposure via Ondo STRCon); returns and a fixed price are not guaranteed.",
+    "sUSDat withdrawals are asynchronous (request -> operator processing -> claim); target same-day/T+1 but not guaranteed, not necessarily FIFO, and pay USDat, not USDC. Minimum request 10 shares.",
+    "Fees: Regular mode 0% deposit / 0.10% withdraw; Elevated mode 0.25% / 0.50%; the fee in effect at processing applies.",
+    "USDat can freeze accounts and force-transfer from frozen accounts; sUSDat has a blacklist and seize function; both are upgradeable (EIP-1967) and pausable. Docs: authorized roles can upgrade contracts, change fees, pause actions or restrict accounts.",
+    "Restricted jurisdictions apply (see docs)."
+  ],
+  "notes": "Identified via DefiLlama (Saturn: 'Bitcoin-backed credit protocol', url app.saturn.credit, twitter saturn_credit, Certora audit 'Saturn Dollar M0 Extensions'); chains Ethereum, Monad, BSC. All addresses come from Saturn's official Key Addresses page. That page gives no function documentation, so keyFunctions were taken from the Sourcify-verified ABIs of those addresses (USDat, sUSDat and Withdraw are EIP-1967 proxies); the SwapFacility source is not verified, so no functions are listed for it. Mint/redeem routes for USDat run through the app (M0 orders, approved-wallet swaps); the low-level wrap/unwrap calls are not documented for end users and are omitted. BSC and Monad tokens are bridged (Chainlink's CCIP directory lists sUSDat); the docs say routes may differ there. DefiLlama TVL also counts Saturn-co-curated Morpho vaults (Ethereum, Monad) and a Lista USDT vault (BSC), whose addresses are not on the Saturn key-addresses page and are not included. Operational wallets (Fireblocks 2-of-3 MPC) are listed on the key-addresses page but are not callable contracts.",
+  "sources": [
+    "https://defillama.com/protocol/saturn",
+    "https://api.llama.fi/protocol/saturn",
+    "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses",
+    "https://saturncredit.gitbook.io/saturn-docs/get-started/saturn-faqs",
+    "https://saturncredit.gitbook.io/saturn-docs/solution/usdat-overview/mint-and-redeem",
+    "https://saturncredit.gitbook.io/saturn-docs/solution/susdat-overview/deposits-and-withdrawals",
+    "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/transparency-and-audits",
+    "https://saturncredit.gitbook.io/saturn-docs/",
+    "https://docs.chain.link/ccip/directory/mainnet/token/sUSDat",
+    "https://github.com/Certora/SecurityReports/blob/main/Reports/2026/04_30_2026_Saturn_Dollar_M0_Extensions-FV-MR.pdf"
+  ],
+  "researchedAt": "2026-11-24"
+}

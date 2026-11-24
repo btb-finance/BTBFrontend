@@ -1,0 +1,259 @@
+{
+  "slug": "pump",
+  "name": "Pump",
+  "category": "Launchpad",
+  "description": "pump.fun memecoin launchpad on Solana. An agent can create coins on the Pump bonding-curve program, buy and sell coins on their bonding curve, migrate completed curves, and trade or provide liquidity on the PumpSwap AMM after migration.",
+  "website": "https://pump.fun",
+  "docs": "https://github.com/pump-fun/pump-public-docs",
+  "defillama": "https://defillama.com/protocol/pump",
+  "chains": [
+    "solana"
+  ],
+  "vm": "solana",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+      "name": "Pump (bonding-curve program)",
+      "role": "exchange",
+      "proxy": null,
+      "source": "https://github.com/pump-fun/pump-public-docs/blob/main/docs/PUMP_PROGRAM_README.md",
+      "keyFunctions": [
+        {
+          "signature": "create_v2(name: string, symbol: string, uri: string, creator: pubkey, is_mayhem_mode: bool, is_cashback_enabled?: bool, creator_fee_bps?: u16, is_holder_reward?: bool)",
+          "kind": "write",
+          "payable": true,
+          "description": "Create a new coin as a Token-2022 mint (6 decimals) with its bonding curve. name <= 32 chars, symbol <= 13, uri <= 200. is_cashback_enabled is deprecated and must be false; creator_fee_bps applies only to custom-pair coins; trailing optional args may be omitted. Payer pays rent in SOL."
+        },
+        {
+          "signature": "create(name: string, symbol: string, uri: string, creator: pubkey)",
+          "kind": "write",
+          "payable": true,
+          "description": "Legacy coin creation (SPL Token + Metaplex metadata). creator is added to the metadata creators array and need not sign. Prefer create_v2."
+        },
+        {
+          "signature": "buy(amount: u64, max_sol_cost: u64)",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy exactly `amount` coins (base units) from the bonding curve, spending at most max_sol_cost lamports. Legacy instruction, still works."
+        },
+        {
+          "signature": "sell(amount: u64, min_sol_output: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell exactly `amount` coins to the bonding curve for at least min_sol_output lamports. Legacy instruction, still works."
+        },
+        {
+          "signature": "buy_v3(amount: u64, max_sol_cost: u64, partial_fill?: OptionBool)",
+          "kind": "write",
+          "payable": true,
+          "description": "Newest buy: exact base amount out, max quote in (fees included). Supports non-SOL quote mints. partial_fill only applies to mayhem coins. Fails on cashback coins (use v2)."
+        },
+        {
+          "signature": "buy_exact_quote_in_v3(spendable_quote_in: u64, min_tokens_out: u64, partial_fill?: OptionBool)",
+          "kind": "write",
+          "payable": true,
+          "description": "Spend an exact quote amount (fees included) for at least min_tokens_out coins."
+        },
+        {
+          "signature": "sell_v3(amount: u64, min_sol_output: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Newest sell: exact base amount in, minimum quote out after fees."
+        },
+        {
+          "signature": "buy_v2 / sell_v2 / buy_exact_quote_in_v2",
+          "kind": "write",
+          "payable": true,
+          "description": "v2 trade instructions; still supported and required for cashback coins (v3 rejects them with CashbackCoinNotSupported)."
+        },
+        {
+          "signature": "migrate()",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless, idempotent: move a completed bonding curve (real_token_reserves == 0) into a PumpSwap pool (index 0); LP tokens are burned."
+        },
+        {
+          "signature": "collect_creator_fee_v2()",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless: sweep the creator vault (PDA [\"creator-vault\", creator]) to the creator. Not usable when the creator vault has moved to a Pump Fees sharing_config."
+        },
+        {
+          "signature": "Global account 4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf (PDA [\"global\"])",
+          "kind": "read",
+          "payable": false,
+          "description": "Read global config: fee recipients, initial curve parameters, fee bps, enable_migrate, pool_migration_fee."
+        },
+        {
+          "signature": "BondingCurve account (PDA [\"bonding-curve\", mint])",
+          "kind": "read",
+          "payable": false,
+          "description": "Read virtual/real token and SOL reserves, token_total_supply, complete flag, creator, quote_mint, is_mayhem_mode. Used to quote prices off-chain (Uniswap-V2-style constant product on virtual reserves)."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+      "name": "PumpSwap (Pump AMM program)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/pump-fun/pump-public-docs/blob/main/docs/PUMP_SWAP_README.md",
+      "keyFunctions": [
+        {
+          "signature": "buy(base_amount_out: u64, max_quote_amount_in: u64)",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy exactly base_amount_out base tokens from a pool, paying at most max_quote_amount_in quote. Fees: 20 bps LP + 5 bps protocol (plus creator fee where applicable)."
+        },
+        {
+          "signature": "sell(base_amount_in: u64, min_quote_amount_out: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell exactly base_amount_in base tokens for at least min_quote_amount_out quote."
+        },
+        {
+          "signature": "buy_v2 / buy_exact_quote_in_v2 / sell_v2",
+          "kind": "write",
+          "payable": true,
+          "description": "v2 trade instructions (same arguments; buy_exact_quote_in_v2(spendable_quote_in, min_base_amount_out)). v1 keeps working; cashback-coin pools must use v1."
+        },
+        {
+          "signature": "multi_hop_swap",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop swap across PumpSwap pools; see docs/instructions/MULTI_HOP_SWAP.md for accounts and args."
+        },
+        {
+          "signature": "create_pool(index, creator, baseMint, quoteMint, baseIn, quoteIn)",
+          "kind": "write",
+          "payable": true,
+          "description": "Create a pool for (base_mint, quote_mint); pool PDA from (index, creator, base_mint, quote_mint). Initial amounts set the price; creator receives LP tokens."
+        },
+        {
+          "signature": "deposit(pool, user, lpTokenOut, maxBaseIn, maxQuoteIn)",
+          "kind": "write",
+          "payable": true,
+          "description": "Mint exactly lp_token_amount_out LP tokens spending at most the given base/quote. No fee."
+        },
+        {
+          "signature": "withdraw(pool, user, lpTokenIn, minBaseOut, minQuoteOut)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn LP tokens for at least the given base/quote. No fee."
+        },
+        {
+          "signature": "collect_coin_creator_fee()",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless: sweep the coin creator vault ATA (authority PDA [\"creator_vault\", coin_creator]) to the creator's token account."
+        },
+        {
+          "signature": "GlobalConfig account ADyA8hdefvWN2dbGGWFotbzWxrAvLW83WG6QCVXvJKqw (PDA [\"global_config\"])",
+          "kind": "read",
+          "payable": false,
+          "description": "Read fee config and the 8 protocol_fee_recipients (pick one at random per buy/sell)."
+        },
+        {
+          "signature": "Pool account",
+          "kind": "read",
+          "payable": false,
+          "description": "Read pool mints, vaults, lp_supply, coin_creator, virtual_quote_reserves. Effective quote reserves = quote vault balance + virtual_quote_reserves."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ",
+      "name": "Pump Fees program",
+      "role": "other",
+      "proxy": null,
+      "source": "https://github.com/pump-fun/pump-public-docs/blob/main/idl/pump_fees.json",
+      "keyFunctions": [
+        {
+          "signature": "get_fees",
+          "kind": "read",
+          "payable": false,
+          "description": "Compute the fee tier (protocol / LP / creator bps) that applies to a trade."
+        },
+        {
+          "signature": "create_fee_sharing_config",
+          "kind": "write",
+          "payable": true,
+          "description": "Set up creator fee sharing for a coin (moves creator fees to a sharing_config); see docs/instructions/CREATOR_FEE_SHARING.md."
+        },
+        {
+          "signature": "update_fee_shares_v2",
+          "kind": "write",
+          "payable": false,
+          "description": "Update the shareholders/shares of a fee sharing config (sharing authority only)."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "launch-coin",
+      "description": "Create a new pump.fun coin",
+      "how": "Pump program create_v2(name, symbol, uri, creator, is_mayhem_mode=false); or @pump-fun/pump-sdk helpers"
+    },
+    {
+      "name": "buy-on-curve",
+      "description": "Buy a coin still on its bonding curve",
+      "how": "Pump program buy_v3(amount, max_sol_cost) or buy_exact_quote_in_v3(spendable_quote_in, min_tokens_out); check BondingCurve.complete is false first"
+    },
+    {
+      "name": "sell-on-curve",
+      "description": "Sell a coin on its bonding curve",
+      "how": "Pump program sell_v3(amount, min_sol_output)"
+    },
+    {
+      "name": "migrate",
+      "description": "Graduate a completed curve to PumpSwap",
+      "how": "Pump program migrate() (permissionless) once BondingCurve.complete is true"
+    },
+    {
+      "name": "swap-after-graduation",
+      "description": "Trade a graduated coin",
+      "how": "PumpSwap buy_v2/sell_v2/buy_exact_quote_in_v2 on the canonical pool (index 0); or @pump-fun/pump-swap-sdk"
+    },
+    {
+      "name": "add-liquidity",
+      "description": "LP on PumpSwap",
+      "how": "PumpSwap deposit(lp_out, max_base_in, max_quote_in); remove with withdraw(lp_in, min_base_out, min_quote_out)"
+    },
+    {
+      "name": "claim-creator-fees",
+      "description": "Collect creator fees",
+      "how": "Pump collect_creator_fee_v2 (curve) and PumpSwap collect_coin_creator_fee (AMM)"
+    }
+  ],
+  "risks": [
+    "Memecoins: extreme volatility, most coins go to ~zero; no vetting of creators.",
+    "Bonding-curve buys/sells pay a 100 bps base fee per the program README; PumpSwap charges 20 bps LP + 5 bps protocol plus a creator fee; actual fee tiers are dynamic (read via Pump Fees fee_config / get_fees or the SDK's computeFeesBps).",
+    "Coins created with create_v2 are Token-2022 mints; use the Token-2022 program (TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb) for their token accounts.",
+    "Programs are upgradeable by Pump; account layouts gain appended fields over time (missing trailing fields read as 0/false), and required accounts on buy/sell have changed before (e.g. fee accounts became mandatory Sept 2025). Build from the latest IDL/SDK.",
+    "Mayhem-mode and cashback coins behave differently (cashback coins must use v2 on the curve and v1 on PumpSwap; new cashback coins cannot be created)."
+  ],
+  "notes": "Only Solana is confirmed by Pump's official docs (both programs: same ID on mainnet and devnet). DefiLlama lists more chains for 'pump', but no official Pump source found confirming other deployments, so they are left out. Official IDLs: https://github.com/pump-fun/pump-public-docs/tree/main/idl (pump.json, pump_amm.json, pump_fees.json); official TypeScript SDKs @pump-fun/pump-sdk and @pump-fun/pump-swap-sdk. PumpSwap create_pool/deposit/withdraw signatures are written as in PUMP_SWAP_README.md (accounts and args mixed); check pump_amm.json for exact arg names/types. Other addresses from the docs: Mayhem program MAyhSmzXzV1pTf7LsNkrNwkWKTo4ougAJ1PPg47MD4e; Pump Fees fee_config for the Pump program 8Wf5TiAheLUqBrKXeYg2JtAFFMWtKdG2BSFgqUcPVwTt and for PumpSwap 5PHirr8joyTMp9JMm6nW7hNDVyEYdkzDqazxPD7RaTjx. PumpSwap protocol fee recipients are listed in PUMP_SWAP_README.md. No official public REST API is documented; the PUMP token mint was not confirmed from an official Pump source and is omitted.",
+  "sources": [
+    "https://github.com/pump-fun/pump-public-docs",
+    "https://github.com/pump-fun/pump-public-docs/blob/main/docs/PUMP_PROGRAM_README.md",
+    "https://github.com/pump-fun/pump-public-docs/blob/main/docs/PUMP_SWAP_README.md",
+    "https://github.com/pump-fun/pump-public-docs/blob/main/docs/FEE_PROGRAM_README.md",
+    "https://github.com/pump-fun/pump-public-docs/blob/main/docs/instructions/COIN_CREATION.md",
+    "https://github.com/pump-fun/pump-public-docs/blob/main/docs/instructions/TRADE_V3.md",
+    "https://github.com/pump-fun/pump-public-docs/blob/main/docs/instructions/PUMP_SWAP_TRADE_V2.md",
+    "https://github.com/pump-fun/pump-public-docs/blob/main/docs/instructions/COLLECT_CREATOR_FEE.md",
+    "https://github.com/pump-fun/pump-public-docs/blob/main/idl/pump.json",
+    "https://github.com/pump-fun/pump-public-docs/blob/main/idl/pump_amm.json",
+    "https://github.com/pump-fun/pump-public-docs/blob/main/idl/pump_fees.json"
+  ],
+  "researchedAt": "2026-11-24"
+}

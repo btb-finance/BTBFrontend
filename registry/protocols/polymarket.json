@@ -1,0 +1,502 @@
+{
+  "slug": "polymarket",
+  "name": "Polymarket",
+  "category": "Prediction Market",
+  "description": "Prediction market on Polygon. Agents discover markets with the Gamma API, trade outcome shares through the off-chain CLOB (EIP-712-signed orders settled on-chain by the CTF Exchange contracts), read positions from the Data API, and split/merge/redeem outcome tokens against pUSD collateral directly on-chain.",
+  "website": "https://polymarket.com",
+  "docs": "https://docs.polymarket.com",
+  "defillama": "https://defillama.com/protocol/polymarket",
+  "chains": [
+    "polygon"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xE111180000d2663C0091e4f400237545B87B996B",
+      "name": "CTF Exchange (CTFExchangeV2, standard binary markets)",
+      "role": "exchange",
+      "proxy": null,
+      "source": "https://docs.polymarket.com/resources/contracts",
+      "keyFunctions": [
+        {
+          "signature": "getOrderStatus(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fill status of an order by hash: (bool filled, uint248 remaining)."
+        },
+        {
+          "signature": "hashOrder((uint256,address,address,uint256,uint256,uint256,uint8,uint8,uint256,bytes32,bytes32,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "EIP-712 hash of an Order {salt, maker, signer, tokenId, makerAmount, takerAmount, side (0 BUY/1 SELL), signatureType (0 EOA,1 POLY_PROXY,2 POLY_GNOSIS_SAFE,3 POLY_1271), timestamp (ms), metadata, builder, signature}. Domain: name 'Polymarket CTF Exchange', version '2', chainId 137, verifyingContract = this address."
+        },
+        {
+          "signature": "validateOrder((uint256,address,address,uint256,uint256,uint256,uint8,uint8,uint256,bytes32,bytes32,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Reverts if the order is invalid (bad signature, filled, paused, etc.). Useful to pre-check before posting to the CLOB."
+        },
+        {
+          "signature": "isUserPaused(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether a user has self-paused trading."
+        },
+        {
+          "signature": "pauseUser()",
+          "kind": "write",
+          "payable": false,
+          "description": "Self-pause: stops the caller's orders from being matched after a block delay (default 100 blocks). On-chain kill switch; V2 removed nonce-based on-chain cancel - cancel normally via the CLOB API."
+        },
+        {
+          "signature": "unpauseUser()",
+          "kind": "write",
+          "payable": false,
+          "description": "Undo pauseUser."
+        },
+        {
+          "signature": "getCollateral()",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral token used for settlement (pUSD)."
+        },
+        {
+          "signature": "getCtf()",
+          "kind": "read",
+          "payable": false,
+          "description": "Conditional Tokens contract used for outcome tokens."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xe2222d279d744050d28e00520010520000310F59",
+      "name": "Neg Risk CTF Exchange (NegRiskCtfExchangeV2, multi-outcome markets)",
+      "role": "exchange",
+      "proxy": null,
+      "source": "https://docs.polymarket.com/resources/contracts",
+      "keyFunctions": [
+        {
+          "signature": "getOrderStatus(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fill status of an order by hash."
+        },
+        {
+          "signature": "hashOrder((uint256,address,address,uint256,uint256,uint256,uint8,uint8,uint256,bytes32,bytes32,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "EIP-712 order hash. Domain: name 'Polymarket CTF Exchange', version '2', chainId 137, verifyingContract = this address. Used when the book's neg_risk is true."
+        },
+        {
+          "signature": "pauseUser()",
+          "kind": "write",
+          "payable": false,
+          "description": "Self-pause the caller's trading (on-chain kill switch)."
+        },
+        {
+          "signature": "isUserPaused(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether a user has self-paused."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296",
+      "name": "Neg Risk Adapter",
+      "role": "other",
+      "proxy": null,
+      "source": "https://docs.polymarket.com/resources/contracts",
+      "keyFunctions": [
+        {
+          "signature": "getConditionId(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "CTF conditionId for a neg-risk questionId."
+        },
+        {
+          "signature": "getPositionId(bytes32,bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "ERC1155 position (token) id for a questionId and outcome (true = YES)."
+        },
+        {
+          "signature": "balanceOf(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Outcome-token balance (passes through to Conditional Tokens)."
+        },
+        {
+          "signature": "convertPositions(bytes32,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Convert NO positions (marketId, indexSet bitmask of questions, amount) into the complementary YES positions plus collateral. With pUSD collateral, docs route conversions through NegRiskCtfCollateralAdapter.convertPositions instead."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045",
+      "name": "Conditional Tokens (CTF, ERC1155 outcome tokens for v1 markets)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.polymarket.com/resources/contracts",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Outcome-share balance for a token id (clobTokenIds from Gamma)."
+        },
+        {
+          "signature": "setApprovalForAll(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Required approvals: the CTF Exchange / Neg Risk Exchange to SELL, the Neg Risk Adapter for neg-risk markets, and the selected collateral adapter to merge/redeem."
+        },
+        {
+          "signature": "isApprovedForAll(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Check operator approval."
+        },
+        {
+          "signature": "safeTransferFrom(address,address,uint256,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer outcome shares."
+        },
+        {
+          "signature": "payoutDenominator(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Non-zero once a condition has resolved."
+        },
+        {
+          "signature": "payoutNumerators(bytes32,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Payout weight per outcome index after resolution."
+        },
+        {
+          "signature": "getOutcomeSlotCount(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of outcomes of a condition (0 if not prepared)."
+        },
+        {
+          "signature": "getCollectionId(bytes32,bytes32,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collection id from parentCollectionId (0x0), conditionId and indexSet."
+        },
+        {
+          "signature": "getPositionId(address,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position/token id from collateral token and collection id."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xC011a7E12a19f7B1f670d46F03B03f3342E82DFB",
+      "name": "pUSD (Polymarket USD, CollateralToken) - trading collateral",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.polymarket.com/resources/contracts",
+      "keyFunctions": [
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve the CTF Exchange / Neg Risk Exchange (BUY orders, incl. fees), ExchangeV3 (v2 markets), the Router or a collateral adapter (split), or the Offramp (unwrap). 6 decimals."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "pUSD balance (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Check an approval."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Standard ERC20 transfer."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x93070a847efEf7F70739046A929D47a521F5B8ee",
+      "name": "CollateralOnramp (USDC.e -> pUSD)",
+      "role": "other",
+      "proxy": null,
+      "source": "https://docs.polymarket.com/concepts/pusd",
+      "keyFunctions": [
+        {
+          "signature": "wrap(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint pUSD 1:1. Args: _asset = USDC.e, _to = recipient, _amount (6 decimals). Approve this Onramp (not pUSD) to spend USDC.e first. Reverts OnlyUnpaused() if paused."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x2957922Eb93258b93368531d39fAcCA3B4dC5854",
+      "name": "CollateralOfframp (pUSD -> USDC.e)",
+      "role": "other",
+      "proxy": null,
+      "source": "https://docs.polymarket.com/resources/contracts",
+      "keyFunctions": [
+        {
+          "signature": "unwrap(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn pUSD for USDC.e. Args: _asset = USDC.e, _to = recipient, _amount of pUSD (6 decimals). Approve this Offramp to spend pUSD first."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+      "name": "USDC.e (bridged USDC, Polygon) - asset wrapped into pUSD",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.polymarket.com/concepts/pusd",
+      "keyFunctions": [
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve CollateralOnramp before wrap."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDC.e balance (6 decimals)."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x12121212006e4CD160D18e3f00711DA5c3372600",
+      "name": "Router (Polymarket Protocol V2)",
+      "role": "router",
+      "proxy": true,
+      "source": "https://docs.polymarket.com/resources/contracts",
+      "keyFunctions": [
+        {
+          "signature": "split(bytes31,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "V2 markets: split pUSD into YES+NO. conditionId is the 31-byte V2 id (positionId >> 8); amount in 6 decimals. Approve pUSD to the Router first."
+        },
+        {
+          "signature": "merge(bytes31,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "V2 markets: merge YES+NO into pUSD. Needs PositionManager setApprovalForAll(Router, true)."
+        },
+        {
+          "signature": "redeem(bytes31,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "V2 markets: redeem (conditionId, outcomeIndex 0 = YES / 1 = NO, amount); one call per outcome."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x006F54F7f9A22e0000CC2AB60031000000ae9fEF",
+      "name": "PositionManager (Polymarket Protocol V2 position ledger)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.polymarket.com/resources/contracts",
+      "keyFunctions": [
+        {
+          "signature": "setApprovalForAll(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve the Router (merge/redeem), ExchangeV3 (SELL orders on v2 books) or AutoRedeemer as operator."
+        },
+        {
+          "signature": "getPayout(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "pUSD payout for redeeming amount of positionId."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xe3333700cA9d93003F00f0F71f8515005F6c00Aa",
+      "name": "ExchangeV3 (Polymarket Protocol V2 order book settlement)",
+      "role": "exchange",
+      "proxy": true,
+      "source": "https://docs.polymarket.com/resources/contracts",
+      "keyFunctions": []
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xa1200000d0002264C9a1698e001292D00E1b00af",
+      "name": "AutoRedeemer (Polymarket Protocol V2)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://docs.polymarket.com/resources/contracts",
+      "keyFunctions": []
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "CLOB API (order book and trading)",
+      "url": "https://clob.polymarket.com",
+      "auth": "signature",
+      "use": "Public (no auth): GET /book?token_id= (tick_size, min_order_size, neg_risk, version), prices, midpoints. L1 auth (EIP-712 ClobAuth, domain {name 'ClobAuthDomain', version '1', chainId 137}, message {address, timestamp, nonce, message 'This message attests that I control the given wallet'}; headers POLY_ADDRESS, POLY_SIGNATURE, POLY_TIMESTAMP, POLY_NONCE): POST /auth/api-key to create or GET /auth/derive-api-key to derive {apiKey, secret, passphrase}. L2 auth (headers POLY_ADDRESS, POLY_API_KEY, POLY_PASSPHRASE, POLY_TIMESTAMP, POLY_SIGNATURE = urlsafe-base64 HMAC-SHA256 keyed by base64-decoded secret over timestamp+METHOD+path+body): POST /order (one signed order), POST /orders (1-15), DELETE /order {orderID}, DELETE /orders [ids], DELETE /cancel-market-orders {asset_id|market}, DELETE /cancel-all, GET /data/orders, GET /data/order/{id}, GET /data/trades, POST /v1/heartbeats (dead-man switch). Orders are EIP-712 'Order' structs signed with domain {name 'Polymarket CTF Exchange', chainId 137, version '2' + verifyingContract CTF Exchange (neg_risk false) or Neg Risk CTF Exchange (neg_risk true); version '3' + ExchangeV3 for v2 books}. Order types GTC, GTD (expiration >= 3 min ahead), FOK, FAK; optional postOnly. BUY: makerAmount = pUSD, takerAmount = shares (6-decimal ints); SELL reversed. Use the official SDK where possible.",
+      "source": "https://docs.polymarket.com/trading/place-orders"
+    },
+    {
+      "name": "Gamma API (markets and events metadata)",
+      "url": "https://gamma-api.polymarket.com",
+      "auth": "none",
+      "use": "Discover markets: GET /events/keyset, /events/{id}, /events/slug/{slug}, /markets/keyset, /markets/{id}, /markets/slug/{slug}, /public-search?q=, /tags, /series, /sports. Params: closed, limit, after_cursor, tag_id, version (v1 CTF | v2). Market fields: conditionId, clobTokenIds (v1 YES/NO token ids, JSON string), positionIds (v2), version.",
+      "source": "https://docs.polymarket.com/market-data/discover-markets"
+    },
+    {
+      "name": "Data API (positions, activity, value)",
+      "url": "https://data-api.polymarket.com",
+      "auth": "none",
+      "use": "Read a wallet's positions (GET /v2/positions?user=, status OPEN default), portfolio value (/v2/value?user=), activity (/v2/activity?user=), trades, approvals state (/v2/approvals?user=), price history, holders, open interest.",
+      "source": "https://data-api.polymarket.com/v2/openapi.json"
+    },
+    {
+      "name": "Bridge API (deposits/withdrawals from other chains)",
+      "url": "https://bridge.polymarket.com",
+      "auth": "none",
+      "use": "POST /deposit returns per-chain deposit addresses (evm, svm, btc, tron) for a Polymarket wallet; funds are bridged and swapped into pUSD on Polygon. GET /supported-assets lists tokens and minimums; GET /status/{address} tracks progress. Withdraw and quote endpoints are documented in the bridge section.",
+      "source": "https://docs.polymarket.com/trading/bridge/deposit"
+    },
+    {
+      "name": "Geoblock check",
+      "url": "https://polymarket.com/api/geoblock",
+      "auth": "none",
+      "use": "GET returns {blocked, ip, country, region}; check before placing orders on behalf of a user.",
+      "source": "https://docs.polymarket.com/api-reference/geoblock"
+    },
+    {
+      "name": "CLOB WebSocket",
+      "url": "wss://ws-subscriptions-clob.polymarket.com/ws/market",
+      "auth": "none",
+      "use": "Public order book, price and market lifecycle updates (incl. tick_size_change). Authenticated per-account order/trade updates at wss://ws-subscriptions-clob.polymarket.com/ws/user.",
+      "source": "https://docs.polymarket.com/getting-started/api"
+    },
+    {
+      "name": "Relayer API",
+      "url": "https://relayer-v2.polymarket.com",
+      "auth": "signature",
+      "use": "Submit Polymarket wallet (proxy/safe/deposit wallet) transactions without holding POL for gas.",
+      "source": "https://docs.polymarket.com/getting-started/api"
+    }
+  ],
+  "actions": [
+    {
+      "name": "find markets",
+      "description": "Search events/markets and get token ids",
+      "how": "GET https://gamma-api.polymarket.com/public-search?q=... or /markets/slug/{slug}; read conditionId, clobTokenIds (v1) or positionIds (v2), version; then GET https://clob.polymarket.com/book?token_id= for tick_size and neg_risk."
+    },
+    {
+      "name": "get pUSD",
+      "description": "Fund the trading wallet with collateral",
+      "how": "USDC.e.approve(CollateralOnramp, amt) then CollateralOnramp.wrap(USDC.e, to, amt); or use the Bridge API deposit addresses from other chains (auto-wraps to pUSD)."
+    },
+    {
+      "name": "approve trading",
+      "description": "One-time approvals before trading",
+      "how": "pUSD.approve(CTF Exchange / Neg Risk Exchange) for BUY; ConditionalTokens.setApprovalForAll(exchange, true) for SELL; for neg-risk markets also approve the Neg Risk Adapter 0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296 (pUSD and Conditional Tokens). For v2 books: pUSD.approve(ExchangeV3) and PositionManager.setApprovalForAll(ExchangeV3, true). Existing CTF approvals do not carry over to v2."
+    },
+    {
+      "name": "place order",
+      "description": "Buy or sell outcome shares",
+      "how": "Derive L2 API creds (L1 ClobAuth signature), build and EIP-712-sign an Order for the correct exchange domain, POST https://clob.polymarket.com/order with L2 headers and {order, owner: apiKey, orderType: GTC|GTD|FOK|FAK}."
+    },
+    {
+      "name": "cancel order",
+      "description": "Cancel one, several or all orders",
+      "how": "DELETE https://clob.polymarket.com/order {orderID}, DELETE /orders, DELETE /cancel-market-orders, or DELETE /cancel-all, with L2 headers. On-chain emergency: exchange.pauseUser()."
+    },
+    {
+      "name": "read positions",
+      "description": "List a wallet's positions and value",
+      "how": "GET https://data-api.polymarket.com/v2/positions?user=<address> and /v2/value?user=; on-chain ConditionalTokens.balanceOf(user, tokenId)."
+    },
+    {
+      "name": "split / merge",
+      "description": "Mint or burn complete YES+NO sets",
+      "how": "v1 standard: CtfCollateralAdapter.splitPosition/mergePositions(pUSD, 0x0, conditionId, [1,2], amount); v1 neg-risk: NegRiskCtfCollateralAdapter (same signatures); v2: Router.split/merge(bytes31 conditionId, amount)."
+    },
+    {
+      "name": "redeem",
+      "description": "Claim pUSD for winning shares after resolution",
+      "how": "v1: CtfCollateralAdapter or NegRiskCtfCollateralAdapter .redeemPositions(pUSD, 0x0, conditionId, [1,2]) after ConditionalTokens.setApprovalForAll(adapter, true); v2: Router.redeem(conditionId, outcomeIndex, amount) after PositionManager.setApprovalForAll(Router, true)."
+    },
+    {
+      "name": "withdraw",
+      "description": "Turn pUSD back into USDC.e",
+      "how": "pUSD.approve(CollateralOfframp, amt) then CollateralOfframp.unwrap(USDC.e, to, amt); or use the Bridge API withdraw flow to other chains."
+    }
+  ],
+  "risks": [
+    "Geographic restrictions (official geoblock docs, 'due to regulatory requirements and compliance with international sanctions'): fully blocked (frontend and API, no new or closing orders) in Iran, Syria, Cuba, North Korea, and Crimea/Donetsk/Luhansk; close-only on frontend AND API in many countries incl. United States, United Kingdom, France, Germany, Italy, Belgium, Poland, Australia, Singapore, Taiwan, Thailand, Russia, Brazil, Argentina, New Zealand, Canada (Ontario, Quebec, British Columbia, Alberta) and others; close-only on frontend only in Ireland, Japan, Netherlands, South Korea, Malta (sports). Check GET https://polymarket.com/api/geoblock before trading.",
+    "Polymarket migrated to pUSD collateral and Protocol V2: markets can be v1 (CTF) or v2 (PositionManager); they use different exchanges, EIP-712 domain versions ('2' vs '3'), approvals and split/merge contracts. Check the market's version and neg_risk before acting.",
+    "Orders priced off the current tick size are rejected; GTD orders expire one minute before their stated expiration.",
+    "Resolution relies on oracles (UMA Optimistic Oracle adapters, OracleAggregator); disputes can delay payouts.",
+    "Exchange contracts are operator-matched and admin-pausable; pUSD and USDC.e wrap/unwrap revert while paused.",
+    "pUSD is backed 1:1 by USDC per Polymarket, but it is a Polymarket-issued, upgradeable token with no external listing."
+  ],
+  "notes": "All addresses are Polygon mainnet (137) from https://docs.polymarket.com/resources/contracts. The Polymarket/ctf-exchange-v2 GitHub README lists different addresses for CtfCollateralAdapter (0xADa100874d00e3331D00F2007a9c336a65009718) and NegRiskCtfCollateralAdapter (0xAdA200001000ef00D07553cEE7006808F895c6F1) than the docs; this file uses the docs' addresses, which the docs' positions guide also uses. Other official contracts not detailed here: PermissionedRamp 0xebC2459Ec962869ca4c0bd1E06368272732BCb08, Deposit Wallet Factory 0x00000000000Fb5C9ADea0298D729A0CB3823Cc07, Polymarket Proxy Factory 0xaB45c5A4B0c941a2F231C04C3f49182e1A254052, BinaryModule/NegRiskModule/CombinatorialModule (V2), UmaCtfAdapter v3.1.0 0x157Ce2d672854c848c9b79C49a8Cc6cc89176a49, V2 oracle modules - see the contracts page. The older v1 exchanges (e.g. Neg Risk CTF Exchange 0xC5d563A36AE78145C45a50134d48A1215220f80a in the neg-risk-ctf-adapter repo) are no longer listed in the docs. Exchange V2 removed fillOrder/fillOrders and nonce-based on-chain cancel; only the operator calls matchOrders. ExchangeV3 and AutoRedeemer ABIs were not confirmed, so no key functions are listed for them. Withheld until Polymarket resolves a mismatch: the collateral adapters (CtfCollateralAdapter, NegRiskCtfCollateralAdapter) have different addresses in the docs (0xAdA100Db00Ca00073811820692005400218FcE1f, 0xadA2005600Dec949baf300f4C6120000bDB6eAab) and in the ctf-exchange-v2 GitHub README. Check https://docs.polymarket.com before using them.",
+  "sources": [
+    "https://docs.polymarket.com/resources/contracts",
+    "https://docs.polymarket.com/getting-started/api",
+    "https://docs.polymarket.com/trading/wallets-auth",
+    "https://docs.polymarket.com/trading/place-orders",
+    "https://docs.polymarket.com/trading/manage-orders",
+    "https://docs.polymarket.com/trading/positions/manage",
+    "https://docs.polymarket.com/concepts/pusd",
+    "https://docs.polymarket.com/market-data/discover-markets",
+    "https://docs.polymarket.com/migrate/polymarket-v2/contract-integrations",
+    "https://docs.polymarket.com/trading/bridge/deposit",
+    "https://docs.polymarket.com/api-reference/geoblock",
+    "https://data-api.polymarket.com/v2/openapi.json",
+    "https://github.com/Polymarket/ctf-exchange-v2",
+    "https://raw.githubusercontent.com/Polymarket/ctf-exchange-v2/main/src/exchange/CTFExchange.sol",
+    "https://raw.githubusercontent.com/Polymarket/ctf-exchange-v2/main/src/exchange/libraries/Structs.sol",
+    "https://raw.githubusercontent.com/Polymarket/neg-risk-ctf-adapter/main/src/NegRiskAdapter.sol",
+    "https://raw.githubusercontent.com/Polymarket/neg-risk-ctf-adapter/main/addresses.json",
+    "https://raw.githubusercontent.com/gnosis/conditional-tokens-contracts/master/contracts/ConditionalTokens.sol"
+  ],
+  "researchedAt": "2026-11-24"
+}

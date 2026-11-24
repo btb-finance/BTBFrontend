@@ -1,0 +1,66 @@
+{
+  "slug": "fragment",
+  "name": "Fragment",
+  "category": "NFT Marketplace",
+  "description": "Telegram's official marketplace on TON for collectible Telegram usernames and anonymous +888 numbers (direct sales and auctions), plus purchases of Telegram Premium, Telegram Stars and Telegram Ads payments. No official public trading API or published contract addresses; agents can only read collectible info via the Telegram API.",
+  "website": "https://fragment.com",
+  "docs": "https://core.telegram.org/api/fragment",
+  "defillama": "https://defillama.com/protocol/fragment",
+  "chains": [
+    "ton"
+  ],
+  "vm": "ton",
+  "agentAccess": "api",
+  "contracts": [],
+  "offchainApis": [
+    {
+      "name": "Telegram MTProto API: fragment.getCollectibleInfo",
+      "url": "https://core.telegram.org/method/fragment.getCollectibleInfo",
+      "auth": "signature",
+      "use": "Read-only: given inputCollectibleUsername(username) or inputCollectiblePhone(phone), returns fragment.collectibleInfo (purchase_date, currency, amount, crypto_currency, crypto_amount, url to the Fragment page). Requires a logged-in Telegram user session (MTProto); bots cannot call it. Not a simple REST key.",
+      "source": "https://core.telegram.org/api/fragment"
+    },
+    {
+      "name": "Telegram MTProto API: username management (account/bots/channels.toggleUsername, reorderUsernames, channels.deactivateAllUsernames)",
+      "url": "https://core.telegram.org/api/fragment",
+      "auth": "signature",
+      "use": "After owning a collectible username, activate/deactivate it or reorder usernames on a user, bot or channel.",
+      "source": "https://core.telegram.org/api/fragment"
+    }
+  ],
+  "actions": [
+    {
+      "name": "lookup-collectible",
+      "description": "Get purchase price/date and Fragment URL of a collectible username or number",
+      "how": "Telegram API fragment.getCollectibleInfo(collectible=inputCollectibleUsername{username} | inputCollectiblePhone{phone})"
+    },
+    {
+      "name": "buy-or-bid",
+      "description": "Buy a username/number or bid in an auction",
+      "how": "No official programmatic route: a human uses fragment.com with a TON wallet connected (TON Connect) and Telegram login. Agents should give the user the fragment.com link."
+    },
+    {
+      "name": "buy-stars-or-premium",
+      "description": "Buy Telegram Stars or gift Premium",
+      "how": "fragment.com web flow only (TON payment); no official API documented."
+    },
+    {
+      "name": "use-username",
+      "description": "Attach an owned collectible username to an account, bot or channel",
+      "how": "Telegram API account.toggleUsername / bots.toggleUsername / channels.toggleUsername"
+    }
+  ],
+  "risks": [
+    "No official public API or contract-address list for Fragment; third-party 'Fragment APIs' are unofficial and may require handing over wallet keys or Telegram sessions.",
+    "Collectibles are TON NFTs but their usefulness depends on Telegram, which controls the platform and its terms (https://fragment.com/terms).",
+    "Purchases require both a TON wallet and a Telegram account login on fragment.com."
+  ],
+  "notes": "Fragment's own site (fragment.com/about) documents no API and no smart-contract addresses, and Telegram's API docs say ownership is secured on TON without giving addresses, so `contracts` is intentionally empty. The underlying contract code is published by Telegram as Telemint (https://github.com/TelegramMessenger/telemint): NftCollection/NftItem (plus NoDns variants) with auction ops teleitem_msg_start_auction (0x487a8e81), teleitem_msg_cancel_auction (0x371638ae), first-bid deploy telemint_msg_deploy (0x4637289a, needs a server-signed query), later bids as plain TON transfers, and the standard TON NFT transfer interface. The Telemint README does not name Fragment or list deployed collection addresses, so the username/number collection addresses circulating on explorers were not added. Telegram Stars and Premium purchases are web-only.",
+  "sources": [
+    "https://fragment.com/about",
+    "https://core.telegram.org/api/fragment",
+    "https://github.com/TelegramMessenger/telemint",
+    "https://core.telegram.org/method/fragment.getCollectibleInfo"
+  ],
+  "researchedAt": "2026-11-24"
+}

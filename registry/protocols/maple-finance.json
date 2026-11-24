@@ -1,0 +1,1166 @@
+{
+  "slug": "maple-finance",
+  "name": "Maple Finance",
+  "category": "Lending",
+  "description": "Institutional, overcollateralized lending. Agents can deposit USDC/USDT/USDG into Maple's syrup pools (syrupUSDC, syrupUSDT, syrupUSDG; ERC-4626 yield-bearing shares) through the SyrupRouter, read share prices, and exit through a queued redemption.",
+  "website": "https://maple.finance",
+  "docs": "https://docs.maple.finance",
+  "defillama": "https://defillama.com/protocol/maple-finance",
+  "chains": [
+    "ethereum",
+    "arbitrum",
+    "base",
+    "solana",
+    "plasma",
+    "bsc",
+    "mantle",
+    "monad",
+    "ink",
+    "xlayer"
+  ],
+  "vm": "mixed",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x80ac24aA929eaF5013f6436cdA2a7ba190f5Cc0b",
+      "name": "syrupUSDC Pool (PoolV2, ERC-4626 share token)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.maple.finance/integrate/ethereum-mainnet/smart-contract-integration",
+      "keyFunctions": [
+        {
+          "signature": "requestRedeem(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Request redemption of syrup shares (owner = your address). Shares move into the WithdrawalManagerQueue; with automatic processing (the default) USDC is sent to you when Maple processes the FIFO queue. This is the only exit path: requestWithdraw()/withdraw() are disabled."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Args: shares, receiver, owner. Only for lenders set to MANUAL withdrawal by Maple: claim after the request has been processed. Automatic-mode lenders do not call this."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Share balance (6 decimals)."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "ERC-4626 exchange rate: USDC per shares (use 1000000 for one share). For display/pricing."
+        },
+        {
+          "signature": "convertToExitAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares to assets net of unrealized losses; use for actual redemption value or collateral valuation."
+        },
+        {
+          "signature": "convertToShares(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Assets to shares."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Simulated assets for a redemption (ignores redemption limits)."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total underlying assets managed by the pool."
+        },
+        {
+          "signature": "unrealizedLosses()",
+          "kind": "read",
+          "payable": false,
+          "description": "Unrealized losses (impairments) currently recognised."
+        },
+        {
+          "signature": "maxDeposit(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Max assets the receiver can deposit (0 if not permissioned)."
+        },
+        {
+          "signature": "manager()",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolManager address for this pool."
+        },
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying ERC-20 asset."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x134cCaaA4F1e4552eC8aEcb9E4A2360dDcF8df76",
+      "name": "syrupUSDC SyrupRouter",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.maple.finance/integrate/ethereum-mainnet/smart-contract-integration",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit USDC (approve the router first) and receive syrup shares. Args: amount (6 decimals), depositData (bytes32 tag, e.g. a referral/integrator id; zero bytes allowed). Caller must already be permissioned in the PoolPermissionManager."
+        },
+        {
+          "signature": "depositWithPermit(uint256,uint256,uint8,bytes32,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as deposit but with an ERC-2612 permit of the asset: amount, deadline, v, r, s, depositData."
+        },
+        {
+          "signature": "authorizeAndDeposit(uint256,uint256,uint8,bytes32,bytes32,uint256,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "First-time deposit: submits a Maple-issued authorization signature (bitmap, deadline, v, r, s) that permissions the caller, then deposits amount with depositData. The signature must come from Maple."
+        },
+        {
+          "signature": "authorizeAndDepositWithPermit(uint256,uint256,uint8,bytes32,bytes32,uint256,bytes32,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "authorizeAndDeposit plus an ERC-2612 permit for the asset."
+        },
+        {
+          "signature": "nonces(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Authorization nonce for an owner (used when building authorization signatures)."
+        },
+        {
+          "signature": "pool()",
+          "kind": "read",
+          "payable": false,
+          "description": "The syrup pool this router deposits into."
+        },
+        {
+          "signature": "poolManager()",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolManager of the pool."
+        },
+        {
+          "signature": "poolPermissionManager()",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolPermissionManager address."
+        },
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying asset."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1bc47a0Dd0FdaB96E9eF982fdf1F34DC6207cfE3",
+      "name": "syrupUSDC WithdrawalManagerQueue",
+      "role": "other",
+      "proxy": true,
+      "source": "https://docs.maple.finance/integrate/ethereum-mainnet/smart-contract-integration",
+      "keyFunctions": [
+        {
+          "signature": "requests(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(owner, shares) of a withdrawal request id."
+        },
+        {
+          "signature": "requestIds(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Last valid request id for an owner."
+        },
+        {
+          "signature": "queue()",
+          "kind": "read",
+          "payable": false,
+          "description": "(nextRequestId, lastRequestId) of the FIFO queue."
+        },
+        {
+          "signature": "lockedShares(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares an owner has locked in pending requests."
+        },
+        {
+          "signature": "isManualWithdrawal(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account uses manual withdrawals (must call Pool.redeem after processing)."
+        },
+        {
+          "signature": "manualSharesAvailable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares a manual-mode owner can redeem now."
+        },
+        {
+          "signature": "removeSharesById(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Reduce or cancel your own pending request before it is processed: requestId, sharesToRemove. Returns (sharesReturned, sharesRemaining). Requires the WM:removeSharesById permission (passes for allowlisted lenders)."
+        },
+        {
+          "signature": "processRedemptions(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Process queued requests up to maxSharesToProcess. Restricted to Pool Delegate / Operational Admin / registered redeemers; lenders cannot call it."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x7aD5fFa5fdF509E30186F4609c2f6269f4B6158F",
+      "name": "syrupUSDC PoolManager",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/maple-labs/address-registry/blob/main/MapleAddressRegistryETH.md",
+      "keyFunctions": [
+        {
+          "signature": "pool()",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address."
+        },
+        {
+          "signature": "poolPermissionManager()",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolPermissionManager used for this pool."
+        },
+        {
+          "signature": "poolDelegate()",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool delegate address."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x356B8d89c1e1239Cbbb9dE4815c39A1474d5BA7D",
+      "name": "syrupUSDT Pool (PoolV2, ERC-4626 share token)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.maple.finance/integrate/ethereum-mainnet/smart-contract-integration",
+      "keyFunctions": [
+        {
+          "signature": "requestRedeem(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Request redemption of syrup shares (owner = your address). Shares move into the WithdrawalManagerQueue; with automatic processing (the default) USDT is sent to you when Maple processes the FIFO queue. This is the only exit path: requestWithdraw()/withdraw() are disabled."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Args: shares, receiver, owner. Only for lenders set to MANUAL withdrawal by Maple: claim after the request has been processed. Automatic-mode lenders do not call this."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Share balance (6 decimals)."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "ERC-4626 exchange rate: USDT per shares (use 1000000 for one share). For display/pricing."
+        },
+        {
+          "signature": "convertToExitAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares to assets net of unrealized losses; use for actual redemption value or collateral valuation."
+        },
+        {
+          "signature": "convertToShares(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Assets to shares."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Simulated assets for a redemption (ignores redemption limits)."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total underlying assets managed by the pool."
+        },
+        {
+          "signature": "unrealizedLosses()",
+          "kind": "read",
+          "payable": false,
+          "description": "Unrealized losses (impairments) currently recognised."
+        },
+        {
+          "signature": "maxDeposit(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Max assets the receiver can deposit (0 if not permissioned)."
+        },
+        {
+          "signature": "manager()",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolManager address for this pool."
+        },
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying ERC-20 asset."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xF007476Bb27430795138C511F18F821e8D1e5Ee2",
+      "name": "syrupUSDT SyrupRouter",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.maple.finance/integrate/ethereum-mainnet/smart-contract-integration",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit USDT (approve the router first) and receive syrup shares. Args: amount (6 decimals), depositData (bytes32 tag, e.g. a referral/integrator id; zero bytes allowed). Caller must already be permissioned in the PoolPermissionManager."
+        },
+        {
+          "signature": "depositWithPermit(uint256,uint256,uint8,bytes32,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as deposit but with an ERC-2612 permit of the asset: amount, deadline, v, r, s, depositData."
+        },
+        {
+          "signature": "authorizeAndDeposit(uint256,uint256,uint8,bytes32,bytes32,uint256,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "First-time deposit: submits a Maple-issued authorization signature (bitmap, deadline, v, r, s) that permissions the caller, then deposits amount with depositData. The signature must come from Maple."
+        },
+        {
+          "signature": "authorizeAndDepositWithPermit(uint256,uint256,uint8,bytes32,bytes32,uint256,bytes32,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "authorizeAndDeposit plus an ERC-2612 permit for the asset."
+        },
+        {
+          "signature": "nonces(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Authorization nonce for an owner (used when building authorization signatures)."
+        },
+        {
+          "signature": "pool()",
+          "kind": "read",
+          "payable": false,
+          "description": "The syrup pool this router deposits into."
+        },
+        {
+          "signature": "poolManager()",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolManager of the pool."
+        },
+        {
+          "signature": "poolPermissionManager()",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolPermissionManager address."
+        },
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying asset."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x86eBDf902d800F2a82038290B6DBb2A5eE29eB8C",
+      "name": "syrupUSDT WithdrawalManagerQueue",
+      "role": "other",
+      "proxy": true,
+      "source": "https://docs.maple.finance/integrate/ethereum-mainnet/smart-contract-integration",
+      "keyFunctions": [
+        {
+          "signature": "requests(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(owner, shares) of a withdrawal request id."
+        },
+        {
+          "signature": "requestIds(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Last valid request id for an owner."
+        },
+        {
+          "signature": "queue()",
+          "kind": "read",
+          "payable": false,
+          "description": "(nextRequestId, lastRequestId) of the FIFO queue."
+        },
+        {
+          "signature": "lockedShares(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares an owner has locked in pending requests."
+        },
+        {
+          "signature": "isManualWithdrawal(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account uses manual withdrawals (must call Pool.redeem after processing)."
+        },
+        {
+          "signature": "manualSharesAvailable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares a manual-mode owner can redeem now."
+        },
+        {
+          "signature": "removeSharesById(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Reduce or cancel your own pending request before it is processed: requestId, sharesToRemove. Returns (sharesReturned, sharesRemaining). Requires the WM:removeSharesById permission (passes for allowlisted lenders)."
+        },
+        {
+          "signature": "processRedemptions(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Process queued requests up to maxSharesToProcess. Restricted to Pool Delegate / Operational Admin / registered redeemers; lenders cannot call it."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x0cdA32E08B48bFDDbc7eE96B44b09cf286F9E21a",
+      "name": "syrupUSDT PoolManager",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/maple-labs/address-registry/blob/main/MapleAddressRegistryETH.md",
+      "keyFunctions": [
+        {
+          "signature": "pool()",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address."
+        },
+        {
+          "signature": "poolPermissionManager()",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolPermissionManager used for this pool."
+        },
+        {
+          "signature": "poolDelegate()",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool delegate address."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x87b65C4aAFFA76881f9E96F3e7ED945ddFC3Cd7A",
+      "name": "syrupUSDG Pool (PoolV2, ERC-4626 share token)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.maple.finance/integrate/ethereum-mainnet/smart-contract-integration",
+      "keyFunctions": [
+        {
+          "signature": "requestRedeem(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Request redemption of syrup shares (owner = your address). Shares move into the WithdrawalManagerQueue; with automatic processing (the default) USDG is sent to you when Maple processes the FIFO queue. This is the only exit path: requestWithdraw()/withdraw() are disabled."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Args: shares, receiver, owner. Only for lenders set to MANUAL withdrawal by Maple: claim after the request has been processed. Automatic-mode lenders do not call this."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Share balance (6 decimals)."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "ERC-4626 exchange rate: USDG per shares (use 1000000 for one share). For display/pricing."
+        },
+        {
+          "signature": "convertToExitAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares to assets net of unrealized losses; use for actual redemption value or collateral valuation."
+        },
+        {
+          "signature": "convertToShares(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Assets to shares."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Simulated assets for a redemption (ignores redemption limits)."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total underlying assets managed by the pool."
+        },
+        {
+          "signature": "unrealizedLosses()",
+          "kind": "read",
+          "payable": false,
+          "description": "Unrealized losses (impairments) currently recognised."
+        },
+        {
+          "signature": "maxDeposit(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Max assets the receiver can deposit (0 if not permissioned)."
+        },
+        {
+          "signature": "manager()",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolManager address for this pool."
+        },
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying ERC-20 asset."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x191ac16255f49F7C6cB2e3b2502064A805943849",
+      "name": "syrupUSDG SyrupRouter",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.maple.finance/integrate/ethereum-mainnet/smart-contract-integration",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit USDG (approve the router first) and receive syrup shares. Args: amount (6 decimals), depositData (bytes32 tag, e.g. a referral/integrator id; zero bytes allowed). Caller must already be permissioned in the PoolPermissionManager."
+        },
+        {
+          "signature": "depositWithPermit(uint256,uint256,uint8,bytes32,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as deposit but with an ERC-2612 permit of the asset: amount, deadline, v, r, s, depositData."
+        },
+        {
+          "signature": "authorizeAndDeposit(uint256,uint256,uint8,bytes32,bytes32,uint256,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "First-time deposit: submits a Maple-issued authorization signature (bitmap, deadline, v, r, s) that permissions the caller, then deposits amount with depositData. The signature must come from Maple."
+        },
+        {
+          "signature": "authorizeAndDepositWithPermit(uint256,uint256,uint8,bytes32,bytes32,uint256,bytes32,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "authorizeAndDeposit plus an ERC-2612 permit for the asset."
+        },
+        {
+          "signature": "nonces(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Authorization nonce for an owner (used when building authorization signatures)."
+        },
+        {
+          "signature": "pool()",
+          "kind": "read",
+          "payable": false,
+          "description": "The syrup pool this router deposits into."
+        },
+        {
+          "signature": "poolManager()",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolManager of the pool."
+        },
+        {
+          "signature": "poolPermissionManager()",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolPermissionManager address."
+        },
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying asset."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xAf63C06970086d535F338565D77c5fA3bDC5fD79",
+      "name": "syrupUSDG WithdrawalManagerQueue",
+      "role": "other",
+      "proxy": true,
+      "source": "https://docs.maple.finance/integrate/ethereum-mainnet/smart-contract-integration",
+      "keyFunctions": [
+        {
+          "signature": "requests(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(owner, shares) of a withdrawal request id."
+        },
+        {
+          "signature": "requestIds(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Last valid request id for an owner."
+        },
+        {
+          "signature": "queue()",
+          "kind": "read",
+          "payable": false,
+          "description": "(nextRequestId, lastRequestId) of the FIFO queue."
+        },
+        {
+          "signature": "lockedShares(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares an owner has locked in pending requests."
+        },
+        {
+          "signature": "isManualWithdrawal(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account uses manual withdrawals (must call Pool.redeem after processing)."
+        },
+        {
+          "signature": "manualSharesAvailable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares a manual-mode owner can redeem now."
+        },
+        {
+          "signature": "removeSharesById(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Reduce or cancel your own pending request before it is processed: requestId, sharesToRemove. Returns (sharesReturned, sharesRemaining). Requires the WM:removeSharesById permission (passes for allowlisted lenders)."
+        },
+        {
+          "signature": "processRedemptions(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Process queued requests up to maxSharesToProcess. Restricted to Pool Delegate / Operational Admin / registered redeemers; lenders cannot call it."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6c48CD22086F3Db3F23E7cEeDD5c429D93FF3327",
+      "name": "syrupUSDG PoolManager",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/maple-labs/address-registry/blob/main/MapleAddressRegistryETH.md",
+      "keyFunctions": [
+        {
+          "signature": "pool()",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address."
+        },
+        {
+          "signature": "poolPermissionManager()",
+          "kind": "read",
+          "payable": false,
+          "description": "PoolPermissionManager used for this pool."
+        },
+        {
+          "signature": "poolDelegate()",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool delegate address."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xBe10aDcE8B6E3E02Db384E7FaDA5395DD113D8b3",
+      "name": "PoolPermissionManager (shared by all syrup pools)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://docs.maple.finance/integrate/ethereum-mainnet/smart-contract-integration",
+      "keyFunctions": [
+        {
+          "signature": "hasPermission(address,address,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Check a lender: hasPermission(poolManager, lender, functionId), e.g. functionId = bytes32(\"P:deposit\"). Must be true before depositing."
+        },
+        {
+          "signature": "lenderBitmaps(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Permission bitmap of a lender."
+        },
+        {
+          "signature": "poolBitmaps(address,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Required bitmap for (poolManager, functionId). A lender passes when (poolBitmap & lenderBitmap) == poolBitmap."
+        },
+        {
+          "signature": "permissionLevels(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Permission level of a pool manager (public / function-level / pool-level / private)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x804a6F5F667170F545Bf14e5DDB48C70B788390C",
+      "name": "MapleGlobals",
+      "role": "governance",
+      "proxy": null,
+      "source": "https://github.com/maple-labs/address-registry/blob/main/MapleAddressRegistryETH.md",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x643C4E15d7d62Ad0aBeC4a9BD4b001aA3Ef52d66",
+      "name": "SYRUP token (proxy)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://github.com/maple-labs/address-registry/blob/main/MapleAddressRegistryETH.md",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance (6 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer tokens."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. stSYRUP to stake."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xc7E8b36E0766D9B04c93De68A9D47dD11f260B45",
+      "name": "stSYRUP (staked SYRUP)",
+      "role": "staking",
+      "proxy": null,
+      "source": "https://github.com/maple-labs/address-registry/blob/main/MapleAddressRegistryETH.md",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x02B6A75c5D1F430F0614dc5AC8aD5F9D35fbA2c4",
+      "name": "syrupUSDC crosschain Mint/Redeem Receiver (CCIP)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain",
+      "keyFunctions": []
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x41CA7586cC1311807B4605fBB748a3B8862b42b5",
+      "name": "syrupUSDC (bridged via Chainlink CCIP)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance (6 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer tokens."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the Chainlink CCIP router to bridge back."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x660975730059246A68521a3e2FBD4740173100f5",
+      "name": "syrupUSDC (bridged via Chainlink CCIP)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance (6 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer tokens."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the Chainlink CCIP router to bridge back."
+        }
+      ]
+    },
+    {
+      "chain": "monad",
+      "chainId": 143,
+      "address": "0xaB6e5a0C3799d020c790D34F7B2C02639e238AF7",
+      "name": "syrupUSDC (bridged via Chainlink CCIP)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance (6 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer tokens."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the Chainlink CCIP router to bridge back."
+        }
+      ]
+    },
+    {
+      "chain": "ink",
+      "chainId": 57073,
+      "address": "0x3c23e6FB09064e9A64829Fa8FEe27Ad19A27Bfa9",
+      "name": "syrupUSDC (bridged via Chainlink CCIP)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance (6 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer tokens."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the Chainlink CCIP router to bridge back."
+        }
+      ]
+    },
+    {
+      "chain": "xlayer",
+      "chainId": 196,
+      "address": "0xD503b0581aa504e75B345bF4Cb8c359D8D1a042f",
+      "name": "syrupUSDC (bridged via Chainlink CCIP)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance (6 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer tokens."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the Chainlink CCIP router to bridge back."
+        }
+      ]
+    },
+    {
+      "chain": "plasma",
+      "chainId": 9745,
+      "address": "0xC4374775489CB9C56003BF2C9b12495fC64F0771",
+      "name": "syrupUSDT (bridged via Chainlink CCIP)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance (6 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer tokens."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the Chainlink CCIP router to bridge back."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x8E9d4cEa39299323FE8eda678cAD449718556c4e",
+      "name": "syrupUSDT (bridged via Chainlink CCIP)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance (6 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer tokens."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the Chainlink CCIP router to bridge back."
+        }
+      ]
+    },
+    {
+      "chain": "mantle",
+      "chainId": 5000,
+      "address": "0x051665f2455116e929b9972c36d23070F5054Ce0",
+      "name": "syrupUSDT (bridged via Chainlink CCIP)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance (6 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer tokens."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the Chainlink CCIP router to bridge back."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xE1B0dC5A21b10f1634fBfbE9976fBA2Ee2e1c762",
+      "name": "syrupUSDG (bridged via Chainlink CCIP)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance (6 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer tokens."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the Chainlink CCIP router to bridge back."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj",
+      "name": "syrupUSDC SPL token (bridged via Chainlink CCIP)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain",
+      "keyFunctions": []
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "CYB6WRi2YuV4Ui6q1dieP5Raev6ah7qftGsQAxJiZo8f",
+      "name": "syrupUSDG SPL token (bridged via Chainlink CCIP)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain",
+      "keyFunctions": []
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "check-permission",
+      "description": "Check whether a wallet may deposit",
+      "how": "PoolPermissionManager.hasPermission(poolManager, wallet, bytes32(\"P:deposit\")); poolManager from Pool.manager() or SyrupRouter.poolManager()"
+    },
+    {
+      "name": "deposit",
+      "description": "Deposit USDC/USDT/USDG for syrup shares",
+      "how": "asset.approve(SyrupRouter, amount) then SyrupRouter.deposit(amount, depositData). First-time depositors without permission need a Maple-issued signature for SyrupRouter.authorizeAndDeposit(...); otherwise contact partnerships@maple.finance"
+    },
+    {
+      "name": "request-withdrawal",
+      "description": "Exit a syrup pool",
+      "how": "Pool.requestRedeem(shares, ownWallet). Assets arrive automatically when Maple processes the FIFO queue (usually fast; up to ~30 days in stress)"
+    },
+    {
+      "name": "cancel-withdrawal",
+      "description": "Reduce or cancel a pending request",
+      "how": "WithdrawalManagerQueue.removeSharesById(requestId, sharesToRemove) before it is processed"
+    },
+    {
+      "name": "price",
+      "description": "Value syrup shares",
+      "how": "Pool.convertToAssets(1000000) for display; Pool.convertToExitAssets(1000000) for redemption value"
+    },
+    {
+      "name": "bridge",
+      "description": "Move syrupUSDC/USDT/USDG between chains",
+      "how": "Chainlink CCIP router send (approve token to the CCIP router first); see the crosschain docs for lanes"
+    }
+  ],
+  "risks": [
+    "Deposits are permissioned: the address must be allowlisted / hold the right permission bitmap in the PoolPermissionManager, or present a Maple-signed authorization via authorizeAndDeposit. Maple's docs: \"authorization is required for all Syrup deposits.\"",
+    "syrupUSDC, syrupUSDT and syrupUSDG are not available to residents, citizens or tax residents of restricted jurisdictions (including the United States and Australia), or to anyone accessing from them.",
+    "Withdrawals are not instant on-chain: requestRedeem queues shares (FIFO), Maple processes them; docs say normally near-instant, sometimes ~24h, maximum 30 days. Payout uses the exchange rate at processing time, so an impairment lowers it.",
+    "Yield comes from loans to institutional borrowers; borrower default/impairment can reduce share value (see unrealizedLosses / convertToExitAssets).",
+    "PoolManager, WithdrawalManager and PermissionManager are upgradeable proxies controlled by Maple governance.",
+    "Bridged syrup tokens on L2s/Solana rely on Chainlink CCIP; they are not ERC-4626 vaults there and cannot be deposited/redeemed locally except via the CCIP mint/redeem flow."
+  ],
+  "notes": "Ethereum mainnet holds the actual pools; other chains only hold CCIP-bridged syrup tokens (crosschain page also lists Tempo, Robinhood and Arc deployments, omitted here because their chain IDs were not confirmed). Pool managers are not on the integration page; they are taken from Maple's official address registry (github.com/maple-labs/address-registry), which also lists Base L2 contracts (a permissioned Cash Management USDC pool, omitted) and older Maple institutional pools. Function signatures come from Maple's docs and were cross-checked against Sourcify-verified ABIs. Pool and SyrupRouter are not proxies; PoolManager, WithdrawalManagerQueue and PoolPermissionManager are EIP-1967 proxies. DefiLlama lists Bitcoin, Ethereum, XRPL, Hyperliquid L1 and Solana among its chains; the non-EVM TVL there (e.g. BTC yield products) has no agent-callable contracts documented here. Sepolia testnet addresses are on the smart-contract-integration page.",
+  "sources": [
+    "https://docs.maple.finance/integrate/ethereum-mainnet/smart-contract-integration",
+    "https://github.com/maple-labs/address-registry/blob/main/MapleAddressRegistryETH.md",
+    "https://github.com/maple-labs/address-registry/blob/main/MapleAddressRegistryBASEL2.md",
+    "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain",
+    "https://docs.maple.finance/technical-resources/interfaces/syrup-router",
+    "https://docs.maple.finance/technical-resources/interfaces/pool",
+    "https://docs.maple.finance/technical-resources/interfaces/withdrawal-manager-queue",
+    "https://docs.maple.finance/technical-resources/pools/withdrawal-manager",
+    "https://docs.maple.finance/integrate/ethereum-mainnet/asset-integration",
+    "https://docs.maple.finance/legal/syrupusdc-and-syrupusdt-available-jurisdictions",
+    "https://docs.maple.finance/syrupusdc-usdt-usdg-for-lenders/faq",
+    "https://docs.maple.finance/technical-resources/protocol-overview/smart-contract-addresses",
+    "https://defillama.com/protocol/maple-finance"
+  ],
+  "researchedAt": "2026-11-24"
+}

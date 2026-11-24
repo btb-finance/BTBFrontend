@@ -1,0 +1,1045 @@
+{
+  "slug": "lido",
+  "name": "Lido",
+  "category": "Liquid Staking",
+  "description": "Liquid staking for Ethereum: stake ETH for rebasing stETH, wrap it into non-rebasing wstETH, and unstake through the withdrawal queue (unstETH NFTs). wstETH is bridged to many L2s and chains.",
+  "website": "https://lido.fi",
+  "docs": "https://docs.lido.fi",
+  "defillama": "https://defillama.com/protocol/lido",
+  "chains": [
+    "ethereum",
+    "arbitrum",
+    "optimism",
+    "base",
+    "linea",
+    "unichain",
+    "bsc",
+    "zksync",
+    "scroll",
+    "mantle",
+    "mode",
+    "zircuit",
+    "soneium",
+    "lisk",
+    "swellchain",
+    "polygon"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+      "name": "Lido / stETH",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "submit(address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Stake ETH and mint stETH to msg.sender. Argument: referral address (zero address if none). Reverts if staking is paused or amount exceeds getCurrentStakeLimit(). Sending plain ETH to the contract does the same."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "stETH balance; changes on each daily rebase (shares * totalPooledEther / totalShares)."
+        },
+        {
+          "signature": "sharesOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying share balance; constant across rebases."
+        },
+        {
+          "signature": "getSharesByPooledEth(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert a stETH amount to shares."
+        },
+        {
+          "signature": "getPooledEthByShares(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert shares to a stETH amount."
+        },
+        {
+          "signature": "transferShares(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer an exact number of shares (avoids the 1-2 wei rounding of transfer)."
+        },
+        {
+          "signature": "transferSharesFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer shares using an allowance."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer stETH (may deliver 1-2 wei less than requested)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender (e.g. wstETH for wrap, WithdrawalQueueERC721 for requestWithdrawals)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 signed approval."
+        },
+        {
+          "signature": "getTotalPooledEther()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total ETH controlled by the protocol."
+        },
+        {
+          "signature": "getTotalShares()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total shares in existence."
+        },
+        {
+          "signature": "getCurrentStakeLimit()",
+          "kind": "read",
+          "payable": false,
+          "description": "ETH that can be staked right now; check >= amount before submit."
+        },
+        {
+          "signature": "isStakingPaused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if staking is paused (submit reverts)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+      "name": "wstETH",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "wrap(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Wrap stETH into wstETH (approve stETH to wstETH first). Returns wstETH minted."
+        },
+        {
+          "signature": "unwrap(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn wstETH and receive stETH. Returns stETH received."
+        },
+        {
+          "signature": "getWstETHByStETH(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "wstETH amount for a given stETH amount."
+        },
+        {
+          "signature": "getStETHByWstETH(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "stETH amount for a given wstETH amount."
+        },
+        {
+          "signature": "stEthPerToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "stETH per 1 wstETH (rate rises roughly daily)."
+        },
+        {
+          "signature": "tokensPerStEth()",
+          "kind": "read",
+          "payable": false,
+          "description": "wstETH per 1 stETH."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "wstETH balance (non-rebasing)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender (e.g. WithdrawalQueueERC721 for requestWithdrawalsWstETH, or an L1 bridge)."
+        },
+        {
+          "signature": "receive()",
+          "kind": "write",
+          "payable": true,
+          "description": "Sending plain ETH to wstETH stakes it via Lido and returns wstETH to the sender (staking limit applies)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1",
+      "name": "WithdrawalQueueERC721 (unstETH)",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "requestWithdrawals(uint256[],address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Lock stETH (approve first) and mint one unstETH NFT per amount. Each amount 100 wei to 1000 stETH; owner = zero address means msg.sender. Returns request IDs."
+        },
+        {
+          "signature": "requestWithdrawalsWstETH(uint256[],address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same, for wstETH (approve wstETH first)."
+        },
+        {
+          "signature": "requestWithdrawalsWithPermit(uint256[],address,(uint256,uint256,uint8,bytes32,bytes32))",
+          "kind": "write",
+          "payable": false,
+          "description": "stETH withdrawal request with EIP-2612 permit (value, deadline, v, r, s). Can be griefed by front-running; fall back to requestWithdrawals."
+        },
+        {
+          "signature": "requestWithdrawalsWstETHWithPermit(uint256[],address,(uint256,uint256,uint8,bytes32,bytes32))",
+          "kind": "write",
+          "payable": false,
+          "description": "wstETH withdrawal request with permit."
+        },
+        {
+          "signature": "getWithdrawalRequests(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Request IDs (unstETH NFT IDs) owned by an address."
+        },
+        {
+          "signature": "getWithdrawalStatus(uint256[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Per request: amountOfStETH, amountOfShares, owner, timestamp, isFinalized, isClaimed."
+        },
+        {
+          "signature": "getLastCheckpointIndex()",
+          "kind": "read",
+          "payable": false,
+          "description": "Latest checkpoint index, used as the upper bound for findCheckpointHints."
+        },
+        {
+          "signature": "findCheckpointHints(uint256[],uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Hints for claiming: (sorted requestIds, 1, getLastCheckpointIndex())."
+        },
+        {
+          "signature": "getClaimableEther(uint256[],uint256[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimable ETH per request (0 unless finalized and unclaimed)."
+        },
+        {
+          "signature": "claimWithdrawals(uint256[],uint256[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim ETH for several finalized requests using hints; burns the NFTs."
+        },
+        {
+          "signature": "claimWithdrawalsTo(uint256[],uint256[],address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim to a different recipient."
+        },
+        {
+          "signature": "claimWithdrawal(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim a single finalized request to msg.sender."
+        },
+        {
+          "signature": "isBunkerModeActive()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if bunker mode is active (finalization may be slowed/discounted after significant losses)."
+        },
+        {
+          "signature": "unfinalizedStETH()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total stETH waiting in the queue."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xFdDf38947aFB03C621C71b06C9C70bce73f12999",
+      "name": "StakingRouter",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "getStakingModules()",
+          "kind": "read",
+          "payable": false,
+          "description": "All staking modules (validator subsets) and their parameters."
+        },
+        {
+          "signature": "getStakingModuleIds()",
+          "kind": "read",
+          "payable": false,
+          "description": "IDs of all staking modules."
+        },
+        {
+          "signature": "getStakingModulesCount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of staking modules."
+        },
+        {
+          "signature": "getStakingModule(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "One module's parameters."
+        },
+        {
+          "signature": "getStakingModuleSummary(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Validator counts summary for a module."
+        },
+        {
+          "signature": "getStakingModuleStatus(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Module status (active / deposits paused / stopped)."
+        },
+        {
+          "signature": "getStakingFeeAggregateDistribution()",
+          "kind": "read",
+          "payable": false,
+          "description": "Protocol fee split: modulesFee, treasuryFee, basePrecision."
+        },
+        {
+          "signature": "getStakingRewardsDistribution()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee recipients, module IDs, per-module fees, total fee, precision."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb",
+      "name": "LidoLocator",
+      "role": "other",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xa88f0329C2c4ce51ba3fc619BBf44efE7120Dd0d",
+      "name": "wstETH referral staker",
+      "role": "staking",
+      "proxy": null,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "stakeETH(address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Stake ETH for wstETH with a referral address. Do not send ETH or tokens to this contract directly."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x0F25c1DC2a9922304f2eac71DCa9B07E310e8E5a",
+      "name": "L1ERC20TokenGateway (wstETH to Arbitrum)",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x76943C0D61395d8F2edF9060e1533529cAe05dE6",
+      "name": "L1LidoTokensBridge (wstETH/stETH to Optimism)",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x9de443AdC5A411E83F1878Ef24C3F52C61571e72",
+      "name": "L1ERC20TokenBridge (wstETH to Base)",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x051F1D88f0aF5763fB888eC4378b4D8B29ea3319",
+      "name": "Linea L1 TokenBridge (canonical, wstETH to Linea)",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x755610f5Be536Ad7afBAa7c10F3E938Ea3aa1877",
+      "name": "L1LidoTokensBridge (wstETH/stETH to Unichain)",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xb948a93827d68a82F6513Ad178964Da487fe2BD9",
+      "name": "Wormhole NTT Manager, Ethereum side (wstETH to BNB Chain)",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x5979D7b546E38E414F7E9822514be443A4800529",
+      "name": "wstETH (bridged)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged wstETH balance (plain ERC-20, non-rebasing)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bridged wstETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the L2 bridge or a DEX."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x07D4692291B9E30E326fd31706f686f83f331B82",
+      "name": "L2ERC20TokenGateway",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x1F32b1c2345538c0c6f582fCB022739c4A194Ebb",
+      "name": "wstETH (ERC20BridgedPermit)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged wstETH balance (plain ERC-20, non-rebasing)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bridged wstETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the L2 bridge or a DEX."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x76A50b8c7349cCDDb7578c6627e79b5d99D24138",
+      "name": "stETH (ERC20RebasableBridgedPermit)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Rebasable bridged stETH balance on Optimism."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bridged stETH."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x294ED1f214F4e0ecAE31C3Eae4F04EBB3b36C9d0",
+      "name": "TokenRateOracle",
+      "role": "other",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x8E01013243a96601a86eb3153F0d9Fa4fbFb6957",
+      "name": "L2ERC20ExtendedTokensBridge",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452",
+      "name": "wstETH (bridged)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged wstETH balance (plain ERC-20, non-rebasing)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bridged wstETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the L2 bridge or a DEX."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xac9D11cD4D7eF6e54F14643a393F68Ca014287AB",
+      "name": "L2ERC20TokenBridge",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "linea",
+      "chainId": 59144,
+      "address": "0xB5beDd42000b71FddE22D3eE8a79Bd49A568fC8F",
+      "name": "wstETH (CustomBridgedToken)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged wstETH balance (plain ERC-20, non-rebasing)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bridged wstETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the L2 bridge or a DEX."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0xc02fE7317D4eb8753a02c35fe019786854A92001",
+      "name": "wstETH (ERC20BridgedPermit)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged wstETH balance (plain ERC-20, non-rebasing)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bridged wstETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the L2 bridge or a DEX."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x81f2508AAC59757EF7425DDc9717AB5c2AA0A84F",
+      "name": "stETH (ERC20RebasableBridgedPermit)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x26c5e01524d2E6280A48F2c50fF6De7e52E9611C",
+      "name": "wstETH (WstEthL2Token)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged wstETH balance (plain ERC-20, non-rebasing)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bridged wstETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the L2 bridge or a DEX."
+        }
+      ]
+    },
+    {
+      "chain": "zksync",
+      "chainId": 324,
+      "address": "0x703b52F2b28fEbcB60E1372858AF5b18849FE867",
+      "name": "wstETH (ERC20BridgedUpgradeable)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged wstETH balance (plain ERC-20, non-rebasing)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bridged wstETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the L2 bridge or a DEX."
+        }
+      ]
+    },
+    {
+      "chain": "scroll",
+      "chainId": 534352,
+      "address": "0xf610A9dfB7C89644979b4A0f27063E9e7d7Cda32",
+      "name": "wstETH (L2WstETHToken)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged wstETH balance (plain ERC-20, non-rebasing)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bridged wstETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the L2 bridge or a DEX."
+        }
+      ]
+    },
+    {
+      "chain": "mantle",
+      "chainId": 5000,
+      "address": "0x458ed78EB972a369799fb278c0243b25e5242A83",
+      "name": "wstETH (ERC20BridgedPermit)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged wstETH balance (plain ERC-20, non-rebasing)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bridged wstETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the L2 bridge or a DEX."
+        }
+      ]
+    },
+    {
+      "chain": "mode",
+      "chainId": 34443,
+      "address": "0x98f96A4B34D03a2E6f225B28b8f8Cb1279562d81",
+      "name": "wstETH (bridged)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged wstETH balance (plain ERC-20, non-rebasing)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bridged wstETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the L2 bridge or a DEX."
+        }
+      ]
+    },
+    {
+      "chain": "zircuit",
+      "chainId": 48900,
+      "address": "0xf0e673Bc224A8Ca3ff67a61605814666b1234833",
+      "name": "wstETH (ERC20Bridged)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged wstETH balance (plain ERC-20, non-rebasing)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bridged wstETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the L2 bridge or a DEX."
+        }
+      ]
+    },
+    {
+      "chain": "soneium",
+      "chainId": 1868,
+      "address": "0xaA9BD8c957D803466FA92504BDd728cC140f8941",
+      "name": "wstETH (ERC20BridgedPermit)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged wstETH balance (plain ERC-20, non-rebasing)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bridged wstETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the L2 bridge or a DEX."
+        }
+      ]
+    },
+    {
+      "chain": "soneium",
+      "chainId": 1868,
+      "address": "0x0Ce031AEd457C870D74914eCAA7971dd3176cDAF",
+      "name": "stETH (ERC20RebasableBridgedPermit)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "lisk",
+      "chainId": 1135,
+      "address": "0x76D8de471F54aAA87784119c60Df1bbFc852C415",
+      "name": "wstETH (ERC20Bridged)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged wstETH balance (plain ERC-20, non-rebasing)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bridged wstETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the L2 bridge or a DEX."
+        }
+      ]
+    },
+    {
+      "chain": "swellchain",
+      "chainId": 1923,
+      "address": "0x7c98E0779EB5924b3ba8cE3B17648539ed5b0Ecc",
+      "name": "wstETH (ERC20Bridged)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged wstETH balance (plain ERC-20, non-rebasing)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bridged wstETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the L2 bridge or a DEX."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x03b54A6e9a984069379fae1a4fC4dBAE93B3bCCD",
+      "name": "wstETH (UChildERC20, Polygon PoS)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.lido.fi/deployed-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged wstETH balance (plain ERC-20, non-rebasing)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bridged wstETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the L2 bridge or a DEX."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "stETH APR (7-day SMA)",
+      "url": "https://eth-api.lido.fi/v1/protocol/steth/apr/sma",
+      "auth": "none",
+      "use": "Read the 7-day moving-average staking APR (updates daily after the oracle report).",
+      "source": "https://docs.lido.fi/integrations/api/"
+    },
+    {
+      "name": "stETH APR (latest)",
+      "url": "https://eth-api.lido.fi/v1/protocol/steth/apr/last",
+      "auth": "none",
+      "use": "Read the latest daily staking APR.",
+      "source": "https://docs.lido.fi/integrations/api/"
+    },
+    {
+      "name": "Withdrawal time estimate",
+      "url": "https://wq-api.lido.fi/v2/request-time/calculate?amount=32",
+      "auth": "none",
+      "use": "Estimate wait time for a new withdrawal of a given stETH amount; /v2/request-time?ids=1&ids=2 for existing request IDs.",
+      "source": "https://docs.lido.fi/integrations/api/"
+    },
+    {
+      "name": "Reward history",
+      "url": "https://reward-history-backend.lido.fi/?address=0x12345",
+      "auth": "none",
+      "use": "Staking reward history for an address (replace the address parameter).",
+      "source": "https://docs.lido.fi/integrations/api/"
+    }
+  ],
+  "actions": [
+    {
+      "name": "stake",
+      "description": "Stake ETH for stETH",
+      "how": "stETH.submit(referral) with ETH value; check getCurrentStakeLimit() >= amount and isStakingPaused() == false first"
+    },
+    {
+      "name": "stake-to-wsteth",
+      "description": "Stake ETH straight into wstETH",
+      "how": "send plain ETH to the wstETH contract (receive), or wstETH referral staker stakeETH(referral)"
+    },
+    {
+      "name": "wrap",
+      "description": "Convert stETH to wstETH",
+      "how": "stETH.approve(wstETH, amount) then wstETH.wrap(amount)"
+    },
+    {
+      "name": "unwrap",
+      "description": "Convert wstETH to stETH",
+      "how": "wstETH.unwrap(amount)"
+    },
+    {
+      "name": "request-withdrawal",
+      "description": "Start unstaking stETH or wstETH to ETH",
+      "how": "approve WithdrawalQueueERC721, then requestWithdrawals(amounts, owner) or requestWithdrawalsWstETH(amounts, owner); split amounts over 1000 stETH into several entries"
+    },
+    {
+      "name": "check-withdrawal",
+      "description": "See whether requests are ready",
+      "how": "getWithdrawalRequests(owner) then getWithdrawalStatus(ids); isFinalized && !isClaimed means claimable"
+    },
+    {
+      "name": "claim-withdrawal",
+      "description": "Receive ETH for finalized requests",
+      "how": "hints = findCheckpointHints(sortedIds, 1, getLastCheckpointIndex()); then claimWithdrawals(sortedIds, hints)"
+    },
+    {
+      "name": "bridge-wsteth",
+      "description": "Move wstETH to an L2",
+      "how": "use the chain's L1 bridge/gateway listed under contracts (approve wstETH to it first); fetch the exact deposit function with get_abi"
+    }
+  ],
+  "risks": [
+    "stETH is rebasing: balances change roughly once a day with the oracle report, without Transfer events. Store shares (sharesOf) or use wstETH for accounting.",
+    "stETH transfers can deliver 1-2 wei less than requested (integer rounding), and a full-balance transfer can leave 1-2 wei behind; use transferShares for exact amounts.",
+    "Withdrawals are not instant: normally 1-5 days per Lido's help center, and longer depending on queue size, bunker mode, and the Beacon chain exit queue. Requests cannot be cancelled (the unstETH NFT is transferable).",
+    "Each withdrawal request must be between 100 wei and 1000 stETH; larger amounts must be split.",
+    "Claimed ETH is normally the value at request time, but can be discounted if significant losses occur before finalization (documented as never having happened on mainnet).",
+    "Staking has a rate limit (getCurrentStakeLimit) and can be paused; submit reverts if exceeded or paused.",
+    "Bridged wstETH on most L2s is a plain ERC-20: it cannot be unwrapped or withdrawn there, and it has no built-in exchange rate; use Lido/Chainlink rate feeds or bridge back to Ethereum.",
+    "Permit-based withdrawal requests can be front-run (griefing, no fund loss); fall back to the approve + requestWithdrawals path.",
+    "Core contracts are upgradeable proxies controlled by Lido DAO governance."
+  ],
+  "notes": "Contracts from Lido's official deployed-contracts page; proxies listed by proxy address (implementations omitted). On Ethereum, the Lido contract is the stETH token. Optimism, Unichain and Soneium also have bridged rebasable stETH with an in-protocol rate feed (TokenRateOracle) pushed from L1. BNB Chain wstETH is bridged via Wormhole NTT; Polygon PoS wstETH via the Polygon PoS bridge (ERC20Predicate on Ethereum 0x40ec5B33f54e0E8A33A975908C5BA1c14e5BbbDf). Bridge contracts for zkSync, Scroll, Mantle, Mode, Zircuit, Soneium, Lisk and Swellchain, plus Lido V3 (stVaults: VaultHub, OperatorGrid, etc.), oracles and other core contracts, are on https://docs.lido.fi/deployed-contracts/. Bridge keyFunctions are left empty on purpose: fetch their ABI with get_abi. LidoLocator returns the current addresses of all core protocol contracts.",
+  "sources": [
+    "https://docs.lido.fi/deployed-contracts/",
+    "https://docs.lido.fi/contracts/lido/",
+    "https://docs.lido.fi/contracts/wsteth/",
+    "https://docs.lido.fi/contracts/withdrawal-queue-erc721/",
+    "https://docs.lido.fi/contracts/staking-router/",
+    "https://docs.lido.fi/guides/lido-tokens-integration-guide/",
+    "https://docs.lido.fi/integrations/api/",
+    "https://help.lido.fi/en/articles/7858315-how-long-does-an-ethereum-withdrawal-take"
+  ],
+  "researchedAt": "2026-11-24"
+}
