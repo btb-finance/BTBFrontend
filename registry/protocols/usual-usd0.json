@@ -1,0 +1,780 @@
+{
+  "slug": "usual-usd0",
+  "name": "Usual USD0",
+  "category": "RWA",
+  "description": "Usual issues USD0, a stablecoin backed by tokenized US T-bills (USYC and other RWAs). Agents can mint or redeem USD0 against eligible RWA tokens through DaoCollateral, swap USDC and USD0 through the SwapperEngine order book, lock USD0 into the bUSD0 bond (matures 11 June 2028) and unlock it again with rt-bUSD0, save in sUSD0 (ERC-4626), and stake USUAL in USUALx.",
+  "website": "https://usual.money",
+  "docs": "https://tech.usual.money",
+  "defillama": "https://defillama.com/protocol/usual-usd0",
+  "chains": [
+    "ethereum",
+    "arbitrum",
+    "base",
+    "bsc"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x73A15FeD60Bf67631dC6cd7Bc5B6e8da8190aCF5",
+      "name": "USD0 (stablecoin)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USD0 balance (18 decimals)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total USD0 supply (18 decimals)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is blacklisted. Blacklisted addresses cannot send or receive USD0. Usual applies the OFAC SDN list."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. bUSD0 (to mint the bond), sUSD0 (to deposit) or the SwapperEngine (to fill USDC orders). DaoCollateral.redeem burns USD0 under its own role and needs no approval."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 permit: (owner, spender, value, deadline, v, r, s)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer USD0. Reverts if either side is blacklisted or the token is paused."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xde6e1F680C4816446C8D515989E2358636A38b04",
+      "name": "USD0 DaoCollateral (mint and redeem against RWAs)",
+      "role": "exchange",
+      "proxy": true,
+      "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+      "keyFunctions": [
+        {
+          "signature": "swap(address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint USD0 with an eligible RWA token: (rwaToken, amount in the RWA's decimals, minAmountOut in USD0 wei). Priced by Usual's ClassicalOracle. The RWA goes to the Usual treasury. Approve the RWA token to DaoCollateral first. The contract has no whitelist, but the RWA tokens themselves (e.g. USYC) are permissioned, so in practice only KYC'd holders can use this path."
+        },
+        {
+          "signature": "swapWithPermit(address,uint256,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as swap with an EIP-2612 permit on the RWA token: (rwaToken, amount, minAmountOut, deadline, v, r, s)."
+        },
+        {
+          "signature": "redeem(address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USD0 for an eligible RWA token: (rwaToken, USD0 amount in wei, minAmountOut in RWA decimals). A redemption fee of redeemFee() bps of 10,000 is charged in USD0 (5 = 0.05% on-chain on 2026-11-25; the docs quote 0.10%). If the Counter Bank Run mechanism is on, the RWA amount is cut by cbrCoef. You need to be able to hold the permissioned RWA token."
+        },
+        {
+          "signature": "redeemFee()",
+          "kind": "read",
+          "payable": false,
+          "description": "Redemption fee in basis points (out of 10,000)."
+        },
+        {
+          "signature": "isCBROn()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the Counter Bank Run mechanism is active (redemptions get cbrCoef() of par)."
+        },
+        {
+          "signature": "cbrCoef()",
+          "kind": "read",
+          "payable": false,
+          "description": "CBR haircut coefficient (1e18 = 100%), used only while isCBROn() is true."
+        },
+        {
+          "signature": "isSwapPaused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if minting (swap) is paused."
+        },
+        {
+          "signature": "isRedeemPaused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if redeem is paused."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "Global pause flag."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xB969B0d14F7682bAF37ba7c364b351B830a812B2",
+      "name": "USD0 SwapperEngine (USDC <-> USD0 order book)",
+      "role": "exchange",
+      "proxy": true,
+      "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+      "keyFunctions": [
+        {
+          "signature": "depositUSDC(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Open an order to buy USD0 with USDC (amount in USDC, 6 decimals). Must be at least minimumUSDCAmountProvided() (20,000 USDC on-chain on 2026-11-25; the docs mention a 100,000 USD0 launch-phase minimum). The order is filled later by a USD0 provider or a collateral provider through DaoCollateral at the oracle USDC price; USD0 is sent to you when filled. Approve USDC first. Permissionless."
+        },
+        {
+          "signature": "depositUSDCWithPermit(uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "depositUSDC with a USDC permit: (amount, deadline, v, r, s)."
+        },
+        {
+          "signature": "withdrawUSDC(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Cancel your open order and get back the unfilled USDC: (orderId)."
+        },
+        {
+          "signature": "swapUsd0(address,uint256,uint256[],bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell USD0 for USDC by filling open orders: (recipient of USDC, USD0 amount in wei, orderIds to take, partialMatchingAllowed). Returns USD0 actually provided. Approve USD0 to the SwapperEngine first. Permissionless, but only works while USDC orders are open."
+        },
+        {
+          "signature": "provideUsd0ReceiveUSDC(address,uint256,uint256[],bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as swapUsd0 but you name the USDC amount to take: (recipient, USDC amount in 6 decimals, orderIds, partialMatchingAllowed). Returns USD0 provided."
+        },
+        {
+          "signature": "getNextOrderId()",
+          "kind": "read",
+          "payable": false,
+          "description": "Next order id; existing orders are below it. Scan getOrder(id) to find active ones."
+        },
+        {
+          "signature": "getOrder(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (active, USDC amount remaining in 6 decimals) for an order id."
+        },
+        {
+          "signature": "minimumUSDCAmountProvided()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum USDC per new order (6 decimals)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "Pause flag."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x35D8949372D46B7a3D5A56006AE77B215fc69bC0",
+      "name": "bUSD0 (Bond USD0, formerly USD0++)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+      "keyFunctions": [
+        {
+          "signature": "mint(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Lock USD0 into the bond: you receive the same amount of bUSD0 and of rt-bUSD0 (18 decimals). Approve USD0 to bUSD0 first. USD0 is locked until getEndTime() (11 June 2028) unless you recombine with rt-bUSD0."
+        },
+        {
+          "signature": "mint(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint with separate recipients: (amountUsd0, bAssetRecipient for bUSD0, rAssetRecipient for rt-bUSD0)."
+        },
+        {
+          "signature": "mintWithPermit(uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "mint with a USD0 permit: (amountUsd0, deadline, v, r, s)."
+        },
+        {
+          "signature": "reconstruct(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit early at par: burns the same amount of bUSD0 and rt-bUSD0 from the caller and sends that much USD0 to assetRecipient: (amount, assetRecipient). rt-bUSD0 can be bought on secondary markets if you lack it."
+        },
+        {
+          "signature": "unlockUsd0ppFloorPrice(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit early without rt-bUSD0 at the DAO floor price: you receive amount * getFloorPrice() / 1e18 USD0 (0.92 on 2026-11-25); the difference goes to the Usual treasury."
+        },
+        {
+          "signature": "unwrap()",
+          "kind": "write",
+          "payable": false,
+          "description": "After maturity (getEndTime()), burns your whole bUSD0 balance for the same amount of USD0. Reverts before maturity."
+        },
+        {
+          "signature": "getFloorPrice()",
+          "kind": "read",
+          "payable": false,
+          "description": "Floor price for unlockUsd0ppFloorPrice (1e18 = 1 USD0)."
+        },
+        {
+          "signature": "getEndTime()",
+          "kind": "read",
+          "payable": false,
+          "description": "Bond maturity timestamp (1844335800 = 2028-06-11 11:30 UTC)."
+        },
+        {
+          "signature": "calculateRequiredUsual(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USUAL needed to unlock a bUSD0 amount early via unlockUSD0ppWithUsual (about 2.147 USUAL per bUSD0 on 2026-11-25; depends on DAO-set rate, duration factor and weekly outflows)."
+        },
+        {
+          "signature": "unlockUSD0ppWithUsual(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Early unlock 1:1 by paying USUAL: (bUSD0 amount, maxUsualAmount). Approve USUAL to bUSD0 first. Check calculateRequiredUsual first."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "bUSD0 balance (18 decimals). bUSD0 holders get daily USUAL rewards claimed through the Usual app (DistributionModule)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x82DCA22b48B14DE38ccf83B03330120c4b8acFe9",
+      "name": "rt-bUSD0 (bUSD0 redemption token)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "rt-bUSD0 balance (18 decimals). 1 rt-bUSD0 + 1 bUSD0 = 1 USD0 via bUSD0.reconstruct. Minted 1:1 alongside bUSD0."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer rt-bUSD0 (tradeable separately from bUSD0)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Standard ERC-20 approve. bUSD0.reconstruct burns rt-bUSD0 under its own role."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xd861bE82dEe3223CFBEd160791f6550b0704D406",
+      "name": "sUSD0 (USD0 Savings, ERC-4626)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit USD0 (approve first): (assets, receiver). Returns sUSD0 shares. Permissionless (blacklisted addresses excluded). Yield is minted daily by the Revenue Distribution Module and streamed over 24 hours."
+        },
+        {
+          "signature": "depositWithPermit(uint256,address,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit with a USD0 permit: (assets, receiver, deadline, v, r, s)."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares for USD0: (shares, receiver, owner). Instant, no cooldown. A withdrawal fee of withdrawFeeBps() is kept (3 bps on 2026-11-25)."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact USD0 amount net of fee: (assets, receiver, owner)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USD0 a redeem returns now, after the withdrawal fee."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USD0 per given shares (exchange rate, before fee)."
+        },
+        {
+          "signature": "withdrawFeeBps()",
+          "kind": "read",
+          "payable": false,
+          "description": "Withdrawal fee in bps (max 25%)."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "USD0 held plus vested yield."
+        },
+        {
+          "signature": "maxRedeem(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Max shares the owner can redeem."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xC4441c2BE5d8fA8126822B9929CA0b81Ea0DE38E",
+      "name": "USUAL (governance token)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USUAL balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve USUALx (to stake) or bUSD0 (to pay for unlockUSD0ppWithUsual)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer USUAL. Blacklisted addresses cannot send or receive."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x06B964d96f5dCF7Eae9d7C559B09EDCe244d4B8E",
+      "name": "USUALx (staked USUAL, ERC-4626)",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake USUAL (approve first): (assets, receiver). Returns USUALx shares (18 decimals). Rewards are USUAL streamed into the vault by the DistributionModule."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake: (shares, receiver, owner). Instant but charges withdrawFeeBps() (1000 = 10% on 2026-11-25). Shares locked in the USUALx Lockup cannot be redeemed until released."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact USUAL amount net of fee: (assets, receiver, owner)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USUAL a redeem returns now, after the withdrawal fee."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USUAL per given shares (exchange rate, before fee)."
+        },
+        {
+          "signature": "withdrawFeeBps()",
+          "kind": "read",
+          "payable": false,
+          "description": "Unstaking fee in bps (max 25%)."
+        },
+        {
+          "signature": "getYieldRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "USUAL (wei) streamed into the vault per day during the current yield period (YIELD_PRECISION = 1 day in the source)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x85B6F9BDdb10c6B320d07416a250F984f0F0E9ED",
+      "name": "USUALx Lockup",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+      "keyFunctions": [
+        {
+          "signature": "lock(address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Lock USUALx shares for a fixed term to get boosted rewards (boost computed off-chain): (receiver, USUALx amount, lockDuration in seconds). Approve USUALx to the Lockup first. Allowed durations are 1, 3, 6 and 12 months (1 month = 2,628,000 s); check getLockDurationStatus."
+        },
+        {
+          "signature": "release(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "After the lock ends, return the USUALx of a position to the user: (user, positionIndex)."
+        },
+        {
+          "signature": "releaseAndLock(address,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Release a matured position and lock again: (user, positionIndex, amount, lockDuration)."
+        },
+        {
+          "signature": "intraDayTopUp(address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add USUALx to a position created the same UTC day: (receiver, amount, positionIndex)."
+        },
+        {
+          "signature": "getAllPositions(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "All positions of a user as (amount, startTime, endTime, isActive)."
+        },
+        {
+          "signature": "getLockDurationStatus(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether a lock duration (seconds) is enabled."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Total USUALx locked by a user."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x75cC0C0DDD2Ccafe6EC415bE686267588011E36A",
+      "name": "USUAL DistributionModule (reward claims)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+      "keyFunctions": [
+        {
+          "signature": "claimOffChainDistribution(address,uint256,bytes32[],uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim USUAL rewards (e.g. for holding bUSD0): (account, cumulative amount, Merkle proof, partialClaimAmount). The cumulative amount and proof come from Usual's off-chain distribution (the app.usual.money Earn page); no public proof API is documented. Mints only the unclaimed part."
+        },
+        {
+          "signature": "getOffChainTokensClaimed(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USUAL already claimed by an account."
+        },
+        {
+          "signature": "getOffChainDistributionData()",
+          "kind": "read",
+          "payable": false,
+          "description": "(timestamp, merkleRoot) of the currently approved distribution, to pre-check a proof."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x35f1C5cB7Fb977E669fD244C567Da99d8a3a6850",
+      "name": "USD0 (Arbitrum, LayerZero OFT)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USD0 balance (18 decimals). Bridged from Ethereum through the USD0 LayerZero OFT adapter; mint/redeem only exists on Ethereum."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer USD0."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x2B65F9d2e4B84a2dF6ff0525741b75d1276a9C2F",
+      "name": "bUSD0 (Arbitrum, LayerZero OFT)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged bUSD0 balance (18 decimals). Reconstruct, floor unlock and unwrap only exist on Ethereum."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bUSD0."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x6A5D904519A2b605Da2D5DA7137ED5F4184F6513",
+      "name": "USUAL (Arbitrum, LayerZero OFT)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USUAL balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer USUAL."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x758a3e0b1F842C9306B783f8A4078C6C8C03a270",
+      "name": "USD0 (Base, Chainlink CCIP)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USD0 balance (18 decimals). Bridged from Ethereum via Chainlink CCIP (BurnMintTokenPool); mint/redeem only exists on Ethereum."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer USD0."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x4ACD4D03af6F9cc0fB7C5f0868B7b6287D7969c5",
+      "name": "USUAL (Base, Chainlink CCIP)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USUAL balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer USUAL."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x758a3e0b1F842C9306B783f8A4078C6C8C03a270",
+      "name": "USD0 (BNB Chain, Chainlink CCIP)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USD0 balance (18 decimals). Same address as on Base. Bridged via Chainlink CCIP; mint/redeem only exists on Ethereum."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer USD0."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x4ACD4D03af6F9cc0fB7C5f0868B7b6287D7969c5",
+      "name": "USUAL (BNB Chain, Chainlink CCIP)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USUAL balance (18 decimals). Same address as on Base."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer USUAL."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "buy USD0 with USDC (permissionless)",
+      "description": "Place a USDC order in the SwapperEngine; it is filled with USD0 at the oracle USDC price when a USD0 seller or collateral provider takes it.",
+      "how": "USDC.approve(SwapperEngine 0xB969B0d14F7682bAF37ba7c364b351B830a812B2, amount); SwapperEngine.depositUSDC(amount in 6 decimals, >= minimumUSDCAmountProvided()). Cancel the unfilled rest with withdrawUSDC(orderId). For small amounts the docs point to secondary markets (Curve USD0/USDC)."
+    },
+    {
+      "name": "sell USD0 for USDC (permissionless)",
+      "description": "Fill open USDC orders in the SwapperEngine with USD0.",
+      "how": "Find active orders with getNextOrderId() and getOrder(id); USD0.approve(SwapperEngine, amount); SwapperEngine.swapUsd0(recipient, USD0 amount in wei, orderIds, true)."
+    },
+    {
+      "name": "mint or redeem USD0 against RWAs",
+      "description": "Direct path for holders of eligible permissioned RWA tokens (e.g. USYC).",
+      "how": "Mint: rwa.approve(DaoCollateral 0xde6e1F680C4816446C8D515989E2358636A38b04, amt); DaoCollateral.swap(rwa, amt, minUsd0Out). Redeem: DaoCollateral.redeem(rwa, usd0Amount, minRwaOut); fee = redeemFee() bps."
+    },
+    {
+      "name": "lock USD0 into bUSD0",
+      "description": "Get bUSD0 (daily USUAL rewards) plus rt-bUSD0, 1:1 with USD0.",
+      "how": "USD0.approve(bUSD0 0x35D8949372D46B7a3D5A56006AE77B215fc69bC0, amt); bUSD0.mint(amt). The docs note bUSD0 may be cheaper on Curve when it trades below par."
+    },
+    {
+      "name": "exit bUSD0 early",
+      "description": "Three on-chain exits before 11 June 2028.",
+      "how": "At par with rt-bUSD0: bUSD0.reconstruct(amount, recipient) (needs equal rt-bUSD0). At the floor: bUSD0.unlockUsd0ppFloorPrice(amount) for amount * getFloorPrice()/1e18 USD0. Or sell on a DEX. After maturity: bUSD0.unwrap()."
+    },
+    {
+      "name": "save USD0 in sUSD0",
+      "description": "Earn T-bill yield on USD0 in an ERC-4626 vault, no lockup.",
+      "how": "USD0.approve(sUSD0 0xd861bE82dEe3223CFBEd160791f6550b0704D406, amt); sUSD0.deposit(amt, receiver). Exit with sUSD0.redeem(shares, receiver, owner) (withdrawFeeBps applies)."
+    },
+    {
+      "name": "stake USUAL",
+      "description": "Stake USUAL in USUALx; optionally lock USUALx for boosted rewards.",
+      "how": "USUAL.approve(USUALx 0x06B964d96f5dCF7Eae9d7C559B09EDCe244d4B8E, amt); USUALx.deposit(amt, receiver). To lock: USUALx.approve(Lockup 0x85B6F9BDdb10c6B320d07416a250F984f0F0E9ED, shares); Lockup.lock(receiver, shares, 2628000 * months)."
+    }
+  ],
+  "risks": [
+    "Minting USD0 directly needs a permissioned RWA token (e.g. USYC by Hashnote/Circle), which requires KYC with its issuer. Retail users reach USD0 through the SwapperEngine order book (minimum order size) or DEXs; secondary prices can deviate from $1.",
+    "bUSD0 is a bond: the USD0 inside is locked until 11 June 2028. Early exit at par needs an equal amount of rt-bUSD0; without it the protocol only pays the DAO floor price (0.92 USD0 on 2026-11-25) or you sell at market. bUSD0 has traded well below $1: in January 2025 a change to the then-USD0++ early-exit rules (floor redemption) was followed by a drop to roughly $0.89-0.92 (press reports, e.g. The Block; not on a current official page).",
+    "USUALx charges a withdrawal fee on unstaking (10% on-chain on 2026-11-25; the docs say a 10% fee may apply). sUSD0 charges 3 bps.",
+    "Admin powers: all core contracts are upgradeable transparent proxies; role holders can pause tokens, DaoCollateral and the SwapperEngine, blacklist addresses (USD0, bUSD0, USUAL, sUSD0, USUALx), change the redemption fee (capped by MAX_REDEEM_FEE) and the bUSD0 floor price, and turn on the Counter Bank Run mechanism, which cuts the RWA paid out on redemptions.",
+    "USD0 backing is off-chain-issued tokenized T-bills (USYC, M by M0, USDtb, USDC wrappers, etc.), so holders carry the issuers' custody and redemption risk.",
+    "USUAL rewards for bUSD0 are claimed with Merkle proofs produced by Usual off-chain; there is no documented public API for the proofs.",
+    "Audits listed by Usual: Cantina/Spearbit (May and Nov 2024), a Cantina public competition (June 2024), Paladin (L2 tokens and OFT adapters, Oct 2024), Halborn and Sherlock (V1, Nov 2024); DefiLlama also links a Hexens bUSD0 review (Nov 2025)."
+  ],
+  "notes": "All addresses are from Usual's official Contract Deployments page (tech.usual.money); every one has code on its chain and is an EIP-1967 proxy whose implementation is verified on Sourcify, where the signatures were taken. On-chain values (fees, floor price, maturity, minimum order) were read on 2026-11-25. Left out on purpose: USD0a, EUR0 (+ sEUR0) and ETH0, which are separate Usual stablecoins with their own DaoCollateral/SwapperEngine (listed on the same page); TAC-chain deployments (no RPC check done); registry, token-mapping, oracle, treasury and bridge adapter contracts (LayerZero OFT adapters and CCIP pools are listed on the same page); USUALS/USUALSP and the airdrop contracts (legacy); the documented USD0RewardsClaim contract, because the Revenue Distribution Module currently points its reward-claim buckets at a different, undocumented contract; and the usUSDS++ investment vault. Arbitrum also has a bUSD0 bridge; Base and BNB use Chainlink CCIP for USD0 and USUAL. DefiLlama lists Ethereum only, which is where all mint/redeem/bond logic lives.",
+  "sources": [
+    "https://tech.usual.money/smart-contracts/contract-deployments",
+    "https://tech.usual.money/smart-contracts/token-contracts/usd0",
+    "https://tech.usual.money/smart-contracts/token-contracts/usd0++",
+    "https://tech.usual.money/smart-contracts/token-contracts/susd0",
+    "https://tech.usual.money/smart-contracts/token-contracts/usual",
+    "https://tech.usual.money/smart-contracts/token-contracts/usualx",
+    "https://tech.usual.money/smart-contracts/protocol-contracts/usd0/usd0-daocollateral",
+    "https://tech.usual.money/smart-contracts/protocol-contracts/usd0/usd0-swapper-engine",
+    "https://tech.usual.money/smart-contracts/protocol-contracts/usd0/usd0-revenue-distribution-module",
+    "https://tech.usual.money/smart-contracts/protocol-contracts/usual/usualx-lockup-contract",
+    "https://tech.usual.money/smart-contracts/protocol-contracts/usual/usual-distribution/distribution-module",
+    "https://tech.usual.money/overview/features/usd0++",
+    "https://tech.usual.money/overview/features/mint-and-redeem-engine",
+    "https://tech.usual.money/integrations/integrate-busd0",
+    "https://tech.usual.money/security-and-audits/audits",
+    "https://docs.usual.money/usual-products/usd0-stablecoin/usd0/flow-and-architecture",
+    "https://docs.usual.money/usual-products/yield-products/usd-products/bond-usd0",
+    "https://docs.usual.money/usual-products/yield-products/usd-products/usd0-savings",
+    "https://docs.usual.money/llms-full.txt",
+    "https://sourcify.dev/server/v2/contract/1/0xae12f6f805842e6dafe71a6d2b41b28ba5fc821e",
+    "https://sourcify.dev/server/v2/contract/1/0x0eec861d49f15f585d6bb4301fc4f89bce22af4e",
+    "https://sourcify.dev/server/v2/contract/1/0xf65b0c88f65d620ea325ffb1ad46a5ba8a6e57d3",
+    "https://sourcify.dev/server/v2/contract/1/0x9f2bd21bf8012fce0d5845537c1deff3a89bc85b",
+    "https://sourcify.dev/server/v2/contract/1/0x35afced133786a3e57fd1fe4c4ce32e48a1d94c4",
+    "https://sourcify.dev/server/v2/contract/1/0xe5a90e1a154d9444356a9dfa27bb164feee847bf",
+    "https://sourcify.dev/server/v2/contract/1/0x2b65f9d2e4b84a2df6ff0525741b75d1276a9c2f",
+    "https://sourcify.dev/server/v2/contract/1/0x236ce5ed9e077ae63460148f860ed39d1b8808e9",
+    "https://sourcify.dev/server/v2/contract/1/0x395473d03fafd7d189ce0e2d24f97fe0d7181b4b",
+    "https://sourcify.dev/server/v2/contract/1/0x93b25d31dc51f9734b5fe0477cb290b2efa2ca66",
+    "https://sourcify.dev/server/v2/contract/1/0x45864fedf7a9b4795a06ac1c8979025c52a75375",
+    "https://www.theblock.co/post/333995/usual-money-protocol-update",
+    "https://defillama.com/protocol/usual-usd0",
+    "https://api.llama.fi/protocol/usual-usd0",
+    "https://ethereum-rpc.publicnode.com",
+    "https://arb1.arbitrum.io/rpc",
+    "https://mainnet.base.org",
+    "https://bsc-dataseed.binance.org"
+  ],
+  "researchedAt": "2026-11-25"
+}

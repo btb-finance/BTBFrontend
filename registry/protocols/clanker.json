@@ -1,0 +1,1338 @@
+{
+  "slug": "clanker",
+  "name": "Clanker",
+  "category": "Launchpad",
+  "description": "Clanker is a permissionless token launchpad (Farcaster bot, clanker.world, API and contracts). Clanker v5, the current version, launches fixed-supply ERC-20s into Uniswap v4 pools whose hook charges a 1-10% buy/sell tax that pays Clanker, the creator's reward recipients and optional holder dividends, burns and an integrator. An agent can launch tokens (partner API or factory.createLaunch), read pool tax terms, claim creator rewards from the FeeEscrow and claim holder dividends.",
+  "website": "https://www.clanker.world",
+  "docs": "https://clanker.gitbook.io/documentation",
+  "defillama": "https://defillama.com/protocol/clanker",
+  "chains": [
+    "base",
+    "bsc",
+    "monad",
+    "robinhood",
+    "xlayer",
+    "arc"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x572e88D3cD7f23E4241EB6ceDD96667271bF09A0",
+      "name": "Clanker v5 Factory (TaxRWAERC20LaunchpadFactory)",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/core-contracts/v5",
+      "keyFunctions": [
+        {
+          "signature": "createLaunch((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+          "kind": "write",
+          "payable": true,
+          "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Deploy a v5 token (fixed 1B supply, 18 decimals, no owner/minter) and its Uniswap v4 pool with all supply as locked single-sided liquidity. msg.value must equal nativeLaunchFee() (0 on 2026-11-25). Rules: expectedConfigVersion must equal configVersion() (else StaleConfig); up to 7 feeSlots whose relativeWeightBps sum to 10000; rates/shares use 1e8 = 100%; buy/sell tax within the policy (1%-10%); the four allocation shares sum to 1e8; quoteToken must be registered (quoteConfig); the predicted token address must end in 'cccc', so creatorSalt has to be mined (see launchTokenInitCodeHash). Most integrators use the Clanker API or clanker-sdk/v5 instead. Returns (token, poolId)."
+        },
+        {
+          "signature": "createLaunchAndBuy((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool),(address,uint256,uint256,bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled),(address fundingToken,uint256 amountIn,uint256 minAmountOut,bytes routeData)). Same as createLaunch plus a first (creator) buy in the same transaction through the Launch Buy Adapter; the creator buy does not pay the sniper fee. Returns (token, poolId, amountOut)."
+        },
+        {
+          "signature": "previewTaxConfiguration((uint32,uint32,uint32,uint32,uint32,uint32,uint256))",
+          "kind": "read",
+          "payable": false,
+          "description": "Params: ((uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding)). Check a tax configuration against the current policy before launching: returns (configVersion, buyRates, sellRates, dividendsEnabled, minimumDividendHoldingRequirement); each rate struct is (quoteRate, burnRate, protocolRate, creatorRate, dividendRate, integratorRate, surchargeRate)."
+        },
+        {
+          "signature": "configVersion()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current launch-settings version; pass it as expectedConfigVersion."
+        },
+        {
+          "signature": "taxPolicy()",
+          "kind": "read",
+          "payable": false,
+          "description": "Launch policy: ((minBuyTax, maxBuyTax, minSellTax, maxSellTax), (protocolTaxShare, minimumProtocolFeeRate, maximumProtocolFeeRate, protocolFeeRecipient), (antiSnipe startTotalFeeRate, windowSeconds), minimumDividendHoldingRequirement)."
+        },
+        {
+          "signature": "quoteConfig(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(registered, quoteDecimals, startTickToken0Frame) for a quote (pair) token. Native coin pairs use the zero address in the pool."
+        },
+        {
+          "signature": "launchCreationEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "False when new launches are paused by the owner."
+        },
+        {
+          "signature": "nativeLaunchFee()",
+          "kind": "read",
+          "payable": false,
+          "description": "Required msg.value for createLaunch (wei)."
+        },
+        {
+          "signature": "launchTokenInitCodeHash((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+          "kind": "read",
+          "payable": false,
+          "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Init code hash used to predict the token address for given launch params (to search a creatorSalt that yields an address ending in cccc)."
+        },
+        {
+          "signature": "isLaunchToken(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True only if this factory launched the token. Use it to tell a real Clanker v5 token from a look-alike."
+        },
+        {
+          "signature": "creatorRights(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(originalCreator, currentCreator, pendingCreator, creatorFeeRecipient, poolId, metadataEditable) for a token."
+        },
+        {
+          "signature": "dividendOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "The token's holder-dividend contract, or zero if dividends are off. Holders claim there with withdrawDividendsFor(holder, unwrapWrappedNative)."
+        },
+        {
+          "signature": "setCreatorFeeRecipient(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Current creator only: change the recipient of the creator's reward slot (token, newRecipient)."
+        },
+        {
+          "signature": "updateTokenExtraMetadata(address,string,string)",
+          "kind": "write",
+          "payable": false,
+          "description": "Current creator only, if metadataEditable: set a metadata key/value; ('verified','true') verifies the token."
+        },
+        {
+          "signature": "hook()",
+          "kind": "read",
+          "payable": false,
+          "description": "The v5 hook for this chain; hook.feeEscrow() gives the FeeEscrow."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x5E320eA6278107968C119942E57d876c5F922AcC",
+      "name": "Clanker v5 Hook (TaxLaunchHook, Uniswap v4 hook)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/core-contracts/v5",
+      "keyFunctions": [
+        {
+          "signature": "poolConfig(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool state by poolId: (initialized, tokenIsCurrency0, token, quoteToken, currentCreator, creatorFeeRecipient, protocolFeeConfiguration, antiSnipeConfiguration, launchTime, antiSnipeEnabled, integratorFeeRecipient, dividend, taxConfiguration). Terms are frozen at launch."
+        },
+        {
+          "signature": "effectiveFeeRates(bytes32,bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current rates for a buy (true) or sell (false), including any sniper surcharge, and whether exact-output swaps are blocked (they are during the 20 s sniper window). Check before trading a fresh token."
+        },
+        {
+          "signature": "poolFeeSlots(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Reward recipients of a pool: (recipient, admin, weightBps, isCreator)[]."
+        },
+        {
+          "signature": "updateFeeSlotRecipient(bytes32,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Slot admin only: change the recipient of a reward slot (poolId, slotIndex, newRecipient). The creator slot follows creator rights on the factory instead."
+        },
+        {
+          "signature": "updateFeeSlotAdmin(bytes32,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Slot admin only: hand the slot's admin role to another address."
+        },
+        {
+          "signature": "feeEscrow()",
+          "kind": "read",
+          "payable": false,
+          "description": "FeeEscrow that holds all credited rewards."
+        },
+        {
+          "signature": "factory()",
+          "kind": "read",
+          "payable": false,
+          "description": "The v5 factory."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x5dd237d1f716C65426CCd2FAe82B95109825FA61",
+      "name": "Clanker v5 FeeEscrow (creator/integrator rewards)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/core-contracts/v5",
+      "keyFunctions": [
+        {
+          "signature": "owed(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimable balance of recipient in currency (zero address = native coin). One balance per recipient+currency across ALL of that recipient's v5 tokens."
+        },
+        {
+          "signature": "claimFor(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless: pay recipient's whole balance in currency to the recipient (recipient, currency)."
+        },
+        {
+          "signature": "claimTo(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Pay the caller's whole balance in currency to destination (currency, destination)."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xe896454E417400a9d7766497764e4dEBf91534BD",
+      "name": "Clanker v5 Dividend Claim Helper",
+      "role": "other",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/core-contracts/v5",
+      "keyFunctions": [
+        {
+          "signature": "claimDividends((address,bool)[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Params: ((address token,bool unwrapWrappedNative)[]). Claim the caller's holder dividends from up to 64 v5 tokens in one call; each token once. unwrapWrappedNative=true pays the native coin instead of the wrapped token on native-pair tokens. Returns (paidCount, paid[])."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x1B417526da9737cA99956e32cdfB674d6C9f097a",
+      "name": "Clanker v5 Announcement Registry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/core-contracts/v5",
+      "keyFunctions": [
+        {
+          "signature": "postAnnouncement(address,bytes32,string,string)",
+          "kind": "write",
+          "payable": false,
+          "description": "Token's current creator only: post an announcement (token, announcementId, description, announcementURI); each id once per token."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xcA111dcdd2cE924c3378d6514fDCbC46217bcA16",
+      "name": "Clanker v5 Factory (TaxRWAERC20LaunchpadFactory)",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "createLaunch((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+          "kind": "write",
+          "payable": true,
+          "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Deploy a v5 token (fixed 1B supply, 18 decimals, no owner/minter) and its Uniswap v4 pool with all supply as locked single-sided liquidity. msg.value must equal nativeLaunchFee() (0 on 2026-11-25). Rules: expectedConfigVersion must equal configVersion() (else StaleConfig); up to 7 feeSlots whose relativeWeightBps sum to 10000; rates/shares use 1e8 = 100%; buy/sell tax within the policy (1%-10%); the four allocation shares sum to 1e8; quoteToken must be registered (quoteConfig); the predicted token address must end in 'cccc', so creatorSalt has to be mined (see launchTokenInitCodeHash). Most integrators use the Clanker API or clanker-sdk/v5 instead. Returns (token, poolId)."
+        },
+        {
+          "signature": "createLaunchAndBuy((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool),(address,uint256,uint256,bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled),(address fundingToken,uint256 amountIn,uint256 minAmountOut,bytes routeData)). Same as createLaunch plus a first (creator) buy in the same transaction through the Launch Buy Adapter; the creator buy does not pay the sniper fee. Returns (token, poolId, amountOut)."
+        },
+        {
+          "signature": "previewTaxConfiguration((uint32,uint32,uint32,uint32,uint32,uint32,uint256))",
+          "kind": "read",
+          "payable": false,
+          "description": "Params: ((uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding)). Check a tax configuration against the current policy before launching: returns (configVersion, buyRates, sellRates, dividendsEnabled, minimumDividendHoldingRequirement); each rate struct is (quoteRate, burnRate, protocolRate, creatorRate, dividendRate, integratorRate, surchargeRate)."
+        },
+        {
+          "signature": "configVersion()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current launch-settings version; pass it as expectedConfigVersion."
+        },
+        {
+          "signature": "taxPolicy()",
+          "kind": "read",
+          "payable": false,
+          "description": "Launch policy: ((minBuyTax, maxBuyTax, minSellTax, maxSellTax), (protocolTaxShare, minimumProtocolFeeRate, maximumProtocolFeeRate, protocolFeeRecipient), (antiSnipe startTotalFeeRate, windowSeconds), minimumDividendHoldingRequirement)."
+        },
+        {
+          "signature": "quoteConfig(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(registered, quoteDecimals, startTickToken0Frame) for a quote (pair) token. Native coin pairs use the zero address in the pool."
+        },
+        {
+          "signature": "launchCreationEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "False when new launches are paused by the owner."
+        },
+        {
+          "signature": "nativeLaunchFee()",
+          "kind": "read",
+          "payable": false,
+          "description": "Required msg.value for createLaunch (wei)."
+        },
+        {
+          "signature": "launchTokenInitCodeHash((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+          "kind": "read",
+          "payable": false,
+          "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Init code hash used to predict the token address for given launch params (to search a creatorSalt that yields an address ending in cccc)."
+        },
+        {
+          "signature": "isLaunchToken(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True only if this factory launched the token. Use it to tell a real Clanker v5 token from a look-alike."
+        },
+        {
+          "signature": "creatorRights(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(originalCreator, currentCreator, pendingCreator, creatorFeeRecipient, poolId, metadataEditable) for a token."
+        },
+        {
+          "signature": "dividendOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "The token's holder-dividend contract, or zero if dividends are off. Holders claim there with withdrawDividendsFor(holder, unwrapWrappedNative)."
+        },
+        {
+          "signature": "setCreatorFeeRecipient(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Current creator only: change the recipient of the creator's reward slot (token, newRecipient)."
+        },
+        {
+          "signature": "updateTokenExtraMetadata(address,string,string)",
+          "kind": "write",
+          "payable": false,
+          "description": "Current creator only, if metadataEditable: set a metadata key/value; ('verified','true') verifies the token."
+        },
+        {
+          "signature": "hook()",
+          "kind": "read",
+          "payable": false,
+          "description": "The v5 hook for this chain; hook.feeEscrow() gives the FeeEscrow."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xA8F0c64D5E5CF05379c13263EbdD03e8A835EACC",
+      "name": "Clanker v5 Hook (TaxLaunchHook, Uniswap v4 hook)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "poolConfig(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool state by poolId: (initialized, tokenIsCurrency0, token, quoteToken, currentCreator, creatorFeeRecipient, protocolFeeConfiguration, antiSnipeConfiguration, launchTime, antiSnipeEnabled, integratorFeeRecipient, dividend, taxConfiguration). Terms are frozen at launch."
+        },
+        {
+          "signature": "effectiveFeeRates(bytes32,bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current rates for a buy (true) or sell (false), including any sniper surcharge, and whether exact-output swaps are blocked (they are during the 20 s sniper window). Check before trading a fresh token."
+        },
+        {
+          "signature": "poolFeeSlots(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Reward recipients of a pool: (recipient, admin, weightBps, isCreator)[]."
+        },
+        {
+          "signature": "updateFeeSlotRecipient(bytes32,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Slot admin only: change the recipient of a reward slot (poolId, slotIndex, newRecipient). The creator slot follows creator rights on the factory instead."
+        },
+        {
+          "signature": "updateFeeSlotAdmin(bytes32,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Slot admin only: hand the slot's admin role to another address."
+        },
+        {
+          "signature": "feeEscrow()",
+          "kind": "read",
+          "payable": false,
+          "description": "FeeEscrow that holds all credited rewards."
+        },
+        {
+          "signature": "factory()",
+          "kind": "read",
+          "payable": false,
+          "description": "The v5 factory."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xFBB6e837A2eA96d6b4beb4788c2749Cf34A997e7",
+      "name": "Clanker v5 FeeEscrow (creator/integrator rewards)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "owed(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimable balance of recipient in currency (zero address = native coin). One balance per recipient+currency across ALL of that recipient's v5 tokens."
+        },
+        {
+          "signature": "claimFor(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless: pay recipient's whole balance in currency to the recipient (recipient, currency)."
+        },
+        {
+          "signature": "claimTo(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Pay the caller's whole balance in currency to destination (currency, destination)."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xdb525d50c70b9303115bA19503761756136d2B49",
+      "name": "Clanker v5 Dividend Claim Helper",
+      "role": "other",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "claimDividends((address,bool)[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Params: ((address token,bool unwrapWrappedNative)[]). Claim the caller's holder dividends from up to 64 v5 tokens in one call; each token once. unwrapWrappedNative=true pays the native coin instead of the wrapped token on native-pair tokens. Returns (paidCount, paid[])."
+        }
+      ]
+    },
+    {
+      "chain": "monad",
+      "chainId": 143,
+      "address": "0xcA111dcdd2cE924c3378d6514fDCbC46217bcA16",
+      "name": "Clanker v5 Factory (TaxRWAERC20LaunchpadFactory)",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "createLaunch((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+          "kind": "write",
+          "payable": true,
+          "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Deploy a v5 token (fixed 1B supply, 18 decimals, no owner/minter) and its Uniswap v4 pool with all supply as locked single-sided liquidity. msg.value must equal nativeLaunchFee() (0 on 2026-11-25). Rules: expectedConfigVersion must equal configVersion() (else StaleConfig); up to 7 feeSlots whose relativeWeightBps sum to 10000; rates/shares use 1e8 = 100%; buy/sell tax within the policy (1%-10%); the four allocation shares sum to 1e8; quoteToken must be registered (quoteConfig); the predicted token address must end in 'cccc', so creatorSalt has to be mined (see launchTokenInitCodeHash). Most integrators use the Clanker API or clanker-sdk/v5 instead. Returns (token, poolId)."
+        },
+        {
+          "signature": "createLaunchAndBuy((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool),(address,uint256,uint256,bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled),(address fundingToken,uint256 amountIn,uint256 minAmountOut,bytes routeData)). Same as createLaunch plus a first (creator) buy in the same transaction through the Launch Buy Adapter; the creator buy does not pay the sniper fee. Returns (token, poolId, amountOut)."
+        },
+        {
+          "signature": "previewTaxConfiguration((uint32,uint32,uint32,uint32,uint32,uint32,uint256))",
+          "kind": "read",
+          "payable": false,
+          "description": "Params: ((uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding)). Check a tax configuration against the current policy before launching: returns (configVersion, buyRates, sellRates, dividendsEnabled, minimumDividendHoldingRequirement); each rate struct is (quoteRate, burnRate, protocolRate, creatorRate, dividendRate, integratorRate, surchargeRate)."
+        },
+        {
+          "signature": "configVersion()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current launch-settings version; pass it as expectedConfigVersion."
+        },
+        {
+          "signature": "taxPolicy()",
+          "kind": "read",
+          "payable": false,
+          "description": "Launch policy: ((minBuyTax, maxBuyTax, minSellTax, maxSellTax), (protocolTaxShare, minimumProtocolFeeRate, maximumProtocolFeeRate, protocolFeeRecipient), (antiSnipe startTotalFeeRate, windowSeconds), minimumDividendHoldingRequirement)."
+        },
+        {
+          "signature": "quoteConfig(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(registered, quoteDecimals, startTickToken0Frame) for a quote (pair) token. Native coin pairs use the zero address in the pool."
+        },
+        {
+          "signature": "launchCreationEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "False when new launches are paused by the owner."
+        },
+        {
+          "signature": "nativeLaunchFee()",
+          "kind": "read",
+          "payable": false,
+          "description": "Required msg.value for createLaunch (wei)."
+        },
+        {
+          "signature": "launchTokenInitCodeHash((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+          "kind": "read",
+          "payable": false,
+          "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Init code hash used to predict the token address for given launch params (to search a creatorSalt that yields an address ending in cccc)."
+        },
+        {
+          "signature": "isLaunchToken(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True only if this factory launched the token. Use it to tell a real Clanker v5 token from a look-alike."
+        },
+        {
+          "signature": "creatorRights(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(originalCreator, currentCreator, pendingCreator, creatorFeeRecipient, poolId, metadataEditable) for a token."
+        },
+        {
+          "signature": "dividendOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "The token's holder-dividend contract, or zero if dividends are off. Holders claim there with withdrawDividendsFor(holder, unwrapWrappedNative)."
+        },
+        {
+          "signature": "setCreatorFeeRecipient(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Current creator only: change the recipient of the creator's reward slot (token, newRecipient)."
+        },
+        {
+          "signature": "updateTokenExtraMetadata(address,string,string)",
+          "kind": "write",
+          "payable": false,
+          "description": "Current creator only, if metadataEditable: set a metadata key/value; ('verified','true') verifies the token."
+        },
+        {
+          "signature": "hook()",
+          "kind": "read",
+          "payable": false,
+          "description": "The v5 hook for this chain; hook.feeEscrow() gives the FeeEscrow."
+        }
+      ]
+    },
+    {
+      "chain": "monad",
+      "chainId": 143,
+      "address": "0x58E0cE0ba45002DFF608e2f04C0B88075eD4aAcC",
+      "name": "Clanker v5 Hook (TaxLaunchHook, Uniswap v4 hook)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "poolConfig(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool state by poolId: (initialized, tokenIsCurrency0, token, quoteToken, currentCreator, creatorFeeRecipient, protocolFeeConfiguration, antiSnipeConfiguration, launchTime, antiSnipeEnabled, integratorFeeRecipient, dividend, taxConfiguration). Terms are frozen at launch."
+        },
+        {
+          "signature": "effectiveFeeRates(bytes32,bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current rates for a buy (true) or sell (false), including any sniper surcharge, and whether exact-output swaps are blocked (they are during the 20 s sniper window). Check before trading a fresh token."
+        },
+        {
+          "signature": "poolFeeSlots(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Reward recipients of a pool: (recipient, admin, weightBps, isCreator)[]."
+        },
+        {
+          "signature": "updateFeeSlotRecipient(bytes32,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Slot admin only: change the recipient of a reward slot (poolId, slotIndex, newRecipient). The creator slot follows creator rights on the factory instead."
+        },
+        {
+          "signature": "updateFeeSlotAdmin(bytes32,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Slot admin only: hand the slot's admin role to another address."
+        },
+        {
+          "signature": "feeEscrow()",
+          "kind": "read",
+          "payable": false,
+          "description": "FeeEscrow that holds all credited rewards."
+        },
+        {
+          "signature": "factory()",
+          "kind": "read",
+          "payable": false,
+          "description": "The v5 factory."
+        }
+      ]
+    },
+    {
+      "chain": "monad",
+      "chainId": 143,
+      "address": "0xFBB6e837A2eA96d6b4beb4788c2749Cf34A997e7",
+      "name": "Clanker v5 FeeEscrow (creator/integrator rewards)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "owed(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimable balance of recipient in currency (zero address = native coin). One balance per recipient+currency across ALL of that recipient's v5 tokens."
+        },
+        {
+          "signature": "claimFor(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless: pay recipient's whole balance in currency to the recipient (recipient, currency)."
+        },
+        {
+          "signature": "claimTo(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Pay the caller's whole balance in currency to destination (currency, destination)."
+        }
+      ]
+    },
+    {
+      "chain": "monad",
+      "chainId": 143,
+      "address": "0xdb525d50c70b9303115bA19503761756136d2B49",
+      "name": "Clanker v5 Dividend Claim Helper",
+      "role": "other",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "claimDividends((address,bool)[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Params: ((address token,bool unwrapWrappedNative)[]). Claim the caller's holder dividends from up to 64 v5 tokens in one call; each token once. unwrapWrappedNative=true pays the native coin instead of the wrapped token on native-pair tokens. Returns (paidCount, paid[])."
+        }
+      ]
+    },
+    {
+      "chain": "robinhood",
+      "chainId": 4663,
+      "address": "0xcA111dcdd2cE924c3378d6514fDCbC46217bcA16",
+      "name": "Clanker v5 Factory (TaxRWAERC20LaunchpadFactory)",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "createLaunch((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+          "kind": "write",
+          "payable": true,
+          "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Deploy a v5 token (fixed 1B supply, 18 decimals, no owner/minter) and its Uniswap v4 pool with all supply as locked single-sided liquidity. msg.value must equal nativeLaunchFee() (0 on 2026-11-25). Rules: expectedConfigVersion must equal configVersion() (else StaleConfig); up to 7 feeSlots whose relativeWeightBps sum to 10000; rates/shares use 1e8 = 100%; buy/sell tax within the policy (1%-10%); the four allocation shares sum to 1e8; quoteToken must be registered (quoteConfig); the predicted token address must end in 'cccc', so creatorSalt has to be mined (see launchTokenInitCodeHash). Most integrators use the Clanker API or clanker-sdk/v5 instead. Returns (token, poolId)."
+        },
+        {
+          "signature": "createLaunchAndBuy((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool),(address,uint256,uint256,bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled),(address fundingToken,uint256 amountIn,uint256 minAmountOut,bytes routeData)). Same as createLaunch plus a first (creator) buy in the same transaction through the Launch Buy Adapter; the creator buy does not pay the sniper fee. Returns (token, poolId, amountOut)."
+        },
+        {
+          "signature": "previewTaxConfiguration((uint32,uint32,uint32,uint32,uint32,uint32,uint256))",
+          "kind": "read",
+          "payable": false,
+          "description": "Params: ((uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding)). Check a tax configuration against the current policy before launching: returns (configVersion, buyRates, sellRates, dividendsEnabled, minimumDividendHoldingRequirement); each rate struct is (quoteRate, burnRate, protocolRate, creatorRate, dividendRate, integratorRate, surchargeRate)."
+        },
+        {
+          "signature": "configVersion()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current launch-settings version; pass it as expectedConfigVersion."
+        },
+        {
+          "signature": "taxPolicy()",
+          "kind": "read",
+          "payable": false,
+          "description": "Launch policy: ((minBuyTax, maxBuyTax, minSellTax, maxSellTax), (protocolTaxShare, minimumProtocolFeeRate, maximumProtocolFeeRate, protocolFeeRecipient), (antiSnipe startTotalFeeRate, windowSeconds), minimumDividendHoldingRequirement)."
+        },
+        {
+          "signature": "quoteConfig(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(registered, quoteDecimals, startTickToken0Frame) for a quote (pair) token. Native coin pairs use the zero address in the pool."
+        },
+        {
+          "signature": "launchCreationEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "False when new launches are paused by the owner."
+        },
+        {
+          "signature": "nativeLaunchFee()",
+          "kind": "read",
+          "payable": false,
+          "description": "Required msg.value for createLaunch (wei)."
+        },
+        {
+          "signature": "launchTokenInitCodeHash((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+          "kind": "read",
+          "payable": false,
+          "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Init code hash used to predict the token address for given launch params (to search a creatorSalt that yields an address ending in cccc)."
+        },
+        {
+          "signature": "isLaunchToken(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True only if this factory launched the token. Use it to tell a real Clanker v5 token from a look-alike."
+        },
+        {
+          "signature": "creatorRights(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(originalCreator, currentCreator, pendingCreator, creatorFeeRecipient, poolId, metadataEditable) for a token."
+        },
+        {
+          "signature": "dividendOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "The token's holder-dividend contract, or zero if dividends are off. Holders claim there with withdrawDividendsFor(holder, unwrapWrappedNative)."
+        },
+        {
+          "signature": "setCreatorFeeRecipient(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Current creator only: change the recipient of the creator's reward slot (token, newRecipient)."
+        },
+        {
+          "signature": "updateTokenExtraMetadata(address,string,string)",
+          "kind": "write",
+          "payable": false,
+          "description": "Current creator only, if metadataEditable: set a metadata key/value; ('verified','true') verifies the token."
+        },
+        {
+          "signature": "hook()",
+          "kind": "read",
+          "payable": false,
+          "description": "The v5 hook for this chain; hook.feeEscrow() gives the FeeEscrow."
+        }
+      ]
+    },
+    {
+      "chain": "robinhood",
+      "chainId": 4663,
+      "address": "0x565189a6780D1a50FC1792F64db8e4881119AaCC",
+      "name": "Clanker v5 Hook (TaxLaunchHook, Uniswap v4 hook)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "poolConfig(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool state by poolId: (initialized, tokenIsCurrency0, token, quoteToken, currentCreator, creatorFeeRecipient, protocolFeeConfiguration, antiSnipeConfiguration, launchTime, antiSnipeEnabled, integratorFeeRecipient, dividend, taxConfiguration). Terms are frozen at launch."
+        },
+        {
+          "signature": "effectiveFeeRates(bytes32,bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current rates for a buy (true) or sell (false), including any sniper surcharge, and whether exact-output swaps are blocked (they are during the 20 s sniper window). Check before trading a fresh token."
+        },
+        {
+          "signature": "poolFeeSlots(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Reward recipients of a pool: (recipient, admin, weightBps, isCreator)[]."
+        },
+        {
+          "signature": "updateFeeSlotRecipient(bytes32,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Slot admin only: change the recipient of a reward slot (poolId, slotIndex, newRecipient). The creator slot follows creator rights on the factory instead."
+        },
+        {
+          "signature": "updateFeeSlotAdmin(bytes32,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Slot admin only: hand the slot's admin role to another address."
+        },
+        {
+          "signature": "feeEscrow()",
+          "kind": "read",
+          "payable": false,
+          "description": "FeeEscrow that holds all credited rewards."
+        },
+        {
+          "signature": "factory()",
+          "kind": "read",
+          "payable": false,
+          "description": "The v5 factory."
+        }
+      ]
+    },
+    {
+      "chain": "robinhood",
+      "chainId": 4663,
+      "address": "0xFBB6e837A2eA96d6b4beb4788c2749Cf34A997e7",
+      "name": "Clanker v5 FeeEscrow (creator/integrator rewards)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "owed(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimable balance of recipient in currency (zero address = native coin). One balance per recipient+currency across ALL of that recipient's v5 tokens."
+        },
+        {
+          "signature": "claimFor(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless: pay recipient's whole balance in currency to the recipient (recipient, currency)."
+        },
+        {
+          "signature": "claimTo(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Pay the caller's whole balance in currency to destination (currency, destination)."
+        }
+      ]
+    },
+    {
+      "chain": "robinhood",
+      "chainId": 4663,
+      "address": "0xdb525d50c70b9303115bA19503761756136d2B49",
+      "name": "Clanker v5 Dividend Claim Helper",
+      "role": "other",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "claimDividends((address,bool)[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Params: ((address token,bool unwrapWrappedNative)[]). Claim the caller's holder dividends from up to 64 v5 tokens in one call; each token once. unwrapWrappedNative=true pays the native coin instead of the wrapped token on native-pair tokens. Returns (paidCount, paid[])."
+        }
+      ]
+    },
+    {
+      "chain": "xlayer",
+      "chainId": 196,
+      "address": "0xcA111dcdd2cE924c3378d6514fDCbC46217bcA16",
+      "name": "Clanker v5 Factory (TaxRWAERC20LaunchpadFactory)",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "createLaunch((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+          "kind": "write",
+          "payable": true,
+          "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Deploy a v5 token (fixed 1B supply, 18 decimals, no owner/minter) and its Uniswap v4 pool with all supply as locked single-sided liquidity. msg.value must equal nativeLaunchFee() (0 on 2026-11-25). Rules: expectedConfigVersion must equal configVersion() (else StaleConfig); up to 7 feeSlots whose relativeWeightBps sum to 10000; rates/shares use 1e8 = 100%; buy/sell tax within the policy (1%-10%); the four allocation shares sum to 1e8; quoteToken must be registered (quoteConfig); the predicted token address must end in 'cccc', so creatorSalt has to be mined (see launchTokenInitCodeHash). Most integrators use the Clanker API or clanker-sdk/v5 instead. Returns (token, poolId)."
+        },
+        {
+          "signature": "createLaunchAndBuy((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool),(address,uint256,uint256,bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled),(address fundingToken,uint256 amountIn,uint256 minAmountOut,bytes routeData)). Same as createLaunch plus a first (creator) buy in the same transaction through the Launch Buy Adapter; the creator buy does not pay the sniper fee. Returns (token, poolId, amountOut)."
+        },
+        {
+          "signature": "previewTaxConfiguration((uint32,uint32,uint32,uint32,uint32,uint32,uint256))",
+          "kind": "read",
+          "payable": false,
+          "description": "Params: ((uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding)). Check a tax configuration against the current policy before launching: returns (configVersion, buyRates, sellRates, dividendsEnabled, minimumDividendHoldingRequirement); each rate struct is (quoteRate, burnRate, protocolRate, creatorRate, dividendRate, integratorRate, surchargeRate)."
+        },
+        {
+          "signature": "configVersion()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current launch-settings version; pass it as expectedConfigVersion."
+        },
+        {
+          "signature": "taxPolicy()",
+          "kind": "read",
+          "payable": false,
+          "description": "Launch policy: ((minBuyTax, maxBuyTax, minSellTax, maxSellTax), (protocolTaxShare, minimumProtocolFeeRate, maximumProtocolFeeRate, protocolFeeRecipient), (antiSnipe startTotalFeeRate, windowSeconds), minimumDividendHoldingRequirement)."
+        },
+        {
+          "signature": "quoteConfig(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(registered, quoteDecimals, startTickToken0Frame) for a quote (pair) token. Native coin pairs use the zero address in the pool."
+        },
+        {
+          "signature": "launchCreationEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "False when new launches are paused by the owner."
+        },
+        {
+          "signature": "nativeLaunchFee()",
+          "kind": "read",
+          "payable": false,
+          "description": "Required msg.value for createLaunch (wei)."
+        },
+        {
+          "signature": "launchTokenInitCodeHash((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+          "kind": "read",
+          "payable": false,
+          "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Init code hash used to predict the token address for given launch params (to search a creatorSalt that yields an address ending in cccc)."
+        },
+        {
+          "signature": "isLaunchToken(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True only if this factory launched the token. Use it to tell a real Clanker v5 token from a look-alike."
+        },
+        {
+          "signature": "creatorRights(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(originalCreator, currentCreator, pendingCreator, creatorFeeRecipient, poolId, metadataEditable) for a token."
+        },
+        {
+          "signature": "dividendOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "The token's holder-dividend contract, or zero if dividends are off. Holders claim there with withdrawDividendsFor(holder, unwrapWrappedNative)."
+        },
+        {
+          "signature": "setCreatorFeeRecipient(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Current creator only: change the recipient of the creator's reward slot (token, newRecipient)."
+        },
+        {
+          "signature": "updateTokenExtraMetadata(address,string,string)",
+          "kind": "write",
+          "payable": false,
+          "description": "Current creator only, if metadataEditable: set a metadata key/value; ('verified','true') verifies the token."
+        },
+        {
+          "signature": "hook()",
+          "kind": "read",
+          "payable": false,
+          "description": "The v5 hook for this chain; hook.feeEscrow() gives the FeeEscrow."
+        }
+      ]
+    },
+    {
+      "chain": "xlayer",
+      "chainId": 196,
+      "address": "0x9A935223eabd30b00fA680a5F3F8e7485e26aacC",
+      "name": "Clanker v5 Hook (TaxLaunchHook, Uniswap v4 hook)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "poolConfig(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool state by poolId: (initialized, tokenIsCurrency0, token, quoteToken, currentCreator, creatorFeeRecipient, protocolFeeConfiguration, antiSnipeConfiguration, launchTime, antiSnipeEnabled, integratorFeeRecipient, dividend, taxConfiguration). Terms are frozen at launch."
+        },
+        {
+          "signature": "effectiveFeeRates(bytes32,bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current rates for a buy (true) or sell (false), including any sniper surcharge, and whether exact-output swaps are blocked (they are during the 20 s sniper window). Check before trading a fresh token."
+        },
+        {
+          "signature": "poolFeeSlots(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Reward recipients of a pool: (recipient, admin, weightBps, isCreator)[]."
+        },
+        {
+          "signature": "updateFeeSlotRecipient(bytes32,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Slot admin only: change the recipient of a reward slot (poolId, slotIndex, newRecipient). The creator slot follows creator rights on the factory instead."
+        },
+        {
+          "signature": "updateFeeSlotAdmin(bytes32,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Slot admin only: hand the slot's admin role to another address."
+        },
+        {
+          "signature": "feeEscrow()",
+          "kind": "read",
+          "payable": false,
+          "description": "FeeEscrow that holds all credited rewards."
+        },
+        {
+          "signature": "factory()",
+          "kind": "read",
+          "payable": false,
+          "description": "The v5 factory."
+        }
+      ]
+    },
+    {
+      "chain": "xlayer",
+      "chainId": 196,
+      "address": "0xFBB6e837A2eA96d6b4beb4788c2749Cf34A997e7",
+      "name": "Clanker v5 FeeEscrow (creator/integrator rewards)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "owed(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimable balance of recipient in currency (zero address = native coin). One balance per recipient+currency across ALL of that recipient's v5 tokens."
+        },
+        {
+          "signature": "claimFor(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless: pay recipient's whole balance in currency to the recipient (recipient, currency)."
+        },
+        {
+          "signature": "claimTo(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Pay the caller's whole balance in currency to destination (currency, destination)."
+        }
+      ]
+    },
+    {
+      "chain": "xlayer",
+      "chainId": 196,
+      "address": "0xdb525d50c70b9303115bA19503761756136d2B49",
+      "name": "Clanker v5 Dividend Claim Helper",
+      "role": "other",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "claimDividends((address,bool)[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Params: ((address token,bool unwrapWrappedNative)[]). Claim the caller's holder dividends from up to 64 v5 tokens in one call; each token once. unwrapWrappedNative=true pays the native coin instead of the wrapped token on native-pair tokens. Returns (paidCount, paid[])."
+        }
+      ]
+    },
+    {
+      "chain": "arc",
+      "chainId": 5042,
+      "address": "0xcA111dcdd2cE924c3378d6514fDCbC46217bcA16",
+      "name": "Clanker v5 Factory (TaxRWAERC20LaunchpadFactory)",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "createLaunch((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+          "kind": "write",
+          "payable": true,
+          "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Deploy a v5 token (fixed 1B supply, 18 decimals, no owner/minter) and its Uniswap v4 pool with all supply as locked single-sided liquidity. msg.value must equal nativeLaunchFee() (0 on 2026-11-25). Rules: expectedConfigVersion must equal configVersion() (else StaleConfig); up to 7 feeSlots whose relativeWeightBps sum to 10000; rates/shares use 1e8 = 100%; buy/sell tax within the policy (1%-10%); the four allocation shares sum to 1e8; quoteToken must be registered (quoteConfig); the predicted token address must end in 'cccc', so creatorSalt has to be mined (see launchTokenInitCodeHash). Most integrators use the Clanker API or clanker-sdk/v5 instead. Returns (token, poolId)."
+        },
+        {
+          "signature": "createLaunchAndBuy((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool),(address,uint256,uint256,bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled),(address fundingToken,uint256 amountIn,uint256 minAmountOut,bytes routeData)). Same as createLaunch plus a first (creator) buy in the same transaction through the Launch Buy Adapter; the creator buy does not pay the sniper fee. Returns (token, poolId, amountOut)."
+        },
+        {
+          "signature": "previewTaxConfiguration((uint32,uint32,uint32,uint32,uint32,uint32,uint256))",
+          "kind": "read",
+          "payable": false,
+          "description": "Params: ((uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding)). Check a tax configuration against the current policy before launching: returns (configVersion, buyRates, sellRates, dividendsEnabled, minimumDividendHoldingRequirement); each rate struct is (quoteRate, burnRate, protocolRate, creatorRate, dividendRate, integratorRate, surchargeRate)."
+        },
+        {
+          "signature": "configVersion()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current launch-settings version; pass it as expectedConfigVersion."
+        },
+        {
+          "signature": "taxPolicy()",
+          "kind": "read",
+          "payable": false,
+          "description": "Launch policy: ((minBuyTax, maxBuyTax, minSellTax, maxSellTax), (protocolTaxShare, minimumProtocolFeeRate, maximumProtocolFeeRate, protocolFeeRecipient), (antiSnipe startTotalFeeRate, windowSeconds), minimumDividendHoldingRequirement)."
+        },
+        {
+          "signature": "quoteConfig(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(registered, quoteDecimals, startTickToken0Frame) for a quote (pair) token. Native coin pairs use the zero address in the pool."
+        },
+        {
+          "signature": "launchCreationEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "False when new launches are paused by the owner."
+        },
+        {
+          "signature": "nativeLaunchFee()",
+          "kind": "read",
+          "payable": false,
+          "description": "Required msg.value for createLaunch (wei)."
+        },
+        {
+          "signature": "launchTokenInitCodeHash((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+          "kind": "read",
+          "payable": false,
+          "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Init code hash used to predict the token address for given launch params (to search a creatorSalt that yields an address ending in cccc)."
+        },
+        {
+          "signature": "isLaunchToken(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True only if this factory launched the token. Use it to tell a real Clanker v5 token from a look-alike."
+        },
+        {
+          "signature": "creatorRights(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(originalCreator, currentCreator, pendingCreator, creatorFeeRecipient, poolId, metadataEditable) for a token."
+        },
+        {
+          "signature": "dividendOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "The token's holder-dividend contract, or zero if dividends are off. Holders claim there with withdrawDividendsFor(holder, unwrapWrappedNative)."
+        },
+        {
+          "signature": "setCreatorFeeRecipient(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Current creator only: change the recipient of the creator's reward slot (token, newRecipient)."
+        },
+        {
+          "signature": "updateTokenExtraMetadata(address,string,string)",
+          "kind": "write",
+          "payable": false,
+          "description": "Current creator only, if metadataEditable: set a metadata key/value; ('verified','true') verifies the token."
+        },
+        {
+          "signature": "hook()",
+          "kind": "read",
+          "payable": false,
+          "description": "The v5 hook for this chain; hook.feeEscrow() gives the FeeEscrow."
+        }
+      ]
+    },
+    {
+      "chain": "arc",
+      "chainId": 5042,
+      "address": "0x565189a6780D1a50FC1792F64db8e4881119AaCC",
+      "name": "Clanker v5 Hook (TaxLaunchHook, Uniswap v4 hook)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "poolConfig(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool state by poolId: (initialized, tokenIsCurrency0, token, quoteToken, currentCreator, creatorFeeRecipient, protocolFeeConfiguration, antiSnipeConfiguration, launchTime, antiSnipeEnabled, integratorFeeRecipient, dividend, taxConfiguration). Terms are frozen at launch."
+        },
+        {
+          "signature": "effectiveFeeRates(bytes32,bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current rates for a buy (true) or sell (false), including any sniper surcharge, and whether exact-output swaps are blocked (they are during the 20 s sniper window). Check before trading a fresh token."
+        },
+        {
+          "signature": "poolFeeSlots(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Reward recipients of a pool: (recipient, admin, weightBps, isCreator)[]."
+        },
+        {
+          "signature": "updateFeeSlotRecipient(bytes32,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Slot admin only: change the recipient of a reward slot (poolId, slotIndex, newRecipient). The creator slot follows creator rights on the factory instead."
+        },
+        {
+          "signature": "updateFeeSlotAdmin(bytes32,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Slot admin only: hand the slot's admin role to another address."
+        },
+        {
+          "signature": "feeEscrow()",
+          "kind": "read",
+          "payable": false,
+          "description": "FeeEscrow that holds all credited rewards."
+        },
+        {
+          "signature": "factory()",
+          "kind": "read",
+          "payable": false,
+          "description": "The v5 factory."
+        }
+      ]
+    },
+    {
+      "chain": "arc",
+      "chainId": 5042,
+      "address": "0xFBB6e837A2eA96d6b4beb4788c2749Cf34A997e7",
+      "name": "Clanker v5 FeeEscrow (creator/integrator rewards)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "owed(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimable balance of recipient in currency (zero address = native coin). One balance per recipient+currency across ALL of that recipient's v5 tokens."
+        },
+        {
+          "signature": "claimFor(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless: pay recipient's whole balance in currency to the recipient (recipient, currency)."
+        },
+        {
+          "signature": "claimTo(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Pay the caller's whole balance in currency to destination (currency, destination)."
+        }
+      ]
+    },
+    {
+      "chain": "arc",
+      "chainId": 5042,
+      "address": "0xdb525d50c70b9303115bA19503761756136d2B49",
+      "name": "Clanker v5 Dividend Claim Helper",
+      "role": "other",
+      "proxy": false,
+      "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "claimDividends((address,bool)[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Params: ((address token,bool unwrapWrappedNative)[]). Claim the caller's holder dividends from up to 64 v5 tokens in one call; each token once. unwrapWrappedNative=true pays the native coin instead of the wrapped token on native-pair tokens. Returns (paidCount, paid[])."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Clanker deploy API (partner)",
+      "url": "https://www.clanker.world/api/tokens/deploy",
+      "auth": "api-key",
+      "use": "POST a v5 launch: {protocol:'v5', chainId, token:{name, symbol, image, tokenAdmin, description, socialMediaUrls, requestKey}, tax:{buyFee, sellFee, dividends, minimumDividendHolding, burn, integrator, antiSnipeEnabled, metadataEditable}, pool:{pairedToken}, rewards:[{admin, recipient, allocation}], dryRun}. Header x-api-key: <partner key issued by the Clanker team>. Returns expectedAddress; deployment is queued. Limits: 20 launches/day and 1/minute per key (429 with Retry-After). dryRun:true validates without deploying. /api/tokens/deploy/v4 is gone (410).",
+      "source": "https://clanker.gitbook.io/documentation/tokens/token-deployments/v5-deployments"
+    },
+    {
+      "name": "Clanker public API",
+      "url": "https://www.clanker.world/api",
+      "auth": "none",
+      "use": "Token search/list (GET /api/tokens?q=&chainId=&includeMarket=), market data, trades, holders, GET /api/tokens/{address}/fees (tax config, fee history, claimed/unclaimed), GET /api/creator-earnings/{tokenAddress}?chainId= (unclaimed FeeEscrow balances of reward recipients), GET /api/metadata/factories (current v5 taxPolicy and launchCreationEnabled). Rate limited per IP.",
+      "source": "https://clanker.gitbook.io/documentation/api-reference/api-reference"
+    },
+    {
+      "name": "Clanker authenticated API",
+      "url": "https://www.clanker.world/api",
+      "auth": "api-key",
+      "use": "Partner endpoints with header x-api-key: higher-limit token search (/api/tokens/authenticated), tokens by admin, is-blocked check, LP/claim info, POST /api/tokens/index to index a token deployed outside the API.",
+      "source": "https://clanker.gitbook.io/documentation/api-reference/authenticated"
+    },
+    {
+      "name": "clanker-sdk (TypeScript)",
+      "url": "https://github.com/clanker-devco/clanker-sdk",
+      "auth": "none",
+      "use": "npm install clanker-sdk viem; import { Clanker } from 'clanker-sdk/v5' to launch and manage v5 tokens onchain with your own wallet (handles salt mining and params); clanker-sdk/v4, /v3 and /legacyFeeClaims manage older tokens.",
+      "source": "https://clanker.gitbook.io/documentation/sdk-reference/sdk-reference"
+    }
+  ],
+  "actions": [
+    {
+      "name": "launch a token (API)",
+      "description": "Deploy a v5 token without handling salts",
+      "how": "POST https://www.clanker.world/api/tokens/deploy with x-api-key (partner key) and the v5 body; try dryRun:true first. Returns expectedAddress."
+    },
+    {
+      "name": "launch a token (onchain)",
+      "description": "Deploy from your own wallet",
+      "how": "Use clanker-sdk/v5, or call Factory.createLaunch(launchParams) with expectedConfigVersion = configVersion(), a registered quoteToken, rates in 1e8 units, feeSlot weights summing to 10000, a deadline, and a creatorSalt that makes the predicted address end in cccc; msg.value = nativeLaunchFee(). Simulate first. createLaunchAndBuy adds a creator buy."
+    },
+    {
+      "name": "claim creator rewards",
+      "description": "Withdraw a reward recipient's tax share",
+      "how": "FeeEscrow.owed(recipient, currency) (currency = zero address for native ETH/BNB etc., or the pair stablecoin), then FeeEscrow.claimFor(recipient, currency) (anyone can trigger; pays the recipient) or claimTo(currency, destination) from the recipient wallet. One claim pays the balance of all that recipient's v5 tokens. Or the token's admin page https://www.clanker.world/clanker/<token>/admin."
+    },
+    {
+      "name": "claim holder dividends",
+      "description": "Collect dividends of v5 tokens you hold",
+      "how": "Factory.dividendOf(token) -> dividend contract; read withdrawableDividendOf(holder); claim with withdrawDividendsFor(holder, unwrapWrappedNative) or DividendClaimHelper.claimDividends([(token, unwrap)...]) for up to 64 tokens."
+    },
+    {
+      "name": "check a token before trading",
+      "description": "Confirm it is a real Clanker v5 token and see its tax",
+      "how": "Factory.isLaunchToken(token) on the right chain; Factory.creatorRights(token).poolId; Hook.poolConfig(poolId) and Hook.effectiveFeeRates(poolId, isBuy). Also GET /api/tokens?q=<address> for warning tags."
+    },
+    {
+      "name": "trade a v5 token",
+      "description": "Buy or sell",
+      "how": "Swap in the token's Uniswap v4 pool (hooks = the chain's v5 Hook, tickSpacing 200 at launch) through the Uniswap Universal Router + Permit2 (see the uniswap registry entry). The hook takes the buy/sell tax from each swap; exact-output swaps revert during the sniper window."
+    }
+  ],
+  "risks": [
+    "Anyone can launch a Clanker token; most are memecoins and many are scams, rugs-by-dumping or impersonations of real projects/people. A Clanker launch says nothing about the project. Check Factory.isLaunchToken and clanker.world warning tags (UNUSUAL_TICK, UNUSUAL_PAIR_ADDRESS, MISSING_POOL_CONFIG, UNUSUAL_POSITIONS); a token without tags is not safe.",
+    "v5 tokens charge a buy and sell tax of 1-10% each on every pool swap, plus a sniper fee that starts at 99% and decays to the normal tax over 20 seconds after launch (if enabled). Buying in the first seconds can lose almost everything to the fee.",
+    "Launch liquidity is the whole supply, placed by the hook as single-sided liquidity from the launch price, and can never be removed (no LP pull). The creator gets tokens only by buying (e.g. createLaunchAndBuy) and can sell like anyone else; early buyers dumping can take the price back toward the launch level.",
+    "Tax terms are frozen per pool at launch; the factory owner can change policy, quote tokens and pause launches only for new launches. v5 contracts are not upgradeable. The factory owner or creator admin can change dividend exclusions/receivers and emergency-withdraw assets held by any token's dividend contract.",
+    "Metadata (name, symbol, image) can be changed after launch by the creator if metadataEditable was set; do not rely on name/symbol to identify a token.",
+    "Reward and dividend balances are per recipient across all v5 tokens in the FeeEscrow, so a per-token figure from the API is an estimate.",
+    "Audits listed on the Clanker docs: v5 by XORS (November 2026); v4.1 Macro; v4.0 Cantina and Macro; v3.1 Macro; v2.0 Quantstamp. Audits do not make individual tokens safe."
+  ],
+  "notes": "Clanker v5 is the current version per the official docs (Core Contracts page: 'Clanker v5 is the current version'); launched on Base on 2026-10-31 and on BNB Chain, Monad, Robinhood Chain, X Layer, Arc and Elysium on 2026-11-04/05. The deploy API only launches v5 (v4 launches are no longer available). Each factory exposes hook(), dividendDeployer(), announcementRegistry(), launchValidation(), launchBuyAdapter(), tokenDeployer(); checked onchain 2026-11-25 that every listed factory's hook() and hook.feeEscrow() match the docs and that all listed addresses have code. Elysium (Kinetiq chain, id 99901; Factory 0xcA111dcdd2cE924c3378d6514fDCbC46217bcA16, Hook 0x3eA9581a32a396F69b177B65b91149Cf887BEACC per docs) is not listed as contracts because it has no public RPC to confirm code. Supporting v5 contracts (Dividend Deployer, Launch Validation, Launch Operations, Launch Buy Adapter, Token Deployer, Dividend Implementation) are on the Deployed Contracts page; integrators do not call them. Base Announcement Registry is listed; on the other chains it is 0x2D75afC0Cdf502E4381dC0B23327BFeD358bA43A. Older versions keep working for their own tokens and are NOT listed as contracts: v4.0/v4.1 (Uniswap v4 LP-fee tokens; Base factory Clanker 0xE85A59c628F7d27878ACeB4bf3b35733630083a9, fees claimed from ClankerFeeLocker 0xF3622742b1E446D92e45E22923Ef11C2fcD55D68 via claim(feeOwner, token) / availableFees(feeOwner, token), LP locked in ClankerLpLockerFeeConversion 0x63D2DfEA64b3433F4071A98665bcD7Ca14d93496; v4 also on BNB Chain, Monad, Robinhood Chain and on the retired Ethereum, Arbitrum and Unichain deployments), v3.1, v3.0, v2.0, v1.0 and v0 (Base, Uniswap v3). All per-chain addresses for every version are on https://clanker.gitbook.io/documentation/references/deployed-contracts. Clanker no longer supports Ethereum, Arbitrum One and Unichain for new launches. DefiLlama lists Base only. The Clanker docs are also served to agents through a GitBook MCP server (https://clanker.gitbook.io/documentation/~gitbook/mcp). Function signatures are from Sourcify-verified sources (factory partial match, others exact match).",
+  "sources": [
+    "https://defillama.com/protocol/clanker",
+    "https://api.llama.fi/protocol/clanker",
+    "https://clanker.gitbook.io/documentation/llms.txt",
+    "https://clanker.gitbook.io/documentation/references/core-contracts",
+    "https://clanker.gitbook.io/documentation/references/core-contracts/v5",
+    "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "https://clanker.gitbook.io/documentation/tokens/token-deployments/v5-deployments",
+    "https://clanker.gitbook.io/documentation/tokens/creator-rewards-and-fees",
+    "https://clanker.gitbook.io/documentation/tokens/unclaimed-rewards-balance",
+    "https://clanker.gitbook.io/documentation/api-reference/api-reference",
+    "https://clanker.gitbook.io/documentation/api-reference/authenticated",
+    "https://clanker.gitbook.io/documentation/api-reference/public/tokens",
+    "https://clanker.gitbook.io/documentation/api-reference/public/creators",
+    "https://clanker.gitbook.io/documentation/api-reference/public/fees",
+    "https://clanker.gitbook.io/documentation/api-reference/public/deployment",
+    "https://clanker.gitbook.io/documentation/safety/clanker.world-warning-tags",
+    "https://clanker.gitbook.io/documentation/sdk-reference/sdk-reference",
+    "https://clanker.gitbook.io/documentation/references/audits",
+    "https://github.com/clanker-devco/v4-contracts",
+    "https://sourcify.dev/server/v2/contract/8453/0x572e88D3cD7f23E4241EB6ceDD96667271bF09A0",
+    "https://sourcify.dev/server/v2/contract/8453/0x5E320eA6278107968C119942E57d876c5F922AcC",
+    "https://sourcify.dev/server/v2/contract/8453/0x5dd237d1f716C65426CCd2FAe82B95109825FA61",
+    "https://sourcify.dev/server/v2/contract/8453/0xe896454E417400a9d7766497764e4dEBf91534BD",
+    "https://sourcify.dev/server/v2/contract/8453/0x4C9C5D7Eb2D8092903262b15B720DFCc8d07E78f",
+    "https://sourcify.dev/server/v2/contract/8453/0x1B417526da9737cA99956e32cdfB674d6C9f097a"
+  ],
+  "researchedAt": "2026-11-25"
+}

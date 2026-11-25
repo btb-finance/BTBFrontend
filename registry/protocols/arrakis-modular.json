@@ -387,40 +387,40 @@
           "description": "Quote a deposit: (vault, maxAmount0, maxAmount1) -> (shareToMint, amount0ToDeposit, amount1ToDeposit). Call first and derive amount0Min/amount1Min/amountSharesMin with your slippage tolerance."
         },
         {
-          "signature": "addLiquidity((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver))",
+          "signature": "addLiquidity((uint256,uint256,uint256,uint256,uint256,address,address))",
           "kind": "write",
           "payable": true,
-          "description": "Deposit token0+token1 into a public vault and mint LP shares to receiver. Tuple = AddLiquidityData. Approve the router for both tokens first (ERC20 approve) or use addLiquidityPermit2. Reverts for non-public vaults (onlyPublicVault) and when paused. Returns (amount0, amount1, sharesReceived)."
+          "description": "Params: ((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver)). Deposit token0+token1 into a public vault and mint LP shares to receiver. Tuple = AddLiquidityData. Approve the router for both tokens first (ERC20 approve) or use addLiquidityPermit2. Reverts for non-public vaults (onlyPublicVault) and when paused. Returns (amount0, amount1, sharesReceived)."
         },
         {
-          "signature": "wrapAndAddLiquidity((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver))",
+          "signature": "wrapAndAddLiquidity((uint256,uint256,uint256,uint256,uint256,address,address))",
           "kind": "write",
           "payable": true,
-          "description": "Same as addLiquidity but sends native ETH as msg.value, wrapped to WETH by the router, for vaults with WETH as a token."
+          "description": "Params: ((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver)). Same as addLiquidity but sends native ETH as msg.value, wrapped to WETH by the router, for vaults with WETH as a token."
         },
         {
-          "signature": "swapAndAddLiquidity(((bytes swapPayload,uint256 amountInSwap,uint256 amountOutSwap,address swapRouter,bool zeroForOne),(uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver)))",
+          "signature": "swapAndAddLiquidity(((bytes,uint256,uint256,address,bool),(uint256,uint256,uint256,uint256,uint256,address,address)))",
           "kind": "write",
           "payable": true,
-          "description": "Swap part of one token through an external swap router (atomic, via the RouterSwapExecutor) and then deposit. SwapData: swapPayload (calldata for swapRouter), amountInSwap, amountOutSwap (minimum out), swapRouter, zeroForOne. Returns (amount0, amount1, sharesReceived, amount0Diff, amount1Diff)."
+          "description": "Params: (((bytes swapPayload,uint256 amountInSwap,uint256 amountOutSwap,address swapRouter,bool zeroForOne),(uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver))). Swap part of one token through an external swap router (atomic, via the RouterSwapExecutor) and then deposit. SwapData: swapPayload (calldata for swapRouter), amountInSwap, amountOutSwap (minimum out), swapRouter, zeroForOne. Returns (amount0, amount1, sharesReceived, amount0Diff, amount1Diff)."
         },
         {
-          "signature": "addLiquidityPermit2(((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver),((address token,uint256 amount)[] permitted,uint256 nonce,uint256 deadline),bytes signature))",
+          "signature": "addLiquidityPermit2(((uint256,uint256,uint256,uint256,uint256,address,address),((address,uint256)[],uint256,uint256),bytes))",
           "kind": "write",
           "payable": true,
-          "description": "addLiquidity with Permit2 (0x000000000022D473030F116dDEE9F6B43aC78BA3) batch-transfer signature instead of ERC20 approvals to the router."
+          "description": "Params: (((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver),((address token,uint256 amount)[] permitted,uint256 nonce,uint256 deadline),bytes signature)). addLiquidity with Permit2 (0x000000000022D473030F116dDEE9F6B43aC78BA3) batch-transfer signature instead of ERC20 approvals to the router."
         },
         {
-          "signature": "removeLiquidity((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver))",
+          "signature": "removeLiquidity((uint256,uint256,uint256,address,address))",
           "kind": "write",
           "payable": false,
-          "description": "Burn vault shares and send token0/token1 to receiver. Tuple = RemoveLiquidityData. Approve the router to spend your vault (LP) shares first, or use removeLiquidityPermit2. Returns (amount0, amount1)."
+          "description": "Params: ((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver)). Burn vault shares and send token0/token1 to receiver. Tuple = RemoveLiquidityData. Approve the router to spend your vault (LP) shares first, or use removeLiquidityPermit2. Returns (amount0, amount1)."
         },
         {
-          "signature": "removeLiquidityPermit2(((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver),((address token,uint256 amount) permitted,uint256 nonce,uint256 deadline),bytes signature))",
+          "signature": "removeLiquidityPermit2(((uint256,uint256,uint256,address,address),((address,uint256),uint256,uint256),bytes))",
           "kind": "write",
           "payable": false,
-          "description": "removeLiquidity using a Permit2 single-transfer signature over the vault shares."
+          "description": "Params: (((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver),((address token,uint256 amount) permitted,uint256 nonce,uint256 deadline),bytes signature)). removeLiquidity using a Permit2 single-transfer signature over the vault shares."
         },
         {
           "signature": "factory()",
@@ -458,40 +458,40 @@
           "description": "Quote a deposit: (vault, maxAmount0, maxAmount1) -> (shareToMint, amount0ToDeposit, amount1ToDeposit). Call first and derive amount0Min/amount1Min/amountSharesMin with your slippage tolerance."
         },
         {
-          "signature": "addLiquidity((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver))",
+          "signature": "addLiquidity((uint256,uint256,uint256,uint256,uint256,address,address))",
           "kind": "write",
           "payable": true,
-          "description": "Deposit token0+token1 into a public vault and mint LP shares to receiver. Tuple = AddLiquidityData. Approve the router for both tokens first (ERC20 approve) or use addLiquidityPermit2. Reverts for non-public vaults (onlyPublicVault) and when paused. Returns (amount0, amount1, sharesReceived)."
+          "description": "Params: ((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver)). Deposit token0+token1 into a public vault and mint LP shares to receiver. Tuple = AddLiquidityData. Approve the router for both tokens first (ERC20 approve) or use addLiquidityPermit2. Reverts for non-public vaults (onlyPublicVault) and when paused. Returns (amount0, amount1, sharesReceived)."
         },
         {
-          "signature": "wrapAndAddLiquidity((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver))",
+          "signature": "wrapAndAddLiquidity((uint256,uint256,uint256,uint256,uint256,address,address))",
           "kind": "write",
           "payable": true,
-          "description": "Same as addLiquidity but sends native ETH as msg.value, wrapped to WETH by the router, for vaults with WETH as a token."
+          "description": "Params: ((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver)). Same as addLiquidity but sends native ETH as msg.value, wrapped to WETH by the router, for vaults with WETH as a token."
         },
         {
-          "signature": "swapAndAddLiquidity(((bytes swapPayload,uint256 amountInSwap,uint256 amountOutSwap,address swapRouter,bool zeroForOne),(uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver)))",
+          "signature": "swapAndAddLiquidity(((bytes,uint256,uint256,address,bool),(uint256,uint256,uint256,uint256,uint256,address,address)))",
           "kind": "write",
           "payable": true,
-          "description": "Swap part of one token through an external swap router (atomic, via the RouterSwapExecutor) and then deposit. SwapData: swapPayload (calldata for swapRouter), amountInSwap, amountOutSwap (minimum out), swapRouter, zeroForOne. Returns (amount0, amount1, sharesReceived, amount0Diff, amount1Diff)."
+          "description": "Params: (((bytes swapPayload,uint256 amountInSwap,uint256 amountOutSwap,address swapRouter,bool zeroForOne),(uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver))). Swap part of one token through an external swap router (atomic, via the RouterSwapExecutor) and then deposit. SwapData: swapPayload (calldata for swapRouter), amountInSwap, amountOutSwap (minimum out), swapRouter, zeroForOne. Returns (amount0, amount1, sharesReceived, amount0Diff, amount1Diff)."
         },
         {
-          "signature": "addLiquidityPermit2(((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver),((address token,uint256 amount)[] permitted,uint256 nonce,uint256 deadline),bytes signature))",
+          "signature": "addLiquidityPermit2(((uint256,uint256,uint256,uint256,uint256,address,address),((address,uint256)[],uint256,uint256),bytes))",
           "kind": "write",
           "payable": true,
-          "description": "addLiquidity with Permit2 (0x000000000022D473030F116dDEE9F6B43aC78BA3) batch-transfer signature instead of ERC20 approvals to the router."
+          "description": "Params: (((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver),((address token,uint256 amount)[] permitted,uint256 nonce,uint256 deadline),bytes signature)). addLiquidity with Permit2 (0x000000000022D473030F116dDEE9F6B43aC78BA3) batch-transfer signature instead of ERC20 approvals to the router."
         },
         {
-          "signature": "removeLiquidity((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver))",
+          "signature": "removeLiquidity((uint256,uint256,uint256,address,address))",
           "kind": "write",
           "payable": false,
-          "description": "Burn vault shares and send token0/token1 to receiver. Tuple = RemoveLiquidityData. Approve the router to spend your vault (LP) shares first, or use removeLiquidityPermit2. Returns (amount0, amount1)."
+          "description": "Params: ((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver)). Burn vault shares and send token0/token1 to receiver. Tuple = RemoveLiquidityData. Approve the router to spend your vault (LP) shares first, or use removeLiquidityPermit2. Returns (amount0, amount1)."
         },
         {
-          "signature": "removeLiquidityPermit2(((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver),((address token,uint256 amount) permitted,uint256 nonce,uint256 deadline),bytes signature))",
+          "signature": "removeLiquidityPermit2(((uint256,uint256,uint256,address,address),((address,uint256),uint256,uint256),bytes))",
           "kind": "write",
           "payable": false,
-          "description": "removeLiquidity using a Permit2 single-transfer signature over the vault shares."
+          "description": "Params: (((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver),((address token,uint256 amount) permitted,uint256 nonce,uint256 deadline),bytes signature)). removeLiquidity using a Permit2 single-transfer signature over the vault shares."
         },
         {
           "signature": "factory()",
@@ -529,40 +529,40 @@
           "description": "Quote a deposit: (vault, maxAmount0, maxAmount1) -> (shareToMint, amount0ToDeposit, amount1ToDeposit). Call first and derive amount0Min/amount1Min/amountSharesMin with your slippage tolerance."
         },
         {
-          "signature": "addLiquidity((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver))",
+          "signature": "addLiquidity((uint256,uint256,uint256,uint256,uint256,address,address))",
           "kind": "write",
           "payable": true,
-          "description": "Deposit token0+token1 into a public vault and mint LP shares to receiver. Tuple = AddLiquidityData. Approve the router for both tokens first (ERC20 approve) or use addLiquidityPermit2. Reverts for non-public vaults (onlyPublicVault) and when paused. Returns (amount0, amount1, sharesReceived)."
+          "description": "Params: ((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver)). Deposit token0+token1 into a public vault and mint LP shares to receiver. Tuple = AddLiquidityData. Approve the router for both tokens first (ERC20 approve) or use addLiquidityPermit2. Reverts for non-public vaults (onlyPublicVault) and when paused. Returns (amount0, amount1, sharesReceived)."
         },
         {
-          "signature": "wrapAndAddLiquidity((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver))",
+          "signature": "wrapAndAddLiquidity((uint256,uint256,uint256,uint256,uint256,address,address))",
           "kind": "write",
           "payable": true,
-          "description": "Same as addLiquidity but sends native ETH as msg.value, wrapped to WETH by the router, for vaults with WETH as a token."
+          "description": "Params: ((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver)). Same as addLiquidity but sends native ETH as msg.value, wrapped to WETH by the router, for vaults with WETH as a token."
         },
         {
-          "signature": "swapAndAddLiquidity(((bytes swapPayload,uint256 amountInSwap,uint256 amountOutSwap,address swapRouter,bool zeroForOne),(uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver)))",
+          "signature": "swapAndAddLiquidity(((bytes,uint256,uint256,address,bool),(uint256,uint256,uint256,uint256,uint256,address,address)))",
           "kind": "write",
           "payable": true,
-          "description": "Swap part of one token through an external swap router (atomic, via the RouterSwapExecutor) and then deposit. SwapData: swapPayload (calldata for swapRouter), amountInSwap, amountOutSwap (minimum out), swapRouter, zeroForOne. Returns (amount0, amount1, sharesReceived, amount0Diff, amount1Diff)."
+          "description": "Params: (((bytes swapPayload,uint256 amountInSwap,uint256 amountOutSwap,address swapRouter,bool zeroForOne),(uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver))). Swap part of one token through an external swap router (atomic, via the RouterSwapExecutor) and then deposit. SwapData: swapPayload (calldata for swapRouter), amountInSwap, amountOutSwap (minimum out), swapRouter, zeroForOne. Returns (amount0, amount1, sharesReceived, amount0Diff, amount1Diff)."
         },
         {
-          "signature": "addLiquidityPermit2(((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver),((address token,uint256 amount)[] permitted,uint256 nonce,uint256 deadline),bytes signature))",
+          "signature": "addLiquidityPermit2(((uint256,uint256,uint256,uint256,uint256,address,address),((address,uint256)[],uint256,uint256),bytes))",
           "kind": "write",
           "payable": true,
-          "description": "addLiquidity with Permit2 (0x000000000022D473030F116dDEE9F6B43aC78BA3) batch-transfer signature instead of ERC20 approvals to the router."
+          "description": "Params: (((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver),((address token,uint256 amount)[] permitted,uint256 nonce,uint256 deadline),bytes signature)). addLiquidity with Permit2 (0x000000000022D473030F116dDEE9F6B43aC78BA3) batch-transfer signature instead of ERC20 approvals to the router."
         },
         {
-          "signature": "removeLiquidity((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver))",
+          "signature": "removeLiquidity((uint256,uint256,uint256,address,address))",
           "kind": "write",
           "payable": false,
-          "description": "Burn vault shares and send token0/token1 to receiver. Tuple = RemoveLiquidityData. Approve the router to spend your vault (LP) shares first, or use removeLiquidityPermit2. Returns (amount0, amount1)."
+          "description": "Params: ((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver)). Burn vault shares and send token0/token1 to receiver. Tuple = RemoveLiquidityData. Approve the router to spend your vault (LP) shares first, or use removeLiquidityPermit2. Returns (amount0, amount1)."
         },
         {
-          "signature": "removeLiquidityPermit2(((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver),((address token,uint256 amount) permitted,uint256 nonce,uint256 deadline),bytes signature))",
+          "signature": "removeLiquidityPermit2(((uint256,uint256,uint256,address,address),((address,uint256),uint256,uint256),bytes))",
           "kind": "write",
           "payable": false,
-          "description": "removeLiquidity using a Permit2 single-transfer signature over the vault shares."
+          "description": "Params: (((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver),((address token,uint256 amount) permitted,uint256 nonce,uint256 deadline),bytes signature)). removeLiquidity using a Permit2 single-transfer signature over the vault shares."
         },
         {
           "signature": "factory()",
@@ -847,7 +847,7 @@
     "Audits listed by Arrakis: ChainSecurity (Modular core Jul 2024, Uniswap V4 modules Dec 2024, Aerodrome Jan 2025), Sherlock, Watchpug, Enigma Dark, Cantina and Pashov (2023-2026). Reports are available on request from Arrakis; audits do not remove risk.",
     "Public vault liquidity is small: on 2026-11-25 there were 2 public vaults on Ethereum, 6 on Base (mostly KAITO pairs), 1 on Arbitrum and none on Plasma or BNB Chain."
   ],
-  "notes": "Addresses come from the official arrakis-docs GitHub repo (deployments.md, last commit 2026-05-21). The public docs site docs.arrakis.finance was rebuilt in 2026 around 'Arrakis Pro' and no longer has the technical pages (old URLs such as /text/arrakisModular/deployments.html now redirect to /arrakis-pro); app.arrakis.finance returns 404, and the arrakis-modular source repo is not public. The core contracts are deployed with CREATE3 at the same address on every chain listed by Arrakis (Ethereum, Base, Arbitrum, BNB Chain, Plasma, Optimism, Polygon, Ink, Unichain, Sepolia). Checked onchain 2026-11-25: the factory has code on Ethereum, Arbitrum, Base, Plasma and BNB Chain, and the manager is the factory's manager() everywhere; the ArrakisPublicVaultRouter, RouterSwapExecutor (0x19488620Cdf3Ff1B0784AC4529Fb5c5AbAceb1B6) and RouterSwapResolver (0xC6c53369c36D6b4f4A6c195441Fe2d33149FB265) have NO code on Plasma or BNB Chain, so on those chains only private vaults exist. Other core addresses from the same page (not listed as contracts because agents rarely call them): PrivateVaultNFT 0x44A801e7E2E073bd8bcE4bCCf653239Fa156B762, RenderController 0x1Cc0Adff599F244f036a5C2425f646Aef884149D, TimeLock 0xAf6f9640092cB1236E5DB6E517576355b6C40b7f, Guardian 0x6F441151B478E0d60588f221f1A35BcC3f7aB981, Public Module Registry 0x791d75F87a701C3F7dFfcEC1B6094dB22c779603, Private Module Registry 0xe278C1944BA3321C1079aBF94961E9fF1127A265, Pauser 0x700a1cdA1495C1B34c4962e9742A8A8832aAc03A, Withdraw Helper 0x3a2e9c26fBB53990BAFAec0342e38bd2a06f46d3, Migration Helper 0xd61407B9B63956CfB61341AAfeFbD7EDA1F9B962; per-chain Uniswap V3/V4, PancakeSwap and Aerodrome module beacons are on the same deployments page. The docs quickstart describes an 'ArrakisPublicVaultRouterV2' (same function names), but the deployments page lists only the router at 0x72aa\u20266041, which Sourcify verifies as ArrakisPublicVaultRouter (v1); no V2 address is published, so it is left out. Per-vault addresses are not listed except the Ethereum USDC/WETH flagship vault documented on the official public vault list; discover the rest with factory.publicVaults(). The address 0xf790870ccF6aE66DdC69f68e6d05d446f1a6ad83 also holds WETH/USDC public vaults on Base and Arbitrum (same CREATE3 address, different modules), but official docs only describe the Ethereum one. DefiLlama also lists Robinhood Chain; Arrakis's deployment list does not, so it is not covered. Arrakis publishes no public API or SDK for Modular; an official Uniswap v4 position-migration example is at github.com/ArrakisFinance/univ4-migration-example. Older Arrakis V1/V2 (PALM) vaults are separate products not covered here.",
+  "notes": "Addresses come from the official arrakis-docs GitHub repo (deployments.md, last commit 2026-05-21). The public docs site docs.arrakis.finance was rebuilt in 2026 around 'Arrakis Pro' and no longer has the technical pages (old URLs such as /text/arrakisModular/deployments.html now redirect to /arrakis-pro); app.arrakis.finance returns 404, and the arrakis-modular source repo is not public. The core contracts are deployed with CREATE3 at the same address on every chain listed by Arrakis (Ethereum, Base, Arbitrum, BNB Chain, Plasma, Optimism, Polygon, Ink, Unichain, Sepolia). Checked onchain 2026-11-25: the factory has code on Ethereum, Arbitrum, Base, Plasma and BNB Chain, and the manager is the factory's manager() everywhere; the ArrakisPublicVaultRouter, RouterSwapExecutor (0x19488620Cdf3Ff1B0784AC4529Fb5c5AbAceb1B6) and RouterSwapResolver (0xC6c53369c36D6b4f4A6c195441Fe2d33149FB265) have NO code on Plasma or BNB Chain, so on those chains only private vaults exist. Other core addresses from the same page (not listed as contracts because agents rarely call them): PrivateVaultNFT 0x44A801e7E2E073bd8bcE4bCCf653239Fa156B762, RenderController 0x1Cc0Adff599F244f036a5C2425f646Aef884149D, TimeLock 0xAf6f9640092cB1236E5DB6E517576355b6C40b7f, Guardian 0x6F441151B478E0d60588f221f1A35BcC3f7aB981, Public Module Registry 0x791d75F87a701C3F7dFfcEC1B6094dB22c779603, Private Module Registry 0xe278C1944BA3321C1079aBF94961E9fF1127A265, Pauser 0x700a1cdA1495C1B34c4962e9742A8A8832aAc03A, Withdraw Helper 0x3a2e9c26fBB53990BAFAec0342e38bd2a06f46d3, Migration Helper 0xd61407B9B63956CfB61341AAfeFbD7EDA1F9B962; per-chain Uniswap V3/V4, PancakeSwap and Aerodrome module beacons are on the same deployments page. The docs quickstart describes an 'ArrakisPublicVaultRouterV2' (same function names), but the deployments page lists only the router at 0x72aa…6041, which Sourcify verifies as ArrakisPublicVaultRouter (v1); no V2 address is published, so it is left out. Per-vault addresses are not listed except the Ethereum USDC/WETH flagship vault documented on the official public vault list; discover the rest with factory.publicVaults(). The address 0xf790870ccF6aE66DdC69f68e6d05d446f1a6ad83 also holds WETH/USDC public vaults on Base and Arbitrum (same CREATE3 address, different modules), but official docs only describe the Ethereum one. DefiLlama also lists Robinhood Chain; Arrakis's deployment list does not, so it is not covered. Arrakis publishes no public API or SDK for Modular; an official Uniswap v4 position-migration example is at github.com/ArrakisFinance/univ4-migration-example. Older Arrakis V1/V2 (PALM) vaults are separate products not covered here.",
   "sources": [
     "https://defillama.com/protocol/arrakis-modular",
     "https://api.llama.fi/protocol/arrakis-modular",
