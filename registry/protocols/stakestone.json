@@ -1,0 +1,823 @@
+{
+  "slug": "stakestone",
+  "name": "StakeStone",
+  "category": "Liquid Staking",
+  "description": "Omnichain liquid staking / yield tokens: stake ETH for yield-bearing STONE (non-rebasing, price rises) and redeem it through settlement rounds or instant withdrawal; mint SBTC 1:1 from BTC wrappers (WBTC/cbBTC on Ethereum, BTCB on BNB Chain) and STONEBTC from SBTC/LBTC; hold STONEUSD, a yield-bearing stablecoin token. STONE and SBTC bridge between chains via LayerZero.",
+  "website": "https://stakestone.io",
+  "docs": "https://docs.stakestone.io/stakestone",
+  "defillama": "https://defillama.com/protocol/stakestone",
+  "chains": [
+    "ethereum",
+    "bsc",
+    "monad"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xA62F9C5af106FeEE069F38dE51098D9d81B90572",
+      "name": "StoneVault",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stone",
+      "keyFunctions": [
+        {
+          "signature": "deposit()",
+          "kind": "write",
+          "payable": true,
+          "description": "Stake ETH (msg.value) and mint STONE to msg.sender. Returns STONE minted = amount * 1e18 / sharePrice, where sharePrice = max(last round price, current price)."
+        },
+        {
+          "signature": "depositFor(address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same as deposit() but mints STONE to another address."
+        },
+        {
+          "signature": "requestWithdraw(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Queue STONE (shares, 18 decimals) for redemption at the next settlement round. Approve STONE to the vault first (it transferFroms the shares). ETH becomes claimable after rollToNextRound settles the round (rounds are at least rebaseTimeInterval = 3 days apart, often longer)."
+        },
+        {
+          "signature": "cancelWithdraw(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Cancel (part of) a pending request made in the current round; STONE is returned. Reverts if the round has already been settled."
+        },
+        {
+          "signature": "instantWithdraw(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw ETH now. Args: _amount = ETH (wei) already claimable from a settled request (see userReceipts), _shares = STONE to redeem instantly at min(last round price, current price); shares are burned from msg.sender (no approve needed). Instant redemption is paid from idle ETH and, if short, by force-withdrawing from strategies; reverts with \"still need wait\" if not enough ETH. Pass 0 for the part you do not use. A withdrawFeeRate fee (1e6 = 100%) may apply. Returns ETH withdrawn."
+        },
+        {
+          "signature": "userReceipts(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Your withdrawal state: (withdrawRound, withdrawShares pending, withdrawableAmount in wei). Shares from a settled earlier round become claimable at that round's price; claim them with instantWithdraw(_amount, 0)."
+        },
+        {
+          "signature": "currentSharePrice()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current ETH per STONE (1e18 = 1 ETH): (idle + strategy value - reserved withdrawals) / supply. Not a view function: use eth_call. Read 1.0766 ETH on 2026-11-25."
+        },
+        {
+          "signature": "roundPricePerShare(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Settled STONE price for a round id."
+        },
+        {
+          "signature": "latestRoundID()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current (unsettled) round id; requests made now settle when this round is rolled."
+        },
+        {
+          "signature": "settlementTime(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Unix time a round was settled."
+        },
+        {
+          "signature": "rebaseTimeInterval()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum seconds between settlements (259200 = 3 days on 2026-11-25)."
+        },
+        {
+          "signature": "withdrawFeeRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "Withdrawal fee, 1e6 = 100% (0 on 2026-11-25)."
+        },
+        {
+          "signature": "getVaultAvailableAmount()",
+          "kind": "read",
+          "payable": false,
+          "description": "(idleAmount, investedAmount) in wei. idleAmount bounds what an instant withdrawal can pay without pulling from strategies. Not view: eth_call."
+        },
+        {
+          "signature": "rollToNextRound()",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless: settle the current round once block.timestamp > rebaseTime + rebaseTimeInterval."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x7122985656e38BDC0302Db86685bb972b145bD3C",
+      "name": "STONE (Ethereum, canonical)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stone",
+      "keyFunctions": [
+        {
+          "signature": "sendFrom(address,uint16,bytes,uint256,address,address,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge STONE via LayerZero v1. Args: _from (your address), _dstChainId (LayerZero v1 chain id, e.g. 101 Ethereum, 102 BNB Chain), _toAddress (abi.encodePacked(recipient)), _amount, _refundAddress, _zroPaymentAddress (zero address), _adapterParams (0x for default). Send the fee from estimateSendFee as msg.value."
+        },
+        {
+          "signature": "estimateSendFee(uint16,bytes,uint256,bool,bytes)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero fee for sendFrom: (_dstChainId, _toAddress, _amount, _useZro=false, _adapterParams). Returns (nativeFee, zroFee) in wei."
+        },
+        {
+          "signature": "tokenPrice()",
+          "kind": "read",
+          "payable": false,
+          "description": "STONE price in ETH (1e18 = 1 ETH) as stored on this token contract. On Ethereum it is the live vault price; on other chains it is the last price relayed by LayerZero and can be stale. Not a view function: use eth_call."
+        },
+        {
+          "signature": "getQuota()",
+          "kind": "read",
+          "payable": false,
+          "description": "Remaining cross-chain bridge quota for the current day (18 decimals)."
+        },
+        {
+          "signature": "enable()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if bridging is enabled on this contract."
+        },
+        {
+          "signature": "updatePrice(uint16,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Permissionless: relay the current STONE price to the STONE contract on another chain via LayerZero (_dstChainId, abi.encodePacked(remote STONE address)); pay the LayerZero fee as msg.value."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "STONE balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer STONE."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x094c0e36210634c3CfA25DC11B96b562E0b07624",
+      "name": "SBTC (Ethereum)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_sbtc",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "SBTC balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer SBTC."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x7dBAC0aA440A25D7FB43951f7b178FF7A809108D",
+      "name": "SBTCVault (Ethereum)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_sbtc",
+      "keyFunctions": [
+        {
+          "signature": "deposit(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit a supported BTC token (_token, _amount in its own decimals) and mint SBTC 1:1 scaled to 18 decimals, minus depositFeeRate (FEE_BASE 10000). Approve the token first. On Ethereum deposits and withdrawals were whitelist-only on 2026-11-25 (whitelistMode = true for WBTC)."
+        },
+        {
+          "signature": "withdraw(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn SBTC (18 decimals) and receive the chosen supported token 1:1 (minus withdrawFeeRate) if the vault holds enough of it. Reverts if paused or whitelist mode is on and you are not whitelisted."
+        },
+        {
+          "signature": "getDepositAmounts()",
+          "kind": "read",
+          "payable": false,
+          "description": "(supported tokens[], amounts held[]): which BTC tokens the vault holds and can pay out."
+        },
+        {
+          "signature": "supportedTokens(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if a token is accepted."
+        },
+        {
+          "signature": "depositPaused(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit pause flag per token."
+        },
+        {
+          "signature": "withdrawPaused(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Withdraw pause flag per token."
+        },
+        {
+          "signature": "whitelistMode(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "If true only whitelisted addresses may deposit this token."
+        },
+        {
+          "signature": "withdrawWhitelistMode(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "If true only whitelisted addresses may withdraw to this token."
+        },
+        {
+          "signature": "depositCapacity(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit cap for a token (token units)."
+        },
+        {
+          "signature": "depositFeeRate(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit fee, FEE_BASE = 10000."
+        },
+        {
+          "signature": "withdrawFeeRate(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Withdraw fee, FEE_BASE = 10000."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x3f690f43a9fCA689829A22bf925c89B7a48ca57F",
+      "name": "SBTC LayerZero Adapter (Ethereum)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_sbtc",
+      "keyFunctions": [
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero v2 OFT fee quote. SendParam = (dstEid e.g. 30102 BNB Chain, to as bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd); returns (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge SBTC with LayerZero v2: (sendParam, fee=(nativeFee, 0), refundAddress); msg.value = nativeFee. Approve SBTC to the adapter first if approvalRequired()."
+        },
+        {
+          "signature": "getQuota()",
+          "kind": "read",
+          "payable": false,
+          "description": "Remaining bridge quota."
+        },
+        {
+          "signature": "token()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying SBTC token."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x2D83F5BfC83cF0B09B8884101C015FA9c74c32F3",
+      "name": "STONEBTC",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stonebtc",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "STONEBTC balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer STONEBTC."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1fC603779DC6b4866769A58067777D2C52628226",
+      "name": "StoneBTCVault (AssetVault)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stonebtc",
+      "keyFunctions": [
+        {
+          "signature": "deposit(address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit SBTC or LBTC (_token, _amount, _minLpAmount) and mint STONEBTC at the OracleConfigurator prices (underlyingPrice / STONEBTC price), minus depositFeeRate. Approve the token first. Returns STONEBTC minted."
+        },
+        {
+          "signature": "depositMultiple(address[],uint256[],uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit several underlying tokens at once with one minimum."
+        },
+        {
+          "signature": "getUnderlyings()",
+          "kind": "read",
+          "payable": false,
+          "description": "Accepted underlying tokens (SBTC, LBTC on 2026-11-25)."
+        },
+        {
+          "signature": "depositPaused(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pause flag per token."
+        },
+        {
+          "signature": "whitelistMode(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "If true only whitelisted addresses may deposit this token."
+        },
+        {
+          "signature": "depositFeeRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit fee rate (denominator D4 = 10000)."
+        },
+        {
+          "signature": "requestWithdraw(address,address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Restricted to MARKET_MAKER_ROLE: ordinary holders cannot call it. Users exit STONEBTC via the StakeStone app / market maker (docs: immediately up to seven days)."
+        },
+        {
+          "signature": "cancelWithdrawal(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Requester cancels a pending withdrawal request by id."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6cD42e64630d25406bFC51CcA65cFfa7Cd495FB1",
+      "name": "OracleConfigurator (STONEBTC)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stonebtc",
+      "keyFunctions": [
+        {
+          "signature": "getPrice(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Price (1e18 scale, BTC terms) used by StoneBTCVault for a token (STONEBTC, SBTC, LBTC)."
+        },
+        {
+          "signature": "oracles(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Oracle contract configured for a token."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6A6E3a4396993A4eC98a6f4A654Cc0819538721e",
+      "name": "STONEUSD (Ethereum)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stoneusd",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "STONEUSD balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer STONEUSD."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply on this chain."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if an address is blacklisted (transfers blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x80137510979822322193FC997d400D5A6C747bf7",
+      "name": "STONE (BNB Chain, bridged)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stone",
+      "keyFunctions": [
+        {
+          "signature": "sendFrom(address,uint16,bytes,uint256,address,address,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge STONE via LayerZero v1. Args: _from (your address), _dstChainId (LayerZero v1 chain id, e.g. 101 Ethereum, 102 BNB Chain), _toAddress (abi.encodePacked(recipient)), _amount, _refundAddress, _zroPaymentAddress (zero address), _adapterParams (0x for default). Send the fee from estimateSendFee as msg.value."
+        },
+        {
+          "signature": "estimateSendFee(uint16,bytes,uint256,bool,bytes)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero fee for sendFrom: (_dstChainId, _toAddress, _amount, _useZro=false, _adapterParams). Returns (nativeFee, zroFee) in wei."
+        },
+        {
+          "signature": "tokenPrice()",
+          "kind": "read",
+          "payable": false,
+          "description": "STONE price in ETH (1e18 = 1 ETH) as stored on this token contract. On Ethereum it is the live vault price; on other chains it is the last price relayed by LayerZero and can be stale. Not a view function: use eth_call."
+        },
+        {
+          "signature": "getQuota()",
+          "kind": "read",
+          "payable": false,
+          "description": "Remaining cross-chain bridge quota for the current day (18 decimals)."
+        },
+        {
+          "signature": "enable()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if bridging is enabled on this contract."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "STONE balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer STONE."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x15469528C11E8Ace863F3F9e5a8329216e33dD7d",
+      "name": "SBTC (BNB Chain)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_sbtc",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "SBTC balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer SBTC."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x3aa0670E24Cb122e1d5307Ed74b0c44d619aFF9b",
+      "name": "SBTCVault (BNB Chain)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_sbtc",
+      "keyFunctions": [
+        {
+          "signature": "deposit(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit BTCB (0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c, the supported token on 2026-11-25) and mint SBTC 1:1 minus fee. Approve BTCB first. Open (not whitelisted) on 2026-11-25."
+        },
+        {
+          "signature": "withdraw(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn SBTC and receive BTCB 1:1 minus fee, if the vault holds enough."
+        },
+        {
+          "signature": "getDepositAmounts()",
+          "kind": "read",
+          "payable": false,
+          "description": "(tokens[], amounts held[])."
+        },
+        {
+          "signature": "depositPaused(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit pause flag per token."
+        },
+        {
+          "signature": "withdrawPaused(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Withdraw pause flag per token."
+        },
+        {
+          "signature": "whitelistMode(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit whitelist flag per token."
+        },
+        {
+          "signature": "depositFeeRate(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit fee, FEE_BASE = 10000."
+        },
+        {
+          "signature": "withdrawFeeRate(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Withdraw fee, FEE_BASE = 10000."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x7122985656e38BDC0302Db86685bb972b145bD3C",
+      "name": "SBTC LayerZero Adapter (BNB Chain)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_sbtc",
+      "keyFunctions": [
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero v2 fee quote (dstEid e.g. 30101 Ethereum)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge SBTC via LayerZero v2; msg.value = nativeFee."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x8B4E28607bdcacBf937f81F29E3DAFe7Bc1D7c0b",
+      "name": "STONEUSD (BNB Chain)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stoneusd",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "STONEUSD balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer STONEUSD."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "monad",
+      "chainId": 143,
+      "address": "0x095957CEB9f317ac1328f0aB3123622401766D71",
+      "name": "STONEUSD (Monad)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stoneusd",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "STONEUSD balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer STONEUSD."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply on this chain."
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "stake ETH for STONE",
+      "description": "Mint STONE on Ethereum",
+      "how": "StoneVault.deposit() with ETH value (or depositFor(user)). Preview: STONE ≈ amount * 1e18 / currentSharePrice() (eth_call)."
+    },
+    {
+      "name": "request withdrawal (slow, no slippage)",
+      "description": "Redeem STONE for ETH at the next settlement",
+      "how": "STONE.approve(StoneVault, shares); StoneVault.requestWithdraw(shares). After the round settles (check latestRoundID() increased / userReceipts), claim with StoneVault.instantWithdraw(withdrawableAmount, 0). Cancel before settlement with cancelWithdraw(shares)."
+    },
+    {
+      "name": "instant withdrawal",
+      "description": "Redeem STONE for ETH now",
+      "how": "StoneVault.instantWithdraw(0, shares) — burns STONE at min(last round price, current price); first check getVaultAvailableAmount() idle ETH, otherwise it pulls from strategies or reverts."
+    },
+    {
+      "name": "read STONE price",
+      "description": "ETH per STONE",
+      "how": "eth_call StoneVault.currentSharePrice() (or STONE.tokenPrice() on Ethereum). Do not trust tokenPrice() on bridged chains without checking it is fresh."
+    },
+    {
+      "name": "bridge STONE",
+      "description": "Move STONE between chains",
+      "how": "STONE.estimateSendFee(dstLzV1ChainId, abi.encodePacked(to), amount, false, 0x) then STONE.sendFrom(from, dstChainId, abi.encodePacked(to), amount, refund, 0x0, 0x) with msg.value = nativeFee."
+    },
+    {
+      "name": "mint / redeem SBTC",
+      "description": "BTC wrapper <-> SBTC 1:1",
+      "how": "approve token to SBTCVault; SBTCVault.deposit(token, amount). Redeem: SBTCVault.withdraw(token, sbtcAmount). Check supportedTokens, pause and whitelist flags first."
+    },
+    {
+      "name": "mint STONEBTC",
+      "description": "Deposit SBTC/LBTC into STONEBTC",
+      "how": "approve SBTC or LBTC to StoneBTCVault; StoneBTCVault.deposit(token, amount, minStoneBtcOut). Exit only through the StakeStone app / market maker."
+    }
+  ],
+  "risks": [
+    "STONE redemption is round based: requestWithdraw is settled only when rollToNextRound runs (minimum 3 days apart; observed ~9 days between the last two settlements on 2026-11-25). Instant withdrawals depend on idle ETH and may force-withdraw from strategies, and use the lower of the last round price and the current price.",
+    "STONE price is computed by the vault from strategy valuations (StrategyController), not a market price; DEX prices can differ. Bridged STONE on BNB Chain read tokenPrice() = 1.0 on 2026-11-25 while the Ethereum price was ~1.0766: bridged-chain prices can be stale or unset, so read the Ethereum vault.",
+    "Bridged STONE (BNB Chain and many L2s) is a LayerZero v1 OFT: Ethereum STONE is locked, not burned, when bridged out; bridging has a daily quota and an enable flag; LayerZero/DVN or misconfiguration risk applies. SBTC uses LayerZero v2 adapters.",
+    "Admin powers: StoneVault and STONE owner is 0xc1364aD857462e1B60609D9e56b5E24C5c21a312 (on 2026-11-25); the owner can change the withdraw fee, rebase interval, proposal contract and migrate the vault. Strategy changes go through the OPAP proposal/vote; per the docs strategies are operated by a multisig with partners (Cobo, Coincover).",
+    "SBTC vaults have role-based admins who can pause deposits/withdrawals per token, set fees (up to MAX_FEE_RATE), caps and whitelist mode; on Ethereum SBTC mint/redeem was whitelist-only on 2026-11-25. SBTC is redeemable only for whatever BTC tokens the vault holds.",
+    "STONEBTC withdrawals cannot be requested by holders on-chain (requestWithdraw is MARKET_MAKER_ROLE only); exits go through StakeStone/market maker, documented as immediate up to seven days. TVL is very small.",
+    "STONEUSD is backed mainly by arbitrage strategies run on centralized exchanges (custodial/CEX risk); mint and weekly redemption are permissioned (KYC/KYB whitelist); the token has a blacklist and admin mint role. Its on-chain token contracts expose no exchange-rate function; the rate is shown in the StakeStone app.",
+    "Audits listed in the docs: STONE by Quantstamp (2024) and SlowMist (2023-2024), Secure3; SBTC/STONEBTC by SlowMist; STONEUSD by Quantstamp (2025)."
+  ],
+  "notes": "All addresses come from the official StakeStone docs address pages and were confirmed as contracts with eth_getCode on Ethereum, BNB Chain and Monad; links between contracts were cross-checked on-chain (Minter.vault() = StoneVault, STONE.minter() = Minter, SBTCVault.stoneBTC() = SBTC, adapters' token() = SBTC, StoneBTCVault.lpToken() = STONEBTC). Function signatures are from the verified Ethereum sources (Blockscout) and the docs API reference; BNB Chain contracts were checked by selector against bytecode. Scope is the three chains DefiLlama tracks (Ethereum, BSC, Monad). The docs also list STONE on Berachain, Scroll, Manta, Mode, Zircuit, Astar zkEVM, Linea, Mantle, Base, Metis, Optimism, Arbitrum, Meter, X Layer, SEI, Merlin (M-STONE), B2 (BStone) and Aptos, and SBTC on Scroll, Zircuit, BOB and Aptos: see the address pages. Left out: Minter 0xEc306E46549A7E8f4fCE823D3058f2D134133B17 (mint/burn callable only by the vault), Proposal 0x3aa0670E24Cb122e1d5307Ed74b0c44d619aFF9b on Ethereum (OPAP voting), StrategyController 0x396aBF9fF46E21694F4eF01ca77C6d7893A017B2, AssetVault 0x9485711f11B17f73f2CCc8561bcae05BDc7E9ad9, MiningPool and G-NFT (governance/internal; listed in the docs). No StakeStone mint/redeem contract for STONEUSD is published, so only the token contracts are listed. The docs API page also describes HTTP endpoints but gives no base URL, so no offchain API is listed. The LayerZero chain IDs given in function descriptions (v1: 101 Ethereum, 102 BNB Chain; v2 eids 30101/30102) are LayerZero's standard IDs, not from StakeStone docs. Same hex, different contracts: Ethereum Proposal 0x3aa0670E24Cb122e1d5307Ed74b0c44d619aFF9b is SBTCVault on BNB Chain, and Ethereum STONE 0x7122985656e38BDC0302Db86685bb972b145bD3C is the SBTC LayerZero Adapter on BNB Chain; always match address with chain.",
+  "sources": [
+    "https://defillama.com/protocol/stakestone",
+    "https://api.llama.fi/protocol/stakestone",
+    "https://api.llama.fi/protocols",
+    "https://docs.stakestone.io/stakestone/llms.txt",
+    "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stone",
+    "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_sbtc",
+    "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stonebtc",
+    "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stoneusd",
+    "https://docs.stakestone.io/stakestone/developers/stakestone-api-references",
+    "https://docs.stakestone.io/stakestone/developers/cross-chain-interfaces",
+    "https://docs.stakestone.io/stakestone/stone-eth/how-it-works/stone-mechanism",
+    "https://docs.stakestone.io/stakestone/stone-eth/how-it-works/stake-and-mint",
+    "https://docs.stakestone.io/stakestone/stone-eth/how-it-works/unstake-and-omnichain-withdrawal",
+    "https://docs.stakestone.io/stakestone/stone-eth/how-it-works/unstake-and-omnichain-withdrawal/instant",
+    "https://docs.stakestone.io/stakestone/stone-eth/how-it-works/unstake-and-omnichain-withdrawal/request",
+    "https://docs.stakestone.io/stakestone/stone-eth/how-it-works/pricing",
+    "https://docs.stakestone.io/stakestone/stone-eth/how-it-works/bridging",
+    "https://docs.stakestone.io/stakestone/sbtc-and-stonebtc/sbtc",
+    "https://docs.stakestone.io/stakestone/sbtc-and-stonebtc/stonebtc",
+    "https://docs.stakestone.io/stakestone/product/earn/stoneusd",
+    "https://docs.stakestone.io/stakestone/additionals/audits-and-security",
+    "https://docs.stakestone.io/stakestone/additionals/risks",
+    "https://eth.blockscout.com/api/v2/smart-contracts/0xA62F9C5af106FeEE069F38dE51098D9d81B90572",
+    "https://eth.blockscout.com/api/v2/smart-contracts/0x7122985656e38BDC0302Db86685bb972b145bD3C",
+    "https://eth.blockscout.com/api/v2/smart-contracts/0x7dBAC0aA440A25D7FB43951f7b178FF7A809108D",
+    "https://eth.blockscout.com/api/v2/smart-contracts/0x1fC603779DC6b4866769A58067777D2C52628226",
+    "https://eth.blockscout.com/api/v2/smart-contracts/0x3f690f43a9fCA689829A22bf925c89B7a48ca57F",
+    "https://eth.blockscout.com/api/v2/smart-contracts/0x6A6E3a4396993A4eC98a6f4A654Cc0819538721e",
+    "https://ethereum-rpc.publicnode.com",
+    "https://bsc-dataseed.binance.org",
+    "https://rpc.monad.xyz"
+  ],
+  "researchedAt": "2026-11-24"
+}
