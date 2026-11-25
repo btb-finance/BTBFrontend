@@ -1,0 +1,816 @@
+{
+  "slug": "yield-basis",
+  "name": "Yield Basis",
+  "category": "Leveraged Farming",
+  "description": "Curve-team protocol on Ethereum that gives BTC/ETH LPs (WBTC, cbBTC, tBTC, WETH) a 2x-leveraged Curve crvUSD-pool position designed to cancel impermanent loss. Agents deposit the asset into a market's LT to get yb-LP shares (yb-WBTC, yb-cbBTC, yb-tBTC, yb-WETH), withdraw, optionally stake shares in the gauge for YB emissions, lock YB as veYB, vote gauges and claim veYB fees.",
+  "website": "https://yieldbasis.com",
+  "docs": "https://docs.yieldbasis.com",
+  "defillama": "https://defillama.com/protocol/yield-basis",
+  "chains": [
+    "ethereum"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x370a449FeBb9411c95bf897021377fe0B7D100c0",
+      "name": "Factory (market registry)",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.yieldbasis.com/user/reference/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "market_count()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of deployed markets (11 on 2026-11-25: indexes 0-10; 7-10 active, 0-6 deprecated)."
+        },
+        {
+          "signature": "markets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Market struct (asset_token, cryptopool, amm (LEVAMM), lt (yb-LP token / vault), price_oracle, virtual_pool, staker (gauge)). Onchain state does not flag deprecated markets; compare with the contract-addresses page."
+        },
+        {
+          "signature": "emergency_admin()",
+          "kind": "read",
+          "payable": false,
+          "description": "Curve Emergency DAO multisig that can kill/revive a market."
+        },
+        {
+          "signature": "fee_receiver()",
+          "kind": "read",
+          "payable": false,
+          "description": "FeeSplitter that receives LT admin fees."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x651D4b8168488FA163D85304662E8278d4c55BAa",
+      "name": "yb-WBTC (LT, market 7: WBTC, 2x leveraged WBTC/crvUSD Curve LP)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.yieldbasis.com/user/reference/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit WBTC and mint yb-WBTC shares. Args (assets in raw WBTC units, 8 decimals; debt = crvUSD the LEVAMM borrows, raw 18-decimal units; min_shares (18 decimals) slippage floor; receiver). Approve WBTC (0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599) to this LT first. Not ERC-4626 despite the event names. Pool policy: YBTwocryptoPolicy (use the price rule: debt = assets * pool.price_oracle() // 10**8). Pool = 0x313698667d7FDD6789a9BC70821309ff891E729A, LEVAMM = 0x7b9817eb5C49A99875138A5d52bF64a8B2cFFFFE. Reverts 'Debt too high' when the deposit would exceed the market cap (AMM.max_debt()/2), 'Deposit to staker' if receiver is the gauge (use StakeZap to deposit+stake). Simulate before sending."
+        },
+        {
+          "signature": "preview_deposit(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Expected shares for (assets, debt). Does not run the LT deviation check; reverts 'Debt too high' over the cap."
+        },
+        {
+          "signature": "withdraw(uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares and receive WBTC: (shares, min_assets in raw WBTC units, receiver). Unstake from the gauge first (reverts 'Withdraw to/from staker'). Give a gas margin (reverts 'GAS' if the gauge checkpoint retry lacks 200k gas). If the market is killed: 'We're dead. Use emergency_withdraw'."
+        },
+        {
+          "signature": "preview_withdraw(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Redemption Value: WBTC (raw units) you would get now for a share amount, including the Temporary Redemption Discount (TRD). Use it to set min_assets."
+        },
+        {
+          "signature": "pricePerShare()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fundamental Value of one share in WBTC, scaled to 18 decimals regardless of asset decimals (oracle-based; excludes TRD and is not an upper bound). TRD = preview_withdraw(1e18) * 10**(18-8) / pricePerShare() - 1."
+        },
+        {
+          "signature": "emergency_withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit when the market is killed or its oracle reverts: (shares, receiver, owner). Returns (asset_out, stables_to_return int256); if negative you must pay that much crvUSD, so approve crvUSD (0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E) to this LT first. No slippage parameter."
+        },
+        {
+          "signature": "preview_emergency_withdraw(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote (asset_received, stables_to_return) for emergency_withdraw."
+        },
+        {
+          "signature": "is_killed()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the market is killed (then only emergency_withdraw works)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "yb-WBTC share balance (18 decimals). Staked shares sit in the gauge and are not counted here."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 approve, e.g. let the gauge pull shares before staking."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xAa0b1d265F23972eafB7d088e963BD31403A58F5",
+      "name": "Gauge g(yb-WBTC) (market 7 staking, YB emissions)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://docs.yieldbasis.com/user/reference/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake yb-WBTC: (LT shares, receiver); mints gauge shares (ERC-4626 style). Approve this gauge on the LT first. Staked positions earn YB emissions instead of Fundamental Value growth and carry watermark risk."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake an exact amount of LT shares: (assets, receiver, owner)."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake by gauge shares: (shares, receiver, owner); returns LT shares."
+        },
+        {
+          "signature": "claim(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim rewards: (reward token, user). Use YB 0x01791F726B4103694969820be083196cC7c045fF for emissions; claim() with no args claims YB for msg.sender."
+        },
+        {
+          "signature": "preview_claim(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimable amount of a reward token for a user (raw units)."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "LT shares for a gauge-share amount (includes the pending staker rebase; can be below 1:1)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "LT shares a redeem would return."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Gauge share balance (18 decimals)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x722FC3640BA007C3E9867CCdB0dCa59F2e2F29F9",
+      "name": "yb-cbBTC (LT, market 8: cbBTC, 2x leveraged cbBTC/crvUSD Curve LP)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.yieldbasis.com/user/reference/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit cbBTC and mint yb-cbBTC shares. Args (assets in raw cbBTC units, 8 decimals; debt = crvUSD the LEVAMM borrows, raw 18-decimal units; min_shares (18 decimals) slippage floor; receiver). Approve cbBTC (0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf) to this LT first. Not ERC-4626 despite the event names. Pool policy: YBTwocryptoPolicy (use the price rule: debt = assets * pool.price_oracle() // 10**8). Pool = 0x862CB4E988FB66E72f128d1183829f8c05B6c6A0, LEVAMM = 0x49F51d7e279252F3C9a09678fdC65B4dBd5CB196. Reverts 'Debt too high' when the deposit would exceed the market cap (AMM.max_debt()/2), 'Deposit to staker' if receiver is the gauge (use StakeZap to deposit+stake). Simulate before sending."
+        },
+        {
+          "signature": "preview_deposit(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Expected shares for (assets, debt). Does not run the LT deviation check; reverts 'Debt too high' over the cap."
+        },
+        {
+          "signature": "withdraw(uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares and receive cbBTC: (shares, min_assets in raw cbBTC units, receiver). Unstake from the gauge first (reverts 'Withdraw to/from staker'). Give a gas margin (reverts 'GAS' if the gauge checkpoint retry lacks 200k gas). If the market is killed: 'We're dead. Use emergency_withdraw'."
+        },
+        {
+          "signature": "preview_withdraw(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Redemption Value: cbBTC (raw units) you would get now for a share amount, including the Temporary Redemption Discount (TRD). Use it to set min_assets."
+        },
+        {
+          "signature": "pricePerShare()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fundamental Value of one share in cbBTC, scaled to 18 decimals regardless of asset decimals (oracle-based; excludes TRD and is not an upper bound). TRD = preview_withdraw(1e18) * 10**(18-8) / pricePerShare() - 1."
+        },
+        {
+          "signature": "emergency_withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit when the market is killed or its oracle reverts: (shares, receiver, owner). Returns (asset_out, stables_to_return int256); if negative you must pay that much crvUSD, so approve crvUSD (0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E) to this LT first. No slippage parameter."
+        },
+        {
+          "signature": "preview_emergency_withdraw(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote (asset_received, stables_to_return) for emergency_withdraw."
+        },
+        {
+          "signature": "is_killed()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the market is killed (then only emergency_withdraw works)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "yb-cbBTC share balance (18 decimals). Staked shares sit in the gauge and are not counted here."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 approve, e.g. let the gauge pull shares before staking."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xF8764cBcdb15a9E4c7CA1b0b8a578d9ebEEC1b6f",
+      "name": "Gauge g(yb-cbBTC) (market 8 staking, YB emissions)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://docs.yieldbasis.com/user/reference/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake yb-cbBTC: (LT shares, receiver); mints gauge shares (ERC-4626 style). Approve this gauge on the LT first. Staked positions earn YB emissions instead of Fundamental Value growth and carry watermark risk."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake an exact amount of LT shares: (assets, receiver, owner)."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake by gauge shares: (shares, receiver, owner); returns LT shares."
+        },
+        {
+          "signature": "claim(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim rewards: (reward token, user). Use YB 0x01791F726B4103694969820be083196cC7c045fF for emissions; claim() with no args claims YB for msg.sender."
+        },
+        {
+          "signature": "preview_claim(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimable amount of a reward token for a user (raw units)."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "LT shares for a gauge-share amount (includes the pending staker rebase; can be below 1:1)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "LT shares a redeem would return."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Gauge share balance (18 decimals)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x771F7290428d830ECd41E980745c327e507823Ec",
+      "name": "yb-tBTC (LT, market 9: tBTC, 2x leveraged tBTC/crvUSD Curve LP)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.yieldbasis.com/user/reference/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit tBTC and mint yb-tBTC shares. Args (assets in raw tBTC units, 18 decimals; debt = crvUSD the LEVAMM borrows, raw 18-decimal units; min_shares (18 decimals) slippage floor; receiver). Approve tBTC (0x18084fbA666a33d37592fA2633fD49a74DD93a88) to this LT first. Not ERC-4626 despite the event names. Pool policy: YBTwocryptoPolicy (use the price rule: debt = assets * pool.price_oracle() // 10**18). Pool = 0x4F52C3a81E33521e5a9A47FD9D3BE475D2279c2e, LEVAMM = 0x0e357Af536592F275C6Aa07b8AC2CA6EB3d0cF5a. Reverts 'Debt too high' when the deposit would exceed the market cap (AMM.max_debt()/2), 'Deposit to staker' if receiver is the gauge (use StakeZap to deposit+stake). Simulate before sending."
+        },
+        {
+          "signature": "preview_deposit(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Expected shares for (assets, debt). Does not run the LT deviation check; reverts 'Debt too high' over the cap."
+        },
+        {
+          "signature": "withdraw(uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares and receive tBTC: (shares, min_assets in raw tBTC units, receiver). Unstake from the gauge first (reverts 'Withdraw to/from staker'). Give a gas margin (reverts 'GAS' if the gauge checkpoint retry lacks 200k gas). If the market is killed: 'We're dead. Use emergency_withdraw'."
+        },
+        {
+          "signature": "preview_withdraw(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Redemption Value: tBTC (raw units) you would get now for a share amount, including the Temporary Redemption Discount (TRD). Use it to set min_assets."
+        },
+        {
+          "signature": "pricePerShare()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fundamental Value of one share in tBTC, scaled to 18 decimals regardless of asset decimals (oracle-based; excludes TRD and is not an upper bound). TRD = preview_withdraw(1e18) * 10**(18-18) / pricePerShare() - 1."
+        },
+        {
+          "signature": "emergency_withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit when the market is killed or its oracle reverts: (shares, receiver, owner). Returns (asset_out, stables_to_return int256); if negative you must pay that much crvUSD, so approve crvUSD (0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E) to this LT first. No slippage parameter."
+        },
+        {
+          "signature": "preview_emergency_withdraw(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote (asset_received, stables_to_return) for emergency_withdraw."
+        },
+        {
+          "signature": "is_killed()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the market is killed (then only emergency_withdraw works)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "yb-tBTC share balance (18 decimals). Staked shares sit in the gauge and are not counted here."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 approve, e.g. let the gauge pull shares before staking."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xe83D888FE3213DD3471DE0bC1957E0f94F038483",
+      "name": "Gauge g(yb-tBTC) (market 9 staking, YB emissions)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://docs.yieldbasis.com/user/reference/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake yb-tBTC: (LT shares, receiver); mints gauge shares (ERC-4626 style). Approve this gauge on the LT first. Staked positions earn YB emissions instead of Fundamental Value growth and carry watermark risk."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake an exact amount of LT shares: (assets, receiver, owner)."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake by gauge shares: (shares, receiver, owner); returns LT shares."
+        },
+        {
+          "signature": "claim(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim rewards: (reward token, user). Use YB 0x01791F726B4103694969820be083196cC7c045fF for emissions; claim() with no args claims YB for msg.sender."
+        },
+        {
+          "signature": "preview_claim(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimable amount of a reward token for a user (raw units)."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "LT shares for a gauge-share amount (includes the pending staker rebase; can be below 1:1)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "LT shares a redeem would return."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Gauge share balance (18 decimals)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x2B9c9f3BdcEb5d8E36a4704F08a78Fca53343cEa",
+      "name": "yb-WETH (LT, market 10: WETH, 2x leveraged WETH/crvUSD Curve LP)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.yieldbasis.com/user/reference/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit WETH and mint yb-WETH shares. Args (assets in raw WETH units, 18 decimals; debt = crvUSD the LEVAMM borrows, raw 18-decimal units; min_shares (18 decimals) slippage floor; receiver). Approve WETH (0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2) to this LT first. Not ERC-4626 despite the event names. Pool policy: YBOraclizedPolicy (oracle-report policy: when the LEVAMM book holds collateral, debt must be proportional to the book, debt = calc_token_amount([debt, assets], True) * AMM.get_debt() / AMM.collateral_amount(), iterated, or deposit reverts 'LT deviation'). Pool = 0x656341Ef90b622c6634e0573772FfB7f3669b9f3, LEVAMM = 0x5f8D24F33Cc5a1D5D1bf012261E6A2214C92233c. Reverts 'Debt too high' when the deposit would exceed the market cap (AMM.max_debt()/2), 'Deposit to staker' if receiver is the gauge (use StakeZap to deposit+stake). Simulate before sending."
+        },
+        {
+          "signature": "preview_deposit(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Expected shares for (assets, debt). Does not run the LT deviation check; reverts 'Debt too high' over the cap."
+        },
+        {
+          "signature": "withdraw(uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares and receive WETH: (shares, min_assets in raw WETH units, receiver). Unstake from the gauge first (reverts 'Withdraw to/from staker'). Give a gas margin (reverts 'GAS' if the gauge checkpoint retry lacks 200k gas). If the market is killed: 'We're dead. Use emergency_withdraw'."
+        },
+        {
+          "signature": "preview_withdraw(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Redemption Value: WETH (raw units) you would get now for a share amount, including the Temporary Redemption Discount (TRD). Use it to set min_assets."
+        },
+        {
+          "signature": "pricePerShare()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fundamental Value of one share in WETH, scaled to 18 decimals regardless of asset decimals (oracle-based; excludes TRD and is not an upper bound). TRD = preview_withdraw(1e18) * 10**(18-18) / pricePerShare() - 1."
+        },
+        {
+          "signature": "emergency_withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit when the market is killed or its oracle reverts: (shares, receiver, owner). Returns (asset_out, stables_to_return int256); if negative you must pay that much crvUSD, so approve crvUSD (0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E) to this LT first. No slippage parameter."
+        },
+        {
+          "signature": "preview_emergency_withdraw(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote (asset_received, stables_to_return) for emergency_withdraw."
+        },
+        {
+          "signature": "is_killed()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the market is killed (then only emergency_withdraw works)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "yb-WETH share balance (18 decimals). Staked shares sit in the gauge and are not counted here."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 approve, e.g. let the gauge pull shares before staking."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xd829456FD63Ada7DE0657714A3A7A26DE403E3D8",
+      "name": "Gauge g(yb-WETH) (market 10 staking, YB emissions)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://docs.yieldbasis.com/user/reference/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake yb-WETH: (LT shares, receiver); mints gauge shares (ERC-4626 style). Approve this gauge on the LT first. Staked positions earn YB emissions instead of Fundamental Value growth and carry watermark risk."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake an exact amount of LT shares: (assets, receiver, owner)."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake by gauge shares: (shares, receiver, owner); returns LT shares."
+        },
+        {
+          "signature": "claim(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim rewards: (reward token, user). Use YB 0x01791F726B4103694969820be083196cC7c045fF for emissions; claim() with no args claims YB for msg.sender."
+        },
+        {
+          "signature": "preview_claim(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimable amount of a reward token for a user (raw units)."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "LT shares for a gauge-share amount (includes the pending staker rebase; can be below 1:1)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "LT shares a redeem would return."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Gauge share balance (18 decimals)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xE862bC39B8D5F12D8c4117d3e2D493Dc20051EC6",
+      "name": "StakeZap",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.yieldbasis.com/user/reference/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "deposit_and_stake(address,uint256,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit and stake in one tx: (gauge, assets, debt, min_shares (LT shares, not gauge shares), receiver). Approve the asset to the zap. debt follows the same pool-policy rule as LT.deposit. Returns gauge shares."
+        },
+        {
+          "signature": "withdraw_and_unstake(address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake and withdraw in one tx: (gauge, gauge shares, min_assets (raw asset units), receiver). Approve the gauge shares to the zap first. Returns asset amount."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x01791F726B4103694969820be083196cC7c045fF",
+      "name": "YB token",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.yieldbasis.com/user/reference/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "YB balance (18 decimals). Max supply 1,000,000,000 YB; minted only via GaugeController emissions."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve veYB (VotingEscrow) before create_lock / increase_amount."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 transfer."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x8235c179E9e84688FBd8B12295EfC26834dAC211",
+      "name": "veYB (VotingEscrow)",
+      "role": "governance",
+      "proxy": false,
+      "source": "https://docs.yieldbasis.com/user/reference/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "create_lock(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Lock YB: (amount raw 18-dec, unlock unix time). Unlock time is rounded down to a week and must be <= now + 4 years. Approve YB first. Mints a veYB NFT; one lock per address."
+        },
+        {
+          "signature": "increase_amount(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add YB to an existing, unexpired lock (two-arg form increase_amount(uint256,address) adds to another address's lock)."
+        },
+        {
+          "signature": "increase_unlock_time(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Extend the unlock time (rounded down to a week, max 4 years ahead)."
+        },
+        {
+          "signature": "infinite_lock_toggle()",
+          "kind": "write",
+          "payable": false,
+          "description": "Toggle permalock (no decay). Turning it off requires no active gauge votes and restarts a 4-year decay."
+        },
+        {
+          "signature": "withdraw()",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw all YB after the lock expired (permalocks must be toggled off first)."
+        },
+        {
+          "signature": "getVotes(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current voting power (18 decimals); decays linearly to the unlock time. balanceOf() is the NFT count, not voting power."
+        },
+        {
+          "signature": "locked(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(amount, end) of an address's lock."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1Be14811A3a06F6aF4fA64310a636e1Df04c1c21",
+      "name": "GaugeController",
+      "role": "governance",
+      "proxy": false,
+      "source": "https://docs.yieldbasis.com/user/reference/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "vote_for_gauge_weights(address[],uint256[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Vote YB emissions to gauges with your veYB: (gauges, weights in basis points, total <= 10000). Max 50 gauges; at most once per gauge every 10 days; lock must not be expired."
+        },
+        {
+          "signature": "gauge_relative_weight(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Share of emissions a gauge gets (1e18 = 100%)."
+        },
+        {
+          "signature": "get_gauge_weight(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Raw gauge weight."
+        },
+        {
+          "signature": "n_gauges()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of gauges; gauges(i) lists them."
+        },
+        {
+          "signature": "preview_emissions(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "YB a gauge will have received by a timestamp (18 decimals)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xD11b416573EbC59b6B2387DA0D2c0D1b3b1F7A90",
+      "name": "FeeDistributor (veYB fee claims)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.yieldbasis.com/user/reference/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "claim(address,uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim weekly admin fees (paid as yb-LP tokens) for veYB: (receiver, epoch_count (max 50 per call, default 50), use_vest false for normal users). claim() with no args claims for msg.sender."
+        },
+        {
+          "signature": "preview_claim(address,uint256,bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tokens and amounts a claim would pay; marked non-view in the ABI, call it with eth_call."
+        },
+        {
+          "signature": "fill_epochs()",
+          "kind": "write",
+          "payable": false,
+          "description": "Anyone: spread newly received fees over the next 4 weekly epochs."
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "find-market",
+      "description": "Get a market's contracts",
+      "how": "Factory.markets(i) for i in 7..10 (active) -> (asset, cryptopool, amm, lt, price_oracle, virtual_pool, staker). Check LT.is_killed() == false."
+    },
+    {
+      "name": "deposit",
+      "description": "Deposit BTC/ETH asset for yb-LP",
+      "how": "1) Read pool.POLICY(); compute debt with the price rule (assets * pool.price_oracle() // 10**asset_decimals) on YBTwocryptoPolicy pools (WBTC, cbBTC, tBTC), or with the LEVAMM-book rule on the WETH pool (live YBOraclizedPolicy). 2) expected = LT.preview_deposit(assets, debt); min_shares = expected * (1 - tolerance). 3) asset.approve(LT, assets). 4) Simulate then send LT.deposit(assets, debt, min_shares, receiver)."
+    },
+    {
+      "name": "withdraw",
+      "description": "Redeem yb-LP for the asset",
+      "how": "If staked, unstake first (gauge.redeem or StakeZap.withdraw_and_unstake). expected = LT.preview_withdraw(shares); compare with pricePerShare to see the TRD; LT.withdraw(shares, expected * (1 - tolerance), receiver) with a gas margin."
+    },
+    {
+      "name": "deposit-and-stake",
+      "description": "Deposit and stake for YB emissions in one tx",
+      "how": "asset.approve(StakeZap, assets); StakeZap.deposit_and_stake(gauge, assets, debt, min_shares, receiver)."
+    },
+    {
+      "name": "stake",
+      "description": "Stake existing yb-LP",
+      "how": "LT.approve(gauge, amount); gauge.deposit(amount, receiver)."
+    },
+    {
+      "name": "claim-yb",
+      "description": "Claim YB emissions",
+      "how": "gauge.claim(YB, user) or gauge.claim(); preview with gauge.preview_claim(YB, user)."
+    },
+    {
+      "name": "lock-yb",
+      "description": "Lock YB for veYB",
+      "how": "YB.approve(veYB, amount); veYB.create_lock(amount, unlockTime <= now + 4y). Then GaugeController.vote_for_gauge_weights([gauges],[bps]) and FeeDistributor.claim() weekly."
+    }
+  ],
+  "risks": [
+    "Leverage: each market holds a 2x-leveraged Curve LP position funded by pooled crvUSD debt (target ~50% debt). Arbitrage keeps it on target; in fast markets or gas spikes leverage can drift. Borrow rate is set by the DAO per market (up to 100%/yr).",
+    "Withdrawals can realise a Temporary Redemption Discount (TRD): preview_withdraw can be below pricePerShare for hours to weeks; always set min_assets from preview_withdraw.",
+    "Caps: deposits revert 'Debt too high' when a market's LEVAMM would exceed AMM.max_debt()/2 (limited by crvUSD allocation); deposits can also revert 'Unsafe min/max' or 'LT deviation' (WETH oracle-report pool).",
+    "Staked positions give up Fundamental Value growth for YB emissions and have a watermark: after losses staked shares can redeem below the deposit until gains close the gap. YB price and gauge weight drive the return.",
+    "Kill switch: Factory admin or the Curve Emergency DAO can kill a market; then only emergency_withdraw works and you may have to repay part of the debt in crvUSD from your wallet. If the oracle reverts while not killed, staked holders cannot unstake.",
+    "Dependencies: Curve Twocrypto pools, crvUSD (depeg risk), the crvUSD price aggregator, Pyth price reports on the WETH pool's YBOraclizedPolicy, and the wrapped-asset issuers (WBTC/cbBTC custodians, tBTC bridge).",
+    "New protocol (mainnet launch September 2025; markets 0-6 already deprecated and replaced). Core contracts are immutable (not upgradeable). Audits: Statemind, ChainSecurity, Quantstamp, Electisec, Pashov, MixBytes (DAO, Hybrid Vaults), Firepan AI (FeeDistributor), Sherlock contest; audits do not remove all risk.",
+    "veYB locks are up to 4 years (or permanent) and cannot be withdrawn early."
+  ],
+  "notes": "All addresses from the official contract-addresses page (docs.yieldbasis.com/user/reference/contract-addresses) and cross-checked onchain: Factory.markets(7..10) return exactly the listed LTs and gauges, and each LT.staker() is the listed gauge. Function signatures from the official yb-core GitHub source (Vyper) and the dev docs; Vyper default arguments also create shorter overloads (e.g. deposit(uint256,uint256,uint256), withdraw(uint256,uint256), claim()). Only active markets 7-10 are listed; deprecated markets 0-6 (old yb-WBTC/yb-cbBTC/yb-tBTC/yb-WETH tokens) are on the same page under 'Deprecated markets' — move positions with LTMigrator 0xd5b450fDD5aF5341436Fc37A46BBEc39CA8F92CB. 'ybBTC' is a marketing name; the onchain share tokens are yb-WBTC, yb-cbBTC and yb-tBTC (I found no separate ybBTC token address in the docs; the ybBTC docs page linked from llms.txt returns 404). Left out on purpose: LEVAMM, VirtualPool, LP oracles, pool policies, Hybrid Vaults (HybridVaultFactory 0xBdC32268851C324c6185809271dfe6d8dab8dC5b, crvUSD-backed vaults across up to 16 markets), net-pressure and lending-oracle contracts, vesting escrows and the Aragon DAO — all on the contract-addresses page. YB LPs and pools trade on Curve; use Curve for YB swaps.",
+  "sources": [
+    "https://docs.yieldbasis.com/user/reference/contract-addresses",
+    "https://docs.yieldbasis.com/dev/quickstart",
+    "https://docs.yieldbasis.com/dev/core/lt",
+    "https://docs.yieldbasis.com/dev/core/factory",
+    "https://docs.yieldbasis.com/dev/dao/liquidity-gauge",
+    "https://docs.yieldbasis.com/dev/dao/stake-zap",
+    "https://docs.yieldbasis.com/dev/dao/voting-escrow",
+    "https://docs.yieldbasis.com/dev/dao/gauge-controller",
+    "https://docs.yieldbasis.com/dev/dao/fee-distributor",
+    "https://docs.yieldbasis.com/dev/dao/yb-token",
+    "https://docs.yieldbasis.com/dev/integration/deposit-withdraw",
+    "https://docs.yieldbasis.com/user/reference/risks",
+    "https://docs.yieldbasis.com/user/reference/audits",
+    "https://docs.yieldbasis.com/user/reference/faq",
+    "https://docs.yieldbasis.com/user/protocol/staked-vs-unstaked-economics",
+    "https://docs.yieldbasis.com/llms.txt",
+    "https://github.com/yield-basis/yb-core",
+    "https://api.llama.fi/protocol/yield-basis",
+    "https://defillama.com/protocol/yield-basis"
+  ],
+  "researchedAt": "2026-11-25"
+}

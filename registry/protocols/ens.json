@@ -1,0 +1,651 @@
+{
+  "slug": "ens",
+  "name": "ENS (Ethereum Name Service)",
+  "category": "Domains",
+  "description": "Naming system on Ethereum: resolve names (alice.eth, DNS names) to addresses and records and addresses back to primary names through the Universal Resolver, register and renew .eth names with the ENSv2 ETHRegistrar (commit-reveal, paid in USDC/DAI), and set address/text records and primary names.",
+  "website": "https://ens.domains",
+  "docs": "https://docs.ens.domains",
+  "defillama": "https://defillama.com/protocol/ens",
+  "chains": [
+    "ethereum"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe",
+      "name": "Universal Resolver (UpgradableUniversalResolverProxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://docs.ens.domains/resolvers/universal",
+      "keyFunctions": [
+        {
+          "signature": "resolve(bytes,bytes)",
+          "kind": "read",
+          "payable": false,
+          "description": "Canonical entry point for forward resolution (ENSv1 and ENSv2 names). Args: (name, data). name = DNS-encoded, ENSIP-15-normalized name (e.g. 'nick.eth' -> 0x046e69636b0365746800); data = one ABI-encoded resolver call such as addr(bytes32 node), addr(bytes32,uint256 coinType) or text(bytes32,string key) (node = namehash), or multicall(bytes[]) of several. Returns (bytes result, address resolver); decode result with the inner call's ABI. May revert with OffchainLookup (EIP-3668 CCIP-Read): use a client that follows CCIP-Read (viem getEnsAddress/getEnsText do this)."
+        },
+        {
+          "signature": "reverse(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Primary-name lookup. Args: (lookupAddress as bytes, e.g. the 20-byte address; coinType: 60 for Ethereum, or the ENSIP-11 coin type for an L2). Returns (string primary, address resolver, address reverseResolver). It already checks that the primary name forward-resolves back to the address."
+        },
+        {
+          "signature": "resolveWithGateways(bytes,bytes,string[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Same as resolve but with your own list of CCIP-Read gateway URLs."
+        },
+        {
+          "signature": "reverseWithGateways(bytes,uint256,string[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Same as reverse but with your own CCIP-Read gateway URLs."
+        },
+        {
+          "signature": "findResolver(bytes)",
+          "kind": "read",
+          "payable": false,
+          "description": "Find the resolver contract for a DNS-encoded name (walks the ENSv2 registry tree, falling back to ENSv1 for unmigrated names). Use this to discover where to write records; never hardcode a resolver."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xD6D8369e55c94Ae8AFA714E6cF7AB5bE54D5CC81",
+      "name": "ETHRegistrar (ENSv2, current .eth registrar)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.ens.domains/learn/deployments",
+      "keyFunctions": [
+        {
+          "signature": "isAvailable(string)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the label (e.g. 'alice' for alice.eth, no '.eth') can be registered now. Pre-migrated ENSv1 names are RESERVED and return false."
+        },
+        {
+          "signature": "getRegisterPrice(string,uint64,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Args (label, duration in seconds, paymentToken). Returns (base, premium) in the payment token's raw units (USDC: 6 decimals, DAI: 18). 5+ characters = $8/yr, 4 = $160/yr, 3 = $640/yr, with multi-year discounts (12.5% at 2 yrs, ~31% at 3-5 yrs, ~44% at 6 yrs). Premium is a 21-day decaying premium on recently expired names. Reverts if the name is unavailable or duration < MIN_REGISTER_DURATION (28 days)."
+        },
+        {
+          "signature": "getRenewPrice(string,uint64,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Renewal price (base only, no premium) in paymentToken raw units for (label, duration seconds, token). Reverts NameNotRenewable if the name is not renewable here (unmigrated names renew through ETHRenewerV1)."
+        },
+        {
+          "signature": "makeCommitment(string,address,bytes32,address,address,uint64,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Compute the commitment hash. Args (label, owner, secret, subregistry, resolver, duration, referrer). secret = random 32 bytes you keep; subregistry = 0x0 for none; resolver = the resolver to set (e.g. your own Permissioned Resolver proxy); duration = seconds (uint64); referrer = bytes32(0) if none."
+        },
+        {
+          "signature": "commit(bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Step 1 of commit-reveal: store the commitment. Then wait at least MIN_COMMITMENT_AGE (60 s) and at most MAX_COMMITMENT_AGE (86400 s = 24 h) before register."
+        },
+        {
+          "signature": "register(string,address,bytes32,address,address,uint64,address,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Step 2: register. Args (label, owner, secret, subregistry, resolver, duration, paymentToken, referrer); all but paymentToken must equal the makeCommitment inputs. NOT payable: the fee is pulled in an ERC-20 (USDC 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 or DAI 0x6B175474E89094C44Da98b954EedeAC495271d0F at launch) via transferFrom, so approve this contract for base + premium first. Returns tokenId. This replaces the ENSv1 ETHRegistrarController register (which took ETH and a Registration struct) and is a breaking change."
+        },
+        {
+          "signature": "renew((string,uint64,bytes32),address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Renew a REGISTERED (new or migrated) ENSv2 name. Args: RenewData struct (label, duration seconds, referrer) and paymentToken (approve it for getRenewPrice first). Anyone can renew any name."
+        },
+        {
+          "signature": "renewBatch((string,uint64,bytes32)[],address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Renew several names in one tx, all paid with the same ERC-20."
+        },
+        {
+          "signature": "commitmentAt(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Timestamp when a commitment was recorded (0 if none)."
+        },
+        {
+          "signature": "isRenewable(string)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether this contract can renew the label now."
+        },
+        {
+          "signature": "getRemainingGracePeriod(string)",
+          "kind": "read",
+          "payable": false,
+          "description": "Seconds of grace period left for an expired name (ENSv2 grace = 28 days, GRACE_PERIOD() = 2419200)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xf60aba43E1f7F3DAB1186Ff03B561401C9Df85E2",
+      "name": "ETHRegistry (ENSv2 .eth PermissionedRegistry, ERC-1155 name tokens)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.ens.domains/learn/deployments",
+      "keyFunctions": [
+        {
+          "signature": "getStatus(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Arg: uint256(labelhash(label)). Returns 0 AVAILABLE, 1 RESERVED (pre-migrated ENSv1 name not yet migrated: use the v1 contracts to manage it), 2 REGISTERED (ENSv2 name)."
+        },
+        {
+          "signature": "getExpiry(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Expiry unix timestamp (uint64) of a name; arg uint256(labelhash)."
+        },
+        {
+          "signature": "getTokenId(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current token id of a name. Token ids are MUTABLE in ENSv2 (they change on some events), so resolve it at transaction time instead of caching."
+        },
+        {
+          "signature": "ownerOf(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Owner of a name token (ERC1155Singleton: exactly one owner per token)."
+        },
+        {
+          "signature": "getResolver(string)",
+          "kind": "read",
+          "payable": false,
+          "description": "Resolver set for a label (e.g. 'nick')."
+        },
+        {
+          "signature": "setResolver(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Change a name's resolver. Caller needs ROLE_SET_RESOLVER on the name (the registrant gets it at registration). Changing resolver does not copy records."
+        },
+        {
+          "signature": "setSubregistry(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set the child registry used for subnames. Caller needs ROLE_SET_SUBREGISTRY."
+        },
+        {
+          "signature": "safeTransferFrom(address,address,uint256,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-1155 transfer of a name (amount = 1). Transfers change the token id and clear delegated roles."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x56c447F308F463A01121C41E72b0E7e7557fCb68",
+      "name": "ETHRenewerV1 (renews unmigrated ENSv1 .eth names)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.ens.domains/learn/deployments",
+      "keyFunctions": [
+        {
+          "signature": "renew((string,uint64,bytes32),address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Renew a RESERVED (not yet migrated) ENSv1 .eth name; also syncs the expiry back to the v1 BaseRegistrar. Args: RenewData (label, duration seconds, referrer) and paymentToken (USDC/DAI, approve first). The old ETHRegistrarController.renew() now reverts."
+        },
+        {
+          "signature": "getRenewPrice(string,uint64,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Renewal price in the payment token's raw units."
+        },
+        {
+          "signature": "isRenewable(string)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether this contract can renew the label."
+        },
+        {
+          "signature": "getRemainingGracePeriod(string)",
+          "kind": "read",
+          "payable": false,
+          "description": "Grace seconds left for an expired name."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x76F29609A363a8A1a2a6abe2e859C0F8916Af469",
+      "name": "StandardRentPriceOracle (ENSv2 pricing)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.ens.domains/learn/deployments",
+      "keyFunctions": [
+        {
+          "signature": "isPaymentToken(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether an ERC-20 is accepted for registration/renewal (USDC and DAI at launch; USDT is not)."
+        },
+        {
+          "signature": "getRegisterPrice(string,uint64,uint64,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Hypothetical price: (label, available-for seconds, duration, paymentToken) -> (base, premium). For a real quote use ETHRegistrar.getRegisterPrice instead."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x77510ba162dfeA3d8989E3f0928a691B345730D2",
+      "name": "VerifiableFactory (deploys per-account resolvers / per-name registries)",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.ens.domains/learn/deployments",
+      "keyFunctions": [
+        {
+          "signature": "deployProxy(address,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy your own Permissioned Resolver: deployProxy(PermissionedResolverImpl 0x565b0F456a04Ac9b48758190e90030623Cff57C5, salt = uint256(keccak256(abi.encode(keccak256('OwnedResolver'), owner, 0))), initialize((address account,uint256 roleBitmap)[] grants, bytes[] calls)). Emits ProxyDeployed(sender, proxyAddress, salt, implementation); the address is CREATE2-deterministic."
+        },
+        {
+          "signature": "verifyContract(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Prove a proxy was deployed by this factory and get its current implementation."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x565b0F456a04Ac9b48758190e90030623Cff57C5",
+      "name": "PermissionedResolverImpl (ENSv2 resolver implementation; call your own proxy, not this)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.ens.domains/learn/deployments",
+      "keyFunctions": [
+        {
+          "signature": "setAddress(bytes,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On YOUR Permissioned Resolver proxy (find it with UniversalResolver.findResolver): set an address record. Args (DNS-encoded name, coinType: 60 = ETH, address bytes). Note: v2 setters take a DNS-encoded name, not a namehash. Caller needs the resolver role (e.g. ROLE_SET_ADDR); owning the name token does not grant it automatically."
+        },
+        {
+          "signature": "setText(bytes,string,string)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a text record (DNS-encoded name, key, value), e.g. 'avatar', 'url', 'com.twitter'. Interface id 0xc7279f88 (the v1 setText(bytes32,...) selector does not work here)."
+        },
+        {
+          "signature": "setContenthash(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set the contenthash (DNS-encoded name, EIP-1577 bytes)."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Batch several setters in one tx."
+        },
+        {
+          "signature": "resolve(bytes,bytes)",
+          "kind": "read",
+          "payable": false,
+          "description": "ENSIP-10 read (normally done through the Universal Resolver)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
+      "name": "ENS Registry (ENSv1)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.ens.domains/learn/deployments",
+      "keyFunctions": [
+        {
+          "signature": "owner(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "ENSv1 manager (controller) of a node (namehash). For unmigrated names only; migrated names are owned in the ENSv2 ETHRegistry."
+        },
+        {
+          "signature": "resolver(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "ENSv1 resolver of a node."
+        },
+        {
+          "signature": "setResolver(bytes32,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set the resolver of an unmigrated, unwrapped ENSv1 name (caller must be the node owner/approved)."
+        },
+        {
+          "signature": "setSubnodeRecord(bytes32,bytes32,address,address,uint64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create/update an ENSv1 subname: (parent node, labelhash, owner, resolver, ttl)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85",
+      "name": "BaseRegistrar (ENSv1 .eth ERC-721)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.ens.domains/learn/deployments",
+      "keyFunctions": [
+        {
+          "signature": "nameExpires(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "ENSv1 expiry timestamp of uint256(labelhash(label)). ENSv1 grace period is 90 days (GRACE_PERIOD())."
+        },
+        {
+          "signature": "ownerOf(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "ERC-721 registrant of an unwrapped, unmigrated .eth name."
+        },
+        {
+          "signature": "available(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "ENSv1 availability. Not meaningful for new registrations any more: v1 registration is disabled, use ETHRegistrar.isAvailable."
+        },
+        {
+          "signature": "reclaim(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set ENSv1 registry ownership of the name to the given manager (registrant only)."
+        },
+        {
+          "signature": "safeTransferFrom(address,address,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer the name; transferring to UnlockedMigrationController with encoded data is how an unwrapped v1 name migrates to ENSv2 (see migration docs)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401",
+      "name": "NameWrapper (ENSv1, ERC-1155)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.ens.domains/learn/deployments",
+      "keyFunctions": [
+        {
+          "signature": "ownerOf(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Owner of a wrapped ENSv1 name (id = uint256(namehash))."
+        },
+        {
+          "signature": "getData(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(owner, fuses, expiry) of a wrapped name."
+        },
+        {
+          "signature": "setResolver(bytes32,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set resolver of a wrapped, unmigrated name (fuses may forbid it)."
+        },
+        {
+          "signature": "setSubnodeRecord(bytes32,string,address,address,uint64,uint32,uint64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create a wrapped subname: (parentNode, label, owner, resolver, ttl, fuses, expiry)."
+        },
+        {
+          "signature": "unwrapETH2LD(bytes32,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unwrap a .eth 2LD: (labelhash, registrant, controller). New projects should not build on the wrapper (ENSv2 replaces fuses with roles)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xF29100983E058B709F3D539b0c765937B804AC15",
+      "name": "PublicResolver (ENSv1)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.ens.domains/learn/deployments",
+      "keyFunctions": [
+        {
+          "signature": "setAddr(bytes32,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set ETH address of an unmigrated ENSv1 name that uses this resolver (node = namehash). Only for names whose resolver is this contract; check first, never hardcode."
+        },
+        {
+          "signature": "setAddr(bytes32,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a multichain address (node, ENSIP-11 coinType, address bytes)."
+        },
+        {
+          "signature": "setText(bytes32,string,string)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a text record (node, key, value)."
+        },
+        {
+          "signature": "setContenthash(bytes32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set contenthash."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Batch several setters."
+        },
+        {
+          "signature": "addr(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Direct read (prefer the Universal Resolver)."
+        },
+        {
+          "signature": "text(bytes32,string)",
+          "kind": "read",
+          "payable": false,
+          "description": "Direct read of a text record."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xa58E81fe9b61B5c3fE2AFD33CF304c454AbFc7Cb",
+      "name": "ReverseRegistrar (L1, ENSv1)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.ens.domains/learn/deployments",
+      "keyFunctions": [
+        {
+          "signature": "setName(string)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set msg.sender's Ethereum-mainnet primary name (e.g. 'alice.eth'). Still the write path after ENSv2 launch. Set the forward address record too, or reverse lookups fail verification."
+        },
+        {
+          "signature": "setNameForAddr(address,address,address,string)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set the primary name for an address you control/are approved for: (addr, owner, resolver, name)."
+        },
+        {
+          "signature": "node(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Reverse node for an address."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x283F227c4Bd38ecE252C4Ae7ECE650B0e913f1f9",
+      "name": "DefaultReverseRegistrar (ENSv1)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.ens.domains/learn/deployments",
+      "keyFunctions": [
+        {
+          "signature": "setName(string)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set msg.sender's default primary name (used on chains with no chain-specific primary name)."
+        },
+        {
+          "signature": "nameForAddr(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Default primary name stored for an address."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xC18360217D8F7Ab5e7c516566761Ea12Ce7F9D72",
+      "name": "ENS token",
+      "role": "governance",
+      "proxy": false,
+      "source": "https://docs.ens.domains/faq",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "ENS balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 transfer."
+        },
+        {
+          "signature": "delegate(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Delegate ENS DAO voting power (to yourself to vote)."
+        },
+        {
+          "signature": "getVotes(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current voting power."
+        },
+        {
+          "signature": "delegates(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current delegate of an account."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "ENS subgraph (The Graph, mainnet)",
+      "url": "https://thegraph.com/explorer/subgraphs/5XqPmWe6gjyrJtFn9cLy237i4cWw2j9HcUJEXsP5qGtH",
+      "auth": "api-key",
+      "use": "List names owned by an account, registrations, expiries (GraphQL). Covers ENSv1 only: ENSv2 registrations may be missing and migrated names show stale ownership.",
+      "source": "https://docs.ens.domains/web/subgraph"
+    }
+  ],
+  "actions": [
+    {
+      "name": "resolve-name",
+      "description": "Name -> address / text record",
+      "how": "Normalize (ENSIP-15), DNS-encode, then UniversalResolver.resolve(name, abi.encode(addr(namehash)) or text(namehash,key)); follow CCIP-Read. Simplest: viem getEnsAddress / getEnsText (viem >= 2.35) which use this contract. Pass coinType for L2 addresses."
+    },
+    {
+      "name": "reverse-lookup",
+      "description": "Address -> primary name",
+      "how": "UniversalResolver.reverse(address bytes, 60) (or the L2 coinType); viem getEnsName."
+    },
+    {
+      "name": "register-eth-name",
+      "description": "Register a new .eth name (ENSv2)",
+      "how": "1) ETHRegistrar.isAvailable(label). 2) getRegisterPrice(label, duration, USDC) -> (base, premium). 3) USDC.approve(ETHRegistrar, base+premium, plus a small margin). 4) Optionally deploy your own resolver via VerifiableFactory.deployProxy(PermissionedResolverImpl, salt, initialize(...)), or pass 0x0 and set it later. 5) commitment = makeCommitment(label, owner, secret, subregistry=0x0, resolver, duration, referrer=0x0); commit(commitment). 6) Wait >= 60 s (and < 24 h). 7) register(label, owner, secret, 0x0, resolver, duration, USDC, 0x0)."
+    },
+    {
+      "name": "renew-eth-name",
+      "description": "Renew a .eth name",
+      "how": "Check ETHRegistry.getStatus(uint256(labelhash)): 2 REGISTERED -> ETHRegistrar.renew((label,duration,0x0), USDC); 1 RESERVED (unmigrated v1 name) -> ETHRenewerV1.renew((label,duration,0x0), USDC). Approve the token for getRenewPrice first. Anyone can renew any name."
+    },
+    {
+      "name": "set-records",
+      "description": "Set address / text records",
+      "how": "Find the name's resolver with UniversalResolver.findResolver(dnsName). If it supports interface 0xc7279f88 (ENSv2 Permissioned Resolver): setText(dnsName,key,value) / setAddress(dnsName,coinType,addrBytes). Otherwise (ENSv1 PublicResolver): setText(namehash,key,value) / setAddr(namehash,addr). ENSjs >= 5.2.5 picks the right path."
+    },
+    {
+      "name": "set-primary-name",
+      "description": "Set the reverse record",
+      "how": "ReverseRegistrar.setName('alice.eth') from the address (mainnet), or DefaultReverseRegistrar.setName for a default across chains; make sure the name's addr record points to that address."
+    }
+  ],
+  "risks": [
+    "ENSv2 is live: v1 registration and renewal on ETHRegistrarController are disabled (it is no longer a BaseRegistrar controller and renew() reverts). Old code that sends ETH to the v1 controller fails; use ETHRegistrar (ENSv2) or ETHRenewerV1.",
+    "Fees are paid in ERC-20 (USDC/DAI) via transferFrom, not ETH: approve first. Prices are USD per year: $8 (5+ chars), $160 (4), $640 (3), minimum duration 28 days.",
+    "Commit-reveal: register only between 60 s and 24 h after commit, with exactly the same parameters and secret, or it reverts; keep the secret private until register.",
+    "Expiry: ENSv2 names have a 28-day grace period after expiry (renewable only by renewal, they stop resolving), then a 21-day temporary premium auction starting near $100M that halves daily, then anyone can register. Unmigrated v1 names keep the v1 90-day grace view but must be renewed via ETHRenewerV1; if not migrated and not renewed they eventually become available in v2.",
+    "ENSv2 token ids are mutable and roles (EAC) are separate from ownership: owning a name does not automatically grant resolver write roles; re-read token ids at tx time.",
+    "Never hardcode a resolver: records written to any resolver other than the name's configured one are never returned. Changing resolver does not copy records.",
+    "Name normalization (ENSIP-15) matters: lookalike/homoglyph names exist; always normalize and show the normalized name before sending funds.",
+    "Resolution may go offchain/L2 via CCIP-Read gateways; the returned data is verified by the resolver but availability depends on the gateway."
+  ],
+  "notes": "Addresses come from docs.ens.domains/learn/deployments (ENSv1 and ENSv2 mainnet tables) and the ENS token from the ENS docs FAQ (token.ensdao.eth). The deployments page still says 'until the ENSv2 launch completes, resolution and registrations continue through ENSv1', but the ETH Registrar docs, the migration docs and onchain state (2026-11-25) show ENSv2 is live: BaseRegistrar.controllers(ETHRegistrarController 0x59E16fcCd424Cc24e280Be16E11Bcd56fb0CE547) = false, controllers(ETHRenewerV1) = true, ETHRegistrar quotes 8 USDC/yr, the Universal Resolver proxy points at UniversalResolverV2 0x06Fdd07F007ADaC667177b46aB2EB9A75132Cfd5, and nick.eth is REGISTERED in the v2 ETHRegistry. Therefore the ENSv1 ETHRegistrarController (0x59E16f..., the version with the register(Registration struct) argument) and the Wrapped ETH Registrar Controller (0x2535...) are deliberately NOT listed as callable contracts: registration and renewal through them is disabled. Other ENSv2 contracts on the deployments page (migration controllers, UserRegistryImpl, BatchRegistrar, DNS resolvers, HCA, renderers, adapters, PublicResolverV2, ENSV1Resolver) are left out as not needed for normal agent use; see the deployments page. ENS L2 reverse registrars (Base, Arbitrum, etc.) are on the same page but not covered here. Signatures were checked against the ENS docs and confirmed present in deployed bytecode.",
+  "sources": [
+    "https://docs.ens.domains/learn/deployments",
+    "https://docs.ens.domains/ensv2/eth-registrar",
+    "https://docs.ens.domains/registry/eth",
+    "https://docs.ens.domains/ensv2/migration",
+    "https://docs.ens.domains/ensv2/verifiable-factory",
+    "https://docs.ens.domains/ensv2/universal-resolver-v2",
+    "https://docs.ens.domains/resolvers/universal",
+    "https://docs.ens.domains/resolvers/interacting",
+    "https://docs.ens.domains/resolvers/interfaces",
+    "https://docs.ens.domains/registry/reverse",
+    "https://docs.ens.domains/web/ensv2-readiness",
+    "https://docs.ens.domains/web/subgraph",
+    "https://docs.ens.domains/faq",
+    "https://docs.ens.domains/llms-full.txt",
+    "https://github.com/ensdomains/contracts-v2",
+    "https://github.com/ensdomains/ens-contracts",
+    "https://api.llama.fi/protocol/ens",
+    "https://defillama.com/protocol/ens"
+  ],
+  "researchedAt": "2026-11-25"
+}
