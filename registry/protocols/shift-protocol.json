@@ -1,0 +1,651 @@
+{
+  "slug": "shift-protocol",
+  "name": "Shift Protocol",
+  "category": "Onchain Capital Allocator",
+  "description": "Shift (by NebulaLabs) packages managed market-neutral / basis / market-making strategies on perp DEXs (Extended, GRVT, Lighter, Hibachi, RiseX) into vaults that issue an ERC-20 share token. Agents can read share prices and withdrawal status on-chain and request/claim withdrawals; deposits need an off-chain oracle authorisation from Shift.",
+  "website": "https://shiftprotocol.xyz",
+  "docs": "https://shiftprotocol.gitbook.io/shift",
+  "defillama": "https://defillama.com/protocol/shift-protocol",
+  "chains": [
+    "ethereum",
+    "base",
+    "arbitrum"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x4cE3ec1b7B4FFb33A0B70c64a0560A3F341AA2E1",
+      "name": "extUSD v1 (Shift Extended Basis USD) vault",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://pub-api.shiftprotocol.xyz/pub/strategies",
+      "keyFunctions": [
+        {
+          "signature": "reqDeposit()",
+          "kind": "write",
+          "payable": false,
+          "description": "Step 1 of a deposit: open a deposit request for msg.sender. Reverts if one is still valid. The request expires after requestValidity() seconds (40 s on-chain at research time), and Shift's off-chain oracle must call ShiftTvlFeed.updateTvlForDeposit (which calls vault.allowDeposit) inside that window. Done in practice through the Shift app."
+        },
+        {
+          "signature": "deposit(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Step 2: deposit USDC (6 decimals, base units) after the oracle authorised the request and before it expires. Approve the vault for USDC first. Amount must be >= minDepositAmount() and TVL must stay <= maxTvl(). Assets go straight to the strategy executor address; shares (18 decimals) are minted at the price of the authorised TVL snapshot."
+        },
+        {
+          "signature": "reqWithdraw(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Request withdrawal of a share amount (18 decimals). Shares move into vault escrow and join the current batch. One active request per wallet. Timelock is timelock() seconds (604800 s = 7 days); the batch must also be resolved by Shift's executor."
+        },
+        {
+          "signature": "withdraw()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim USDC for the active request once the timelock has passed and its batch is resolved; burns the escrowed shares. Reverts Locked / BatchNotResolved otherwise."
+        },
+        {
+          "signature": "cancelWithdraw()",
+          "kind": "write",
+          "payable": false,
+          "description": "Cancel the pending withdrawal and get shares back; only while the request is still in the current (unprocessed) batch."
+        },
+        {
+          "signature": "getWithdrawStatus()",
+          "kind": "read",
+          "payable": false,
+          "description": "Status of msg.sender's withdrawal: (uint8 status 0 none / 1 pending batch / 2 timelock active / 3 ready, shareAmount, tokenAmount, unlockTime). Uses msg.sender, so set `from` to the user in eth_call."
+        },
+        {
+          "signature": "getSharePrice()",
+          "kind": "read",
+          "payable": false,
+          "description": "Price of 1 share in USDC units (6 decimals, e.g. 1048186 = 1.048186). Returns 0 if TVL data is stale."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Vault share balance (ERC-20, 18 decimals). Shares in a pending withdrawal sit in the vault, not the user."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total shares."
+        },
+        {
+          "signature": "baseToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit/withdraw asset (USDC)."
+        },
+        {
+          "signature": "tvlFeed()",
+          "kind": "read",
+          "payable": false,
+          "description": "ShiftTvlFeed oracle contract for this vault."
+        },
+        {
+          "signature": "minDepositAmount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum deposit in USDC base units."
+        },
+        {
+          "signature": "maxTvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit cap (TVL, asset base units)."
+        },
+        {
+          "signature": "timelock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Withdrawal timelock in seconds for new requests."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if deposits/requests are paused (withdraw() still works)."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xdBE599c184CC13D82F956fA5adAa1b18c0Ff67D3",
+      "name": "extUSD ShiftTvlFeed",
+      "role": "other",
+      "proxy": false,
+      "source": "https://pub-api.shiftprotocol.xyz/pub/strategies",
+      "keyFunctions": [
+        {
+          "signature": "getLastTvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Latest TVL snapshot (uint256 value in base-asset units, uint256 timestamp, uint256 supplySnapshot). Pushed by Shift's ORACLE_ROLE."
+        },
+        {
+          "signature": "getLastTvlEntries(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Last N TVL snapshots (array of the same struct); useful for share-price history."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Decimals of TVL values (= base asset decimals, 6)."
+        },
+        {
+          "signature": "shiftVault()",
+          "kind": "read",
+          "payable": false,
+          "description": "The vault this feed serves."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x6d7C897cD8B402690C07e7263C9f59B3777ae3c2",
+      "name": "vGRVT (Shift GRVT Hybrid Vault) vault",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://pub-api.shiftprotocol.xyz/pub/strategies",
+      "keyFunctions": [
+        {
+          "signature": "reqDeposit()",
+          "kind": "write",
+          "payable": false,
+          "description": "Step 1 of a deposit: open a deposit request for msg.sender. Reverts if one is still valid. The request expires after requestValidity() seconds (40 s on-chain at research time), and Shift's off-chain oracle must call ShiftTvlFeed.updateTvlForDeposit (which calls vault.allowDeposit) inside that window. Done in practice through the Shift app."
+        },
+        {
+          "signature": "deposit(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Step 2: deposit USD₮0 (6 decimals, base units) after the oracle authorised the request and before it expires. Approve the vault for USD₮0 first. Amount must be >= minDepositAmount() and TVL must stay <= maxTvl(). Assets go straight to the strategy executor address; shares (18 decimals) are minted at the price of the authorised TVL snapshot."
+        },
+        {
+          "signature": "reqWithdraw(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Request withdrawal of a share amount (18 decimals). Shares move into vault escrow and join the current batch. One active request per wallet. Timelock is timelock() seconds (604800 s = 7 days); the batch must also be resolved by Shift's executor."
+        },
+        {
+          "signature": "withdraw()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim USD₮0 for the active request once the timelock has passed and its batch is resolved; burns the escrowed shares. Reverts Locked / BatchNotResolved otherwise."
+        },
+        {
+          "signature": "cancelWithdraw()",
+          "kind": "write",
+          "payable": false,
+          "description": "Cancel the pending withdrawal and get shares back; only while the request is still in the current (unprocessed) batch."
+        },
+        {
+          "signature": "getWithdrawStatus()",
+          "kind": "read",
+          "payable": false,
+          "description": "Status of msg.sender's withdrawal: (uint8 status 0 none / 1 pending batch / 2 timelock active / 3 ready, shareAmount, tokenAmount, unlockTime). Uses msg.sender, so set `from` to the user in eth_call."
+        },
+        {
+          "signature": "getSharePrice()",
+          "kind": "read",
+          "payable": false,
+          "description": "Price of 1 share in USD₮0 units (6 decimals, e.g. 1048186 = 1.048186). Returns 0 if TVL data is stale."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Vault share balance (ERC-20, 18 decimals). Shares in a pending withdrawal sit in the vault, not the user."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total shares."
+        },
+        {
+          "signature": "baseToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit/withdraw asset (USD₮0)."
+        },
+        {
+          "signature": "tvlFeed()",
+          "kind": "read",
+          "payable": false,
+          "description": "ShiftTvlFeed oracle contract for this vault."
+        },
+        {
+          "signature": "minDepositAmount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum deposit in USD₮0 base units."
+        },
+        {
+          "signature": "maxTvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit cap (TVL, asset base units)."
+        },
+        {
+          "signature": "timelock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Withdrawal timelock in seconds for new requests."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if deposits/requests are paused (withdraw() still works)."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xCA1EC464b5037271a2758afb0997677916886320",
+      "name": "vGRVT ShiftTvlFeed",
+      "role": "other",
+      "proxy": false,
+      "source": "https://pub-api.shiftprotocol.xyz/pub/strategies",
+      "keyFunctions": [
+        {
+          "signature": "getLastTvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Latest TVL snapshot (uint256 value in base-asset units, uint256 timestamp, uint256 supplySnapshot). Pushed by Shift's ORACLE_ROLE."
+        },
+        {
+          "signature": "getLastTvlEntries(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Last N TVL snapshots (array of the same struct); useful for share-price history."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Decimals of TVL values (= base asset decimals, 6)."
+        },
+        {
+          "signature": "shiftVault()",
+          "kind": "read",
+          "payable": false,
+          "description": "The vault this feed serves."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x956bdd9C18B786b082fd50C52722d254f0CB6964",
+      "name": "ltLLP (Shift Lighter LLP Wrapper) vault",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://pub-api.shiftprotocol.xyz/pub/strategies",
+      "keyFunctions": [
+        {
+          "signature": "reqDeposit()",
+          "kind": "write",
+          "payable": false,
+          "description": "Step 1 of a deposit: open a deposit request for msg.sender. Reverts if one is still valid. The request expires after requestValidity() seconds (40 s on-chain at research time), and Shift's off-chain oracle must call ShiftTvlFeed.updateTvlForDeposit (which calls vault.allowDeposit) inside that window. Done in practice through the Shift app."
+        },
+        {
+          "signature": "deposit(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Step 2: deposit USDC (6 decimals, base units) after the oracle authorised the request and before it expires. Approve the vault for USDC first. Amount must be >= minDepositAmount() and TVL must stay <= maxTvl(). Assets go straight to the strategy executor address; shares (18 decimals) are minted at the price of the authorised TVL snapshot."
+        },
+        {
+          "signature": "reqWithdraw(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Request withdrawal of a share amount (18 decimals). Shares move into vault escrow and join the current batch. One active request per wallet. Timelock is timelock() seconds (345600 s = 4 days); the batch must also be resolved by Shift's executor."
+        },
+        {
+          "signature": "withdraw()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim USDC for the active request once the timelock has passed and its batch is resolved; burns the escrowed shares. Reverts Locked / BatchNotResolved otherwise."
+        },
+        {
+          "signature": "cancelWithdraw()",
+          "kind": "write",
+          "payable": false,
+          "description": "Cancel the pending withdrawal and get shares back; only while the request is still in the current (unprocessed) batch."
+        },
+        {
+          "signature": "getWithdrawStatus()",
+          "kind": "read",
+          "payable": false,
+          "description": "Status of msg.sender's withdrawal: (uint8 status 0 none / 1 pending batch / 2 timelock active / 3 ready, shareAmount, tokenAmount, unlockTime). Uses msg.sender, so set `from` to the user in eth_call."
+        },
+        {
+          "signature": "getSharePrice()",
+          "kind": "read",
+          "payable": false,
+          "description": "Price of 1 share in USDC units (6 decimals, e.g. 1048186 = 1.048186). Returns 0 if TVL data is stale."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Vault share balance (ERC-20, 18 decimals). Shares in a pending withdrawal sit in the vault, not the user."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total shares."
+        },
+        {
+          "signature": "baseToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit/withdraw asset (USDC)."
+        },
+        {
+          "signature": "tvlFeed()",
+          "kind": "read",
+          "payable": false,
+          "description": "ShiftTvlFeed oracle contract for this vault."
+        },
+        {
+          "signature": "minDepositAmount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum deposit in USDC base units."
+        },
+        {
+          "signature": "maxTvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit cap (TVL, asset base units)."
+        },
+        {
+          "signature": "timelock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Withdrawal timelock in seconds for new requests."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if deposits/requests are paused (withdraw() still works)."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x4062c539D09A76D79e366F8C2a2e2F987EAD1FE0",
+      "name": "ltLLP ShiftTvlFeed",
+      "role": "other",
+      "proxy": false,
+      "source": "https://pub-api.shiftprotocol.xyz/pub/strategies",
+      "keyFunctions": [
+        {
+          "signature": "getLastTvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Latest TVL snapshot (uint256 value in base-asset units, uint256 timestamp, uint256 supplySnapshot). Pushed by Shift's ORACLE_ROLE."
+        },
+        {
+          "signature": "getLastTvlEntries(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Last N TVL snapshots (array of the same struct); useful for share-price history."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Decimals of TVL values (= base asset decimals, 6)."
+        },
+        {
+          "signature": "shiftVault()",
+          "kind": "read",
+          "payable": false,
+          "description": "The vault this feed serves."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x7174f0bD02664BebDB6Aa79a99fAF949570A10bd",
+      "name": "hibaUSD (Shift Hibachi Basis USD) vault",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://pub-api.shiftprotocol.xyz/pub/strategies",
+      "keyFunctions": [
+        {
+          "signature": "reqDeposit()",
+          "kind": "write",
+          "payable": false,
+          "description": "Step 1 of a deposit: open a deposit request for msg.sender. Reverts if one is still valid. The request expires after requestValidity() seconds (40 s on-chain at research time), and Shift's off-chain oracle must call ShiftTvlFeed.updateTvlForDeposit (which calls vault.allowDeposit) inside that window. Done in practice through the Shift app."
+        },
+        {
+          "signature": "deposit(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Step 2: deposit USD₮0 (6 decimals, base units) after the oracle authorised the request and before it expires. Approve the vault for USD₮0 first. Amount must be >= minDepositAmount() and TVL must stay <= maxTvl(). Assets go straight to the strategy executor address; shares (18 decimals) are minted at the price of the authorised TVL snapshot."
+        },
+        {
+          "signature": "reqWithdraw(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Request withdrawal of a share amount (18 decimals). Shares move into vault escrow and join the current batch. One active request per wallet. Timelock is timelock() seconds (604800 s = 7 days); the batch must also be resolved by Shift's executor."
+        },
+        {
+          "signature": "withdraw()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim USD₮0 for the active request once the timelock has passed and its batch is resolved; burns the escrowed shares. Reverts Locked / BatchNotResolved otherwise."
+        },
+        {
+          "signature": "cancelWithdraw()",
+          "kind": "write",
+          "payable": false,
+          "description": "Cancel the pending withdrawal and get shares back; only while the request is still in the current (unprocessed) batch."
+        },
+        {
+          "signature": "getWithdrawStatus()",
+          "kind": "read",
+          "payable": false,
+          "description": "Status of msg.sender's withdrawal: (uint8 status 0 none / 1 pending batch / 2 timelock active / 3 ready, shareAmount, tokenAmount, unlockTime). Uses msg.sender, so set `from` to the user in eth_call."
+        },
+        {
+          "signature": "getSharePrice()",
+          "kind": "read",
+          "payable": false,
+          "description": "Price of 1 share in USD₮0 units (6 decimals, e.g. 1048186 = 1.048186). Returns 0 if TVL data is stale."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Vault share balance (ERC-20, 18 decimals). Shares in a pending withdrawal sit in the vault, not the user."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total shares."
+        },
+        {
+          "signature": "baseToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit/withdraw asset (USD₮0)."
+        },
+        {
+          "signature": "tvlFeed()",
+          "kind": "read",
+          "payable": false,
+          "description": "ShiftTvlFeed oracle contract for this vault."
+        },
+        {
+          "signature": "minDepositAmount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum deposit in USD₮0 base units."
+        },
+        {
+          "signature": "maxTvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit cap (TVL, asset base units)."
+        },
+        {
+          "signature": "timelock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Withdrawal timelock in seconds for new requests."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if deposits/requests are paused (withdraw() still works)."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x66b3D1092f6428C82052dADB00533a9EdE5B57DB",
+      "name": "hibaUSD ShiftTvlFeed",
+      "role": "other",
+      "proxy": false,
+      "source": "https://pub-api.shiftprotocol.xyz/pub/strategies",
+      "keyFunctions": [
+        {
+          "signature": "getLastTvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Latest TVL snapshot (uint256 value in base-asset units, uint256 timestamp, uint256 supplySnapshot). Pushed by Shift's ORACLE_ROLE."
+        },
+        {
+          "signature": "getLastTvlEntries(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Last N TVL snapshots (array of the same struct); useful for share-price history."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Decimals of TVL values (= base asset decimals, 6)."
+        },
+        {
+          "signature": "shiftVault()",
+          "kind": "read",
+          "payable": false,
+          "description": "The vault this feed serves."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Shift public strategy registry",
+      "url": "https://pub-api.shiftprotocol.xyz/pub/strategies",
+      "auth": "none",
+      "use": "JSON list of live strategies: vaultAddress, tvlFeedAddress, executorAddress, chainId, baseToken, minWithdrawal, Pendle market addresses, allocation. The official source of the vault addresses in this file.",
+      "source": "https://shiftprotocol.xyz"
+    },
+    {
+      "name": "Shift landing summary",
+      "url": "https://pub-api.shiftprotocol.xyz/pub/landing/summary",
+      "auth": "none",
+      "use": "Total TVL (USD), max APY and number of active strategies.",
+      "source": "https://shiftprotocol.xyz"
+    },
+    {
+      "name": "Shift docs MCP server",
+      "url": "https://shiftprotocol.gitbook.io/shift/~gitbook/mcp",
+      "auth": "none",
+      "use": "Search/read the Shift documentation from an agent.",
+      "source": "https://shiftprotocol.gitbook.io/shift/llms.txt"
+    }
+  ],
+  "actions": [
+    {
+      "name": "deposit (v1 vault)",
+      "description": "Deposit the vault asset and receive shares.",
+      "how": "Normally via the Shift app (app.shiftprotocol.xyz). On-chain: baseToken.approve(vault, amount) -> vault.reqDeposit() -> wait for Shift's oracle to call tvlFeed.updateTvlForDeposit(user, tvl, supply) (emits DepositAllowed on the vault) -> vault.deposit(amount) before the request expires (requestValidity, 40 s at research time). Without Shift's off-chain oracle the deposit cannot complete."
+    },
+    {
+      "name": "request withdrawal",
+      "description": "Queue shares for redemption.",
+      "how": "vault.reqWithdraw(shares). Check vault.getWithdrawStatus() (eth_call with from = user) until status 3."
+    },
+    {
+      "name": "claim withdrawal",
+      "description": "Receive the base asset.",
+      "how": "vault.withdraw() once unlockTime has passed and the batch is resolved."
+    },
+    {
+      "name": "cancel withdrawal",
+      "description": "Undo a request still in the open batch.",
+      "how": "vault.cancelWithdraw()"
+    },
+    {
+      "name": "read share price / TVL",
+      "description": "Value a position.",
+      "how": "vault.getSharePrice() (asset decimals) x vault.balanceOf(user)/1e18; history via tvlFeed.getLastTvlEntries(n)."
+    }
+  ],
+  "risks": [
+    "Custodial-style execution: deposit() transfers assets directly to the vault's executor address, which was an EOA (no contract code) for all four vaults at research time; the strategy then runs off-chain on perp venues (Extended/Starknet, GRVT, Lighter, Hibachi). Share value depends on an oracle-reported TVL, not on assets held by the contract.",
+    "Admin powers (ShiftAccessControl roles): DEFAULT_ADMIN can pause, change fees, timelock, max TVL, min deposit, executor and fee collector, and toggle a whitelist; ORACLE_ROLE pushes TVL (sets share price); EXECUTOR_ROLE resolves withdrawal batches and sets the redemption rate.",
+    "Withdrawals are not instant: timelock (7 days for extUSD v1, vGRVT, hibaUSD; 4 days for ltLLP) plus batch resolution by the executor; these are minimums, not deadlines.",
+    "getSharePrice() returns 0 when TVL data is stale (older than freshness()).",
+    "Strategies carry funding, basis, liquidation, venue/custody, bridge and depeg risk; docs say partial or total loss of principal is possible.",
+    "Audits: SB Security review of the v1 contracts (2025, in the GitHub repo); the docs Audits page also lists v2 reports. Audits do not cover the off-chain strategy.",
+    "Vault contracts are not proxies (immutable bytecode), but the parameters above are mutable by the admin."
+  ],
+  "notes": "Vault and TVL-feed addresses come from Shift's own public API (pub-api.shiftprotocol.xyz, the backend used by shiftprotocol.xyz); the docs site lists no addresses. Each one was checked on-chain on 2026-11-24/25: it has code, name/symbol match (extUSD, vGRVT, ltLLP, hibaUSD), baseToken() = USDC (Base 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, Arbitrum 0xaf88d065e77c8cC2239327C5EDb3A432268e5831) or USD₮0 (0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9), tvlFeed() matches and feed.shiftVault() points back, and all listed function selectors are in the bytecode. Signatures come from the official ShiftVault.sol / ShiftTvlFeed.sol source (repo main, Feb 2026); the deployed vaults report version 1.1.0 in the API. LEFT OUT: (1) risexUSDC, the Ethereum v2 (ERC-4626, async request/settle/claim) vault: Shift's API lists it (vaultId 6, chainId 1) without an address and no official page gives one, so it is omitted (DefiLlama's adapter lists 0x5F70E536190C15E5959DbFeF2F2632E540da74CD but that is not an official source). Ethereum is therefore in `chains` with no contract listed. (2) shiftEUR (v2, Ethereum, deprecated) and ltPARA/sltPARA (Base, decommissioned): no official address. (3) Pendle markets for Shift assets are standard Pendle contracts (addresses in the API's pendleMarket field) and belong to Pendle. (4) Executor EOAs and the access-control contract are not things an agent calls. Shift also runs on Starknet (Extended executor) and Robinhood Chain per the API, but no user-facing contracts there.",
+  "sources": [
+    "https://defillama.com/protocol/shift-protocol",
+    "https://api.llama.fi/protocol/shift-protocol",
+    "https://shiftprotocol.xyz",
+    "https://pub-api.shiftprotocol.xyz/pub/strategies",
+    "https://pub-api.shiftprotocol.xyz/pub/landing/summary",
+    "https://shiftprotocol.gitbook.io/shift/llms.txt",
+    "https://shiftprotocol.gitbook.io/shift/using-shift/shift-vaults/current-vaults",
+    "https://shiftprotocol.gitbook.io/shift/using-shift/shift-vaults/overview/v1",
+    "https://shiftprotocol.gitbook.io/shift/using-shift/shift-vaults/overview/v2",
+    "https://shiftprotocol.gitbook.io/shift/using-shift/shift-vaults/current-vaults/risexusdc",
+    "https://shiftprotocol.gitbook.io/shift/using-shift/shift-vaults/current-vaults/extusd-v1-basis-strategy-vault",
+    "https://shiftprotocol.gitbook.io/shift/using-shift/shift-vaults/current-vaults/vgrvt-hybrid-grvt-vault",
+    "https://shiftprotocol.gitbook.io/shift/using-shift/shift-vaults/current-vaults/ltllp-lighter-llp-liquid-token",
+    "https://shiftprotocol.gitbook.io/shift/using-shift/shift-vaults/current-vaults/hibausd",
+    "https://shiftprotocol.gitbook.io/shift/using-shift/fees",
+    "https://shiftprotocol.gitbook.io/shift/security/risks",
+    "https://shiftprotocol.gitbook.io/shift/security/audits",
+    "https://shiftprotocol.gitbook.io/shift/resources/faq",
+    "https://shiftprotocol.gitbook.io/shift/resources/links",
+    "https://github.com/SHIFT-NebulaLabs/shift-contracts",
+    "https://github.com/SHIFT-NebulaLabs/shift-contracts/blob/main/src/ShiftVault.sol",
+    "https://github.com/SHIFT-NebulaLabs/shift-contracts/blob/main/src/ShiftTvlFeed.sol",
+    "https://github.com/SHIFT-NebulaLabs/shift-contracts/blob/main/src/ShiftManager.sol",
+    "https://github.com/SHIFT-NebulaLabs/shift-contracts/blob/main/audits/shift-sbsecurity-audit-2025.pdf",
+    "https://mainnet.base.org",
+    "https://arb1.arbitrum.io/rpc"
+  ],
+  "researchedAt": "2026-11-24"
+}
