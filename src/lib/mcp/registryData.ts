@@ -3,6 +3,881 @@ import type { ProtocolEntry } from './registry';
 
 export const PROTOCOLS: ProtocolEntry[] = [
  {
+  "slug": "arrakis-modular",
+  "name": "Arrakis Modular",
+  "category": "Liquidity Manager",
+  "description": "Arrakis Modular is Arrakis Finance's vault framework for actively managed concentrated liquidity (Uniswap v3/v4, PancakeSwap, Aerodrome, Valantis HOT). An agent can discover public vaults through the ArrakisMetaVaultFactory, quote and deposit token pairs into a public vault for ERC20 LP shares through the ArrakisPublicVaultRouter, withdraw by burning shares, and read vault holdings and manager settings. Most TVL sits in private (Arrakis Pro) vaults that only their owner's whitelisted depositors can use.",
+  "website": "https://arrakis.finance",
+  "docs": "https://docs.arrakis.finance",
+  "defillama": "https://defillama.com/protocol/arrakis-modular",
+  "chains": [
+   "ethereum",
+   "arbitrum",
+   "base",
+   "plasma",
+   "bsc"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x820FB8127a689327C863de8433278d6181123982",
+    "name": "ArrakisMetaVaultFactory",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+    "keyFunctions": [
+     {
+      "signature": "numOfPublicVaults()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of public vaults created by this factory on this chain (2026-11-25: Ethereum 2, Base 6, Arbitrum 1, Plasma 0, BNB Chain 0)."
+     },
+     {
+      "signature": "publicVaults(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Public vault addresses in index range [startIndex, endIndex). Use (0, numOfPublicVaults()) to discover every public vault on the chain; this is the official way to find per-vault addresses."
+     },
+     {
+      "signature": "isPublicVault(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the address is a public vault deployed by this factory. Check this before depositing into any vault address you were given."
+     },
+     {
+      "signature": "numOfPrivateVaults()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of private (Arrakis Pro) vaults. Private vaults only accept deposits from depositors the vault owner whitelisted."
+     },
+     {
+      "signature": "privateVaults(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Private vault addresses in index range [startIndex, endIndex)."
+     },
+     {
+      "signature": "isPrivateVault(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the address is a private vault deployed by this factory."
+     },
+     {
+      "signature": "manager()",
+      "kind": "read",
+      "payable": false,
+      "description": "The ArrakisStandardManager (0x2e6E879648293e939aA68bA4c6c129A1Be733bDA) that manages vaults."
+     },
+     {
+      "signature": "moduleRegistryPublic()",
+      "kind": "read",
+      "payable": false,
+      "description": "The public module registry (0x791d75F87a701C3F7dFfcEC1B6094dB22c779603): which modules (DEX integrations) public vaults may whitelist."
+     },
+     {
+      "signature": "getTokenName(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Name a public vault for the (token0, token1) pair gets, e.g. 'Arrakis Public LP WETH/USDC'."
+     },
+     {
+      "signature": "deployPublicVault(bytes32,address,address,address,address,bytes,bytes)",
+      "kind": "write",
+      "payable": false,
+      "description": "Create a public vault (salt, token0, token1, owner, beacon, moduleCreationPayload, initManagementPayload). Only whitelisted deployers (deployers()) can call it; ordinary users and agents cannot. Emits LogPublicVaultCreation."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x820FB8127a689327C863de8433278d6181123982",
+    "name": "ArrakisMetaVaultFactory",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+    "keyFunctions": [
+     {
+      "signature": "numOfPublicVaults()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of public vaults created by this factory on this chain (2026-11-25: Ethereum 2, Base 6, Arbitrum 1, Plasma 0, BNB Chain 0)."
+     },
+     {
+      "signature": "publicVaults(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Public vault addresses in index range [startIndex, endIndex). Use (0, numOfPublicVaults()) to discover every public vault on the chain; this is the official way to find per-vault addresses."
+     },
+     {
+      "signature": "isPublicVault(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the address is a public vault deployed by this factory. Check this before depositing into any vault address you were given."
+     },
+     {
+      "signature": "numOfPrivateVaults()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of private (Arrakis Pro) vaults. Private vaults only accept deposits from depositors the vault owner whitelisted."
+     },
+     {
+      "signature": "privateVaults(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Private vault addresses in index range [startIndex, endIndex)."
+     },
+     {
+      "signature": "isPrivateVault(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the address is a private vault deployed by this factory."
+     },
+     {
+      "signature": "manager()",
+      "kind": "read",
+      "payable": false,
+      "description": "The ArrakisStandardManager (0x2e6E879648293e939aA68bA4c6c129A1Be733bDA) that manages vaults."
+     },
+     {
+      "signature": "moduleRegistryPublic()",
+      "kind": "read",
+      "payable": false,
+      "description": "The public module registry (0x791d75F87a701C3F7dFfcEC1B6094dB22c779603): which modules (DEX integrations) public vaults may whitelist."
+     },
+     {
+      "signature": "getTokenName(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Name a public vault for the (token0, token1) pair gets, e.g. 'Arrakis Public LP WETH/USDC'."
+     },
+     {
+      "signature": "deployPublicVault(bytes32,address,address,address,address,bytes,bytes)",
+      "kind": "write",
+      "payable": false,
+      "description": "Create a public vault (salt, token0, token1, owner, beacon, moduleCreationPayload, initManagementPayload). Only whitelisted deployers (deployers()) can call it; ordinary users and agents cannot. Emits LogPublicVaultCreation."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x820FB8127a689327C863de8433278d6181123982",
+    "name": "ArrakisMetaVaultFactory",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+    "keyFunctions": [
+     {
+      "signature": "numOfPublicVaults()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of public vaults created by this factory on this chain (2026-11-25: Ethereum 2, Base 6, Arbitrum 1, Plasma 0, BNB Chain 0)."
+     },
+     {
+      "signature": "publicVaults(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Public vault addresses in index range [startIndex, endIndex). Use (0, numOfPublicVaults()) to discover every public vault on the chain; this is the official way to find per-vault addresses."
+     },
+     {
+      "signature": "isPublicVault(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the address is a public vault deployed by this factory. Check this before depositing into any vault address you were given."
+     },
+     {
+      "signature": "numOfPrivateVaults()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of private (Arrakis Pro) vaults. Private vaults only accept deposits from depositors the vault owner whitelisted."
+     },
+     {
+      "signature": "privateVaults(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Private vault addresses in index range [startIndex, endIndex)."
+     },
+     {
+      "signature": "isPrivateVault(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the address is a private vault deployed by this factory."
+     },
+     {
+      "signature": "manager()",
+      "kind": "read",
+      "payable": false,
+      "description": "The ArrakisStandardManager (0x2e6E879648293e939aA68bA4c6c129A1Be733bDA) that manages vaults."
+     },
+     {
+      "signature": "moduleRegistryPublic()",
+      "kind": "read",
+      "payable": false,
+      "description": "The public module registry (0x791d75F87a701C3F7dFfcEC1B6094dB22c779603): which modules (DEX integrations) public vaults may whitelist."
+     },
+     {
+      "signature": "getTokenName(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Name a public vault for the (token0, token1) pair gets, e.g. 'Arrakis Public LP WETH/USDC'."
+     },
+     {
+      "signature": "deployPublicVault(bytes32,address,address,address,address,bytes,bytes)",
+      "kind": "write",
+      "payable": false,
+      "description": "Create a public vault (salt, token0, token1, owner, beacon, moduleCreationPayload, initManagementPayload). Only whitelisted deployers (deployers()) can call it; ordinary users and agents cannot. Emits LogPublicVaultCreation."
+     }
+    ]
+   },
+   {
+    "chain": "plasma",
+    "chainId": 9745,
+    "address": "0x820FB8127a689327C863de8433278d6181123982",
+    "name": "ArrakisMetaVaultFactory",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+    "keyFunctions": [
+     {
+      "signature": "numOfPublicVaults()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of public vaults created by this factory on this chain (2026-11-25: Ethereum 2, Base 6, Arbitrum 1, Plasma 0, BNB Chain 0)."
+     },
+     {
+      "signature": "publicVaults(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Public vault addresses in index range [startIndex, endIndex). Use (0, numOfPublicVaults()) to discover every public vault on the chain; this is the official way to find per-vault addresses."
+     },
+     {
+      "signature": "isPublicVault(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the address is a public vault deployed by this factory. Check this before depositing into any vault address you were given."
+     },
+     {
+      "signature": "numOfPrivateVaults()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of private (Arrakis Pro) vaults. Private vaults only accept deposits from depositors the vault owner whitelisted."
+     },
+     {
+      "signature": "privateVaults(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Private vault addresses in index range [startIndex, endIndex)."
+     },
+     {
+      "signature": "isPrivateVault(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the address is a private vault deployed by this factory."
+     },
+     {
+      "signature": "manager()",
+      "kind": "read",
+      "payable": false,
+      "description": "The ArrakisStandardManager (0x2e6E879648293e939aA68bA4c6c129A1Be733bDA) that manages vaults."
+     },
+     {
+      "signature": "moduleRegistryPublic()",
+      "kind": "read",
+      "payable": false,
+      "description": "The public module registry (0x791d75F87a701C3F7dFfcEC1B6094dB22c779603): which modules (DEX integrations) public vaults may whitelist."
+     },
+     {
+      "signature": "getTokenName(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Name a public vault for the (token0, token1) pair gets, e.g. 'Arrakis Public LP WETH/USDC'."
+     },
+     {
+      "signature": "deployPublicVault(bytes32,address,address,address,address,bytes,bytes)",
+      "kind": "write",
+      "payable": false,
+      "description": "Create a public vault (salt, token0, token1, owner, beacon, moduleCreationPayload, initManagementPayload). Only whitelisted deployers (deployers()) can call it; ordinary users and agents cannot. Emits LogPublicVaultCreation."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x820FB8127a689327C863de8433278d6181123982",
+    "name": "ArrakisMetaVaultFactory",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+    "keyFunctions": [
+     {
+      "signature": "numOfPublicVaults()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of public vaults created by this factory on this chain (2026-11-25: Ethereum 2, Base 6, Arbitrum 1, Plasma 0, BNB Chain 0)."
+     },
+     {
+      "signature": "publicVaults(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Public vault addresses in index range [startIndex, endIndex). Use (0, numOfPublicVaults()) to discover every public vault on the chain; this is the official way to find per-vault addresses."
+     },
+     {
+      "signature": "isPublicVault(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the address is a public vault deployed by this factory. Check this before depositing into any vault address you were given."
+     },
+     {
+      "signature": "numOfPrivateVaults()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of private (Arrakis Pro) vaults. Private vaults only accept deposits from depositors the vault owner whitelisted."
+     },
+     {
+      "signature": "privateVaults(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Private vault addresses in index range [startIndex, endIndex)."
+     },
+     {
+      "signature": "isPrivateVault(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the address is a private vault deployed by this factory."
+     },
+     {
+      "signature": "manager()",
+      "kind": "read",
+      "payable": false,
+      "description": "The ArrakisStandardManager (0x2e6E879648293e939aA68bA4c6c129A1Be733bDA) that manages vaults."
+     },
+     {
+      "signature": "moduleRegistryPublic()",
+      "kind": "read",
+      "payable": false,
+      "description": "The public module registry (0x791d75F87a701C3F7dFfcEC1B6094dB22c779603): which modules (DEX integrations) public vaults may whitelist."
+     },
+     {
+      "signature": "getTokenName(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Name a public vault for the (token0, token1) pair gets, e.g. 'Arrakis Public LP WETH/USDC'."
+     },
+     {
+      "signature": "deployPublicVault(bytes32,address,address,address,address,bytes,bytes)",
+      "kind": "write",
+      "payable": false,
+      "description": "Create a public vault (salt, token0, token1, owner, beacon, moduleCreationPayload, initManagementPayload). Only whitelisted deployers (deployers()) can call it; ordinary users and agents cannot. Emits LogPublicVaultCreation."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x72aa2C8e6B14F30131081401Fa999fC964A66041",
+    "name": "ArrakisPublicVaultRouter",
+    "role": "router",
+    "proxy": false,
+    "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+    "keyFunctions": [
+     {
+      "signature": "getMintAmounts(address,uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote a deposit: (vault, maxAmount0, maxAmount1) -> (shareToMint, amount0ToDeposit, amount1ToDeposit). Call first and derive amount0Min/amount1Min/amountSharesMin with your slippage tolerance."
+     },
+     {
+      "signature": "addLiquidity((uint256,uint256,uint256,uint256,uint256,address,address))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: ((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver)). Deposit token0+token1 into a public vault and mint LP shares to receiver. Tuple = AddLiquidityData. Approve the router for both tokens first (ERC20 approve) or use addLiquidityPermit2. Reverts for non-public vaults (onlyPublicVault) and when paused. Returns (amount0, amount1, sharesReceived)."
+     },
+     {
+      "signature": "wrapAndAddLiquidity((uint256,uint256,uint256,uint256,uint256,address,address))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: ((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver)). Same as addLiquidity but sends native ETH as msg.value, wrapped to WETH by the router, for vaults with WETH as a token."
+     },
+     {
+      "signature": "swapAndAddLiquidity(((bytes,uint256,uint256,address,bool),(uint256,uint256,uint256,uint256,uint256,address,address)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: (((bytes swapPayload,uint256 amountInSwap,uint256 amountOutSwap,address swapRouter,bool zeroForOne),(uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver))). Swap part of one token through an external swap router (atomic, via the RouterSwapExecutor) and then deposit. SwapData: swapPayload (calldata for swapRouter), amountInSwap, amountOutSwap (minimum out), swapRouter, zeroForOne. Returns (amount0, amount1, sharesReceived, amount0Diff, amount1Diff)."
+     },
+     {
+      "signature": "addLiquidityPermit2(((uint256,uint256,uint256,uint256,uint256,address,address),((address,uint256)[],uint256,uint256),bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: (((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver),((address token,uint256 amount)[] permitted,uint256 nonce,uint256 deadline),bytes signature)). addLiquidity with Permit2 (0x000000000022D473030F116dDEE9F6B43aC78BA3) batch-transfer signature instead of ERC20 approvals to the router."
+     },
+     {
+      "signature": "removeLiquidity((uint256,uint256,uint256,address,address))",
+      "kind": "write",
+      "payable": false,
+      "description": "Params: ((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver)). Burn vault shares and send token0/token1 to receiver. Tuple = RemoveLiquidityData. Approve the router to spend your vault (LP) shares first, or use removeLiquidityPermit2. Returns (amount0, amount1)."
+     },
+     {
+      "signature": "removeLiquidityPermit2(((uint256,uint256,uint256,address,address),((address,uint256),uint256,uint256),bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Params: (((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver),((address token,uint256 amount) permitted,uint256 nonce,uint256 deadline),bytes signature)). removeLiquidity using a Permit2 single-transfer signature over the vault shares."
+     },
+     {
+      "signature": "factory()",
+      "kind": "read",
+      "payable": false,
+      "description": "The ArrakisMetaVaultFactory (0x820FB8127a689327C863de8433278d6181123982) whose public vaults this router accepts."
+     },
+     {
+      "signature": "permit2()",
+      "kind": "read",
+      "payable": false,
+      "description": "Permit2 address used by the *Permit2 functions."
+     },
+     {
+      "signature": "paused()",
+      "kind": "read",
+      "payable": false,
+      "description": "True when the router is paused (all deposit/withdraw functions revert)."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x72aa2C8e6B14F30131081401Fa999fC964A66041",
+    "name": "ArrakisPublicVaultRouter",
+    "role": "router",
+    "proxy": false,
+    "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+    "keyFunctions": [
+     {
+      "signature": "getMintAmounts(address,uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote a deposit: (vault, maxAmount0, maxAmount1) -> (shareToMint, amount0ToDeposit, amount1ToDeposit). Call first and derive amount0Min/amount1Min/amountSharesMin with your slippage tolerance."
+     },
+     {
+      "signature": "addLiquidity((uint256,uint256,uint256,uint256,uint256,address,address))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: ((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver)). Deposit token0+token1 into a public vault and mint LP shares to receiver. Tuple = AddLiquidityData. Approve the router for both tokens first (ERC20 approve) or use addLiquidityPermit2. Reverts for non-public vaults (onlyPublicVault) and when paused. Returns (amount0, amount1, sharesReceived)."
+     },
+     {
+      "signature": "wrapAndAddLiquidity((uint256,uint256,uint256,uint256,uint256,address,address))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: ((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver)). Same as addLiquidity but sends native ETH as msg.value, wrapped to WETH by the router, for vaults with WETH as a token."
+     },
+     {
+      "signature": "swapAndAddLiquidity(((bytes,uint256,uint256,address,bool),(uint256,uint256,uint256,uint256,uint256,address,address)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: (((bytes swapPayload,uint256 amountInSwap,uint256 amountOutSwap,address swapRouter,bool zeroForOne),(uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver))). Swap part of one token through an external swap router (atomic, via the RouterSwapExecutor) and then deposit. SwapData: swapPayload (calldata for swapRouter), amountInSwap, amountOutSwap (minimum out), swapRouter, zeroForOne. Returns (amount0, amount1, sharesReceived, amount0Diff, amount1Diff)."
+     },
+     {
+      "signature": "addLiquidityPermit2(((uint256,uint256,uint256,uint256,uint256,address,address),((address,uint256)[],uint256,uint256),bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: (((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver),((address token,uint256 amount)[] permitted,uint256 nonce,uint256 deadline),bytes signature)). addLiquidity with Permit2 (0x000000000022D473030F116dDEE9F6B43aC78BA3) batch-transfer signature instead of ERC20 approvals to the router."
+     },
+     {
+      "signature": "removeLiquidity((uint256,uint256,uint256,address,address))",
+      "kind": "write",
+      "payable": false,
+      "description": "Params: ((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver)). Burn vault shares and send token0/token1 to receiver. Tuple = RemoveLiquidityData. Approve the router to spend your vault (LP) shares first, or use removeLiquidityPermit2. Returns (amount0, amount1)."
+     },
+     {
+      "signature": "removeLiquidityPermit2(((uint256,uint256,uint256,address,address),((address,uint256),uint256,uint256),bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Params: (((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver),((address token,uint256 amount) permitted,uint256 nonce,uint256 deadline),bytes signature)). removeLiquidity using a Permit2 single-transfer signature over the vault shares."
+     },
+     {
+      "signature": "factory()",
+      "kind": "read",
+      "payable": false,
+      "description": "The ArrakisMetaVaultFactory (0x820FB8127a689327C863de8433278d6181123982) whose public vaults this router accepts."
+     },
+     {
+      "signature": "permit2()",
+      "kind": "read",
+      "payable": false,
+      "description": "Permit2 address used by the *Permit2 functions."
+     },
+     {
+      "signature": "paused()",
+      "kind": "read",
+      "payable": false,
+      "description": "True when the router is paused (all deposit/withdraw functions revert)."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x72aa2C8e6B14F30131081401Fa999fC964A66041",
+    "name": "ArrakisPublicVaultRouter",
+    "role": "router",
+    "proxy": false,
+    "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+    "keyFunctions": [
+     {
+      "signature": "getMintAmounts(address,uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote a deposit: (vault, maxAmount0, maxAmount1) -> (shareToMint, amount0ToDeposit, amount1ToDeposit). Call first and derive amount0Min/amount1Min/amountSharesMin with your slippage tolerance."
+     },
+     {
+      "signature": "addLiquidity((uint256,uint256,uint256,uint256,uint256,address,address))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: ((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver)). Deposit token0+token1 into a public vault and mint LP shares to receiver. Tuple = AddLiquidityData. Approve the router for both tokens first (ERC20 approve) or use addLiquidityPermit2. Reverts for non-public vaults (onlyPublicVault) and when paused. Returns (amount0, amount1, sharesReceived)."
+     },
+     {
+      "signature": "wrapAndAddLiquidity((uint256,uint256,uint256,uint256,uint256,address,address))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: ((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver)). Same as addLiquidity but sends native ETH as msg.value, wrapped to WETH by the router, for vaults with WETH as a token."
+     },
+     {
+      "signature": "swapAndAddLiquidity(((bytes,uint256,uint256,address,bool),(uint256,uint256,uint256,uint256,uint256,address,address)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: (((bytes swapPayload,uint256 amountInSwap,uint256 amountOutSwap,address swapRouter,bool zeroForOne),(uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver))). Swap part of one token through an external swap router (atomic, via the RouterSwapExecutor) and then deposit. SwapData: swapPayload (calldata for swapRouter), amountInSwap, amountOutSwap (minimum out), swapRouter, zeroForOne. Returns (amount0, amount1, sharesReceived, amount0Diff, amount1Diff)."
+     },
+     {
+      "signature": "addLiquidityPermit2(((uint256,uint256,uint256,uint256,uint256,address,address),((address,uint256)[],uint256,uint256),bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: (((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver),((address token,uint256 amount)[] permitted,uint256 nonce,uint256 deadline),bytes signature)). addLiquidity with Permit2 (0x000000000022D473030F116dDEE9F6B43aC78BA3) batch-transfer signature instead of ERC20 approvals to the router."
+     },
+     {
+      "signature": "removeLiquidity((uint256,uint256,uint256,address,address))",
+      "kind": "write",
+      "payable": false,
+      "description": "Params: ((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver)). Burn vault shares and send token0/token1 to receiver. Tuple = RemoveLiquidityData. Approve the router to spend your vault (LP) shares first, or use removeLiquidityPermit2. Returns (amount0, amount1)."
+     },
+     {
+      "signature": "removeLiquidityPermit2(((uint256,uint256,uint256,address,address),((address,uint256),uint256,uint256),bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Params: (((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver),((address token,uint256 amount) permitted,uint256 nonce,uint256 deadline),bytes signature)). removeLiquidity using a Permit2 single-transfer signature over the vault shares."
+     },
+     {
+      "signature": "factory()",
+      "kind": "read",
+      "payable": false,
+      "description": "The ArrakisMetaVaultFactory (0x820FB8127a689327C863de8433278d6181123982) whose public vaults this router accepts."
+     },
+     {
+      "signature": "permit2()",
+      "kind": "read",
+      "payable": false,
+      "description": "Permit2 address used by the *Permit2 functions."
+     },
+     {
+      "signature": "paused()",
+      "kind": "read",
+      "payable": false,
+      "description": "True when the router is paused (all deposit/withdraw functions revert)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x2e6E879648293e939aA68bA4c6c129A1Be733bDA",
+    "name": "ArrakisStandardManager",
+    "role": "other",
+    "proxy": true,
+    "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+    "keyFunctions": [
+     {
+      "signature": "vaultInfo(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Per-vault management config: (lastRebalance, cooldownPeriod, oracle, maxDeviation, executor, stratAnnouncer, maxSlippagePIPS, managerFeePIPS). Shows who can rebalance the vault (executor) and the guardrails (oracle deviation, slippage, cooldown) that bound the manager."
+     },
+     {
+      "signature": "isManaged(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the vault is managed by the Standard Manager."
+     },
+     {
+      "signature": "numInitializedVaults()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of vaults the manager has initialized."
+     },
+     {
+      "signature": "initializedVaults(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Managed vault addresses in index range [start, end)."
+     },
+     {
+      "signature": "pendingFeeIncrease(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pending (timelocked) manager fee increase for a vault: (submitTimestamp, newFeePIPS)."
+     },
+     {
+      "signature": "timelock()",
+      "kind": "read",
+      "payable": false,
+      "description": "Timelock that owns the manager's upgrade/admin path."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x2e6E879648293e939aA68bA4c6c129A1Be733bDA",
+    "name": "ArrakisStandardManager",
+    "role": "other",
+    "proxy": true,
+    "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+    "keyFunctions": [
+     {
+      "signature": "vaultInfo(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Per-vault management config: (lastRebalance, cooldownPeriod, oracle, maxDeviation, executor, stratAnnouncer, maxSlippagePIPS, managerFeePIPS). Shows who can rebalance the vault (executor) and the guardrails (oracle deviation, slippage, cooldown) that bound the manager."
+     },
+     {
+      "signature": "isManaged(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the vault is managed by the Standard Manager."
+     },
+     {
+      "signature": "numInitializedVaults()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of vaults the manager has initialized."
+     },
+     {
+      "signature": "initializedVaults(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Managed vault addresses in index range [start, end)."
+     },
+     {
+      "signature": "pendingFeeIncrease(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pending (timelocked) manager fee increase for a vault: (submitTimestamp, newFeePIPS)."
+     },
+     {
+      "signature": "timelock()",
+      "kind": "read",
+      "payable": false,
+      "description": "Timelock that owns the manager's upgrade/admin path."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x2e6E879648293e939aA68bA4c6c129A1Be733bDA",
+    "name": "ArrakisStandardManager",
+    "role": "other",
+    "proxy": true,
+    "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+    "keyFunctions": [
+     {
+      "signature": "vaultInfo(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Per-vault management config: (lastRebalance, cooldownPeriod, oracle, maxDeviation, executor, stratAnnouncer, maxSlippagePIPS, managerFeePIPS). Shows who can rebalance the vault (executor) and the guardrails (oracle deviation, slippage, cooldown) that bound the manager."
+     },
+     {
+      "signature": "isManaged(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the vault is managed by the Standard Manager."
+     },
+     {
+      "signature": "numInitializedVaults()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of vaults the manager has initialized."
+     },
+     {
+      "signature": "initializedVaults(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Managed vault addresses in index range [start, end)."
+     },
+     {
+      "signature": "pendingFeeIncrease(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pending (timelocked) manager fee increase for a vault: (submitTimestamp, newFeePIPS)."
+     },
+     {
+      "signature": "timelock()",
+      "kind": "read",
+      "payable": false,
+      "description": "Timelock that owns the manager's upgrade/admin path."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xf790870ccF6aE66DdC69f68e6d05d446f1a6ad83",
+    "name": "Arrakis Public LP USDC/WETH vault (ArrakisMetaVaultPublic, HOT AMM module)",
+    "role": "vault",
+    "proxy": false,
+    "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/modules/hotAmm/publicVaults.md",
+    "keyFunctions": [
+     {
+      "signature": "totalUnderlying()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total token0 and token1 held by the vault's position (all depositors). Your share = balanceOf(you)/totalSupply()."
+     },
+     {
+      "signature": "totalUnderlyingAtPrice(uint160)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same as totalUnderlying but valued at a given sqrtPriceX96."
+     },
+     {
+      "signature": "getInits()",
+      "kind": "read",
+      "payable": false,
+      "description": "(init0, init1): token amounts needed to open a position when the vault is empty (totalSupply == 0)."
+     },
+     {
+      "signature": "token0()",
+      "kind": "read",
+      "payable": false,
+      "description": "Vault token0."
+     },
+     {
+      "signature": "token1()",
+      "kind": "read",
+      "payable": false,
+      "description": "Vault token1."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total LP shares (18 decimals)."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LP share balance (vault shares are ERC20 and transferable)."
+     },
+     {
+      "signature": "module()",
+      "kind": "read",
+      "payable": false,
+      "description": "Active module (DEX integration) holding the liquidity; can be changed by the vault owner via setModule (timelocked for public vaults)."
+     },
+     {
+      "signature": "manager()",
+      "kind": "read",
+      "payable": false,
+      "description": "Manager contract allowed to rebalance (ArrakisStandardManager)."
+     },
+     {
+      "signature": "owner()",
+      "kind": "read",
+      "payable": false,
+      "description": "Vault owner. For this vault: a TimeLock (0xCFaD8B6981Da1c734352Bd31618040C23FE99117) administered by the Arrakis multisig."
+     },
+     {
+      "signature": "mint(uint256,address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Direct mint of an exact number of shares to receiver; returns (amount0, amount1) pulled. Prefer the ArrakisPublicVaultRouter (it computes amounts and enforces min/max). Direct calls have no slippage bounds."
+     },
+     {
+      "signature": "burn(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Direct burn of shares, sending token0/token1 to receiver; returns (amount0, amount1). No min-out check: prefer router.removeLiquidity."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [],
+  "actions": [
+   {
+    "name": "find public vaults",
+    "description": "List every public vault on a chain",
+    "how": "ArrakisMetaVaultFactory.numOfPublicVaults() then publicVaults(0, n); for each vault read name(), token0(), token1(), totalUnderlying(), totalSupply(), module(). Verify any vault address you get elsewhere with factory.isPublicVault(addr)."
+   },
+   {
+    "name": "deposit into a public vault",
+    "description": "Add token0/token1 liquidity and receive vault LP shares",
+    "how": "1) router.getMintAmounts(vault, max0, max1) -> (shares, amt0, amt1). 2) approve ArrakisPublicVaultRouter (0x72aa2C8e6B14F30131081401Fa999fC964A66041) for token0 and token1 (or sign Permit2). 3) router.addLiquidity((max0, max1, min0, min1, minShares, vault, receiver)); use wrapAndAddLiquidity with msg.value to pay the WETH side in ETH. Set min values from the quote minus slippage: the docs warn vault composition can change before execution."
+   },
+   {
+    "name": "withdraw from a public vault",
+    "description": "Burn LP shares for the underlying tokens",
+    "how": "approve the router to spend your vault shares (the vault address is the share token), then router.removeLiquidity((burnAmount, amount0Min, amount1Min, vault, receiver)). Preview with vault.totalUnderlying() * burnAmount / vault.totalSupply()."
+   },
+   {
+    "name": "deposit into a private (Arrakis Pro) vault",
+    "description": "Only for the vault owner's team",
+    "how": "vault owner calls whitelistDepositors([depositor]) on the ArrakisMetaVaultPrivate; the depositor approves vault.module() for the tokens and calls deposit(amount0, amount1) (payable for native ETH). Withdraw with withdraw(proportion, receiver) (owner only). Vaults are created by Arrakis on request."
+   },
+   {
+    "name": "check who controls a vault",
+    "description": "Read manager guardrails and ownership",
+    "how": "vault.owner() (public vaults: a timelock), vault.manager(), ArrakisStandardManager.vaultInfo(vault) for executor, oracle, maxDeviation, maxSlippagePIPS, cooldownPeriod and managerFeePIPS."
+   }
+  ],
+  "risks": [
+   "Active management: the vault's executor (an Arrakis-run backend set in ArrakisStandardManager) rebalances the position. Losses from rebalancing, impermanent loss and price moves fall on depositors; guardrails are an oracle deviation limit, max slippage and a cooldown per vault.",
+   "The vault owner can whitelist and switch modules (setModule), which changes where and how liquidity is deployed. For public vaults this is behind a timelock; for the Ethereum USDC/WETH vault the owner is TimeLock 0xCFaD8B6981Da1c734352Bd31618040C23FE99117 administered by the Arrakis multisig 0x5108EF86cF493905BcD35A3736e4B46DeCD7de58.",
+   "ArrakisStandardManager is an upgradeable (transparent) proxy whose admin is the Arrakis TimeLock 0xAf6f9640092cB1236E5DB6E517576355b6C40b7f; module implementations sit behind upgradeable beacons. Docs state all upgrades are timelocked and the Guardian can pause.",
+   "Public vs private: router functions only accept public vaults (onlyPublicVault). Private (Arrakis Pro) vaults are owned by a team through a PrivateVaultNFT; only whitelisted depositors can deposit and only the owner can withdraw. Anyone holding the NFT controls the funds.",
+   "Manager fee: a managerFeePIPS cut of earned swap fees (1% for the Ethereum USDC/WETH vault per docs).",
+   "The Ethereum USDC/WETH public vault uses the Valantis HOT AMM module, which relies on Arrakis-signed quotes (QuoteSigner) and Chainlink oracles.",
+   "Audits listed by Arrakis: ChainSecurity (Modular core Jul 2024, Uniswap V4 modules Dec 2024, Aerodrome Jan 2025), Sherlock, Watchpug, Enigma Dark, Cantina and Pashov (2023-2026). Reports are available on request from Arrakis; audits do not remove risk.",
+   "Public vault liquidity is small: on 2026-11-25 there were 2 public vaults on Ethereum, 6 on Base (mostly KAITO pairs), 1 on Arbitrum and none on Plasma or BNB Chain."
+  ],
+  "notes": "Addresses come from the official arrakis-docs GitHub repo (deployments.md, last commit 2026-05-21). The public docs site docs.arrakis.finance was rebuilt in 2026 around 'Arrakis Pro' and no longer has the technical pages (old URLs such as /text/arrakisModular/deployments.html now redirect to /arrakis-pro); app.arrakis.finance returns 404, and the arrakis-modular source repo is not public. The core contracts are deployed with CREATE3 at the same address on every chain listed by Arrakis (Ethereum, Base, Arbitrum, BNB Chain, Plasma, Optimism, Polygon, Ink, Unichain, Sepolia). Checked onchain 2026-11-25: the factory has code on Ethereum, Arbitrum, Base, Plasma and BNB Chain, and the manager is the factory's manager() everywhere; the ArrakisPublicVaultRouter, RouterSwapExecutor (0x19488620Cdf3Ff1B0784AC4529Fb5c5AbAceb1B6) and RouterSwapResolver (0xC6c53369c36D6b4f4A6c195441Fe2d33149FB265) have NO code on Plasma or BNB Chain, so on those chains only private vaults exist. Other core addresses from the same page (not listed as contracts because agents rarely call them): PrivateVaultNFT 0x44A801e7E2E073bd8bcE4bCCf653239Fa156B762, RenderController 0x1Cc0Adff599F244f036a5C2425f646Aef884149D, TimeLock 0xAf6f9640092cB1236E5DB6E517576355b6C40b7f, Guardian 0x6F441151B478E0d60588f221f1A35BcC3f7aB981, Public Module Registry 0x791d75F87a701C3F7dFfcEC1B6094dB22c779603, Private Module Registry 0xe278C1944BA3321C1079aBF94961E9fF1127A265, Pauser 0x700a1cdA1495C1B34c4962e9742A8A8832aAc03A, Withdraw Helper 0x3a2e9c26fBB53990BAFAec0342e38bd2a06f46d3, Migration Helper 0xd61407B9B63956CfB61341AAfeFbD7EDA1F9B962; per-chain Uniswap V3/V4, PancakeSwap and Aerodrome module beacons are on the same deployments page. The docs quickstart describes an 'ArrakisPublicVaultRouterV2' (same function names), but the deployments page lists only the router at 0x72aa…6041, which Sourcify verifies as ArrakisPublicVaultRouter (v1); no V2 address is published, so it is left out. Per-vault addresses are not listed except the Ethereum USDC/WETH flagship vault documented on the official public vault list; discover the rest with factory.publicVaults(). The address 0xf790870ccF6aE66DdC69f68e6d05d446f1a6ad83 also holds WETH/USDC public vaults on Base and Arbitrum (same CREATE3 address, different modules), but official docs only describe the Ethereum one. DefiLlama also lists Robinhood Chain; Arrakis's deployment list does not, so it is not covered. Arrakis publishes no public API or SDK for Modular; an official Uniswap v4 position-migration example is at github.com/ArrakisFinance/univ4-migration-example. Older Arrakis V1/V2 (PALM) vaults are separate products not covered here.",
+  "sources": [
+   "https://defillama.com/protocol/arrakis-modular",
+   "https://api.llama.fi/protocol/arrakis-modular",
+   "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+   "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/modules/hotAmm/publicVaults.md",
+   "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/quickstart/quickstartPublic.md",
+   "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/technicalReference/routers/contract.ArrakisPublicVaultRouter.md",
+   "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/technicalReference/routers/structs/struct.AddLiquidityData.md",
+   "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/technicalReference/routers/structs/struct.RemoveLiquidityData.md",
+   "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/technicalReference/metaVaults/publicVaults/contract.ArrakisMetaVaultPublic.md",
+   "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/architecture/security.md",
+   "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisPro/setup.md",
+   "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisPro/modify.md",
+   "https://github.com/ArrakisFinance/univ4-migration-example",
+   "https://docs.arrakis.finance/llms.txt",
+   "https://docs.arrakis.finance/supported-chains",
+   "https://docs.arrakis.finance/audits",
+   "https://docs.arrakis.finance/arrakis-pro",
+   "https://sourcify.dev/server/v2/contract/1/0x820FB8127a689327C863de8433278d6181123982",
+   "https://sourcify.dev/server/v2/contract/1/0x72aa2C8e6B14F30131081401Fa999fC964A66041",
+   "https://sourcify.dev/server/v2/contract/1/0xf790870ccF6aE66DdC69f68e6d05d446f1a6ad83",
+   "https://sourcify.dev/server/v2/contract/8453/0xd6a035de7b5d5c7689f26a035bca9208cada7f9c"
+  ],
+  "researchedAt": "2026-11-25"
+ },
+ {
   "slug": "bitflow",
   "name": "Bitflow",
   "category": "Dexs",
@@ -4646,6 +5521,1344 @@ export const PROTOCOLS: ProtocolEntry[] = [
   "researchedAt": "2026-11-24"
  },
  {
+  "slug": "clanker",
+  "name": "Clanker",
+  "category": "Launchpad",
+  "description": "Clanker is a permissionless token launchpad (Farcaster bot, clanker.world, API and contracts). Clanker v5, the current version, launches fixed-supply ERC-20s into Uniswap v4 pools whose hook charges a 1-10% buy/sell tax that pays Clanker, the creator's reward recipients and optional holder dividends, burns and an integrator. An agent can launch tokens (partner API or factory.createLaunch), read pool tax terms, claim creator rewards from the FeeEscrow and claim holder dividends.",
+  "website": "https://www.clanker.world",
+  "docs": "https://clanker.gitbook.io/documentation",
+  "defillama": "https://defillama.com/protocol/clanker",
+  "chains": [
+   "base",
+   "bsc",
+   "monad",
+   "robinhood",
+   "xlayer",
+   "arc"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x572e88D3cD7f23E4241EB6ceDD96667271bF09A0",
+    "name": "Clanker v5 Factory (TaxRWAERC20LaunchpadFactory)",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/core-contracts/v5",
+    "keyFunctions": [
+     {
+      "signature": "createLaunch((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Deploy a v5 token (fixed 1B supply, 18 decimals, no owner/minter) and its Uniswap v4 pool with all supply as locked single-sided liquidity. msg.value must equal nativeLaunchFee() (0 on 2026-11-25). Rules: expectedConfigVersion must equal configVersion() (else StaleConfig); up to 7 feeSlots whose relativeWeightBps sum to 10000; rates/shares use 1e8 = 100%; buy/sell tax within the policy (1%-10%); the four allocation shares sum to 1e8; quoteToken must be registered (quoteConfig); the predicted token address must end in 'cccc', so creatorSalt has to be mined (see launchTokenInitCodeHash). Most integrators use the Clanker API or clanker-sdk/v5 instead. Returns (token, poolId)."
+     },
+     {
+      "signature": "createLaunchAndBuy((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool),(address,uint256,uint256,bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled),(address fundingToken,uint256 amountIn,uint256 minAmountOut,bytes routeData)). Same as createLaunch plus a first (creator) buy in the same transaction through the Launch Buy Adapter; the creator buy does not pay the sniper fee. Returns (token, poolId, amountOut)."
+     },
+     {
+      "signature": "previewTaxConfiguration((uint32,uint32,uint32,uint32,uint32,uint32,uint256))",
+      "kind": "read",
+      "payable": false,
+      "description": "Params: ((uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding)). Check a tax configuration against the current policy before launching: returns (configVersion, buyRates, sellRates, dividendsEnabled, minimumDividendHoldingRequirement); each rate struct is (quoteRate, burnRate, protocolRate, creatorRate, dividendRate, integratorRate, surchargeRate)."
+     },
+     {
+      "signature": "configVersion()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current launch-settings version; pass it as expectedConfigVersion."
+     },
+     {
+      "signature": "taxPolicy()",
+      "kind": "read",
+      "payable": false,
+      "description": "Launch policy: ((minBuyTax, maxBuyTax, minSellTax, maxSellTax), (protocolTaxShare, minimumProtocolFeeRate, maximumProtocolFeeRate, protocolFeeRecipient), (antiSnipe startTotalFeeRate, windowSeconds), minimumDividendHoldingRequirement)."
+     },
+     {
+      "signature": "quoteConfig(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(registered, quoteDecimals, startTickToken0Frame) for a quote (pair) token. Native coin pairs use the zero address in the pool."
+     },
+     {
+      "signature": "launchCreationEnabled()",
+      "kind": "read",
+      "payable": false,
+      "description": "False when new launches are paused by the owner."
+     },
+     {
+      "signature": "nativeLaunchFee()",
+      "kind": "read",
+      "payable": false,
+      "description": "Required msg.value for createLaunch (wei)."
+     },
+     {
+      "signature": "launchTokenInitCodeHash((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+      "kind": "read",
+      "payable": false,
+      "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Init code hash used to predict the token address for given launch params (to search a creatorSalt that yields an address ending in cccc)."
+     },
+     {
+      "signature": "isLaunchToken(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True only if this factory launched the token. Use it to tell a real Clanker v5 token from a look-alike."
+     },
+     {
+      "signature": "creatorRights(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(originalCreator, currentCreator, pendingCreator, creatorFeeRecipient, poolId, metadataEditable) for a token."
+     },
+     {
+      "signature": "dividendOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "The token's holder-dividend contract, or zero if dividends are off. Holders claim there with withdrawDividendsFor(holder, unwrapWrappedNative)."
+     },
+     {
+      "signature": "setCreatorFeeRecipient(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Current creator only: change the recipient of the creator's reward slot (token, newRecipient)."
+     },
+     {
+      "signature": "updateTokenExtraMetadata(address,string,string)",
+      "kind": "write",
+      "payable": false,
+      "description": "Current creator only, if metadataEditable: set a metadata key/value; ('verified','true') verifies the token."
+     },
+     {
+      "signature": "hook()",
+      "kind": "read",
+      "payable": false,
+      "description": "The v5 hook for this chain; hook.feeEscrow() gives the FeeEscrow."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x5E320eA6278107968C119942E57d876c5F922AcC",
+    "name": "Clanker v5 Hook (TaxLaunchHook, Uniswap v4 hook)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/core-contracts/v5",
+    "keyFunctions": [
+     {
+      "signature": "poolConfig(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool state by poolId: (initialized, tokenIsCurrency0, token, quoteToken, currentCreator, creatorFeeRecipient, protocolFeeConfiguration, antiSnipeConfiguration, launchTime, antiSnipeEnabled, integratorFeeRecipient, dividend, taxConfiguration). Terms are frozen at launch."
+     },
+     {
+      "signature": "effectiveFeeRates(bytes32,bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "Current rates for a buy (true) or sell (false), including any sniper surcharge, and whether exact-output swaps are blocked (they are during the 20 s sniper window). Check before trading a fresh token."
+     },
+     {
+      "signature": "poolFeeSlots(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "Reward recipients of a pool: (recipient, admin, weightBps, isCreator)[]."
+     },
+     {
+      "signature": "updateFeeSlotRecipient(bytes32,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Slot admin only: change the recipient of a reward slot (poolId, slotIndex, newRecipient). The creator slot follows creator rights on the factory instead."
+     },
+     {
+      "signature": "updateFeeSlotAdmin(bytes32,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Slot admin only: hand the slot's admin role to another address."
+     },
+     {
+      "signature": "feeEscrow()",
+      "kind": "read",
+      "payable": false,
+      "description": "FeeEscrow that holds all credited rewards."
+     },
+     {
+      "signature": "factory()",
+      "kind": "read",
+      "payable": false,
+      "description": "The v5 factory."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x5dd237d1f716C65426CCd2FAe82B95109825FA61",
+    "name": "Clanker v5 FeeEscrow (creator/integrator rewards)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/core-contracts/v5",
+    "keyFunctions": [
+     {
+      "signature": "owed(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Claimable balance of recipient in currency (zero address = native coin). One balance per recipient+currency across ALL of that recipient's v5 tokens."
+     },
+     {
+      "signature": "claimFor(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless: pay recipient's whole balance in currency to the recipient (recipient, currency)."
+     },
+     {
+      "signature": "claimTo(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Pay the caller's whole balance in currency to destination (currency, destination)."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xe896454E417400a9d7766497764e4dEBf91534BD",
+    "name": "Clanker v5 Dividend Claim Helper",
+    "role": "other",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/core-contracts/v5",
+    "keyFunctions": [
+     {
+      "signature": "claimDividends((address,bool)[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Params: ((address token,bool unwrapWrappedNative)[]). Claim the caller's holder dividends from up to 64 v5 tokens in one call; each token once. unwrapWrappedNative=true pays the native coin instead of the wrapped token on native-pair tokens. Returns (paidCount, paid[])."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x1B417526da9737cA99956e32cdfB674d6C9f097a",
+    "name": "Clanker v5 Announcement Registry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/core-contracts/v5",
+    "keyFunctions": [
+     {
+      "signature": "postAnnouncement(address,bytes32,string,string)",
+      "kind": "write",
+      "payable": false,
+      "description": "Token's current creator only: post an announcement (token, announcementId, description, announcementURI); each id once per token."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0xcA111dcdd2cE924c3378d6514fDCbC46217bcA16",
+    "name": "Clanker v5 Factory (TaxRWAERC20LaunchpadFactory)",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "createLaunch((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Deploy a v5 token (fixed 1B supply, 18 decimals, no owner/minter) and its Uniswap v4 pool with all supply as locked single-sided liquidity. msg.value must equal nativeLaunchFee() (0 on 2026-11-25). Rules: expectedConfigVersion must equal configVersion() (else StaleConfig); up to 7 feeSlots whose relativeWeightBps sum to 10000; rates/shares use 1e8 = 100%; buy/sell tax within the policy (1%-10%); the four allocation shares sum to 1e8; quoteToken must be registered (quoteConfig); the predicted token address must end in 'cccc', so creatorSalt has to be mined (see launchTokenInitCodeHash). Most integrators use the Clanker API or clanker-sdk/v5 instead. Returns (token, poolId)."
+     },
+     {
+      "signature": "createLaunchAndBuy((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool),(address,uint256,uint256,bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled),(address fundingToken,uint256 amountIn,uint256 minAmountOut,bytes routeData)). Same as createLaunch plus a first (creator) buy in the same transaction through the Launch Buy Adapter; the creator buy does not pay the sniper fee. Returns (token, poolId, amountOut)."
+     },
+     {
+      "signature": "previewTaxConfiguration((uint32,uint32,uint32,uint32,uint32,uint32,uint256))",
+      "kind": "read",
+      "payable": false,
+      "description": "Params: ((uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding)). Check a tax configuration against the current policy before launching: returns (configVersion, buyRates, sellRates, dividendsEnabled, minimumDividendHoldingRequirement); each rate struct is (quoteRate, burnRate, protocolRate, creatorRate, dividendRate, integratorRate, surchargeRate)."
+     },
+     {
+      "signature": "configVersion()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current launch-settings version; pass it as expectedConfigVersion."
+     },
+     {
+      "signature": "taxPolicy()",
+      "kind": "read",
+      "payable": false,
+      "description": "Launch policy: ((minBuyTax, maxBuyTax, minSellTax, maxSellTax), (protocolTaxShare, minimumProtocolFeeRate, maximumProtocolFeeRate, protocolFeeRecipient), (antiSnipe startTotalFeeRate, windowSeconds), minimumDividendHoldingRequirement)."
+     },
+     {
+      "signature": "quoteConfig(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(registered, quoteDecimals, startTickToken0Frame) for a quote (pair) token. Native coin pairs use the zero address in the pool."
+     },
+     {
+      "signature": "launchCreationEnabled()",
+      "kind": "read",
+      "payable": false,
+      "description": "False when new launches are paused by the owner."
+     },
+     {
+      "signature": "nativeLaunchFee()",
+      "kind": "read",
+      "payable": false,
+      "description": "Required msg.value for createLaunch (wei)."
+     },
+     {
+      "signature": "launchTokenInitCodeHash((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+      "kind": "read",
+      "payable": false,
+      "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Init code hash used to predict the token address for given launch params (to search a creatorSalt that yields an address ending in cccc)."
+     },
+     {
+      "signature": "isLaunchToken(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True only if this factory launched the token. Use it to tell a real Clanker v5 token from a look-alike."
+     },
+     {
+      "signature": "creatorRights(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(originalCreator, currentCreator, pendingCreator, creatorFeeRecipient, poolId, metadataEditable) for a token."
+     },
+     {
+      "signature": "dividendOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "The token's holder-dividend contract, or zero if dividends are off. Holders claim there with withdrawDividendsFor(holder, unwrapWrappedNative)."
+     },
+     {
+      "signature": "setCreatorFeeRecipient(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Current creator only: change the recipient of the creator's reward slot (token, newRecipient)."
+     },
+     {
+      "signature": "updateTokenExtraMetadata(address,string,string)",
+      "kind": "write",
+      "payable": false,
+      "description": "Current creator only, if metadataEditable: set a metadata key/value; ('verified','true') verifies the token."
+     },
+     {
+      "signature": "hook()",
+      "kind": "read",
+      "payable": false,
+      "description": "The v5 hook for this chain; hook.feeEscrow() gives the FeeEscrow."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0xA8F0c64D5E5CF05379c13263EbdD03e8A835EACC",
+    "name": "Clanker v5 Hook (TaxLaunchHook, Uniswap v4 hook)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "poolConfig(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool state by poolId: (initialized, tokenIsCurrency0, token, quoteToken, currentCreator, creatorFeeRecipient, protocolFeeConfiguration, antiSnipeConfiguration, launchTime, antiSnipeEnabled, integratorFeeRecipient, dividend, taxConfiguration). Terms are frozen at launch."
+     },
+     {
+      "signature": "effectiveFeeRates(bytes32,bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "Current rates for a buy (true) or sell (false), including any sniper surcharge, and whether exact-output swaps are blocked (they are during the 20 s sniper window). Check before trading a fresh token."
+     },
+     {
+      "signature": "poolFeeSlots(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "Reward recipients of a pool: (recipient, admin, weightBps, isCreator)[]."
+     },
+     {
+      "signature": "updateFeeSlotRecipient(bytes32,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Slot admin only: change the recipient of a reward slot (poolId, slotIndex, newRecipient). The creator slot follows creator rights on the factory instead."
+     },
+     {
+      "signature": "updateFeeSlotAdmin(bytes32,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Slot admin only: hand the slot's admin role to another address."
+     },
+     {
+      "signature": "feeEscrow()",
+      "kind": "read",
+      "payable": false,
+      "description": "FeeEscrow that holds all credited rewards."
+     },
+     {
+      "signature": "factory()",
+      "kind": "read",
+      "payable": false,
+      "description": "The v5 factory."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0xFBB6e837A2eA96d6b4beb4788c2749Cf34A997e7",
+    "name": "Clanker v5 FeeEscrow (creator/integrator rewards)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "owed(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Claimable balance of recipient in currency (zero address = native coin). One balance per recipient+currency across ALL of that recipient's v5 tokens."
+     },
+     {
+      "signature": "claimFor(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless: pay recipient's whole balance in currency to the recipient (recipient, currency)."
+     },
+     {
+      "signature": "claimTo(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Pay the caller's whole balance in currency to destination (currency, destination)."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0xdb525d50c70b9303115bA19503761756136d2B49",
+    "name": "Clanker v5 Dividend Claim Helper",
+    "role": "other",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "claimDividends((address,bool)[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Params: ((address token,bool unwrapWrappedNative)[]). Claim the caller's holder dividends from up to 64 v5 tokens in one call; each token once. unwrapWrappedNative=true pays the native coin instead of the wrapped token on native-pair tokens. Returns (paidCount, paid[])."
+     }
+    ]
+   },
+   {
+    "chain": "monad",
+    "chainId": 143,
+    "address": "0xcA111dcdd2cE924c3378d6514fDCbC46217bcA16",
+    "name": "Clanker v5 Factory (TaxRWAERC20LaunchpadFactory)",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "createLaunch((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Deploy a v5 token (fixed 1B supply, 18 decimals, no owner/minter) and its Uniswap v4 pool with all supply as locked single-sided liquidity. msg.value must equal nativeLaunchFee() (0 on 2026-11-25). Rules: expectedConfigVersion must equal configVersion() (else StaleConfig); up to 7 feeSlots whose relativeWeightBps sum to 10000; rates/shares use 1e8 = 100%; buy/sell tax within the policy (1%-10%); the four allocation shares sum to 1e8; quoteToken must be registered (quoteConfig); the predicted token address must end in 'cccc', so creatorSalt has to be mined (see launchTokenInitCodeHash). Most integrators use the Clanker API or clanker-sdk/v5 instead. Returns (token, poolId)."
+     },
+     {
+      "signature": "createLaunchAndBuy((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool),(address,uint256,uint256,bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled),(address fundingToken,uint256 amountIn,uint256 minAmountOut,bytes routeData)). Same as createLaunch plus a first (creator) buy in the same transaction through the Launch Buy Adapter; the creator buy does not pay the sniper fee. Returns (token, poolId, amountOut)."
+     },
+     {
+      "signature": "previewTaxConfiguration((uint32,uint32,uint32,uint32,uint32,uint32,uint256))",
+      "kind": "read",
+      "payable": false,
+      "description": "Params: ((uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding)). Check a tax configuration against the current policy before launching: returns (configVersion, buyRates, sellRates, dividendsEnabled, minimumDividendHoldingRequirement); each rate struct is (quoteRate, burnRate, protocolRate, creatorRate, dividendRate, integratorRate, surchargeRate)."
+     },
+     {
+      "signature": "configVersion()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current launch-settings version; pass it as expectedConfigVersion."
+     },
+     {
+      "signature": "taxPolicy()",
+      "kind": "read",
+      "payable": false,
+      "description": "Launch policy: ((minBuyTax, maxBuyTax, minSellTax, maxSellTax), (protocolTaxShare, minimumProtocolFeeRate, maximumProtocolFeeRate, protocolFeeRecipient), (antiSnipe startTotalFeeRate, windowSeconds), minimumDividendHoldingRequirement)."
+     },
+     {
+      "signature": "quoteConfig(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(registered, quoteDecimals, startTickToken0Frame) for a quote (pair) token. Native coin pairs use the zero address in the pool."
+     },
+     {
+      "signature": "launchCreationEnabled()",
+      "kind": "read",
+      "payable": false,
+      "description": "False when new launches are paused by the owner."
+     },
+     {
+      "signature": "nativeLaunchFee()",
+      "kind": "read",
+      "payable": false,
+      "description": "Required msg.value for createLaunch (wei)."
+     },
+     {
+      "signature": "launchTokenInitCodeHash((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+      "kind": "read",
+      "payable": false,
+      "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Init code hash used to predict the token address for given launch params (to search a creatorSalt that yields an address ending in cccc)."
+     },
+     {
+      "signature": "isLaunchToken(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True only if this factory launched the token. Use it to tell a real Clanker v5 token from a look-alike."
+     },
+     {
+      "signature": "creatorRights(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(originalCreator, currentCreator, pendingCreator, creatorFeeRecipient, poolId, metadataEditable) for a token."
+     },
+     {
+      "signature": "dividendOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "The token's holder-dividend contract, or zero if dividends are off. Holders claim there with withdrawDividendsFor(holder, unwrapWrappedNative)."
+     },
+     {
+      "signature": "setCreatorFeeRecipient(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Current creator only: change the recipient of the creator's reward slot (token, newRecipient)."
+     },
+     {
+      "signature": "updateTokenExtraMetadata(address,string,string)",
+      "kind": "write",
+      "payable": false,
+      "description": "Current creator only, if metadataEditable: set a metadata key/value; ('verified','true') verifies the token."
+     },
+     {
+      "signature": "hook()",
+      "kind": "read",
+      "payable": false,
+      "description": "The v5 hook for this chain; hook.feeEscrow() gives the FeeEscrow."
+     }
+    ]
+   },
+   {
+    "chain": "monad",
+    "chainId": 143,
+    "address": "0x58E0cE0ba45002DFF608e2f04C0B88075eD4aAcC",
+    "name": "Clanker v5 Hook (TaxLaunchHook, Uniswap v4 hook)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "poolConfig(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool state by poolId: (initialized, tokenIsCurrency0, token, quoteToken, currentCreator, creatorFeeRecipient, protocolFeeConfiguration, antiSnipeConfiguration, launchTime, antiSnipeEnabled, integratorFeeRecipient, dividend, taxConfiguration). Terms are frozen at launch."
+     },
+     {
+      "signature": "effectiveFeeRates(bytes32,bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "Current rates for a buy (true) or sell (false), including any sniper surcharge, and whether exact-output swaps are blocked (they are during the 20 s sniper window). Check before trading a fresh token."
+     },
+     {
+      "signature": "poolFeeSlots(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "Reward recipients of a pool: (recipient, admin, weightBps, isCreator)[]."
+     },
+     {
+      "signature": "updateFeeSlotRecipient(bytes32,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Slot admin only: change the recipient of a reward slot (poolId, slotIndex, newRecipient). The creator slot follows creator rights on the factory instead."
+     },
+     {
+      "signature": "updateFeeSlotAdmin(bytes32,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Slot admin only: hand the slot's admin role to another address."
+     },
+     {
+      "signature": "feeEscrow()",
+      "kind": "read",
+      "payable": false,
+      "description": "FeeEscrow that holds all credited rewards."
+     },
+     {
+      "signature": "factory()",
+      "kind": "read",
+      "payable": false,
+      "description": "The v5 factory."
+     }
+    ]
+   },
+   {
+    "chain": "monad",
+    "chainId": 143,
+    "address": "0xFBB6e837A2eA96d6b4beb4788c2749Cf34A997e7",
+    "name": "Clanker v5 FeeEscrow (creator/integrator rewards)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "owed(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Claimable balance of recipient in currency (zero address = native coin). One balance per recipient+currency across ALL of that recipient's v5 tokens."
+     },
+     {
+      "signature": "claimFor(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless: pay recipient's whole balance in currency to the recipient (recipient, currency)."
+     },
+     {
+      "signature": "claimTo(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Pay the caller's whole balance in currency to destination (currency, destination)."
+     }
+    ]
+   },
+   {
+    "chain": "monad",
+    "chainId": 143,
+    "address": "0xdb525d50c70b9303115bA19503761756136d2B49",
+    "name": "Clanker v5 Dividend Claim Helper",
+    "role": "other",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "claimDividends((address,bool)[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Params: ((address token,bool unwrapWrappedNative)[]). Claim the caller's holder dividends from up to 64 v5 tokens in one call; each token once. unwrapWrappedNative=true pays the native coin instead of the wrapped token on native-pair tokens. Returns (paidCount, paid[])."
+     }
+    ]
+   },
+   {
+    "chain": "robinhood",
+    "chainId": 4663,
+    "address": "0xcA111dcdd2cE924c3378d6514fDCbC46217bcA16",
+    "name": "Clanker v5 Factory (TaxRWAERC20LaunchpadFactory)",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "createLaunch((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Deploy a v5 token (fixed 1B supply, 18 decimals, no owner/minter) and its Uniswap v4 pool with all supply as locked single-sided liquidity. msg.value must equal nativeLaunchFee() (0 on 2026-11-25). Rules: expectedConfigVersion must equal configVersion() (else StaleConfig); up to 7 feeSlots whose relativeWeightBps sum to 10000; rates/shares use 1e8 = 100%; buy/sell tax within the policy (1%-10%); the four allocation shares sum to 1e8; quoteToken must be registered (quoteConfig); the predicted token address must end in 'cccc', so creatorSalt has to be mined (see launchTokenInitCodeHash). Most integrators use the Clanker API or clanker-sdk/v5 instead. Returns (token, poolId)."
+     },
+     {
+      "signature": "createLaunchAndBuy((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool),(address,uint256,uint256,bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled),(address fundingToken,uint256 amountIn,uint256 minAmountOut,bytes routeData)). Same as createLaunch plus a first (creator) buy in the same transaction through the Launch Buy Adapter; the creator buy does not pay the sniper fee. Returns (token, poolId, amountOut)."
+     },
+     {
+      "signature": "previewTaxConfiguration((uint32,uint32,uint32,uint32,uint32,uint32,uint256))",
+      "kind": "read",
+      "payable": false,
+      "description": "Params: ((uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding)). Check a tax configuration against the current policy before launching: returns (configVersion, buyRates, sellRates, dividendsEnabled, minimumDividendHoldingRequirement); each rate struct is (quoteRate, burnRate, protocolRate, creatorRate, dividendRate, integratorRate, surchargeRate)."
+     },
+     {
+      "signature": "configVersion()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current launch-settings version; pass it as expectedConfigVersion."
+     },
+     {
+      "signature": "taxPolicy()",
+      "kind": "read",
+      "payable": false,
+      "description": "Launch policy: ((minBuyTax, maxBuyTax, minSellTax, maxSellTax), (protocolTaxShare, minimumProtocolFeeRate, maximumProtocolFeeRate, protocolFeeRecipient), (antiSnipe startTotalFeeRate, windowSeconds), minimumDividendHoldingRequirement)."
+     },
+     {
+      "signature": "quoteConfig(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(registered, quoteDecimals, startTickToken0Frame) for a quote (pair) token. Native coin pairs use the zero address in the pool."
+     },
+     {
+      "signature": "launchCreationEnabled()",
+      "kind": "read",
+      "payable": false,
+      "description": "False when new launches are paused by the owner."
+     },
+     {
+      "signature": "nativeLaunchFee()",
+      "kind": "read",
+      "payable": false,
+      "description": "Required msg.value for createLaunch (wei)."
+     },
+     {
+      "signature": "launchTokenInitCodeHash((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+      "kind": "read",
+      "payable": false,
+      "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Init code hash used to predict the token address for given launch params (to search a creatorSalt that yields an address ending in cccc)."
+     },
+     {
+      "signature": "isLaunchToken(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True only if this factory launched the token. Use it to tell a real Clanker v5 token from a look-alike."
+     },
+     {
+      "signature": "creatorRights(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(originalCreator, currentCreator, pendingCreator, creatorFeeRecipient, poolId, metadataEditable) for a token."
+     },
+     {
+      "signature": "dividendOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "The token's holder-dividend contract, or zero if dividends are off. Holders claim there with withdrawDividendsFor(holder, unwrapWrappedNative)."
+     },
+     {
+      "signature": "setCreatorFeeRecipient(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Current creator only: change the recipient of the creator's reward slot (token, newRecipient)."
+     },
+     {
+      "signature": "updateTokenExtraMetadata(address,string,string)",
+      "kind": "write",
+      "payable": false,
+      "description": "Current creator only, if metadataEditable: set a metadata key/value; ('verified','true') verifies the token."
+     },
+     {
+      "signature": "hook()",
+      "kind": "read",
+      "payable": false,
+      "description": "The v5 hook for this chain; hook.feeEscrow() gives the FeeEscrow."
+     }
+    ]
+   },
+   {
+    "chain": "robinhood",
+    "chainId": 4663,
+    "address": "0x565189a6780D1a50FC1792F64db8e4881119AaCC",
+    "name": "Clanker v5 Hook (TaxLaunchHook, Uniswap v4 hook)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "poolConfig(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool state by poolId: (initialized, tokenIsCurrency0, token, quoteToken, currentCreator, creatorFeeRecipient, protocolFeeConfiguration, antiSnipeConfiguration, launchTime, antiSnipeEnabled, integratorFeeRecipient, dividend, taxConfiguration). Terms are frozen at launch."
+     },
+     {
+      "signature": "effectiveFeeRates(bytes32,bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "Current rates for a buy (true) or sell (false), including any sniper surcharge, and whether exact-output swaps are blocked (they are during the 20 s sniper window). Check before trading a fresh token."
+     },
+     {
+      "signature": "poolFeeSlots(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "Reward recipients of a pool: (recipient, admin, weightBps, isCreator)[]."
+     },
+     {
+      "signature": "updateFeeSlotRecipient(bytes32,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Slot admin only: change the recipient of a reward slot (poolId, slotIndex, newRecipient). The creator slot follows creator rights on the factory instead."
+     },
+     {
+      "signature": "updateFeeSlotAdmin(bytes32,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Slot admin only: hand the slot's admin role to another address."
+     },
+     {
+      "signature": "feeEscrow()",
+      "kind": "read",
+      "payable": false,
+      "description": "FeeEscrow that holds all credited rewards."
+     },
+     {
+      "signature": "factory()",
+      "kind": "read",
+      "payable": false,
+      "description": "The v5 factory."
+     }
+    ]
+   },
+   {
+    "chain": "robinhood",
+    "chainId": 4663,
+    "address": "0xFBB6e837A2eA96d6b4beb4788c2749Cf34A997e7",
+    "name": "Clanker v5 FeeEscrow (creator/integrator rewards)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "owed(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Claimable balance of recipient in currency (zero address = native coin). One balance per recipient+currency across ALL of that recipient's v5 tokens."
+     },
+     {
+      "signature": "claimFor(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless: pay recipient's whole balance in currency to the recipient (recipient, currency)."
+     },
+     {
+      "signature": "claimTo(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Pay the caller's whole balance in currency to destination (currency, destination)."
+     }
+    ]
+   },
+   {
+    "chain": "robinhood",
+    "chainId": 4663,
+    "address": "0xdb525d50c70b9303115bA19503761756136d2B49",
+    "name": "Clanker v5 Dividend Claim Helper",
+    "role": "other",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "claimDividends((address,bool)[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Params: ((address token,bool unwrapWrappedNative)[]). Claim the caller's holder dividends from up to 64 v5 tokens in one call; each token once. unwrapWrappedNative=true pays the native coin instead of the wrapped token on native-pair tokens. Returns (paidCount, paid[])."
+     }
+    ]
+   },
+   {
+    "chain": "xlayer",
+    "chainId": 196,
+    "address": "0xcA111dcdd2cE924c3378d6514fDCbC46217bcA16",
+    "name": "Clanker v5 Factory (TaxRWAERC20LaunchpadFactory)",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "createLaunch((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Deploy a v5 token (fixed 1B supply, 18 decimals, no owner/minter) and its Uniswap v4 pool with all supply as locked single-sided liquidity. msg.value must equal nativeLaunchFee() (0 on 2026-11-25). Rules: expectedConfigVersion must equal configVersion() (else StaleConfig); up to 7 feeSlots whose relativeWeightBps sum to 10000; rates/shares use 1e8 = 100%; buy/sell tax within the policy (1%-10%); the four allocation shares sum to 1e8; quoteToken must be registered (quoteConfig); the predicted token address must end in 'cccc', so creatorSalt has to be mined (see launchTokenInitCodeHash). Most integrators use the Clanker API or clanker-sdk/v5 instead. Returns (token, poolId)."
+     },
+     {
+      "signature": "createLaunchAndBuy((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool),(address,uint256,uint256,bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled),(address fundingToken,uint256 amountIn,uint256 minAmountOut,bytes routeData)). Same as createLaunch plus a first (creator) buy in the same transaction through the Launch Buy Adapter; the creator buy does not pay the sniper fee. Returns (token, poolId, amountOut)."
+     },
+     {
+      "signature": "previewTaxConfiguration((uint32,uint32,uint32,uint32,uint32,uint32,uint256))",
+      "kind": "read",
+      "payable": false,
+      "description": "Params: ((uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding)). Check a tax configuration against the current policy before launching: returns (configVersion, buyRates, sellRates, dividendsEnabled, minimumDividendHoldingRequirement); each rate struct is (quoteRate, burnRate, protocolRate, creatorRate, dividendRate, integratorRate, surchargeRate)."
+     },
+     {
+      "signature": "configVersion()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current launch-settings version; pass it as expectedConfigVersion."
+     },
+     {
+      "signature": "taxPolicy()",
+      "kind": "read",
+      "payable": false,
+      "description": "Launch policy: ((minBuyTax, maxBuyTax, minSellTax, maxSellTax), (protocolTaxShare, minimumProtocolFeeRate, maximumProtocolFeeRate, protocolFeeRecipient), (antiSnipe startTotalFeeRate, windowSeconds), minimumDividendHoldingRequirement)."
+     },
+     {
+      "signature": "quoteConfig(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(registered, quoteDecimals, startTickToken0Frame) for a quote (pair) token. Native coin pairs use the zero address in the pool."
+     },
+     {
+      "signature": "launchCreationEnabled()",
+      "kind": "read",
+      "payable": false,
+      "description": "False when new launches are paused by the owner."
+     },
+     {
+      "signature": "nativeLaunchFee()",
+      "kind": "read",
+      "payable": false,
+      "description": "Required msg.value for createLaunch (wei)."
+     },
+     {
+      "signature": "launchTokenInitCodeHash((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+      "kind": "read",
+      "payable": false,
+      "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Init code hash used to predict the token address for given launch params (to search a creatorSalt that yields an address ending in cccc)."
+     },
+     {
+      "signature": "isLaunchToken(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True only if this factory launched the token. Use it to tell a real Clanker v5 token from a look-alike."
+     },
+     {
+      "signature": "creatorRights(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(originalCreator, currentCreator, pendingCreator, creatorFeeRecipient, poolId, metadataEditable) for a token."
+     },
+     {
+      "signature": "dividendOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "The token's holder-dividend contract, or zero if dividends are off. Holders claim there with withdrawDividendsFor(holder, unwrapWrappedNative)."
+     },
+     {
+      "signature": "setCreatorFeeRecipient(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Current creator only: change the recipient of the creator's reward slot (token, newRecipient)."
+     },
+     {
+      "signature": "updateTokenExtraMetadata(address,string,string)",
+      "kind": "write",
+      "payable": false,
+      "description": "Current creator only, if metadataEditable: set a metadata key/value; ('verified','true') verifies the token."
+     },
+     {
+      "signature": "hook()",
+      "kind": "read",
+      "payable": false,
+      "description": "The v5 hook for this chain; hook.feeEscrow() gives the FeeEscrow."
+     }
+    ]
+   },
+   {
+    "chain": "xlayer",
+    "chainId": 196,
+    "address": "0x9A935223eabd30b00fA680a5F3F8e7485e26aacC",
+    "name": "Clanker v5 Hook (TaxLaunchHook, Uniswap v4 hook)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "poolConfig(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool state by poolId: (initialized, tokenIsCurrency0, token, quoteToken, currentCreator, creatorFeeRecipient, protocolFeeConfiguration, antiSnipeConfiguration, launchTime, antiSnipeEnabled, integratorFeeRecipient, dividend, taxConfiguration). Terms are frozen at launch."
+     },
+     {
+      "signature": "effectiveFeeRates(bytes32,bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "Current rates for a buy (true) or sell (false), including any sniper surcharge, and whether exact-output swaps are blocked (they are during the 20 s sniper window). Check before trading a fresh token."
+     },
+     {
+      "signature": "poolFeeSlots(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "Reward recipients of a pool: (recipient, admin, weightBps, isCreator)[]."
+     },
+     {
+      "signature": "updateFeeSlotRecipient(bytes32,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Slot admin only: change the recipient of a reward slot (poolId, slotIndex, newRecipient). The creator slot follows creator rights on the factory instead."
+     },
+     {
+      "signature": "updateFeeSlotAdmin(bytes32,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Slot admin only: hand the slot's admin role to another address."
+     },
+     {
+      "signature": "feeEscrow()",
+      "kind": "read",
+      "payable": false,
+      "description": "FeeEscrow that holds all credited rewards."
+     },
+     {
+      "signature": "factory()",
+      "kind": "read",
+      "payable": false,
+      "description": "The v5 factory."
+     }
+    ]
+   },
+   {
+    "chain": "xlayer",
+    "chainId": 196,
+    "address": "0xFBB6e837A2eA96d6b4beb4788c2749Cf34A997e7",
+    "name": "Clanker v5 FeeEscrow (creator/integrator rewards)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "owed(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Claimable balance of recipient in currency (zero address = native coin). One balance per recipient+currency across ALL of that recipient's v5 tokens."
+     },
+     {
+      "signature": "claimFor(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless: pay recipient's whole balance in currency to the recipient (recipient, currency)."
+     },
+     {
+      "signature": "claimTo(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Pay the caller's whole balance in currency to destination (currency, destination)."
+     }
+    ]
+   },
+   {
+    "chain": "xlayer",
+    "chainId": 196,
+    "address": "0xdb525d50c70b9303115bA19503761756136d2B49",
+    "name": "Clanker v5 Dividend Claim Helper",
+    "role": "other",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "claimDividends((address,bool)[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Params: ((address token,bool unwrapWrappedNative)[]). Claim the caller's holder dividends from up to 64 v5 tokens in one call; each token once. unwrapWrappedNative=true pays the native coin instead of the wrapped token on native-pair tokens. Returns (paidCount, paid[])."
+     }
+    ]
+   },
+   {
+    "chain": "arc",
+    "chainId": 5042,
+    "address": "0xcA111dcdd2cE924c3378d6514fDCbC46217bcA16",
+    "name": "Clanker v5 Factory (TaxRWAERC20LaunchpadFactory)",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "createLaunch((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Deploy a v5 token (fixed 1B supply, 18 decimals, no owner/minter) and its Uniswap v4 pool with all supply as locked single-sided liquidity. msg.value must equal nativeLaunchFee() (0 on 2026-11-25). Rules: expectedConfigVersion must equal configVersion() (else StaleConfig); up to 7 feeSlots whose relativeWeightBps sum to 10000; rates/shares use 1e8 = 100%; buy/sell tax within the policy (1%-10%); the four allocation shares sum to 1e8; quoteToken must be registered (quoteConfig); the predicted token address must end in 'cccc', so creatorSalt has to be mined (see launchTokenInitCodeHash). Most integrators use the Clanker API or clanker-sdk/v5 instead. Returns (token, poolId)."
+     },
+     {
+      "signature": "createLaunchAndBuy((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool),(address,uint256,uint256,bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled),(address fundingToken,uint256 amountIn,uint256 minAmountOut,bytes routeData)). Same as createLaunch plus a first (creator) buy in the same transaction through the Launch Buy Adapter; the creator buy does not pay the sniper fee. Returns (token, poolId, amountOut)."
+     },
+     {
+      "signature": "previewTaxConfiguration((uint32,uint32,uint32,uint32,uint32,uint32,uint256))",
+      "kind": "read",
+      "payable": false,
+      "description": "Params: ((uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding)). Check a tax configuration against the current policy before launching: returns (configVersion, buyRates, sellRates, dividendsEnabled, minimumDividendHoldingRequirement); each rate struct is (quoteRate, burnRate, protocolRate, creatorRate, dividendRate, integratorRate, surchargeRate)."
+     },
+     {
+      "signature": "configVersion()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current launch-settings version; pass it as expectedConfigVersion."
+     },
+     {
+      "signature": "taxPolicy()",
+      "kind": "read",
+      "payable": false,
+      "description": "Launch policy: ((minBuyTax, maxBuyTax, minSellTax, maxSellTax), (protocolTaxShare, minimumProtocolFeeRate, maximumProtocolFeeRate, protocolFeeRecipient), (antiSnipe startTotalFeeRate, windowSeconds), minimumDividendHoldingRequirement)."
+     },
+     {
+      "signature": "quoteConfig(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(registered, quoteDecimals, startTickToken0Frame) for a quote (pair) token. Native coin pairs use the zero address in the pool."
+     },
+     {
+      "signature": "launchCreationEnabled()",
+      "kind": "read",
+      "payable": false,
+      "description": "False when new launches are paused by the owner."
+     },
+     {
+      "signature": "nativeLaunchFee()",
+      "kind": "read",
+      "payable": false,
+      "description": "Required msg.value for createLaunch (wei)."
+     },
+     {
+      "signature": "launchTokenInitCodeHash((address,(address,address,uint16,bool)[],string,string,string,bytes32,address,uint64,uint64,bool,string[],string[],(uint32,uint32,uint32,uint32,uint32,uint32,uint256),address,address,bool))",
+      "kind": "read",
+      "payable": false,
+      "description": "Params: ((address creator,(address recipient,address admin,uint16 relativeWeightBps,bool isCreator)[] feeSlots,string tokenName,string tokenSymbol,string tokenContractURI,bytes32 creatorSalt,address quoteToken,uint64 expectedConfigVersion,uint64 deadline,bool metadataEditable,string[] metadataKeys,string[] metadataValues,(uint32 buyTaxRate,uint32 sellTaxRate,uint32 creatorAllocationShare,uint32 burnAllocationShare,uint32 dividendAllocationShare,uint32 integratorAllocationShare,uint256 minimumDividendHolding) taxConfiguration,address creatorFeeRecipient,address integratorFeeRecipient,bool antiSnipeEnabled)). Init code hash used to predict the token address for given launch params (to search a creatorSalt that yields an address ending in cccc)."
+     },
+     {
+      "signature": "isLaunchToken(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True only if this factory launched the token. Use it to tell a real Clanker v5 token from a look-alike."
+     },
+     {
+      "signature": "creatorRights(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(originalCreator, currentCreator, pendingCreator, creatorFeeRecipient, poolId, metadataEditable) for a token."
+     },
+     {
+      "signature": "dividendOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "The token's holder-dividend contract, or zero if dividends are off. Holders claim there with withdrawDividendsFor(holder, unwrapWrappedNative)."
+     },
+     {
+      "signature": "setCreatorFeeRecipient(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Current creator only: change the recipient of the creator's reward slot (token, newRecipient)."
+     },
+     {
+      "signature": "updateTokenExtraMetadata(address,string,string)",
+      "kind": "write",
+      "payable": false,
+      "description": "Current creator only, if metadataEditable: set a metadata key/value; ('verified','true') verifies the token."
+     },
+     {
+      "signature": "hook()",
+      "kind": "read",
+      "payable": false,
+      "description": "The v5 hook for this chain; hook.feeEscrow() gives the FeeEscrow."
+     }
+    ]
+   },
+   {
+    "chain": "arc",
+    "chainId": 5042,
+    "address": "0x565189a6780D1a50FC1792F64db8e4881119AaCC",
+    "name": "Clanker v5 Hook (TaxLaunchHook, Uniswap v4 hook)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "poolConfig(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool state by poolId: (initialized, tokenIsCurrency0, token, quoteToken, currentCreator, creatorFeeRecipient, protocolFeeConfiguration, antiSnipeConfiguration, launchTime, antiSnipeEnabled, integratorFeeRecipient, dividend, taxConfiguration). Terms are frozen at launch."
+     },
+     {
+      "signature": "effectiveFeeRates(bytes32,bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "Current rates for a buy (true) or sell (false), including any sniper surcharge, and whether exact-output swaps are blocked (they are during the 20 s sniper window). Check before trading a fresh token."
+     },
+     {
+      "signature": "poolFeeSlots(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "Reward recipients of a pool: (recipient, admin, weightBps, isCreator)[]."
+     },
+     {
+      "signature": "updateFeeSlotRecipient(bytes32,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Slot admin only: change the recipient of a reward slot (poolId, slotIndex, newRecipient). The creator slot follows creator rights on the factory instead."
+     },
+     {
+      "signature": "updateFeeSlotAdmin(bytes32,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Slot admin only: hand the slot's admin role to another address."
+     },
+     {
+      "signature": "feeEscrow()",
+      "kind": "read",
+      "payable": false,
+      "description": "FeeEscrow that holds all credited rewards."
+     },
+     {
+      "signature": "factory()",
+      "kind": "read",
+      "payable": false,
+      "description": "The v5 factory."
+     }
+    ]
+   },
+   {
+    "chain": "arc",
+    "chainId": 5042,
+    "address": "0xFBB6e837A2eA96d6b4beb4788c2749Cf34A997e7",
+    "name": "Clanker v5 FeeEscrow (creator/integrator rewards)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "owed(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Claimable balance of recipient in currency (zero address = native coin). One balance per recipient+currency across ALL of that recipient's v5 tokens."
+     },
+     {
+      "signature": "claimFor(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless: pay recipient's whole balance in currency to the recipient (recipient, currency)."
+     },
+     {
+      "signature": "claimTo(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Pay the caller's whole balance in currency to destination (currency, destination)."
+     }
+    ]
+   },
+   {
+    "chain": "arc",
+    "chainId": 5042,
+    "address": "0xdb525d50c70b9303115bA19503761756136d2B49",
+    "name": "Clanker v5 Dividend Claim Helper",
+    "role": "other",
+    "proxy": false,
+    "source": "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "claimDividends((address,bool)[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Params: ((address token,bool unwrapWrappedNative)[]). Claim the caller's holder dividends from up to 64 v5 tokens in one call; each token once. unwrapWrappedNative=true pays the native coin instead of the wrapped token on native-pair tokens. Returns (paidCount, paid[])."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [
+   {
+    "name": "Clanker deploy API (partner)",
+    "url": "https://www.clanker.world/api/tokens/deploy",
+    "auth": "api-key",
+    "use": "POST a v5 launch: {protocol:'v5', chainId, token:{name, symbol, image, tokenAdmin, description, socialMediaUrls, requestKey}, tax:{buyFee, sellFee, dividends, minimumDividendHolding, burn, integrator, antiSnipeEnabled, metadataEditable}, pool:{pairedToken}, rewards:[{admin, recipient, allocation}], dryRun}. Header x-api-key: <partner key issued by the Clanker team>. Returns expectedAddress; deployment is queued. Limits: 20 launches/day and 1/minute per key (429 with Retry-After). dryRun:true validates without deploying. /api/tokens/deploy/v4 is gone (410).",
+    "source": "https://clanker.gitbook.io/documentation/tokens/token-deployments/v5-deployments"
+   },
+   {
+    "name": "Clanker public API",
+    "url": "https://www.clanker.world/api",
+    "auth": "none",
+    "use": "Token search/list (GET /api/tokens?q=&chainId=&includeMarket=), market data, trades, holders, GET /api/tokens/{address}/fees (tax config, fee history, claimed/unclaimed), GET /api/creator-earnings/{tokenAddress}?chainId= (unclaimed FeeEscrow balances of reward recipients), GET /api/metadata/factories (current v5 taxPolicy and launchCreationEnabled). Rate limited per IP.",
+    "source": "https://clanker.gitbook.io/documentation/api-reference/api-reference"
+   },
+   {
+    "name": "Clanker authenticated API",
+    "url": "https://www.clanker.world/api",
+    "auth": "api-key",
+    "use": "Partner endpoints with header x-api-key: higher-limit token search (/api/tokens/authenticated), tokens by admin, is-blocked check, LP/claim info, POST /api/tokens/index to index a token deployed outside the API.",
+    "source": "https://clanker.gitbook.io/documentation/api-reference/authenticated"
+   },
+   {
+    "name": "clanker-sdk (TypeScript)",
+    "url": "https://github.com/clanker-devco/clanker-sdk",
+    "auth": "none",
+    "use": "npm install clanker-sdk viem; import { Clanker } from 'clanker-sdk/v5' to launch and manage v5 tokens onchain with your own wallet (handles salt mining and params); clanker-sdk/v4, /v3 and /legacyFeeClaims manage older tokens.",
+    "source": "https://clanker.gitbook.io/documentation/sdk-reference/sdk-reference"
+   }
+  ],
+  "actions": [
+   {
+    "name": "launch a token (API)",
+    "description": "Deploy a v5 token without handling salts",
+    "how": "POST https://www.clanker.world/api/tokens/deploy with x-api-key (partner key) and the v5 body; try dryRun:true first. Returns expectedAddress."
+   },
+   {
+    "name": "launch a token (onchain)",
+    "description": "Deploy from your own wallet",
+    "how": "Use clanker-sdk/v5, or call Factory.createLaunch(launchParams) with expectedConfigVersion = configVersion(), a registered quoteToken, rates in 1e8 units, feeSlot weights summing to 10000, a deadline, and a creatorSalt that makes the predicted address end in cccc; msg.value = nativeLaunchFee(). Simulate first. createLaunchAndBuy adds a creator buy."
+   },
+   {
+    "name": "claim creator rewards",
+    "description": "Withdraw a reward recipient's tax share",
+    "how": "FeeEscrow.owed(recipient, currency) (currency = zero address for native ETH/BNB etc., or the pair stablecoin), then FeeEscrow.claimFor(recipient, currency) (anyone can trigger; pays the recipient) or claimTo(currency, destination) from the recipient wallet. One claim pays the balance of all that recipient's v5 tokens. Or the token's admin page https://www.clanker.world/clanker/<token>/admin."
+   },
+   {
+    "name": "claim holder dividends",
+    "description": "Collect dividends of v5 tokens you hold",
+    "how": "Factory.dividendOf(token) -> dividend contract; read withdrawableDividendOf(holder); claim with withdrawDividendsFor(holder, unwrapWrappedNative) or DividendClaimHelper.claimDividends([(token, unwrap)...]) for up to 64 tokens."
+   },
+   {
+    "name": "check a token before trading",
+    "description": "Confirm it is a real Clanker v5 token and see its tax",
+    "how": "Factory.isLaunchToken(token) on the right chain; Factory.creatorRights(token).poolId; Hook.poolConfig(poolId) and Hook.effectiveFeeRates(poolId, isBuy). Also GET /api/tokens?q=<address> for warning tags."
+   },
+   {
+    "name": "trade a v5 token",
+    "description": "Buy or sell",
+    "how": "Swap in the token's Uniswap v4 pool (hooks = the chain's v5 Hook, tickSpacing 200 at launch) through the Uniswap Universal Router + Permit2 (see the uniswap registry entry). The hook takes the buy/sell tax from each swap; exact-output swaps revert during the sniper window."
+   }
+  ],
+  "risks": [
+   "Anyone can launch a Clanker token; most are memecoins and many are scams, rugs-by-dumping or impersonations of real projects/people. A Clanker launch says nothing about the project. Check Factory.isLaunchToken and clanker.world warning tags (UNUSUAL_TICK, UNUSUAL_PAIR_ADDRESS, MISSING_POOL_CONFIG, UNUSUAL_POSITIONS); a token without tags is not safe.",
+   "v5 tokens charge a buy and sell tax of 1-10% each on every pool swap, plus a sniper fee that starts at 99% and decays to the normal tax over 20 seconds after launch (if enabled). Buying in the first seconds can lose almost everything to the fee.",
+   "Launch liquidity is the whole supply, placed by the hook as single-sided liquidity from the launch price, and can never be removed (no LP pull). The creator gets tokens only by buying (e.g. createLaunchAndBuy) and can sell like anyone else; early buyers dumping can take the price back toward the launch level.",
+   "Tax terms are frozen per pool at launch; the factory owner can change policy, quote tokens and pause launches only for new launches. v5 contracts are not upgradeable. The factory owner or creator admin can change dividend exclusions/receivers and emergency-withdraw assets held by any token's dividend contract.",
+   "Metadata (name, symbol, image) can be changed after launch by the creator if metadataEditable was set; do not rely on name/symbol to identify a token.",
+   "Reward and dividend balances are per recipient across all v5 tokens in the FeeEscrow, so a per-token figure from the API is an estimate.",
+   "Audits listed on the Clanker docs: v5 by XORS (November 2026); v4.1 Macro; v4.0 Cantina and Macro; v3.1 Macro; v2.0 Quantstamp. Audits do not make individual tokens safe."
+  ],
+  "notes": "Clanker v5 is the current version per the official docs (Core Contracts page: 'Clanker v5 is the current version'); launched on Base on 2026-10-31 and on BNB Chain, Monad, Robinhood Chain, X Layer, Arc and Elysium on 2026-11-04/05. The deploy API only launches v5 (v4 launches are no longer available). Each factory exposes hook(), dividendDeployer(), announcementRegistry(), launchValidation(), launchBuyAdapter(), tokenDeployer(); checked onchain 2026-11-25 that every listed factory's hook() and hook.feeEscrow() match the docs and that all listed addresses have code. Elysium (Kinetiq chain, id 99901; Factory 0xcA111dcdd2cE924c3378d6514fDCbC46217bcA16, Hook 0x3eA9581a32a396F69b177B65b91149Cf887BEACC per docs) is not listed as contracts because it has no public RPC to confirm code. Supporting v5 contracts (Dividend Deployer, Launch Validation, Launch Operations, Launch Buy Adapter, Token Deployer, Dividend Implementation) are on the Deployed Contracts page; integrators do not call them. Base Announcement Registry is listed; on the other chains it is 0x2D75afC0Cdf502E4381dC0B23327BFeD358bA43A. Older versions keep working for their own tokens and are NOT listed as contracts: v4.0/v4.1 (Uniswap v4 LP-fee tokens; Base factory Clanker 0xE85A59c628F7d27878ACeB4bf3b35733630083a9, fees claimed from ClankerFeeLocker 0xF3622742b1E446D92e45E22923Ef11C2fcD55D68 via claim(feeOwner, token) / availableFees(feeOwner, token), LP locked in ClankerLpLockerFeeConversion 0x63D2DfEA64b3433F4071A98665bcD7Ca14d93496; v4 also on BNB Chain, Monad, Robinhood Chain and on the retired Ethereum, Arbitrum and Unichain deployments), v3.1, v3.0, v2.0, v1.0 and v0 (Base, Uniswap v3). All per-chain addresses for every version are on https://clanker.gitbook.io/documentation/references/deployed-contracts. Clanker no longer supports Ethereum, Arbitrum One and Unichain for new launches. DefiLlama lists Base only. The Clanker docs are also served to agents through a GitBook MCP server (https://clanker.gitbook.io/documentation/~gitbook/mcp). Function signatures are from Sourcify-verified sources (factory partial match, others exact match).",
+  "sources": [
+   "https://defillama.com/protocol/clanker",
+   "https://api.llama.fi/protocol/clanker",
+   "https://clanker.gitbook.io/documentation/llms.txt",
+   "https://clanker.gitbook.io/documentation/references/core-contracts",
+   "https://clanker.gitbook.io/documentation/references/core-contracts/v5",
+   "https://clanker.gitbook.io/documentation/references/deployed-contracts",
+   "https://clanker.gitbook.io/documentation/tokens/token-deployments/v5-deployments",
+   "https://clanker.gitbook.io/documentation/tokens/creator-rewards-and-fees",
+   "https://clanker.gitbook.io/documentation/tokens/unclaimed-rewards-balance",
+   "https://clanker.gitbook.io/documentation/api-reference/api-reference",
+   "https://clanker.gitbook.io/documentation/api-reference/authenticated",
+   "https://clanker.gitbook.io/documentation/api-reference/public/tokens",
+   "https://clanker.gitbook.io/documentation/api-reference/public/creators",
+   "https://clanker.gitbook.io/documentation/api-reference/public/fees",
+   "https://clanker.gitbook.io/documentation/api-reference/public/deployment",
+   "https://clanker.gitbook.io/documentation/safety/clanker.world-warning-tags",
+   "https://clanker.gitbook.io/documentation/sdk-reference/sdk-reference",
+   "https://clanker.gitbook.io/documentation/references/audits",
+   "https://github.com/clanker-devco/v4-contracts",
+   "https://sourcify.dev/server/v2/contract/8453/0x572e88D3cD7f23E4241EB6ceDD96667271bF09A0",
+   "https://sourcify.dev/server/v2/contract/8453/0x5E320eA6278107968C119942E57d876c5F922AcC",
+   "https://sourcify.dev/server/v2/contract/8453/0x5dd237d1f716C65426CCd2FAe82B95109825FA61",
+   "https://sourcify.dev/server/v2/contract/8453/0xe896454E417400a9d7766497764e4dEBf91534BD",
+   "https://sourcify.dev/server/v2/contract/8453/0x4C9C5D7Eb2D8092903262b15B720DFCc8d07E78f",
+   "https://sourcify.dev/server/v2/contract/8453/0x1B417526da9737cA99956e32cdfB674d6C9f097a"
+  ],
+  "researchedAt": "2026-11-25"
+ },
+ {
   "slug": "compound-v2",
   "name": "Compound V2",
   "category": "Lending",
@@ -5889,6 +8102,660 @@ export const PROTOCOLS: ProtocolEntry[] = [
    "https://github.com/ensdomains/ens-contracts",
    "https://api.llama.fi/protocol/ens",
    "https://defillama.com/protocol/ens"
+  ],
+  "researchedAt": "2026-11-25"
+ },
+ {
+  "slug": "falcon-finance",
+  "name": "Falcon Finance",
+  "category": "Basis Trading",
+  "description": "Falcon issues USDf, an overcollateralized synthetic dollar minted off-chain by KYC'd users against stablecoins, BTC, ETH and altcoins, with yield from basis/funding-rate and other trading strategies. On-chain, agents can stake USDf into sUSDf (ERC-4626, no KYC), lock sUSDf for boosted yield in Falcon Position NFTs, stake the FF token into sFF, and use FF/partner staking vaults that pay USDf.",
+  "website": "https://falcon.finance",
+  "docs": "https://docs.falcon.finance",
+  "defillama": "https://defillama.com/protocol/falcon-finance",
+  "chains": [
+   "ethereum",
+   "bsc"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xFa2B947eEc368f42195f24F36d2aF29f7c24CeC2",
+    "name": "USDf (synthetic dollar)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.falcon.finance/resources/smart-contracts/",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "USDf balance (18 decimals)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total USDf on Ethereum (18 decimals)."
+     },
+     {
+      "signature": "isRestricted(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the admin has restricted the address (it cannot send or receive USDf)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve sUSDf (to stake) or another spender."
+     },
+     {
+      "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "EIP-2612 permit: (owner, spender, value, deadline, v, r, s)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer USDf. Holding and transferring is permissionless; minting and burning are role-only (Falcon mints after an off-chain, KYC'd deposit in the app)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xc8CF6D7991f15525488b2A83Df53468D682Ba4B0",
+    "name": "sUSDf (staked USDf, ERC-4626)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://docs.falcon.finance/resources/smart-contracts/",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake USDf (approve sUSDf first): (assets, receiver). Returns sUSDf shares (18 decimals). No KYC. Reverts for restricted addresses or if total supply would be below MIN_SHARES (1e18)."
+     },
+     {
+      "signature": "mint(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Mint an exact number of shares: (shares, receiver)."
+     },
+     {
+      "signature": "redeem(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Unstake shares for USDf immediately: (shares, receiver, owner). Only works while cooldownDuration() == 0 (true on 2026-11-25); if a cooldown is turned on, use cooldownShares then unstake."
+     },
+     {
+      "signature": "withdraw(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw an exact USDf amount: (assets, receiver, owner). Only while cooldownDuration() == 0."
+     },
+     {
+      "signature": "cooldownShares(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Only when cooldownDuration() > 0: start a cooldown for shares (shares, owner); USDf moves to the silo and is claimable with unstake after the cooldown."
+     },
+     {
+      "signature": "unstake(address)",
+      "kind": "write",
+      "payable": false,
+      "description": "After a cooldown ends, send the cooled-down USDf to receiver."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "USDf per given shares; convertToAssets(1e18) is the sUSDf-to-USDf rate (about 1.143 on 2026-11-25). Rises as daily yield is added and vests over vestingPeriod() (1 day)."
+     },
+     {
+      "signature": "previewRedeem(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "USDf a redeem returns now."
+     },
+     {
+      "signature": "cooldownDuration()",
+      "kind": "read",
+      "payable": false,
+      "description": "Cooldown in seconds (0 = direct redeem/withdraw enabled)."
+     },
+     {
+      "signature": "totalAssets()",
+      "kind": "read",
+      "payable": false,
+      "description": "USDf in the vault minus still-vesting rewards."
+     },
+     {
+      "signature": "maxRedeem(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Max shares the owner can redeem."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x8407e9864F42374Cb9DACfDEDe0e6962d634edCB",
+    "name": "Falcon Position NFT (sUSDf restaking / Boosted Yield)",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://docs.falcon.finance/resources/smart-contracts/",
+    "keyFunctions": [
+     {
+      "signature": "mint(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Lock sUSDf for a fixed term and receive an ERC-721 position: (principal in sUSDf wei, duration in seconds). Approve sUSDf to this contract first. Durations enabled on 2026-11-25: 7776000 (90 days), 15552000 (180 days), 31536000 (365 days); check isMintEnabled. Maturity is rounded down to a whole UTC day. Returns tokenId."
+     },
+     {
+      "signature": "withdraw(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "After maturity, burn the NFT and receive principal plus boosted sUSDf rewards: (tokenId). Reverts before maturity; no early exit."
+     },
+     {
+      "signature": "getPosition(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Position (principal, duration, startTime, maturityTime, feeGrowthInsideLastX128, tokensOwed)."
+     },
+     {
+      "signature": "unrealizedRewards(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Boosted sUSDf accrued to a position so far."
+     },
+     {
+      "signature": "isMintEnabled(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Whether new locks are open for a duration (seconds)."
+     },
+     {
+      "signature": "tokenOfOwnerByIndex(address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Enumerate a wallet's position NFTs (use with balanceOf)."
+     },
+     {
+      "signature": "collect(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued rewards before maturity; only when yieldCollectionEnabled() is true (false on 2026-11-25)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xFA1C09fC8B491B6A4d3Ff53A10CAd29381b3F949",
+    "name": "FF (governance token)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.falcon.finance/resources/smart-contracts/",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "FF balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve sFF, sFF-Prime or the FF Staking Vault."
+     },
+     {
+      "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "EIP-2612 permit."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer FF."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x1a0C3FfCbd101c6f2f6650DED9964c4A568C4D72",
+    "name": "sFF (staked FF, ERC-4626)",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://docs.falcon.finance/sff-token/",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake FF (approve sFF first): (assets, receiver). Returns sFF shares (18 decimals). Yield is paid in FF through the exchange rate; also boosts Falcon Miles."
+     },
+     {
+      "signature": "cooldownShares(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Start unstaking: (shares, owner). FF moves to the silo and stops earning; claimable after cooldownDuration() (259200 s = 3 days). Direct redeem/withdraw revert while a cooldown is set."
+     },
+     {
+      "signature": "cooldownAssets(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Start unstaking an exact FF amount: (assets, owner)."
+     },
+     {
+      "signature": "unstake(address)",
+      "kind": "write",
+      "payable": false,
+      "description": "After the cooldown, send the cooled-down FF to receiver."
+     },
+     {
+      "signature": "cooldowns(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(cooldownEnd timestamp, underlyingAmount) for a user."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "FF per given sFF shares."
+     },
+     {
+      "signature": "cooldownDuration()",
+      "kind": "read",
+      "payable": false,
+      "description": "Unstake cooldown in seconds."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x41FF52DC7b12B18a65558962849187a2CC6ee6C0",
+    "name": "sFF-Prime (fixed-term FF lock NFT)",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://docs.falcon.finance/resources/smart-contracts/",
+    "keyFunctions": [
+     {
+      "signature": "mint(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Lock FF for a fixed term and receive an ERC-721 position: (principal in FF wei, duration in seconds). The locked asset is FF (sFalconAsset() returns the FF token). Only 15552000 (180 days) was enabled on 2026-11-25; check isMintEnabled. Approve FF first. Not described beyond the address on the docs, so confirm terms in the app."
+     },
+     {
+      "signature": "withdraw(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "After maturity, burn the NFT and receive principal plus rewards: (tokenId)."
+     },
+     {
+      "signature": "getPosition(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Position (principal, duration, startTime, maturityTime, feeGrowthInsideLastX128, tokensOwed)."
+     },
+     {
+      "signature": "unrealizedRewards(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Rewards accrued to a position so far."
+     },
+     {
+      "signature": "isMintEnabled(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Whether new locks are open for a duration."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x1E7fFB2cc2B0D9672b3E615dD5669C06F8673CAe",
+    "name": "FF Staking Vault (stake FF, earn USDf)",
+    "role": "staking",
+    "proxy": false,
+    "source": "https://docs.falcon.finance/resources/smart-contracts/",
+    "keyFunctions": [
+     {
+      "signature": "stake(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake FF (approve first). Rewards accrue in USDf at a fixed APR. Each stake resets the lockup clock for the whole balance (lockupDuration() = 15552000 s = 180 days). Subject to cap()."
+     },
+     {
+      "signature": "cooldown(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "After the lockup has elapsed, start unstaking an amount; it stops earning and is claimable after cooldownDuration() (259200 s = 3 days)."
+     },
+     {
+      "signature": "unstake()",
+      "kind": "write",
+      "payable": false,
+      "description": "After the cooldown, receive all cooled-down FF."
+     },
+     {
+      "signature": "getReward()",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued USDf rewards."
+     },
+     {
+      "signature": "earned(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "USDf rewards claimable by an account (18 decimals)."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Staked FF (excluding amounts in cooldown)."
+     },
+     {
+      "signature": "depositAt(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Timestamp of the user's last stake; lockup ends at depositAt + lockupDuration."
+     },
+     {
+      "signature": "cooldowns(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(cooldownEnd, underlyingAmount) for a user."
+     },
+     {
+      "signature": "rewardRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "USDf rewards per second across the vault."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xb177857a1799aA5F7fEb5799Fdf12CbE8fdF78B1",
+    "name": "USDf / USD Chainlink price feed",
+    "role": "other",
+    "proxy": true,
+    "source": "https://docs.falcon.finance/resources/smart-contracts/",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Chainlink feed: answer is the USDf market price with 8 decimals (99498602 = $0.995 on 2026-11-25)."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "8."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xe471bc940AA9831a0AeA21E6F40C1A1236EB4BB3",
+    "name": "sUSDf / USDf exchange-rate Chainlink feed",
+    "role": "other",
+    "proxy": true,
+    "source": "https://docs.falcon.finance/resources/smart-contracts/",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Chainlink feed of the sUSDf-to-USDf rate with 18 decimals (mirrors sUSDf.convertToAssets(1e18))."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "18."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0xb3b02E4A9Fb2bD28CC2ff97B0aB3F6B3Ec1eE9D2",
+    "name": "USDf (BNB Chain, Chainlink CCIP)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.falcon.finance/resources/smart-contracts/",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "USDf balance (18 decimals). Chainlink CCIP BurnMintERC20 bridged from Ethereum; staking into sUSDf is on Ethereum."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer USDf."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0xAC23B90A79504865D52B49B327328411a23d4dB2",
+    "name": "FF (BNB Chain, Chainlink CCIP)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.falcon.finance/resources/smart-contracts/",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "FF balance (18 decimals). CCIP BurnMintERC20; FF staking (sFF) is on Ethereum."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer FF."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x58895856A8996E1Db467F91850043e5b2A304356",
+    "name": "ESPORTS Staking Vault (stake ESPORTS, earn USDf)",
+    "role": "staking",
+    "proxy": false,
+    "source": "https://docs.falcon.finance/resources/smart-contracts/",
+    "keyFunctions": [
+     {
+      "signature": "stake(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake the vault's stakingToken() (ESPORTS, 0xF39e4b21c84e737Df08e2C3b32541d856f508E48 per on-chain read); approve first. Earns USDf on BNB Chain. 180-day lockup that restarts on each stake, then a 3-day cooldown. No KYC."
+     },
+     {
+      "signature": "cooldown(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "After the lockup, start unstaking an amount (3-day cooldown)."
+     },
+     {
+      "signature": "unstake()",
+      "kind": "write",
+      "payable": false,
+      "description": "After the cooldown, receive the cooled-down tokens."
+     },
+     {
+      "signature": "getReward()",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued USDf."
+     },
+     {
+      "signature": "earned(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Claimable USDf."
+     },
+     {
+      "signature": "stakingToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Token accepted by the vault."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x2704B216a42b8ED40AE9f4AB4072151a8Eb257A7",
+    "name": "VELVET Staking Vault (stake VELVET, earn USDf)",
+    "role": "staking",
+    "proxy": false,
+    "source": "https://docs.falcon.finance/resources/smart-contracts/",
+    "keyFunctions": [
+     {
+      "signature": "stake(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake the vault's stakingToken() (VELVET, 0x8b194370825E37b33373e74A41009161808C1488 per on-chain read); approve first. Earns USDf on BNB Chain. 180-day lockup that restarts on each stake, then a 3-day cooldown. No KYC."
+     },
+     {
+      "signature": "cooldown(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "After the lockup, start unstaking an amount (3-day cooldown)."
+     },
+     {
+      "signature": "unstake()",
+      "kind": "write",
+      "payable": false,
+      "description": "After the cooldown, receive the cooled-down tokens."
+     },
+     {
+      "signature": "getReward()",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued USDf."
+     },
+     {
+      "signature": "earned(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Claimable USDf."
+     },
+     {
+      "signature": "stakingToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Token accepted by the vault."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [],
+  "actions": [
+   {
+    "name": "mint or redeem USDf",
+    "description": "Not possible on-chain: done in the Falcon app by KYC'd (non-US) users.",
+    "how": "Complete KYC/KYB at app.falcon.finance, deposit collateral to your Falcon account, mint (Classic Mint minimum $10,000; stablecoins 1:1, other assets with an overcollateralization ratio; Innovative Mint locks collateral for a term). Redeem (minimum $10,000 of USDf) has a 7-day cooldown before assets are credited to your Falcon account, then withdraw. Otherwise buy or sell USDf on DEXs."
+   },
+   {
+    "name": "stake USDf for sUSDf",
+    "description": "Earn Falcon's yield on USDf; no KYC.",
+    "how": "USDf.approve(sUSDf 0xc8CF6D7991f15525488b2A83Df53468D682Ba4B0, amt); sUSDf.deposit(amt, receiver). Unstake: sUSDf.redeem(shares, receiver, owner) (instant while cooldownDuration() == 0)."
+   },
+   {
+    "name": "restake sUSDf for boosted yield",
+    "description": "Lock sUSDf for 90/180/365 days in an ERC-721 position.",
+    "how": "sUSDf.approve(Position NFT 0x8407e9864F42374Cb9DACfDEDe0e6962d634edCB, amt); PositionNFT.mint(amt, 7776000 | 15552000 | 31536000). At maturity PositionNFT.withdraw(tokenId)."
+   },
+   {
+    "name": "stake FF for sFF",
+    "description": "Earn FF yield and Falcon Miles boosts.",
+    "how": "FF.approve(sFF 0x1a0C3FfCbd101c6f2f6650DED9964c4A568C4D72, amt); sFF.deposit(amt, receiver). To exit: sFF.cooldownShares(shares, owner), wait 3 days, sFF.unstake(receiver)."
+   },
+   {
+    "name": "stake FF for USDf rewards",
+    "description": "FF Staking Vault pays USDf, 180-day lockup.",
+    "how": "FF.approve(vault 0x1E7fFB2cc2B0D9672b3E615dD5669C06F8673CAe, amt); vault.stake(amt). Claim with getReward(). After 180 days: cooldown(amount), wait 3 days, unstake()."
+   }
+  ],
+  "risks": [
+   "USDf mint and redeem are off-chain and KYC-gated (individuals KYC, businesses KYB; US persons cannot mint or redeem). Redemptions have a 7-day cooldown and a $10,000 minimum. Holders who cannot redeem rely on DEX liquidity, so USDf can trade below $1 (the Chainlink USDf/USD feed read $0.995 on 2026-11-25).",
+   "Collateral sits with third-party custodians (Ceffu MirrorX, Fireblocks) and is deployed on centralized exchanges (Binance, Bybit) and on-chain venues; holders carry custodian, exchange and strategy (funding-rate, arbitrage, altcoin staking) risk. Falcon keeps an on-chain insurance fund to absorb negative-yield periods and may buy USDf on the market under stress.",
+   "Admin powers: USDf, sUSDf, sFF and the position NFTs are upgradeable proxies. The admin can restrict addresses on USDf, sUSDf and sFF, and on sUSDf/sFF can move a restricted address's balance (redistributeLockedAmount), turn on an unstake cooldown, and change the vesting period. Only Falcon's minter role mints USDf.",
+   "Lockups: Position NFTs cannot be exited before maturity; FF and partner staking vaults lock for 180 days (reset by every new stake) and then need a 3-day cooldown; sFF unstaking has a 3-day cooldown with no yield during it.",
+   "Daily yield is booked once a day; Falcon notes a lock window around 21:00-22:00 GMT+8 where staking/unstaking may be queued, and that redeeming before the daily update forfeits part of that day's yield.",
+   "Audits listed by Falcon: Zellic and Pashov (USDf and sUSDf), Zellic (FF); all reported no critical or high findings."
+  ],
+  "notes": "Addresses are from Falcon's official Smart Contracts page (sFF also on the sFF page); all were checked for code and their source is verified on Sourcify (signatures taken from there). On-chain values were read on 2026-11-25. Left out: USDf on Solana (9ksrtYx1vnRxr4X5YqmGxqRMRBhgsc6FfQwWjB1KZq2x on the docs page; the SPL mint had zero supply when checked, so it is not usable yet) and USDf on XDC (0x8210c0634AB8f273806e4b7866E9Db353773c44B on the docs page; the XDC RPC was unreachable so code could not be confirmed). Also left out: the sUSDf Staking Rewards Distributor (0x8AF2EFa47efB2095b80D82577c597186Ea2FFFea; only Falcon's role calls it), the Insurance Fund wallet (0x432CDcc4516B21302985b639Ef9a7853727A4e49, a wallet, nothing to call) and the Perryverse NFTs. No public API is documented; minting, redeeming and KYC are done in the app. Staking vaults showed periodFinish() = 0 on 2026-11-25, so check earned()/rewardRate() before relying on rewards.",
+  "sources": [
+   "https://docs.falcon.finance/resources/smart-contracts/",
+   "https://docs.falcon.finance/sff-token/",
+   "https://docs.falcon.finance/sff-token/staking-mechanics/",
+   "https://docs.falcon.finance/sff-token/how-to-stake-ff-for-sff/",
+   "https://docs.falcon.finance/earn/susdf-yield-bearing-token/",
+   "https://docs.falcon.finance/earn/susdf-yield-distribution/",
+   "https://docs.falcon.finance/earn/restaking-susdf/",
+   "https://docs.falcon.finance/earn/staking-vaults/",
+   "https://docs.falcon.finance/know-your-customer-kyc/",
+   "https://docs.falcon.finance/mechanism/redemptions/",
+   "https://docs.falcon.finance/mechanism/usdf-synthetic-dollar/usdf-minting-mechanisms/",
+   "https://docs.falcon.finance/mechanism/usdf-synthetic-dollar/usdf-minting-mechanisms/classic-mint/",
+   "https://docs.falcon.finance/mechanism/usdf-synthetic-dollar/usdf-peg-stability/",
+   "https://docs.falcon.finance/mechanism/user-deposit-process/",
+   "https://docs.falcon.finance/resources/quick-app-guide/navigating-the-swap-tab/redeem/",
+   "https://docs.falcon.finance/resources/frequently-asked-questions-faq/",
+   "https://docs.falcon.finance/resources/insurance-fund/",
+   "https://docs.falcon.finance/resources/audits/",
+   "https://sourcify.dev/server/v2/contract/1/0x3aDf34C09DAC24E4BAeFB1b1df4C2992edC2b789",
+   "https://sourcify.dev/server/v2/contract/1/0x0D132bEE412E6619a4863AEEdad97541BfDa3F34",
+   "https://sourcify.dev/server/v2/contract/1/0x76f9fD81c5d199011B503E33843E4cb592DDD18a",
+   "https://sourcify.dev/server/v2/contract/1/0xFA1C09fC8B491B6A4d3Ff53A10CAd29381b3F949",
+   "https://sourcify.dev/server/v2/contract/1/0x80216d0218d4cee3CBc65068Ab29c0e973cD896C",
+   "https://sourcify.dev/server/v2/contract/1/0x4bF80e78916e14B2c2154B5d7a754869a0646fa6",
+   "https://sourcify.dev/server/v2/contract/1/0x1E7fFB2cc2B0D9672b3E615dD5669C06F8673CAe",
+   "https://sourcify.dev/server/v2/contract/1/0xb177857a1799aA5F7fEb5799Fdf12CbE8fdF78B1",
+   "https://sourcify.dev/server/v2/contract/56/0xb3b02E4A9Fb2bD28CC2ff97B0aB3F6B3Ec1eE9D2",
+   "https://sourcify.dev/server/v2/contract/56/0xAC23B90A79504865D52B49B327328411a23d4dB2",
+   "https://sourcify.dev/server/v2/contract/56/0x58895856A8996E1Db467F91850043e5b2A304356",
+   "https://defillama.com/protocol/falcon-finance",
+   "https://api.llama.fi/protocol/falcon-finance",
+   "https://ethereum-rpc.publicnode.com",
+   "https://bsc-dataseed.binance.org",
+   "https://api.mainnet-beta.solana.com"
   ],
   "researchedAt": "2026-11-25"
  },
@@ -11851,6 +14718,1403 @@ export const PROTOCOLS: ProtocolEntry[] = [
   "researchedAt": "2026-11-24"
  },
  {
+  "slug": "liquity-v2",
+  "name": "Liquity V2",
+  "category": "CDP",
+  "description": "Immutable CDP protocol on Ethereum issuing the BOLD stablecoin. Agents can open Troves against WETH, wstETH or rETH at a self-chosen interest rate, adjust or close them, earn BOLD interest + liquidation gains in each branch's Stability Pool, and redeem BOLD for collateral at face value via the CollateralRegistry.",
+  "website": "https://www.liquity.org",
+  "docs": "https://docs.liquity.org",
+  "defillama": "https://defillama.com/protocol/liquity-v2",
+  "chains": [
+   "ethereum"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x6440f144b7e50D6a8439336510312d2F54beB01D",
+    "name": "BOLD (stablecoin)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "BOLD balance (18 decimals)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total BOLD supply (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender (e.g. a zapper for repay/close, or a DEX). Not needed for BorrowerOperations.repayBold/closeTrove, StabilityPool.provideToSP or CollateralRegistry.redeemCollateral: those burn/move BOLD directly."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer BOLD."
+     },
+     {
+      "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "EIP-2612 permit: (owner, spender, value, deadline, v, r, s)."
+     },
+     {
+      "signature": "collateralRegistryAddress()",
+      "kind": "read",
+      "payable": false,
+      "description": "CollateralRegistry address (should return 0xf949982B91C8c61e952B3bA942cbbfaef5386684)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xf949982B91C8c61e952B3bA942cbbfaef5386684",
+    "name": "CollateralRegistry (branch registry + redemptions)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "totalCollaterals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of collateral branches (3: index 0 WETH, 1 wstETH, 2 rETH)."
+     },
+     {
+      "signature": "getToken(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Collateral token of branch index."
+     },
+     {
+      "signature": "getTroveManager(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "TroveManager of branch index (use to discover/verify branch contracts)."
+     },
+     {
+      "signature": "redeemCollateral(uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Redeem BOLD for collateral at face value ($1 of collateral per BOLD, minus fee): (_boldAmount, _maxIterationsPerCollateral, _maxFeePercentage 1e18=100%). Split across branches in proportion to each branch's unbacked debt (debt not covered by its Stability Pool), hitting the lowest-interest-rate Troves first. BOLD is burned from msg.sender; no approve needed. Reverts if the fee exceeds _maxFeePercentage. Use RedemptionHelper if you need a minimum collateral out."
+     },
+     {
+      "signature": "getRedemptionRateWithDecay()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current redemption fee rate (1e18 = 100%), = decayed baseRate + 0.5% floor. Fee grows with redeemed volume and decays with a 6h half-life."
+     },
+     {
+      "signature": "getRedemptionRateForRedeemedAmount(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Fee rate a redemption of the given BOLD amount would pay."
+     },
+     {
+      "signature": "getEffectiveRedemptionFeeInBold(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Fee in BOLD for redeeming the given amount now."
+     },
+     {
+      "signature": "baseRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "Stored base rate (1e18 = 100%)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xF0caE19C96E572234398d6665cC1147A16cBe657",
+    "name": "HintHelpers",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "getApproxHint(uint256,uint256,uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(_collIndex, _interestRate, _numTrials, _inputRandomSeed) -> (hintId, diff, latestRandomSeed). Samples Troves for one close to where a Trove at _interestRate goes in the branch's SortedTroves. Use numTrials ~ 10-15 * sqrt(number of Troves); then pass hintId as both args to SortedTroves.findInsertPosition to get exact (upperHint, lowerHint)."
+     },
+     {
+      "signature": "predictOpenTroveUpfrontFee(uint256,uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(_collIndex, _borrowedAmount, _interestRate) -> upfront fee in BOLD (7 days of the branch's average interest rate on the new debt). Use (plus a small margin) as _maxUpfrontFee in openTrove."
+     },
+     {
+      "signature": "predictAdjustTroveUpfrontFee(uint256,uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(_collIndex, _troveId, _debtIncrease) -> upfront fee for borrowing more; use as _maxUpfrontFee for withdrawBold/adjustTrove."
+     },
+     {
+      "signature": "predictAdjustInterestRateUpfrontFee(uint256,uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(_collIndex, _troveId, _newInterestRate) -> upfront fee for an interest-rate change (0 if the last change was 7+ days ago)."
+     },
+     {
+      "signature": "predictOpenTroveAndJoinBatchUpfrontFee(uint256,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(_collIndex, _borrowedAmount, _batchManager) -> upfront fee when opening into a delegated-rate batch."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xFA61dB085510C64B83056Db3A7Acf3b6f631D235",
+    "name": "MultiTroveGetter",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "getMultipleSortedTroves(uint256,int256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(_collIndex, _startIdx, _count) -> array of Trove data (id, debt, coll, stake, annualInterestRate, lastDebtUpdateTime, lastInterestRateAdjTime, interestBatchManager, ...). _startIdx >= 0 starts from the highest-rate end of SortedTroves; negative values start from the lowest-rate end (-1 = lowest rate, the next Trove to be redeemed)."
+     },
+     {
+      "signature": "getDebtPerInterestRateAscending(uint256,uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(_collIndex, _startId (0 = start at the lowest-rate Trove), _maxIterations) -> per Trove (interestBatchManager, interestRate, debt) walking from the lowest rate upwards, plus the id to continue from. Summing debt below your rate shows how much must be redeemed before your Trove is hit."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xb366256d033aE7e4f7BDDEc822a5ADEC9DF07b80",
+    "name": "RedemptionHelper",
+    "role": "router",
+    "proxy": false,
+    "source": "https://github.com/liquity/bold/blob/main/contracts/addresses/1.json",
+    "keyFunctions": [
+     {
+      "signature": "simulateRedemption(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(_bold, _maxIterationsPerCollateral) -> per-branch redemption split. Non-view (nonpayable) in the ABI: call it with eth_call, do not send it."
+     },
+     {
+      "signature": "truncateRedemption(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(_bold, _maxIterationsPerCollateral) -> (truncatedBold, feePct, redeemed per branch): the largest amount that can actually be redeemed within the iteration limit. Use with eth_call."
+     },
+     {
+      "signature": "redeemCollateral(uint256,uint256,uint256,uint256[])",
+      "kind": "write",
+      "payable": false,
+      "description": "(_bold, _maxIterationsPerCollateral, _maxFeePct, _minCollRedeemed[3] per branch) redemption with slippage protection on collateral out. Approve BOLD to this helper first."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x372ABD1810eAF23Cb9D941BbE7596DFb2c46BC65",
+    "name": "BorrowerOperations (WETH branch)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "openTrove(address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Open a Trove: (_owner, _ownerIndex, _collAmount, _boldAmount, _upperHint, _lowerHint, _annualInterestRate, _maxUpfrontFee, _addManager, _removeManager, _receiver). First approve WETH to BorrowerOperations for collAmount + 0.0375 (collateral and the gas deposit are both WETH). Interest rate 1e18 = 100%, min 0.5% (5e15), max 250%. Debt incl. upfront fee must be >= 2,000 BOLD and ICR >= MCR 110% (and the branch TCR must stay >= CCR 150%). _maxUpfrontFee from HintHelpers.predictOpenTroveUpfrontFee. Hints from HintHelpers.getApproxHint + SortedTroves.findInsertPosition (0,0 works but costs more gas). Managers/receiver can be address(0). Returns troveId = uint256(keccak256(abi.encode(msg.sender, _owner, _ownerIndex))); an ERC-721 for it is minted to _owner and BOLD to msg.sender."
+     },
+     {
+      "signature": "adjustTrove(uint256,uint256,bool,uint256,bool,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _collChange, _isCollIncrease, _boldChange, _isDebtIncrease, _maxUpfrontFee): add/withdraw collateral and borrow/repay in one call. Borrowing more charges an upfront fee (7 days of branch average interest). Resulting ICR must stay >= MCR, debt >= 2,000 BOLD; below CCR (Critical mode) borrowing is only allowed if it lifts TCR above CCR."
+     },
+     {
+      "signature": "addColl(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _collAmount): add collateral (approve the collateral token first)."
+     },
+     {
+      "signature": "withdrawColl(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _collWithdrawal): withdraw collateral; ICR must stay >= MCR."
+     },
+     {
+      "signature": "withdrawBold(uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _boldAmount, _maxUpfrontFee): borrow more BOLD; upfront fee applies (predictAdjustTroveUpfrontFee)."
+     },
+     {
+      "signature": "repayBold(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _boldAmount): repay debt; cannot take debt below 2,000 BOLD (close the Trove instead). No approve needed."
+     },
+     {
+      "signature": "adjustTroveInterestRate(uint256,uint256,uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _newAnnualInterestRate, _upperHint, _lowerHint, _maxUpfrontFee): set a new rate (1e18 = 100%). Free once per 7 days; a change within 7 days of the last one pays an upfront fee of 7 days' average interest. Lower rates are redeemed first. Not for Troves in a batch."
+     },
+     {
+      "signature": "closeTrove(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId): repay the entire debt (TroveManager.getLatestTroveData(id).entireDebt, incl. accrued interest) from msg.sender's BOLD and get all collateral plus the 0.0375 WETH gas deposit back. Caller must be owner or remove-manager. Reverts if it would push branch TCR below CCR (unless the branch is shut down)."
+     },
+     {
+      "signature": "adjustZombieTrove(uint256,uint256,bool,uint256,bool,uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Adjust a 'zombie' Trove (debt < 2,000 BOLD after redemption): (_troveId, _collChange, _isCollIncrease, _boldChange, _isDebtIncrease, _upperHint, _lowerHint, _maxUpfrontFee). Result must have debt >= 2,000 and ICR >= MCR."
+     },
+     {
+      "signature": "claimCollateral()",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim surplus collateral left after your Trove was liquidated or fully redeemed (held in CollSurplusPool)."
+     },
+     {
+      "signature": "setInterestBatchManager(uint256,address,uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _newBatchManager, _upperHint, _lowerHint, _maxUpfrontFee): delegate rate management to a registered batch manager (pays its management fee; batched Troves need ICR >= MCR + 10%)."
+     },
+     {
+      "signature": "MCR()",
+      "kind": "read",
+      "payable": false,
+      "description": "Minimum collateral ratio, 1e18 = 100% (110% on this branch)."
+     },
+     {
+      "signature": "CCR()",
+      "kind": "read",
+      "payable": false,
+      "description": "Critical collateral ratio for the branch TCR (150%)."
+     },
+     {
+      "signature": "hasBeenShutDown()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the branch is shut down (TCR fell below SCR 110% or oracle failure): only closing Troves and urgent redemptions then work."
+     },
+     {
+      "signature": "getEntireBranchDebt()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total branch debt in BOLD (18 decimals)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x7bcb64B2c9206a5B699eD43363f6F98D4776Cf5A",
+    "name": "TroveManager (WETH branch)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "getLatestTroveData(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Trove state incl. pending interest: (entireDebt, entireColl, redistBoldDebtGain, redistCollGain, accruedInterest, recordedDebt, annualInterestRate, weightedRecordedDebt, accruedBatchManagementFee, lastInterestRateAdjTime). entireDebt is what closeTrove needs."
+     },
+     {
+      "signature": "getTroveStatus(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "0 nonExistent, 1 active, 2 closedByOwner, 3 closedByLiquidation, 4 zombie (debt < 2,000 BOLD after redemption; unredeemable until topped up)."
+     },
+     {
+      "signature": "getCurrentICR(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(_troveId, _price) -> ICR (1e18 = 100%). Price from PriceFeed.lastGoodPrice(). Liquidatable when ICR < MCR (110%)."
+     },
+     {
+      "signature": "getTroveAnnualInterestRate(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Trove's annual rate (1e18 = 100%; batch rate if batched)."
+     },
+     {
+      "signature": "getTroveIdsCount()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of Troves in the branch."
+     },
+     {
+      "signature": "getTroveFromTroveIdsArray(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Trove id at index (for enumeration)."
+     },
+     {
+      "signature": "batchLiquidateTroves(uint256[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless liquidation of Troves with ICR < MCR. Liquidator earns 0.5% of the collateral (capped at 2 units) plus the 0.0375 WETH gas deposit per Trove. Debt is offset by the branch Stability Pool (SP depositors get collateral at a 5% penalty discount) or, if the SP is empty, redistributed to other Troves (up to 10% penalty)."
+     },
+     {
+      "signature": "urgentRedemption(uint256,uint256[],uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Only after branch shutdown: (_boldAmount, _troveIds, _minCollateral) redeem BOLD from chosen Troves with a 2% collateral bonus and no fee."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x5721cbbd64fc7Ae3Ef44A0A3F9a790A9264Cf9BF",
+    "name": "StabilityPool (WETH branch)",
+    "role": "staking",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "provideToSP(uint256,bool)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_topUp, _doClaim): deposit BOLD (no approve needed). Earns 75% of the branch's interest (in BOLD) plus WETH from liquidations. _doClaim=true pays out pending BOLD yield and WETH gains; false compounds the yield into the deposit and stashes the WETH."
+     },
+     {
+      "signature": "withdrawFromSP(uint256,bool)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_amount, _doClaim): withdraw BOLD (amount above your deposit withdraws all). Pool must keep >= 1 BOLD total. Withdraw with _doClaim=true to also receive gains."
+     },
+     {
+      "signature": "claimAllCollGains()",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim stashed collateral gains; only when you have no deposit left."
+     },
+     {
+      "signature": "getCompoundedBoldDeposit(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Current BOLD deposit after liquidation losses (18 decimals)."
+     },
+     {
+      "signature": "getDepositorYieldGainWithPending(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Claimable BOLD interest yield incl. not-yet-minted interest."
+     },
+     {
+      "signature": "getDepositorCollGain(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pending WETH gain from liquidations (excl. stashed; see stashedColl(address))."
+     },
+     {
+      "signature": "stashedColl(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Collateral gains stashed by earlier _doClaim=false operations."
+     },
+     {
+      "signature": "getTotalBoldDeposits()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total BOLD in this pool."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xA25269E41BD072513849F2E64Ad221e84f3063F4",
+    "name": "SortedTroves (WETH branch)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "findInsertPosition(uint256,uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(_annualInterestRate, _prevId, _nextId) -> (upperHint, lowerHint): exact hints for openTrove / adjustTroveInterestRate. Pass HintHelpers.getApproxHint result as both _prevId and _nextId."
+     },
+     {
+      "signature": "getLast()",
+      "kind": "read",
+      "payable": false,
+      "description": "Trove with the LOWEST interest rate (the next to be redeemed)."
+     },
+     {
+      "signature": "getFirst()",
+      "kind": "read",
+      "payable": false,
+      "description": "Trove with the highest interest rate."
+     },
+     {
+      "signature": "getNext(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Next Trove toward lower rates."
+     },
+     {
+      "signature": "getPrev(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Previous Trove toward higher rates."
+     },
+     {
+      "signature": "getSize()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of Troves in the list (zombie Troves are not in it)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x7022A4f4A2b9f0C30A5eB0B0073a8Bb4C8e70C1f",
+    "name": "WETHZapper (WETH branch, native ETH)",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "openTroveWithRawETH((address,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,address,address,address))",
+      "kind": "write",
+      "payable": true,
+      "description": "Open a WETH-branch Trove paying in ETH. Struct: (owner, ownerIndex, collAmount (ignored: collateral = msg.value - 0.0375 ETH gas deposit), boldAmount, upperHint, lowerHint, annualInterestRate, batchManager (0x0 unless joining a batch; then rate must be 0), maxUpfrontFee, addManager, removeManager, receiver). msg.value must exceed 0.0375 ETH. The zapper opens the Trove, so troveId = uint256(keccak256(abi.encode(zapper, owner, uint256(keccak256(abi.encode(msg.sender, ownerIndex)))))); read it from the return value. BOLD goes to msg.sender, the Trove NFT to owner, and the zapper stays add/remove manager and receiver so later zapper calls work."
+     },
+     {
+      "signature": "addCollWithRawETH(uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "(_troveId): add ETH collateral (msg.value)."
+     },
+     {
+      "signature": "adjustTroveWithRawETH(uint256,uint256,bool,uint256,bool,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "(_troveId, _collChange, _isCollIncrease, _boldChange, _isDebtIncrease, _maxUpfrontFee); when adding collateral msg.value must equal _collChange. Approve BOLD to the zapper when repaying."
+     },
+     {
+      "signature": "withdrawCollToRawETH(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _amount): withdraw collateral as ETH."
+     },
+     {
+      "signature": "repayBold(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _boldAmount): repay via zapper (approve BOLD to zapper)."
+     },
+     {
+      "signature": "withdrawBold(uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _boldAmount, _maxUpfrontFee): borrow more via zapper."
+     },
+     {
+      "signature": "closeTroveToRawETH(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId): pulls entireDebt BOLD from msg.sender (approve first) and returns collateral + 0.0375 gas deposit as ETH. Only for Troves where the zapper is the receiver."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xCC5F8102eb670c89a4a3c567C13851260303c24F",
+    "name": "PriceFeed (WETH branch)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "lastGoodPrice()",
+      "kind": "read",
+      "payable": false,
+      "description": "Last valid WETH price in USD (18 decimals) used for ICR; pass to TroveManager.getCurrentICR."
+     },
+     {
+      "signature": "fetchPrice()",
+      "kind": "write",
+      "payable": false,
+      "description": "Refreshes and returns (price, oracleFailureDetected). Non-view; use eth_call to read a fresh price. An oracle failure shuts the branch down."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x1A0FC0b843aFD9140267D25d4E575Cb37a838013",
+    "name": "TroveNFT (WETH branch)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "ownerOf(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Owner of a Trove (tokenId = troveId). The NFT owner controls the Trove; transferring it transfers the position."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of Troves owned on this branch."
+     },
+     {
+      "signature": "transferFrom(address,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer a Trove position."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xa741A32f9dcFe6aDBa088fD0f97e90742d7d5DA3",
+    "name": "BorrowerOperations (wstETH branch)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "openTrove(address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Open a Trove: (_owner, _ownerIndex, _collAmount, _boldAmount, _upperHint, _lowerHint, _annualInterestRate, _maxUpfrontFee, _addManager, _removeManager, _receiver). First approve wstETH (collAmount) and 0.0375 WETH (gas deposit) to BorrowerOperations. Interest rate 1e18 = 100%, min 0.5% (5e15), max 250%. Debt incl. upfront fee must be >= 2,000 BOLD and ICR >= MCR 120% (and the branch TCR must stay >= CCR 160%). _maxUpfrontFee from HintHelpers.predictOpenTroveUpfrontFee. Hints from HintHelpers.getApproxHint + SortedTroves.findInsertPosition (0,0 works but costs more gas). Managers/receiver can be address(0). Returns troveId = uint256(keccak256(abi.encode(msg.sender, _owner, _ownerIndex))); an ERC-721 for it is minted to _owner and BOLD to msg.sender."
+     },
+     {
+      "signature": "adjustTrove(uint256,uint256,bool,uint256,bool,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _collChange, _isCollIncrease, _boldChange, _isDebtIncrease, _maxUpfrontFee): add/withdraw collateral and borrow/repay in one call. Borrowing more charges an upfront fee (7 days of branch average interest). Resulting ICR must stay >= MCR, debt >= 2,000 BOLD; below CCR (Critical mode) borrowing is only allowed if it lifts TCR above CCR."
+     },
+     {
+      "signature": "addColl(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _collAmount): add collateral (approve the collateral token first)."
+     },
+     {
+      "signature": "withdrawColl(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _collWithdrawal): withdraw collateral; ICR must stay >= MCR."
+     },
+     {
+      "signature": "withdrawBold(uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _boldAmount, _maxUpfrontFee): borrow more BOLD; upfront fee applies (predictAdjustTroveUpfrontFee)."
+     },
+     {
+      "signature": "repayBold(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _boldAmount): repay debt; cannot take debt below 2,000 BOLD (close the Trove instead). No approve needed."
+     },
+     {
+      "signature": "adjustTroveInterestRate(uint256,uint256,uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _newAnnualInterestRate, _upperHint, _lowerHint, _maxUpfrontFee): set a new rate (1e18 = 100%). Free once per 7 days; a change within 7 days of the last one pays an upfront fee of 7 days' average interest. Lower rates are redeemed first. Not for Troves in a batch."
+     },
+     {
+      "signature": "closeTrove(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId): repay the entire debt (TroveManager.getLatestTroveData(id).entireDebt, incl. accrued interest) from msg.sender's BOLD and get all collateral plus the 0.0375 WETH gas deposit back. Caller must be owner or remove-manager. Reverts if it would push branch TCR below CCR (unless the branch is shut down)."
+     },
+     {
+      "signature": "adjustZombieTrove(uint256,uint256,bool,uint256,bool,uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Adjust a 'zombie' Trove (debt < 2,000 BOLD after redemption): (_troveId, _collChange, _isCollIncrease, _boldChange, _isDebtIncrease, _upperHint, _lowerHint, _maxUpfrontFee). Result must have debt >= 2,000 and ICR >= MCR."
+     },
+     {
+      "signature": "claimCollateral()",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim surplus collateral left after your Trove was liquidated or fully redeemed (held in CollSurplusPool)."
+     },
+     {
+      "signature": "setInterestBatchManager(uint256,address,uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _newBatchManager, _upperHint, _lowerHint, _maxUpfrontFee): delegate rate management to a registered batch manager (pays its management fee; batched Troves need ICR >= MCR + 10%)."
+     },
+     {
+      "signature": "MCR()",
+      "kind": "read",
+      "payable": false,
+      "description": "Minimum collateral ratio, 1e18 = 100% (120% on this branch)."
+     },
+     {
+      "signature": "CCR()",
+      "kind": "read",
+      "payable": false,
+      "description": "Critical collateral ratio for the branch TCR (160%)."
+     },
+     {
+      "signature": "hasBeenShutDown()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the branch is shut down (TCR fell below SCR 120% or oracle failure): only closing Troves and urgent redemptions then work."
+     },
+     {
+      "signature": "getEntireBranchDebt()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total branch debt in BOLD (18 decimals)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xA2895d6A3bf110561Dfe4b71cA539d84e1928B22",
+    "name": "TroveManager (wstETH branch)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "getLatestTroveData(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Trove state incl. pending interest: (entireDebt, entireColl, redistBoldDebtGain, redistCollGain, accruedInterest, recordedDebt, annualInterestRate, weightedRecordedDebt, accruedBatchManagementFee, lastInterestRateAdjTime). entireDebt is what closeTrove needs."
+     },
+     {
+      "signature": "getTroveStatus(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "0 nonExistent, 1 active, 2 closedByOwner, 3 closedByLiquidation, 4 zombie (debt < 2,000 BOLD after redemption; unredeemable until topped up)."
+     },
+     {
+      "signature": "getCurrentICR(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(_troveId, _price) -> ICR (1e18 = 100%). Price from PriceFeed.lastGoodPrice(). Liquidatable when ICR < MCR (120%)."
+     },
+     {
+      "signature": "getTroveAnnualInterestRate(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Trove's annual rate (1e18 = 100%; batch rate if batched)."
+     },
+     {
+      "signature": "getTroveIdsCount()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of Troves in the branch."
+     },
+     {
+      "signature": "getTroveFromTroveIdsArray(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Trove id at index (for enumeration)."
+     },
+     {
+      "signature": "batchLiquidateTroves(uint256[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless liquidation of Troves with ICR < MCR. Liquidator earns 0.5% of the collateral (capped at 2 units) plus the 0.0375 WETH gas deposit per Trove. Debt is offset by the branch Stability Pool (SP depositors get collateral at a 5% penalty discount) or, if the SP is empty, redistributed to other Troves (up to 20% penalty)."
+     },
+     {
+      "signature": "urgentRedemption(uint256,uint256[],uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Only after branch shutdown: (_boldAmount, _troveIds, _minCollateral) redeem BOLD from chosen Troves with a 2% collateral bonus and no fee."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x9502b7c397E9aa22FE9dB7EF7DAF21cD2AEBe56B",
+    "name": "StabilityPool (wstETH branch)",
+    "role": "staking",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "provideToSP(uint256,bool)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_topUp, _doClaim): deposit BOLD (no approve needed). Earns 75% of the branch's interest (in BOLD) plus wstETH from liquidations. _doClaim=true pays out pending BOLD yield and wstETH gains; false compounds the yield into the deposit and stashes the wstETH."
+     },
+     {
+      "signature": "withdrawFromSP(uint256,bool)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_amount, _doClaim): withdraw BOLD (amount above your deposit withdraws all). Pool must keep >= 1 BOLD total. Withdraw with _doClaim=true to also receive gains."
+     },
+     {
+      "signature": "claimAllCollGains()",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim stashed collateral gains; only when you have no deposit left."
+     },
+     {
+      "signature": "getCompoundedBoldDeposit(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Current BOLD deposit after liquidation losses (18 decimals)."
+     },
+     {
+      "signature": "getDepositorYieldGainWithPending(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Claimable BOLD interest yield incl. not-yet-minted interest."
+     },
+     {
+      "signature": "getDepositorCollGain(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pending wstETH gain from liquidations (excl. stashed; see stashedColl(address))."
+     },
+     {
+      "signature": "stashedColl(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Collateral gains stashed by earlier _doClaim=false operations."
+     },
+     {
+      "signature": "getTotalBoldDeposits()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total BOLD in this pool."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x84eb85a8C25049255614F0536Bea8F31682e86F1",
+    "name": "SortedTroves (wstETH branch)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "findInsertPosition(uint256,uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(_annualInterestRate, _prevId, _nextId) -> (upperHint, lowerHint): exact hints for openTrove / adjustTroveInterestRate. Pass HintHelpers.getApproxHint result as both _prevId and _nextId."
+     },
+     {
+      "signature": "getLast()",
+      "kind": "read",
+      "payable": false,
+      "description": "Trove with the LOWEST interest rate (the next to be redeemed)."
+     },
+     {
+      "signature": "getFirst()",
+      "kind": "read",
+      "payable": false,
+      "description": "Trove with the highest interest rate."
+     },
+     {
+      "signature": "getNext(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Next Trove toward lower rates."
+     },
+     {
+      "signature": "getPrev(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Previous Trove toward higher rates."
+     },
+     {
+      "signature": "getSize()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of Troves in the list (zombie Troves are not in it)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xBD69D3e0eA967d146E925b7572B765c8E9C4127D",
+    "name": "GasCompZapper (wstETH branch, ETH gas deposit)",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "openTroveWithRawETH((address,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,address,address,address))",
+      "kind": "write",
+      "payable": true,
+      "description": "Open a wstETH Trove sending exactly 0.0375 ETH (msg.value) as the gas deposit instead of WETH. Approve collAmount of wstETH to the zapper. Struct: (owner, ownerIndex, collAmount, boldAmount, upperHint, lowerHint, annualInterestRate, batchManager, maxUpfrontFee, addManager, removeManager, receiver). The zapper stays manager so later zapper calls work."
+     },
+     {
+      "signature": "addColl(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _amount): add wstETH via zapper (approve to zapper)."
+     },
+     {
+      "signature": "withdrawColl(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _amount): withdraw wstETH."
+     },
+     {
+      "signature": "adjustTrove(uint256,uint256,bool,uint256,bool,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _collChange, _isCollIncrease, _boldChange, _isDebtIncrease, _maxUpfrontFee) via zapper."
+     },
+     {
+      "signature": "repayBold(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _boldAmount): approve BOLD to the zapper first."
+     },
+     {
+      "signature": "withdrawBold(uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _boldAmount, _maxUpfrontFee)."
+     },
+     {
+      "signature": "closeTroveToRawETH(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId): pulls entireDebt BOLD from msg.sender (approve first), returns wstETH and the 0.0375 gas deposit as ETH."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xe7Aa2Ba9E086A379d3beb224098bC634a46e314E",
+    "name": "PriceFeed (wstETH branch)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "lastGoodPrice()",
+      "kind": "read",
+      "payable": false,
+      "description": "Last valid wstETH price in USD (18 decimals) used for ICR; pass to TroveManager.getCurrentICR."
+     },
+     {
+      "signature": "fetchPrice()",
+      "kind": "write",
+      "payable": false,
+      "description": "Refreshes and returns (price, oracleFailureDetected). Non-view; use eth_call to read a fresh price. An oracle failure shuts the branch down."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x857aECeBF75f1012DC18E15020C97096aeA31b04",
+    "name": "TroveNFT (wstETH branch)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "ownerOf(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Owner of a Trove (tokenId = troveId). The NFT owner controls the Trove; transferring it transfers the position."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of Troves owned on this branch."
+     },
+     {
+      "signature": "transferFrom(address,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer a Trove position."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xe8119fC02953B27a1b48D2573855738485A17329",
+    "name": "BorrowerOperations (rETH branch)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "openTrove(address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Open a Trove: (_owner, _ownerIndex, _collAmount, _boldAmount, _upperHint, _lowerHint, _annualInterestRate, _maxUpfrontFee, _addManager, _removeManager, _receiver). First approve rETH (collAmount) and 0.0375 WETH (gas deposit) to BorrowerOperations. Interest rate 1e18 = 100%, min 0.5% (5e15), max 250%. Debt incl. upfront fee must be >= 2,000 BOLD and ICR >= MCR 120% (and the branch TCR must stay >= CCR 160%). _maxUpfrontFee from HintHelpers.predictOpenTroveUpfrontFee. Hints from HintHelpers.getApproxHint + SortedTroves.findInsertPosition (0,0 works but costs more gas). Managers/receiver can be address(0). Returns troveId = uint256(keccak256(abi.encode(msg.sender, _owner, _ownerIndex))); an ERC-721 for it is minted to _owner and BOLD to msg.sender."
+     },
+     {
+      "signature": "adjustTrove(uint256,uint256,bool,uint256,bool,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _collChange, _isCollIncrease, _boldChange, _isDebtIncrease, _maxUpfrontFee): add/withdraw collateral and borrow/repay in one call. Borrowing more charges an upfront fee (7 days of branch average interest). Resulting ICR must stay >= MCR, debt >= 2,000 BOLD; below CCR (Critical mode) borrowing is only allowed if it lifts TCR above CCR."
+     },
+     {
+      "signature": "addColl(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _collAmount): add collateral (approve the collateral token first)."
+     },
+     {
+      "signature": "withdrawColl(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _collWithdrawal): withdraw collateral; ICR must stay >= MCR."
+     },
+     {
+      "signature": "withdrawBold(uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _boldAmount, _maxUpfrontFee): borrow more BOLD; upfront fee applies (predictAdjustTroveUpfrontFee)."
+     },
+     {
+      "signature": "repayBold(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _boldAmount): repay debt; cannot take debt below 2,000 BOLD (close the Trove instead). No approve needed."
+     },
+     {
+      "signature": "adjustTroveInterestRate(uint256,uint256,uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _newAnnualInterestRate, _upperHint, _lowerHint, _maxUpfrontFee): set a new rate (1e18 = 100%). Free once per 7 days; a change within 7 days of the last one pays an upfront fee of 7 days' average interest. Lower rates are redeemed first. Not for Troves in a batch."
+     },
+     {
+      "signature": "closeTrove(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId): repay the entire debt (TroveManager.getLatestTroveData(id).entireDebt, incl. accrued interest) from msg.sender's BOLD and get all collateral plus the 0.0375 WETH gas deposit back. Caller must be owner or remove-manager. Reverts if it would push branch TCR below CCR (unless the branch is shut down)."
+     },
+     {
+      "signature": "adjustZombieTrove(uint256,uint256,bool,uint256,bool,uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Adjust a 'zombie' Trove (debt < 2,000 BOLD after redemption): (_troveId, _collChange, _isCollIncrease, _boldChange, _isDebtIncrease, _upperHint, _lowerHint, _maxUpfrontFee). Result must have debt >= 2,000 and ICR >= MCR."
+     },
+     {
+      "signature": "claimCollateral()",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim surplus collateral left after your Trove was liquidated or fully redeemed (held in CollSurplusPool)."
+     },
+     {
+      "signature": "setInterestBatchManager(uint256,address,uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _newBatchManager, _upperHint, _lowerHint, _maxUpfrontFee): delegate rate management to a registered batch manager (pays its management fee; batched Troves need ICR >= MCR + 10%)."
+     },
+     {
+      "signature": "MCR()",
+      "kind": "read",
+      "payable": false,
+      "description": "Minimum collateral ratio, 1e18 = 100% (120% on this branch)."
+     },
+     {
+      "signature": "CCR()",
+      "kind": "read",
+      "payable": false,
+      "description": "Critical collateral ratio for the branch TCR (160%)."
+     },
+     {
+      "signature": "hasBeenShutDown()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the branch is shut down (TCR fell below SCR 120% or oracle failure): only closing Troves and urgent redemptions then work."
+     },
+     {
+      "signature": "getEntireBranchDebt()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total branch debt in BOLD (18 decimals)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xb2B2ABEb5C357a234363FF5D180912D319e3e19e",
+    "name": "TroveManager (rETH branch)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "getLatestTroveData(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Trove state incl. pending interest: (entireDebt, entireColl, redistBoldDebtGain, redistCollGain, accruedInterest, recordedDebt, annualInterestRate, weightedRecordedDebt, accruedBatchManagementFee, lastInterestRateAdjTime). entireDebt is what closeTrove needs."
+     },
+     {
+      "signature": "getTroveStatus(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "0 nonExistent, 1 active, 2 closedByOwner, 3 closedByLiquidation, 4 zombie (debt < 2,000 BOLD after redemption; unredeemable until topped up)."
+     },
+     {
+      "signature": "getCurrentICR(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(_troveId, _price) -> ICR (1e18 = 100%). Price from PriceFeed.lastGoodPrice(). Liquidatable when ICR < MCR (120%)."
+     },
+     {
+      "signature": "getTroveAnnualInterestRate(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Trove's annual rate (1e18 = 100%; batch rate if batched)."
+     },
+     {
+      "signature": "getTroveIdsCount()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of Troves in the branch."
+     },
+     {
+      "signature": "getTroveFromTroveIdsArray(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Trove id at index (for enumeration)."
+     },
+     {
+      "signature": "batchLiquidateTroves(uint256[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless liquidation of Troves with ICR < MCR. Liquidator earns 0.5% of the collateral (capped at 2 units) plus the 0.0375 WETH gas deposit per Trove. Debt is offset by the branch Stability Pool (SP depositors get collateral at a 5% penalty discount) or, if the SP is empty, redistributed to other Troves (up to 20% penalty)."
+     },
+     {
+      "signature": "urgentRedemption(uint256,uint256[],uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Only after branch shutdown: (_boldAmount, _troveIds, _minCollateral) redeem BOLD from chosen Troves with a 2% collateral bonus and no fee."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xd442E41019B7F5C4dD78F50dc03726C446148695",
+    "name": "StabilityPool (rETH branch)",
+    "role": "staking",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "provideToSP(uint256,bool)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_topUp, _doClaim): deposit BOLD (no approve needed). Earns 75% of the branch's interest (in BOLD) plus rETH from liquidations. _doClaim=true pays out pending BOLD yield and rETH gains; false compounds the yield into the deposit and stashes the rETH."
+     },
+     {
+      "signature": "withdrawFromSP(uint256,bool)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_amount, _doClaim): withdraw BOLD (amount above your deposit withdraws all). Pool must keep >= 1 BOLD total. Withdraw with _doClaim=true to also receive gains."
+     },
+     {
+      "signature": "claimAllCollGains()",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim stashed collateral gains; only when you have no deposit left."
+     },
+     {
+      "signature": "getCompoundedBoldDeposit(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Current BOLD deposit after liquidation losses (18 decimals)."
+     },
+     {
+      "signature": "getDepositorYieldGainWithPending(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Claimable BOLD interest yield incl. not-yet-minted interest."
+     },
+     {
+      "signature": "getDepositorCollGain(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pending rETH gain from liquidations (excl. stashed; see stashedColl(address))."
+     },
+     {
+      "signature": "stashedColl(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Collateral gains stashed by earlier _doClaim=false operations."
+     },
+     {
+      "signature": "getTotalBoldDeposits()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total BOLD in this pool."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x14d8d8011dF2b396Ed2bbC4959bb73250324F386",
+    "name": "SortedTroves (rETH branch)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "findInsertPosition(uint256,uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(_annualInterestRate, _prevId, _nextId) -> (upperHint, lowerHint): exact hints for openTrove / adjustTroveInterestRate. Pass HintHelpers.getApproxHint result as both _prevId and _nextId."
+     },
+     {
+      "signature": "getLast()",
+      "kind": "read",
+      "payable": false,
+      "description": "Trove with the LOWEST interest rate (the next to be redeemed)."
+     },
+     {
+      "signature": "getFirst()",
+      "kind": "read",
+      "payable": false,
+      "description": "Trove with the highest interest rate."
+     },
+     {
+      "signature": "getNext(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Next Trove toward lower rates."
+     },
+     {
+      "signature": "getPrev(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Previous Trove toward higher rates."
+     },
+     {
+      "signature": "getSize()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of Troves in the list (zombie Troves are not in it)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xbE8B230dCd12E246F5eDc5c103CC98be68ab636F",
+    "name": "GasCompZapper (rETH branch, ETH gas deposit)",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "openTroveWithRawETH((address,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,address,address,address))",
+      "kind": "write",
+      "payable": true,
+      "description": "Open a rETH Trove sending exactly 0.0375 ETH (msg.value) as the gas deposit instead of WETH. Approve collAmount of rETH to the zapper. Struct: (owner, ownerIndex, collAmount, boldAmount, upperHint, lowerHint, annualInterestRate, batchManager, maxUpfrontFee, addManager, removeManager, receiver). The zapper stays manager so later zapper calls work."
+     },
+     {
+      "signature": "addColl(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _amount): add rETH via zapper (approve to zapper)."
+     },
+     {
+      "signature": "withdrawColl(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _amount): withdraw rETH."
+     },
+     {
+      "signature": "adjustTrove(uint256,uint256,bool,uint256,bool,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _collChange, _isCollIncrease, _boldChange, _isDebtIncrease, _maxUpfrontFee) via zapper."
+     },
+     {
+      "signature": "repayBold(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _boldAmount): approve BOLD to the zapper first."
+     },
+     {
+      "signature": "withdrawBold(uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId, _boldAmount, _maxUpfrontFee)."
+     },
+     {
+      "signature": "closeTroveToRawETH(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(_troveId): pulls entireDebt BOLD from msg.sender (approve first), returns rETH and the 0.0375 gas deposit as ETH."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x34F1E9c7dcc279ec70d3c4488EB2D80FBa8B7b2B",
+    "name": "PriceFeed (rETH branch)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "lastGoodPrice()",
+      "kind": "read",
+      "payable": false,
+      "description": "Last valid rETH price in USD (18 decimals) used for ICR; pass to TroveManager.getCurrentICR."
+     },
+     {
+      "signature": "fetchPrice()",
+      "kind": "write",
+      "payable": false,
+      "description": "Refreshes and returns (price, oracleFailureDetected). Non-view; use eth_call to read a fresh price. An oracle failure shuts the branch down."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x7ae430E25b67f19B431e1D1Dc048a5BCF24C0873",
+    "name": "TroveNFT (rETH branch)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "keyFunctions": [
+     {
+      "signature": "ownerOf(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Owner of a Trove (tokenId = troveId). The NFT owner controls the Trove; transferring it transfers the position."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of Troves owned on this branch."
+     },
+     {
+      "signature": "transferFrom(address,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer a Trove position."
+     }
+    ]
+   }
+  ],
+  "actions": [
+   {
+    "name": "open-trove",
+    "description": "Borrow BOLD against WETH/wstETH/rETH",
+    "how": "1) Pick branch (0 WETH, 1 wstETH, 2 rETH) and rate (e.g. 5e16 = 5%). 2) fee = HintHelpers.predictOpenTroveUpfrontFee(idx, bold, rate). 3) (hint,,) = HintHelpers.getApproxHint(idx, rate, 15*sqrt(SortedTroves.getSize()), seed); (upper, lower) = SortedTroves.findInsertPosition(rate, hint, hint). 4) Approve collateral (+0.0375 WETH gas deposit) to BorrowerOperations. 5) BorrowerOperations.openTrove(owner, ownerIndex, coll, bold, upper, lower, rate, fee*1.01, 0x0, 0x0, 0x0). Keep ICR well above MCR (110% WETH, 120% LSTs) and debt >= 2,000 BOLD. Or use WETHZapper/GasCompZapper.openTroveWithRawETH to pay in ETH."
+   },
+   {
+    "name": "adjust-trove",
+    "description": "Add/remove collateral, borrow/repay",
+    "how": "BorrowerOperations.adjustTrove(troveId, collChange, isCollIncrease, boldChange, isDebtIncrease, maxUpfrontFee) (fee from HintHelpers.predictAdjustTroveUpfrontFee when borrowing), or addColl / withdrawColl / withdrawBold / repayBold."
+   },
+   {
+    "name": "set-interest-rate",
+    "description": "Change a Trove's interest rate",
+    "how": "Hints as in open-trove for the new rate; fee = HintHelpers.predictAdjustInterestRateUpfrontFee(idx, troveId, newRate) (0 if >= 7 days since last change); BorrowerOperations.adjustTroveInterestRate(troveId, newRate, upper, lower, fee)."
+   },
+   {
+    "name": "close-trove",
+    "description": "Repay all and withdraw collateral",
+    "how": "debt = TroveManager.getLatestTroveData(troveId).entireDebt; hold that much BOLD (plus a little for interest accrual); BorrowerOperations.closeTrove(troveId)."
+   },
+   {
+    "name": "earn-stability-pool",
+    "description": "Deposit BOLD in a branch Stability Pool",
+    "how": "StabilityPool.provideToSP(amount, true). Read getCompoundedBoldDeposit / getDepositorYieldGainWithPending / getDepositorCollGain. Exit with withdrawFromSP(amount, true)."
+   },
+   {
+    "name": "redeem",
+    "description": "Redeem BOLD for collateral at $1",
+    "how": "Check CollateralRegistry.getRedemptionRateForRedeemedAmount(amount); CollateralRegistry.redeemCollateral(amount, maxIterationsPerCollateral (e.g. 50), maxFee 1e18-scaled). For min-out protection use RedemptionHelper.truncateRedemption (eth_call) then redeemCollateral(bold, iters, maxFeePct, minCollPerBranch[3]) after approving BOLD to it."
+   },
+   {
+    "name": "liquidate",
+    "description": "Liquidate undercollateralized Troves",
+    "how": "Find Troves with TroveManager.getCurrentICR(id, PriceFeed.lastGoodPrice()) < MCR; TroveManager.batchLiquidateTroves([ids])."
+   }
+  ],
+  "risks": [
+   "Redemptions: anyone can redeem BOLD for collateral at $1 (minus a fee of at least 0.5%), starting from the Troves with the LOWEST interest rate in each branch. Redeemed borrowers lose collateral equal to the debt repaid (no net loss at the oracle price, but exposure is lost). Keep your rate competitive; MultiTroveGetter.getDebtPerInterestRateAscending shows the debt in front of you.",
+   "Zombie Troves: a redemption that leaves debt < 2,000 BOLD marks the Trove 'zombie' (status 4); it stays open but must be fixed with adjustZombieTrove.",
+   "Liquidation when ICR < MCR (110% WETH, 120% wstETH/rETH): the Trove loses its collateral (up to the penalty: 5% via the Stability Pool, up to 10% WETH / 20% LST via redistribution) and the 0.0375 WETH gas deposit. Branch TCR below CCR (150% / 160%) restricts borrowing and collateral withdrawals.",
+   "Upfront fee: every new borrow (and rate changes within 7 days of the last one) pays 7 days of the branch average interest rate, added to debt and non-refundable.",
+   "Branch shutdown: if a branch's TCR falls below SCR (110% WETH, 120% LSTs) or its oracle fails, that branch freezes (only closing and urgent redemptions at a 2% bonus); BOLD stays redeemable against it.",
+   "Stability Pool deposits absorb liquidated debt: the BOLD deposit can shrink and is replaced by collateral bought at a discount; that collateral can fall in value.",
+   "Incident and redeployment: on 2025-02-12 the team was told of a Stability Pool issue in the first V2 deployment (BOLD 0xb01dd87B29d187F3E3a4Bf6cdAebfb97F3D9aB98), confirmed 2025-02-13 ('could result in the loss of funds held in these contracts'); users were told to exit and that deployment became legacy. The patched V2 relaunched on Ethereum on 2025-05-19 with new addresses (BOLD 0x6440f144...B01D). Never use the legacy addresses still listed on docs.liquity.org/v2-documentation/technical-resources.",
+   "Immutable contracts with no admin keys (no upgrades or parameter changes); governance (LQTY staking) only directs part of the protocol revenue. Oracles: Chainlink-based PriceFeeds per branch.",
+   "Audits listed in the docs: ChainSecurity (Aug 2024 - May 2025), Dedaub (Aug and Nov 2024, Cantina-fixes review May 2025), Certora formal verification (Dec 2024), Coinspect (Dec 2024 core, Jan 2025 governance, Oct 2025 RedemptionHelper), Recon (Oct 2024), Cantina competition (Mar-Apr 2025)."
+  ],
+  "notes": "Addresses are the CURRENT (May 2025 redeployment) Ethereum mainnet deployment, as listed on the docs page docs.liquity.org/v2-documentation/technical-docs-and-audits and in the official GitHub manifest liquity/bold contracts/addresses/1.json (they match). Checked onchain on 2026-11-25: CollateralRegistry.totalCollaterals() = 3 with TroveManagers matching the list, BOLD.collateralRegistryAddress() matches, all branches hasBeenShutDown() = false, BOLD supply ~26.9M. The docs page technical-resources ('Legacy V2 and Testnet') lists the OLD deployment (BOLD 0xb01dd87B..., CollateralRegistry 0xd99de73b..., plus BOLD on Base/Arbitrum/Optimism/Scroll/Avalanche); those are deliberately left out. Not listed here (available in the manifest): ActivePool, DefaultPool, CollSurplusPool, GasPool, MetadataNFT, AddressesRegistry per branch, LeverageZappers (WETH 0xdCcBD7A365aeE086aa3b4EDe8afe895B20770AE3, wstETH 0xe85230dE04147C4Ea363B21cdb801c1C19DF0A56, rETH 0x75036b1D6DE5665c60F5C33BB4a64e8E123211A2: flash-loan leverage 'Multiply'), DebtInFrontHelper, ExchangeHelpers, and governance (Governance 0x807DEf5E7d057DF05C796F4bc75C3Fe82Bd6EeE1, LQTY, LUSD, V1 staking, Curve BOLD pools/initiatives). Interest rates, ICR/MCR/CCR and fee percentages use 1e18 = 100%. Contracts are not proxies; ABIs are verified on Sourcify. Branch index for HintHelpers/MultiTroveGetter: 0 WETH, 1 wstETH, 2 rETH.",
+  "sources": [
+   "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+   "https://docs.liquity.org/v2-documentation/technical-resources",
+   "https://github.com/liquity/bold/blob/main/contracts/addresses/1.json",
+   "https://github.com/liquity/bold/blob/main/README.md",
+   "https://github.com/liquity/bold/blob/main/contracts/src/Dependencies/Constants.sol",
+   "https://github.com/liquity/bold/blob/main/contracts/src/BorrowerOperations.sol",
+   "https://github.com/liquity/bold/blob/main/contracts/src/StabilityPool.sol",
+   "https://github.com/liquity/bold/blob/main/contracts/src/Zappers/WETHZapper.sol",
+   "https://github.com/liquity/bold/blob/main/contracts/src/Zappers/GasCompZapper.sol",
+   "https://www.liquity.org/blog/liquity-v2-redeployment",
+   "https://liquity.org/blog/stability-pool-issue",
+   "https://sourcify.dev/server/files/any/1/0x372ABD1810eAF23Cb9D941BbE7596DFb2c46BC65",
+   "https://sourcify.dev/server/files/any/1/0x7bcb64B2c9206a5B699eD43363f6F98D4776Cf5A",
+   "https://sourcify.dev/server/files/any/1/0x5721cbbd64fc7Ae3Ef44A0A3F9a790A9264Cf9BF",
+   "https://sourcify.dev/server/files/any/1/0xf949982B91C8c61e952B3bA942cbbfaef5386684",
+   "https://api.llama.fi/protocol/liquity-v2",
+   "https://defillama.com/protocol/liquity-v2"
+  ],
+  "researchedAt": "2026-11-25"
+ },
+ {
   "slug": "maple-finance",
   "name": "Maple Finance",
   "category": "Lending",
@@ -13015,6 +17279,1131 @@ export const PROTOCOLS: ProtocolEntry[] = [
    "https://defillama.com/protocol/maple-finance"
   ],
   "researchedAt": "2026-11-24"
+ },
+ {
+  "slug": "meteora-damm-v1",
+  "name": "Meteora DAMM V1",
+  "category": "Dexs",
+  "description": "Meteora's legacy Dynamic AMM (DAMM v1) on Solana: constant-product, stable and LST/depeg pools whose reserves sit in Meteora Dynamic Vaults. An agent can swap, add/remove liquidity, create permissionless pools and lock LP via the `amm` program, most easily through @meteora-ag/dynamic-amm-sdk or by routing swaps through Jupiter.",
+  "website": "https://www.meteora.ag",
+  "docs": "https://docs.meteora.ag/developer-guides/damm-v1",
+  "defillama": "https://defillama.com/protocol/meteora-damm-v1",
+  "chains": [
+   "solana"
+  ],
+  "vm": "solana",
+  "agentAccess": "both",
+  "contracts": [
+   {
+    "chain": "solana",
+    "chainId": null,
+    "address": "Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB",
+    "name": "DAMM v1 / Dynamic AMM (`amm` program)",
+    "role": "exchange",
+    "proxy": null,
+    "source": "https://docs.meteora.ag/developer-guides/damm-v1",
+    "keyFunctions": [
+     {
+      "signature": "swap(in_amount: u64, minimum_out_amount: u64)",
+      "kind": "write",
+      "payable": false,
+      "description": "Exact-in swap A->B or B->A on one pool. Amounts in base units of the mints. minimum_out_amount is the slippage guard (SDK: pool.getSwapQuote(inMint, inAmount, slippagePct).minSwapOutAmount, then pool.swap(owner, inMint, inAmount, minOut, referralOwner?)). Input is deposited into one Dynamic Vault and output withdrawn from the other, so vault accounts are required. Stable LST/depeg pools need extra depeg remaining accounts; an optional host-fee (referral) token account receives 20% of the protocol fee. Fee numerators use FEE_DENOMINATOR = 100_000 (default constant-product trade fee 250 = 0.25%, protocol share 20% of the trade fee). Launch pools reject swaps before their activation point. No deadline argument: rely on blockhash expiry."
+     },
+     {
+      "signature": "add_balance_liquidity(pool_token_amount: u64, maximum_token_a_amount: u64, maximum_token_b_amount: u64)",
+      "kind": "write",
+      "payable": false,
+      "description": "Mint exactly pool_token_amount LP spending at most the given token A/B amounts. Normal path for constant-product pools. SDK: pool.getDepositQuote(aIn, bIn, balance=true, slippage) then pool.deposit(owner, aIn, bIn, poolTokenAmount)."
+     },
+     {
+      "signature": "add_imbalance_liquidity(minimum_pool_token_amount: u64, token_a_amount: u64, token_b_amount: u64)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit arbitrary A/B amounts for at least minimum_pool_token_amount LP. Stable pools only."
+     },
+     {
+      "signature": "remove_balance_liquidity(pool_token_amount: u64, minimum_a_token_out: u64, minimum_b_token_out: u64)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn LP and withdraw A and B proportionally with minimum-out slippage guards. Still works when the pool is disabled. The LP token account must be owned by the signing user (SPL delegates cannot burn). SDK: pool.getWithdrawQuote(lpAmount, slippage) then pool.withdraw(owner, lpAmount, aOut, bOut)."
+     },
+     {
+      "signature": "remove_liquidity_single_side(pool_token_amount: u64, minimum_out_amount: u64)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn LP and withdraw a single token. Stable pools only (SDK: getWithdrawQuote(lpAmount, slippage, tokenMint))."
+     },
+     {
+      "signature": "initialize_permissionless_pool_with_fee_tier(curve_type: CurveType, trade_fee_bps: u64, token_a_amount: u64, token_b_amount: u64)",
+      "kind": "write",
+      "payable": true,
+      "description": "Create a permissionless pool (pool PDA from curve type, sorted mints and fee tier). Allowed trade_fee_bps: constant product [25, 100, 400, 600], stable [1, 4, 10, 100]. Initial amounts set the price; creator receives LP. Payer funds rent in SOL. SDK: AmmImpl.createPermissionlessPool(...)."
+     },
+     {
+      "signature": "initialize_permissionless_pool(curve_type: CurveType, token_a_amount: u64, token_b_amount: u64)",
+      "kind": "write",
+      "payable": true,
+      "description": "Create a permissionless pool with the curve's default fee."
+     },
+     {
+      "signature": "initialize_permissionless_constant_product_pool_with_config2(token_a_amount: u64, token_b_amount: u64, activation_point: Option<u64>)",
+      "kind": "write",
+      "payable": true,
+      "description": "Create a config-based constant-product pool (PDA from sorted mints + config key) inheriting fees/activation from a published config; private configs require the config's pool_creator_authority to sign. SDK: AmmImpl.createPermissionlessConstantProductPoolWithConfig2(...)."
+     },
+     {
+      "signature": "initialize_customizable_permissionless_constant_product_pool(token_a_amount: u64, token_b_amount: u64, params: CustomizableParams)",
+      "kind": "write",
+      "payable": true,
+      "description": "Create a customizable launch pool (trade fee 0.25%-15%, activation settings) without a config PDA."
+     },
+     {
+      "signature": "create_lock_escrow()",
+      "kind": "write",
+      "payable": true,
+      "description": "Create the lock-escrow PDA for (pool, owner) before locking LP."
+     },
+     {
+      "signature": "lock(max_amount: u64)",
+      "kind": "write",
+      "payable": false,
+      "description": "Permanently lock LP tokens into the owner's escrow; locked LP keeps earning fees. Irreversible. SDK: pool.lockLiquidity(owner, amount)."
+     },
+     {
+      "signature": "claim_fee(max_amount: u64)",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim token A/B fees accrued by locked LP (bounded by max_amount, LP-denominated). SDK: pool.claimLockFee2(owner, maxAmount, payer, receiver)."
+     },
+     {
+      "signature": "get_pool_info()",
+      "kind": "read",
+      "payable": false,
+      "description": "Emits an event with pool token amounts, virtual price and timestamp (simulate the tx to read). Off-chain, AmmImpl.create(connection, pool).poolInfo gives the same data."
+     }
+    ]
+   },
+   {
+    "chain": "solana",
+    "chainId": null,
+    "address": "24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi",
+    "name": "Dynamic Vault (`vault` program)",
+    "role": "vault",
+    "proxy": null,
+    "source": "https://docs.meteora.ag/developer-guides/dynamic-vault/index",
+    "keyFunctions": [
+     {
+      "signature": "deposit(token_amount: u64, minimum_lp_token_amount: u64)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit the underlying token into a single-asset vault and mint vault LP (slippage-checked). DAMM v1 pools call this internally; direct use via @meteora-ag/vault-sdk vault.deposit(owner, amount)."
+     },
+     {
+      "signature": "withdraw(unmint_amount: u64, min_out_amount: u64)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn vault LP and withdraw underlying from the vault reserve; use withdraw_directly_from_strategy when the reserve is short (the SDK picks automatically)."
+     },
+     {
+      "signature": "withdraw_directly_from_strategy(unmint_amount: u64, min_out_amount: u64)",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw by first pulling from a lending strategy when reserves are insufficient."
+     }
+    ]
+   },
+   {
+    "chain": "solana",
+    "chainId": null,
+    "address": "FarmuwXPWXvefWUeqFAa5w6rifLkq5X6E8bimYvrhCB1",
+    "name": "DAMM v1 Farming program",
+    "role": "staking",
+    "proxy": null,
+    "source": "https://docs.meteora.ag/developer-guides/damm-v1",
+    "keyFunctions": []
+   },
+   {
+    "chain": "solana",
+    "chainId": null,
+    "address": "METvsvVRapdj9cFLzq4Tr43xK4tAjQfwX76z3n6mWQL",
+    "name": "MET (Meteora token)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.meteora.ag/protocol/met/tokenomics",
+    "keyFunctions": [
+     {
+      "signature": "SPL Token transfer / transferChecked",
+      "kind": "write",
+      "payable": false,
+      "description": "Standard SPL Token (Tokenkeg program) mint, 6 decimals; mint and freeze authority are null on-chain. Total supply 1,000,000,000 at TGE (23 Oct 2025), with burns since."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [
+   {
+    "name": "DAMM v1 Data API",
+    "url": "https://damm-api.meteora.ag",
+    "auth": "none",
+    "use": "Read-only indexed pool discovery and metrics: GET /pools, GET /pools/search (filter by mints, pool_type, TVL/APR), pool configs, fee configs, alpha vaults, farm-backed pools. Swagger at https://damm-api.meteora.ag/swagger-ui/. Not for exact state when building txs: load pools on-chain with the SDK.",
+    "source": "https://docs.meteora.ag/developer-guides/damm-v1/api-reference/overview"
+   },
+   {
+    "name": "@meteora-ag/dynamic-amm-sdk (TypeScript SDK)",
+    "url": "https://github.com/MeteoraAg/damm-v1-sdk",
+    "auth": "none",
+    "use": "Official SDK: AmmImpl.create / createMultiple / searchPoolsByToken, getSwapQuote + swap, getDepositQuote + deposit, getWithdrawQuote + withdraw, createPermissionlessPool and config pool creators, lockLiquidity, claimLockFee2. Returns unsigned Transactions. Use v2.0.0+ with program 0.5.7.",
+    "source": "https://docs.meteora.ag/developer-guides/damm-v1/typescript-sdk/getting-started"
+   }
+  ],
+  "actions": [
+   {
+    "name": "swap",
+    "description": "Swap on a DAMM v1 pool",
+    "how": "Simplest: route through Jupiter (Meteora's own UI swaps via Jupiter Terminal), which includes Meteora pools. Direct: const pool = await AmmImpl.create(connection, poolAddress); const q = pool.getSwapQuote(inMint, inAmount, slippagePct); const tx = await pool.swap(owner, inMint, inAmount, q.minSwapOutAmount); sign and send."
+   },
+   {
+    "name": "find-pool",
+    "description": "Find DAMM v1 pools for a token",
+    "how": "GET https://damm-api.meteora.ag/pools/search?include_token_mints=<mint> or AmmImpl.searchPoolsByToken(connection, mint)"
+   },
+   {
+    "name": "add-liquidity",
+    "description": "Deposit into a pool",
+    "how": "pool.getDepositQuote(aIn, bIn, true, slippage) -> pool.deposit(owner, q.tokenAInAmount, q.tokenBInAmount, q.minPoolTokenAmountOut) (program add_balance_liquidity)"
+   },
+   {
+    "name": "remove-liquidity",
+    "description": "Withdraw from a pool",
+    "how": "pool.getWithdrawQuote(lpAmount, slippage) -> pool.withdraw(owner, lpAmount, q.minTokenAOutAmount, q.minTokenBOutAmount) (program remove_balance_liquidity)"
+   },
+   {
+    "name": "create-pool",
+    "description": "Create a permissionless pool",
+    "how": "AmmImpl.createPermissionlessPool(...) with an allowed fee tier, or createPermissionlessConstantProductPoolWithConfig2(...) with a published config key (see https://docs.meteora.ag/developer-guides/damm-v1/pool-fee-configs). Meteora recommends DAMM v2 for new launches."
+   },
+   {
+    "name": "lock-lp",
+    "description": "Lock LP and keep earning fees",
+    "how": "pool.lockLiquidity(owner, amount) (create_lock_escrow + lock); claim with pool.claimLockFee2(owner, maxAmount, payer, receiver)"
+   }
+  ],
+  "risks": [
+   "Legacy product: Meteora describes DAMM v1 as legacy and recommends DAMM v2 for new pools; existing pools keep working.",
+   "Permissionless pool creation: anyone can create pools for any mint, including scam/copycat tokens and duplicate pools; always verify mints (Meteora's Staying Safe guide points to Rugcheck, JupShield and Jupiter Organic Score).",
+   "Programs are upgradeable (BPFLoaderUpgradeable) by Meteora. Admin-only instructions can disable pools (balanced withdrawals still allowed), set pool fees and partner settings, create/close configs and update launch activation points; operator accounts can withdraw/zap protocol fees.",
+   "Pool reserves are held in Dynamic Vaults that lend idle liquidity to external Solana lending strategies (managed by Meteora's off-chain Hermes keeper), adding strategy/smart-contract risk of those protocols.",
+   "Launch pools can block swaps until an activation point and may have an Alpha Vault with pre-activation access.",
+   "LP locks are permanent; locked LP can only claim fees.",
+   "Audits listed on Meteora's DAMM v1 audit page: Offside Labs, Halborn, Oak. Dynamic Vault has a separate audit page."
+  ],
+  "notes": "This entry is DAMM v1 only. Other Meteora products have their own programs (from official developer guides): DAMM v2 `cp_amm` cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG (pool authority HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC, https://docs.meteora.ag/developer-guides/damm-v2/index) and DLMM `lb_clmm` LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo (https://docs.meteora.ag/developer-guides/dlmm/index); both are separate DefiLlama entries and not listed as contracts here. All DAMM v1/vault/farm program IDs are identical on mainnet and devnet and were confirmed executable via getAccountInfo. Dynamic Vault affiliate program GacY9YuN16HNRTy7ZWwULPccwvfFSBeNLuAQP7y38Du3 is mentioned in the vault guide but omitted (not needed for DAMM v1). Instruction signatures come from the official IDL bundled in the SDK (https://github.com/MeteoraAg/damm-v1-sdk/blob/main/ts-client/src/amm/idl.ts); account lists are long (vaults, vault LP, protocol fee accounts), so build transactions with the SDK. The farming program is being deprecated per Meteora's farming changelog. Sample mainnet pools from the SDK reference: USDT/USDC 32D4zRxNc1EssbJieVHfPhZM3rH6CzfUPrWUuWxD9prG, USDC/SOL 5yuefgbJJpmFNK2iiYbLSpv1aZXq7F9AUKkZKErTYCvs. No standalone swap REST API is offered by Meteora; Jupiter is the usual aggregator path (Jupiter's own API is third-party and not documented here). No specific DAMM v1 security incident was found on official pages.",
+  "sources": [
+   "https://defillama.com/protocol/meteora-damm-v1",
+   "https://api.llama.fi/protocol/meteora-damm-v1",
+   "https://docs.meteora.ag/llms.txt",
+   "https://docs.meteora.ag/developer-guides/damm-v1",
+   "https://docs.meteora.ag/developer-guides/damm-v1/program/instructions",
+   "https://docs.meteora.ag/developer-guides/damm-v1/typescript-sdk/getting-started",
+   "https://docs.meteora.ag/developer-guides/damm-v1/typescript-sdk/reference",
+   "https://docs.meteora.ag/developer-guides/damm-v1/api-reference/overview",
+   "https://docs.meteora.ag/developer-guides/damm-v1/changelog",
+   "https://docs.meteora.ag/legacy-products/damm-v1/what-is-damm-v1",
+   "https://docs.meteora.ag/legacy-products/damm-v1/implementation-and-limits",
+   "https://docs.meteora.ag/developer-guides/dynamic-vault/index",
+   "https://docs.meteora.ag/developer-guides/dynamic-vault/program/instructions",
+   "https://docs.meteora.ag/developer-guides/damm-v2/index",
+   "https://docs.meteora.ag/developer-guides/dlmm/index",
+   "https://docs.meteora.ag/protocol/met/tokenomics",
+   "https://docs.meteora.ag/resources/audits/damm-v1",
+   "https://docs.meteora.ag/user-guides/swapping-tokens-on-meteora",
+   "https://docs.meteora.ag/user-guides/staying-safe-on-meteora",
+   "https://github.com/MeteoraAg/damm-v1-sdk",
+   "https://github.com/MeteoraAg/damm-v1-sdk/blob/main/ts-client/src/amm/idl.ts",
+   "https://api.mainnet-beta.solana.com"
+  ],
+  "researchedAt": "2026-11-25"
+ },
+ {
+  "slug": "olympus-dao",
+  "name": "Olympus DAO",
+  "category": "Reserve Currency",
+  "description": "OHM is a treasury-backed, free-floating reserve currency. Agents can stake OHM into gOHM (wrap/unwrap), borrow USDS against gOHM in Cooler Loans V2 (perpetual, fixed rate, no price liquidations), bid USDS in the Convertible Deposits auction for an option to convert into OHM, sell OHM into the Yield Repurchase Facility's daily Bond Protocol markets, bridge OHM between Ethereum, Arbitrum, Optimism, Base and Berachain through Chainlink CCIP, and vote with gOHM in Governor Bravo.",
+  "website": "https://olympusdao.finance",
+  "docs": "https://docs.olympusdao.finance",
+  "defillama": "https://defillama.com/protocol/olympus-dao",
+  "chains": [
+   "ethereum",
+   "arbitrum",
+   "base",
+   "berachain",
+   "optimism"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5",
+    "name": "OHM",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "OHM balance (9 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve Staking (stake), the CCIP bridge (bridge) or the Bond Teller (sell into YRF markets)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Ethereum OHM supply; includes OHM locked in the CCIP lock/release pool for other chains."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x0ab87046fBb341D058F17CBC4c1133F25a20a52f",
+    "name": "gOHM",
+    "role": "governance",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "gOHM balance (18 decimals)."
+     },
+     {
+      "signature": "index()",
+      "kind": "read",
+      "payable": false,
+      "description": "OHM per gOHM with 9 decimals (269238508004 = 269.2385 OHM per gOHM on 2026-11-25; fixed since rebases stopped)."
+     },
+     {
+      "signature": "balanceFrom(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert a gOHM amount (18 dec) to OHM (9 dec)."
+     },
+     {
+      "signature": "balanceTo(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert an OHM amount (9 dec) to gOHM (18 dec)."
+     },
+     {
+      "signature": "delegate(address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Delegate gOHM voting power (required to vote in Governor Bravo, including for yourself)."
+     },
+     {
+      "signature": "getCurrentVotes(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Current delegated votes of an account."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve MonoCooler before addCollateral."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x04906695D6D12CF5459975d7C3C03356E4Ccd460",
+    "name": "sOHM",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "sOHM balance (9 decimals). Legacy rebasing staked OHM; rebasing has ended."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve Staking before wrap() or unstake(...,_rebasing=true)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xB63cac384247597756545b500253ff8E607a8020",
+    "name": "OlympusStaking",
+    "role": "staking",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "stake(address,uint256,bool,bool)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake OHM. Args: _to, _amount (OHM, 9 dec), _rebasing (false = receive gOHM, true = sOHM), _claim (true; warmupPeriod is 0). Approve OHM to Staking first. Returns amount received."
+     },
+     {
+      "signature": "unstake(address,uint256,bool,bool)",
+      "kind": "write",
+      "payable": false,
+      "description": "Unstake to OHM. Args: _to, _amount, _trigger (false; no rebase rewards are distributed), _rebasing (false = _amount is gOHM, burned from caller, no approval needed; true = _amount is sOHM, approve sOHM first). No cooldown or fee."
+     },
+     {
+      "signature": "wrap(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Convert sOHM to gOHM. Args: _to, sOHM amount. Approve sOHM first."
+     },
+     {
+      "signature": "unwrap(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Convert gOHM to sOHM. Args: _to, gOHM amount."
+     },
+     {
+      "signature": "index()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current index (9 decimals)."
+     },
+     {
+      "signature": "warmupPeriod()",
+      "kind": "read",
+      "payable": false,
+      "description": "Warmup epochs before staked OHM is claimable (0 on 2026-11-25)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xdb591Ea2e5Db886dA872654D58f6cc584b68e7cC",
+    "name": "Cooler Loans V2 (MonoCooler)",
+    "role": "vault",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "addCollateral(uint128,address,(address,int256)[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit gOHM collateral. Args: collateralAmount (18 dec), onBehalfOf, delegationRequests [(delegate, amount)] (may be empty). Approve gOHM to MonoCooler first."
+     },
+     {
+      "signature": "borrow(uint128,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Borrow USDS (debtToken 0xdC035D45d973E3EC169d2276DDab16f1e407384F). Args: borrowAmountInWad (18 dec; type(uint128).max = max up to origination LTV), onBehalfOf, recipient. Debt must be >= minDebtRequired (1,000 USDS). Interest accrues continuously at interestRateWad (0.49875%/yr on 2026-11-25); no term or expiry."
+     },
+     {
+      "signature": "repay(uint128,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Repay USDS debt (approve USDS first). Args: repayAmountInWad (capped at current debt), onBehalfOf. Remaining debt must stay >= 1,000 USDS unless fully repaid. Interest is paid first. No fee."
+     },
+     {
+      "signature": "withdrawCollateral(uint128,address,address,(address,int256)[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw gOHM. Args: collateralAmount (type(uint128).max = max allowed), onBehalfOf, recipient, delegationRequests (undelegations needed to free the gOHM). LTV must stay <= origination LTV."
+     },
+     {
+      "signature": "accountPosition(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(collateral, currentDebt, maxOriginationDebtAmount, liquidationDebtAmount, healthFactor, currentLtv, totalDelegated, numDelegateAddresses, maxDelegateAddresses) for an account."
+     },
+     {
+      "signature": "debtDeltaForMaxOriginationLtv(address,int128)",
+      "kind": "read",
+      "payable": false,
+      "description": "Extra USDS that can be borrowed (positive) or must be repaid (negative) after a collateral change."
+     },
+     {
+      "signature": "loanToValues()",
+      "kind": "read",
+      "payable": false,
+      "description": "(maxOriginationLtv, liquidationLtv) in USDS per gOHM, 18 dec (3,123.18 and 3,154.42 on 2026-11-25). Set by governance via the LTV oracle, not by market price."
+     },
+     {
+      "signature": "interestRateWad()",
+      "kind": "read",
+      "payable": false,
+      "description": "Annual interest rate (1e18 = 100%)."
+     },
+     {
+      "signature": "setAuthorization(address,uint96)",
+      "kind": "write",
+      "payable": false,
+      "description": "Authorize another address (e.g. the Composites periphery) to act on your position until a deadline."
+     },
+     {
+      "signature": "applyDelegations((address,int256)[],address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Delegate/undelegate collateral gOHM voting power (up to 10 delegates)."
+     },
+     {
+      "signature": "borrowsPaused()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if new borrows are paused."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x6593768feBF9C95aC857Fb7Ef244D5738D1C57Fd",
+    "name": "Cooler V2 Composites (periphery)",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "addCollateralAndBorrow((address,address,uint96,uint256,uint256),(uint8,bytes32,bytes32),uint128,uint128,(address,int256)[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Add gOHM and borrow USDS in one tx. Args: authorization (account, authorized = Composites, authorizationDeadline, nonce, signatureDeadline), EIP-712 signature (v,r,s) for MonoCooler.setAuthorizationWithSig (pass a zero authorization/signature if already authorized), collateralAmount, borrowAmount, delegationRequests. Approve gOHM to Composites."
+     },
+     {
+      "signature": "repayAndRemoveCollateral((address,address,uint96,uint256,uint256),(uint8,bytes32,bytes32),uint128,uint128,(address,int256)[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Repay USDS and withdraw gOHM in one tx. Args: authorization, signature, repayAmount, collateralAmount, delegationRequests. Approve USDS to Composites."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xF35193DA8C10e44aF10853Ba5a3a1a6F7529E39a",
+    "name": "ConvertibleDepositAuctioneer",
+    "role": "exchange",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "bid(uint8,uint256,uint256,bool,bool)",
+      "kind": "write",
+      "payable": false,
+      "description": "Bid USDS for a convertible deposit. Args: depositPeriod (months; getDepositPeriods() returned [6] on 2026-11-25), depositAmount (USDS, 18 dec), minOhmOut (slippage: minimum OHM the position converts to), wrapPosition (ERC721), wrapReceipt (ERC20). Approve USDS to the DepositManager (0xcb4E21Eb404d80F3e1dB781aAd9AD6A1217fbbf2). Returns (ohmOut, positionId, receiptTokenId, actualAmount). Minimum bid getMinimumBid() was 100,000 USDS on 2026-11-25."
+     },
+     {
+      "signature": "previewBid(uint8,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "OHM a bid of depositAmount would be convertible into (average conversion price across ticks)."
+     },
+     {
+      "signature": "isAuctionActive()",
+      "kind": "read",
+      "payable": false,
+      "description": "True when the EmissionManager has an auction running (it runs only while OHM trades above the minimum premium to backing; false on 2026-11-25)."
+     },
+     {
+      "signature": "getCurrentTick(uint8)",
+      "kind": "read",
+      "payable": false,
+      "description": "(price in USDS per OHM, remaining OHM capacity, lastUpdate) of the current tick for a deposit period."
+     },
+     {
+      "signature": "getAuctionParameters()",
+      "kind": "read",
+      "payable": false,
+      "description": "(daily OHM target, tick size, minimum price)."
+     },
+     {
+      "signature": "getDepositPeriods()",
+      "kind": "read",
+      "payable": false,
+      "description": "Enabled deposit periods in months."
+     },
+     {
+      "signature": "getMinimumBid()",
+      "kind": "read",
+      "payable": false,
+      "description": "Minimum bid in deposit-asset units."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xEBDe552D851DD6Dfd3D360C596D3F4aF6e5F9678",
+    "name": "ConvertibleDepositFacility",
+    "role": "vault",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "convert(uint256[],uint256[],bool)",
+      "kind": "write",
+      "payable": false,
+      "description": "Convert receipt tokens to OHM at each position's locked price before position expiry. Args: positionIds, amounts (receipt tokens), wrappedReceipt (true if using the ERC20-wrapped receipt). Returns (receiptTokenIn, OHM out)."
+     },
+     {
+      "signature": "previewConvert(address,uint256[],uint256[])",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview (receiptTokenIn, OHM out) for an account."
+     },
+     {
+      "signature": "reclaim(address,uint8,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Early exit: burn receipt tokens and get the deposit asset back minus the reclaim discount. Args: depositToken (USDS), depositPeriod, amount. Approve the receipt token to the DepositManager first. No position needed."
+     },
+     {
+      "signature": "previewReclaim(address,uint8,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit asset returned by reclaim (after discount)."
+     },
+     {
+      "signature": "getAssetPeriodReclaimRate(address,uint8)",
+      "kind": "read",
+      "payable": false,
+      "description": "Reclaim rate for an asset/period (ONE_HUNDRED_PERCENT scale)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x20a3d8510f2e1176E8Db4CeA9883a8287a9029Db",
+    "name": "DepositRedemptionVault",
+    "role": "vault",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "startRedemption(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Start full redemption of a position's receipt tokens. Args: positionId, amount. Redeemable at the position's conversion expiry. Returns a redemptionId (uint16)."
+     },
+     {
+      "signature": "startRedemption(address,uint8,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Start redemption of receipt tokens without a position. Args: depositToken, depositPeriod (months), amount, facility (ConvertibleDepositFacility). Redeemable depositPeriod months after the call."
+     },
+     {
+      "signature": "finishRedemption(uint16)",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim the full deposit amount once redeemableAt has passed (reverts RedemptionVault_TooEarly before)."
+     },
+     {
+      "signature": "cancelRedemption(uint16,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Cancel (part of) a redemption; receipt tokens are returned."
+     },
+     {
+      "signature": "getUserRedemptions(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "All redemptions of a user (deposit token, period, amount, redeemableAt, ...)."
+     },
+     {
+      "signature": "borrowAgainstRedemption(uint16)",
+      "kind": "write",
+      "payable": false,
+      "description": "Borrow the maximum amount against an active redemption (preview with previewBorrowAgainstRedemption: principal, interest, dueDate). Unpaid loans default at the due date."
+     },
+     {
+      "signature": "repayLoan(uint16,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Repay a redemption loan. Args: redemptionId, amount, maxSlippage."
+     },
+     {
+      "signature": "extendLoan(uint16,uint8)",
+      "kind": "write",
+      "payable": false,
+      "description": "Extend a redemption loan's due date by N months, paying interest (preview with previewExtendLoan)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x271e35a8555a62F6bA76508E85dfD76D580B0692",
+    "name": "YieldRepurchaseFacility",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "getNextYield()",
+      "kind": "read",
+      "payable": false,
+      "description": "USDS yield to be used for buybacks next week."
+     },
+     {
+      "signature": "getReserveBalance()",
+      "kind": "read",
+      "payable": false,
+      "description": "Reserves held for buybacks."
+     },
+     {
+      "signature": "backingPerToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Backing value per OHM used to swap purchased OHM for reserves."
+     },
+     {
+      "signature": "epoch()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current epoch (heart beats every 8 hours, 21 per week)."
+     },
+     {
+      "signature": "teller()",
+      "kind": "read",
+      "payable": false,
+      "description": "Bond Protocol teller used for the daily OHM buyback market (0x007F7735baF391e207E3aA380bb53c4Bd9a5Fed6)."
+     },
+     {
+      "signature": "auctioneer()",
+      "kind": "read",
+      "payable": false,
+      "description": "Bond Protocol auctioneer that holds the buyback markets (0x007F7A1cb838A872515c8ebd16bE4b14Ef43a222)."
+     },
+     {
+      "signature": "isShutdown()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the facility is shut down."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x007F7735baF391e207E3aA380bb53c4Bd9a5Fed6",
+    "name": "Bond Protocol BondTeller (dependency)",
+    "role": "exchange",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "purchase(address,address,uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell OHM into a YRF buyback market (you pay OHM, the market pays out USDS). Args: recipient, referrer (zero address), market id, amount of OHM in, minAmountOut. Approve OHM to the teller. Returns (payout, expiry). Find the day's market id from the auctioneer's markets created by the YRF (MarketCreated events)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xFbf6383dC3F6010d403Ecdf12DDC1311701D143D",
+    "name": "CCIPCrossChainBridge",
+    "role": "bridge",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "sendToEVM(uint64,address,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge OHM via Chainlink CCIP. Args: destination CCIP chain selector (Arbitrum 4949039107694359620, Optimism 3734403246176062136, Base 15971525489660198786, Berachain 1294465214383781161; verified via getTrustedRemoteEVM), recipient, amount (OHM 9 dec). Approve OHM to the bridge. msg.value must cover getFeeEVM; any excess is NOT refunded. No Olympus fee."
+     },
+     {
+      "signature": "getFeeEVM(uint64,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "CCIP fee in ETH for a transfer."
+     },
+     {
+      "signature": "sendToSVM(uint64,bytes32,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge OHM to Solana (recipient as bytes32). The recipient must already have an OHM associated token account."
+     },
+     {
+      "signature": "getTrustedRemoteEVM(uint64)",
+      "kind": "read",
+      "payable": false,
+      "description": "Bridge contract on the destination chain (zero = lane not configured)."
+     },
+     {
+      "signature": "isEnabled()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the bridge is enabled."
+     },
+     {
+      "signature": "retryFailedMessage(bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "Retry delivery of a failed inbound message."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x2286d7f9639e8158FaD1169e76d1FbC38247f54b",
+    "name": "Kernel",
+    "role": "governance",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "isPolicyActive(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if a policy is installed and active; use it to confirm a contract is current before calling it."
+     },
+     {
+      "signature": "getModuleForKeycode(bytes5)",
+      "kind": "read",
+      "payable": false,
+      "description": "Module address for a keycode (e.g. 'TRSRY', 'MINTR', 'PRICE')."
+     },
+     {
+      "signature": "activePolicies(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Active policy at index i."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x0941233c964e7d7Efeb05D253176E5E634cEFfcD",
+    "name": "Governor Bravo (Delegator)",
+    "role": "governance",
+    "proxy": true,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "castVote(uint256,uint8)",
+      "kind": "write",
+      "payable": false,
+      "description": "Vote on a proposal: 0 = against, 1 = for, 2 = abstain. Needs delegated gOHM votes."
+     },
+     {
+      "signature": "castVoteWithReason(uint256,uint8,string)",
+      "kind": "write",
+      "payable": false,
+      "description": "Vote with a reason string."
+     },
+     {
+      "signature": "state(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Proposal state enum."
+     },
+     {
+      "signature": "proposalCount()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of proposals."
+     },
+     {
+      "signature": "getReceipt(uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Whether/how an account voted."
+     },
+     {
+      "signature": "getQuorumVotes()",
+      "kind": "read",
+      "payable": false,
+      "description": "Votes needed for quorum."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0xf0cb2dc0db5e6c66B9a70Ac27B06b878da017028",
+    "name": "OHM",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "OHM balance (9 decimals). Native OHM minted/burned by the CCIP token pool."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x8D9bA570D6cb60C7e3e0F31343Efe75AB8E65FB1",
+    "name": "gOHM (Arbitrum, bridged)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Bridged gOHM balance. Cannot vote in Governor Bravo (Snapshot only)."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0xb4f620c39F3BA4a1E7aD264fEd6239B0C618DB50",
+    "name": "CCIPCrossChainBridge",
+    "role": "bridge",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "sendToEVM(uint64,address,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge OHM (burned here). Args: destination chain selector (Ethereum 5009297550715157269), recipient, amount. Approve OHM; pay getFeeEVM in ETH (excess not refunded)."
+     },
+     {
+      "signature": "getFeeEVM(uint64,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "CCIP fee in ETH."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x060cb087a9730E13aa191f31A6d86bFF8DfcdCC0",
+    "name": "OHM",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "OHM balance (9 decimals)."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xEBDe552D851DD6Dfd3D360C596D3F4aF6e5F9678",
+    "name": "CCIPCrossChainBridge",
+    "role": "bridge",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "sendToEVM(uint64,address,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge OHM from Base. Args: destination chain selector, recipient, amount. Approve OHM; pay getFeeEVM in ETH."
+     },
+     {
+      "signature": "getFeeEVM(uint64,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "CCIP fee in ETH."
+     }
+    ]
+   },
+   {
+    "chain": "berachain",
+    "chainId": 80094,
+    "address": "0x18878Df23e2a36f81e820e4b47b4A40576D3159C",
+    "name": "OHM",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "OHM balance (9 decimals)."
+     }
+    ]
+   },
+   {
+    "chain": "berachain",
+    "chainId": 80094,
+    "address": "0xF35193DA8C10e44aF10853Ba5a3a1a6F7529E39a",
+    "name": "CCIPCrossChainBridge",
+    "role": "bridge",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "sendToEVM(uint64,address,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge OHM from Berachain (lanes: Ethereum, Arbitrum, Base). Approve OHM; pay getFeeEVM in BERA."
+     },
+     {
+      "signature": "getFeeEVM(uint64,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "CCIP fee in BERA."
+     }
+    ]
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x060cb087a9730E13aa191f31A6d86bFF8DfcdCC0",
+    "name": "OHM",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0xcb4E21Eb404d80F3e1dB781aAd9AD6A1217fbbf2",
+    "name": "CCIPCrossChainBridge",
+    "role": "bridge",
+    "proxy": false,
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "sendToEVM(uint64,address,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge OHM from Optimism (lanes: Ethereum, Arbitrum, Base). Approve OHM; pay getFeeEVM in ETH."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [
+   {
+    "name": "Olympus MCP server",
+    "url": "https://mcp.olympusdao.finance/mcp",
+    "auth": "none",
+    "use": "Read-only MCP (Streamable HTTP) over Olympus on-chain state, protocol metrics, Cooler loans, supply, governance and docs.",
+    "source": "https://docs.olympusdao.finance/main/for-agents/mcp/introduction"
+   },
+   {
+    "name": "Protocol Visualizer Indexer (GraphQL)",
+    "url": "https://protocol-visualizer-indexer-production.up.railway.app/graphql",
+    "auth": "none",
+    "use": "List Kernel-installed contracts per chain (filter isEnabled: true). It returned 'Application not found' on 2026-11-25; fall back to Kernel.isPolicyActive.",
+    "source": "https://docs.olympusdao.finance/main/for-agents/contract-registry"
+   }
+  ],
+  "actions": [
+   {
+    "name": "stake OHM for gOHM",
+    "description": "Get gOHM (needed for Cooler collateral and governance).",
+    "how": "OHM.approve(Staking, amount); Staking.stake(to, amount, false, true)."
+   },
+   {
+    "name": "unstake gOHM to OHM",
+    "description": "Redeem gOHM for OHM at the index (no fee, no delay).",
+    "how": "Staking.unstake(to, gOhmAmount, false, false)."
+   },
+   {
+    "name": "borrow USDS against gOHM",
+    "description": "Open or increase a Cooler V2 loan.",
+    "how": "gOHM.approve(MonoCooler, amount); MonoCooler.addCollateral(amount, self, []); MonoCooler.borrow(usdsWad, self, self). Check accountPosition() first; min debt 1,000 USDS. Or use Composites.addCollateralAndBorrow in one tx."
+   },
+   {
+    "name": "repay and withdraw",
+    "description": "Repay Cooler debt and take back gOHM.",
+    "how": "USDS.approve(MonoCooler, amount); MonoCooler.repay(amount, self); MonoCooler.withdrawCollateral(type(uint128).max, self, self, [])."
+   },
+   {
+    "name": "bid in the convertible deposit auction",
+    "description": "Deposit USDS for an option to convert into OHM at the locked price.",
+    "how": "Check isAuctionActive() and previewBid(period, amount); USDS.approve(DepositManager 0xcb4E21Eb404d80F3e1dB781aAd9AD6A1217fbbf2, amount); Auctioneer.bid(period, amount, minOhmOut, false, false). Later: Facility.convert(...) before expiry, DepositRedemptionVault.startRedemption/finishRedemption for the full deposit, or Facility.reclaim(...) for an early exit at a discount."
+   },
+   {
+    "name": "sell OHM to the Yield Repurchase Facility",
+    "description": "The YRF buys OHM for USDS each day through a Bond Protocol market.",
+    "how": "Find the current market on the Bond auctioneer (created by the YRF), OHM.approve(BondTeller, amount), BondTeller.purchase(recipient, 0x0, marketId, amount, minOut)."
+   },
+   {
+    "name": "bridge OHM",
+    "description": "Move native OHM between Ethereum, Arbitrum, Optimism, Base and Berachain.",
+    "how": "OHM.approve(CCIPCrossChainBridge, amount); fee = getFeeEVM(selector, to, amount); sendToEVM(selector, to, amount) with value = fee. Track on the CCIP Explorer."
+   },
+   {
+    "name": "vote",
+    "description": "Vote on Olympus governance proposals.",
+    "how": "gOHM.delegate(self) (once, before the proposal snapshot); GovernorBravo.castVote(proposalId, 1)."
+   }
+  ],
+  "risks": [
+   "OHM is not pegged; it floats freely. Range Bound Stability (RBS) is disabled (the Operator is inactive); buybacks come from the YRF and supply growth from the EmissionManager / convertible deposit auctions.",
+   "Emissions: when OHM trades above the minimum premium to backing, the EmissionManager sells new OHM through convertible deposit auctions (with a Bond Protocol fallback), diluting holders.",
+   "Cooler V2 has no price-based liquidation, but a position becomes liquidatable when accrued interest pushes debt per gOHM above the liquidation LTV; governance sets LTVs and the interest rate and can change them.",
+   "Convertible deposits: early reclaim applies a discount; conversion is only possible before the position expiry; redemption takes the full deposit period; loans against redemptions default at their due date.",
+   "Admin powers: Olympus V3 is a Kernel of modules and policies; governance (Governor Bravo + multisigs, emergency multisig) can install, upgrade or deactivate policies, pause borrows and change parameters. Check Kernel.isPolicyActive before relying on a policy.",
+   "Bridged OHM depends on Chainlink CCIP and per-route rate limits; transfers to Ethereum fail if the Ethereum pool lacks OHM; excess CCIP fee sent is kept by the bridge contract.",
+   "Audits listed by Olympus: Cooler V2 (panprog, Electisec, Nethermind, 2025), Convertible Deposits (Guardian, Trust, 2025), CCIP bridge (Electisec 2025, Cyfrin 2026)."
+  ],
+  "notes": "All addresses are from the Olympus docs addresses page; each was checked for code on-chain and each Ethereum policy listed was confirmed active with isActive() on 2026-11-25. Left out: modules (TRSRY, MINTR, PRICE, RANGE, ROLES, DLGTE, DEPOS; internal state, not called by users), Heart/EmissionManager/RolesAdmin/TreasuryCustodian and other operator-only policies, the Operator (RBS disabled, active() false), Cooler V1 Clearinghouses and CoolerFactory (marked deprecated; V1 loans can only be repaid), the older YRF 0x30a967eb957e5b1ee053b75f1a57ea6bfb2e907e (isActive false), CCIP token pools (internal to CCIP), Robinhood Chain and Solana OHM (not in the requested chain set; listed on the docs page), and Olympus V1/V2 bond depositories and allocators. The docs list Governor Bravo Delegate 0xa6013bBFd70d6190FA1cc1afD0cB3859847711B4, but the Delegator's implementation() returned 0xdE3F82D378c3b4E3F3f848b8DF501914b3317E96 on 2026-11-25; use the Delegator address (vote selectors confirmed in the live implementation's bytecode). Cooler V2 loans are perpetual, so there is no 'extend' function; extendLoan exists only for convertible-deposit redemption loans. The Bond Teller is a Bond Protocol contract listed as a dependency on the docs page. The docs list gOHM only on Ethereum, Arbitrum and older chains (Avalanche, Polygon, Fantom, Optimism, Boba), not on Base or Berachain. Signatures come from Sourcify-verified sources; Governor and Staking selectors were checked in bytecode. DefiLlama tracks Olympus on Ethereum only.",
+  "sources": [
+   "https://api.llama.fi/protocol/olympus-dao",
+   "https://docs.olympusdao.finance/main/contracts/addresses",
+   "https://docs.olympusdao.finance/main/for-agents/start-here",
+   "https://docs.olympusdao.finance/main/for-agents/contract-registry",
+   "https://docs.olympusdao.finance/main/for-agents/fresh-state",
+   "https://docs.olympusdao.finance/main/for-agents/mcp/introduction",
+   "https://docs.olympusdao.finance/main/overview/tokens",
+   "https://docs.olympusdao.finance/main/overview/cooler-loans",
+   "https://docs.olympusdao.finance/main/overview/convertible-deposits",
+   "https://docs.olympusdao.finance/main/overview/yield-repurchase-facility",
+   "https://docs.olympusdao.finance/main/overview/emissions-manager",
+   "https://docs.olympusdao.finance/main/overview/range-bound",
+   "https://docs.olympusdao.finance/main/overview/cross-chain",
+   "https://docs.olympusdao.finance/main/legacy/staking",
+   "https://docs.olympusdao.finance/main/governance/governance",
+   "https://docs.olympusdao.finance/main/security/audits",
+   "https://sourcify.dev/server/v2/contract/1/0xdb591Ea2e5Db886dA872654D58f6cc584b68e7cC",
+   "https://sourcify.dev/server/v2/contract/1/0x6593768feBF9C95aC857Fb7Ef244D5738D1C57Fd",
+   "https://sourcify.dev/server/v2/contract/1/0xF35193DA8C10e44aF10853Ba5a3a1a6F7529E39a",
+   "https://sourcify.dev/server/v2/contract/1/0xEBDe552D851DD6Dfd3D360C596D3F4aF6e5F9678",
+   "https://sourcify.dev/server/v2/contract/1/0x20a3d8510f2e1176E8Db4CeA9883a8287a9029Db",
+   "https://sourcify.dev/server/v2/contract/1/0xcb4E21Eb404d80F3e1dB781aAd9AD6A1217fbbf2",
+   "https://sourcify.dev/server/v2/contract/1/0x271e35a8555a62F6bA76508E85dfD76D580B0692",
+   "https://sourcify.dev/server/v2/contract/1/0xB63cac384247597756545b500253ff8E607a8020",
+   "https://sourcify.dev/server/v2/contract/1/0x0ab87046fBb341D058F17CBC4c1133F25a20a52f",
+   "https://sourcify.dev/server/v2/contract/1/0xFbf6383dC3F6010d403Ecdf12DDC1311701D143D",
+   "https://sourcify.dev/server/v2/contract/1/0x2286d7f9639e8158FaD1169e76d1FbC38247f54b",
+   "https://sourcify.dev/server/v2/contract/1/0x007F7735baF391e207E3aA380bb53c4Bd9a5Fed6"
+  ],
+  "researchedAt": "2026-11-25"
  },
  {
   "slug": "origin-protocol",
@@ -15180,6 +20569,806 @@ export const PROTOCOLS: ProtocolEntry[] = [
   "researchedAt": "2026-11-24"
  },
  {
+  "slug": "renzo",
+  "name": "Renzo",
+  "category": "Liquid Restaking",
+  "description": "Liquid restaking on EigenLayer: deposit ETH or stETH on Ethereum for non-rebasing ezETH (value rises against ETH), redeem through the WithdrawQueue (request, cooldown, claim), or mint ezETH directly on L2s (Arbitrum, Base, Linea, BNB Chain, Mode) through xRenzoDeposit contracts. ezETH is an xERC20 on L2s, backed 1:1 by ezETH locked in the Ethereum lockbox. REZ is the governance token.",
+  "website": "https://renzoprotocol.com",
+  "docs": "https://docs.renzoprotocol.com/docs",
+  "defillama": "https://defillama.com/protocol/renzo",
+  "chains": [
+   "ethereum",
+   "arbitrum",
+   "base",
+   "bsc",
+   "linea",
+   "mode",
+   "fraxtal",
+   "unichain",
+   "worldchain",
+   "zircuit",
+   "solana"
+  ],
+  "vm": "mixed",
+  "agentAccess": "onchain",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x74a09653A083691711cF8215a6ab074BB4e99ef5",
+    "name": "RestakeManager",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/ethereum-mainnet",
+    "keyFunctions": [
+     {
+      "signature": "depositETH()",
+      "kind": "write",
+      "payable": true,
+      "description": "Deposit ETH (msg.value) and mint ezETH to msg.sender at the current rate (ezETH out = ETH value * ezETH supply / total TVL). No slippage parameter: compare with calculateTVLs() first. Reverts while paused."
+     },
+     {
+      "signature": "depositETH(uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Same as depositETH() with a referral id (0 if none)."
+     },
+     {
+      "signature": "deposit(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit an accepted collateral token (approve RestakeManager first) and mint ezETH. Amount in token base units. On 2026-11-25 the only collateral token was stETH (0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84); check getCollateralTokensLength()/collateralTokens(i). Per-token TVL limits may apply (collateralTokenTvlLimits)."
+     },
+     {
+      "signature": "deposit(address,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Same as deposit(address,uint256) with a referral id (0 if none)."
+     },
+     {
+      "signature": "calculateTVLs()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint256[][] per-operator-delegator per-token TVLs, uint256[] per-operator-delegator TVLs, uint256 total TVL in ETH wei). ezETH rate = total TVL / ezETH.totalSupply() (about 1.0899 ETH on 2026-11-25). Docs warn it can revert in rare cases; do not continue with stale data if it does."
+     },
+     {
+      "signature": "getCollateralTokensLength()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of accepted collateral tokens."
+     },
+     {
+      "signature": "collateralTokens(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Accepted collateral token at index i."
+     },
+     {
+      "signature": "collateralTokenTvlLimits(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "TVL cap for a collateral token in ETH value (0 = no cap)."
+     },
+     {
+      "signature": "paused()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if deposits are paused."
+     },
+     {
+      "signature": "renzoOracle()",
+      "kind": "read",
+      "payable": false,
+      "description": "RenzoOracle used to value collateral and to compute mint amounts (lookupTokenValue, calculateMintAmount)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xbf5495Efe5DB9ce00f80364C8B423567e58d2110",
+    "name": "ezETH",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/ethereum-mainnet",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "ezETH balance (18 decimals). Non-rebasing: value accrues through the rate."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "ezETH supply; divide RestakeManager.calculateTVLs() total by this for the ETH rate."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve the WithdrawQueue (withdraw), the InstantWithdrawer, or the lockbox (bridge to xezETH)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer ezETH."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x5efc9D10E42FB517456f4ac41EB5e2eBe42C8918",
+    "name": "WithdrawQueue",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/ethereum-mainnet",
+    "keyFunctions": [
+     {
+      "signature": "withdraw(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Request a redemption. Args: ezETH amount (wei), asset out (0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for native ETH; other assets only if withdrawalBufferTarget(asset) > 0). Approve ezETH to this contract first; the ezETH is locked and burned at claim. The ETH amount is fixed at request time (it can only go down at claim if the rate falls). Appends a request to withdrawRequests(msg.sender, i)."
+     },
+     {
+      "signature": "claim(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim request index i for user after the cooldown. Args: withdrawRequestIndex, user. Reverts EarlyClaim before coolDownPeriod (1,209,600 s = 14 days on 2026-11-25; a risk oracle can lengthen it) and QueuedWithdrawalNotFilled if the buffer was short at request time and has not been refilled. Claiming swaps the last request into the claimed index, so re-read indexes after each claim."
+     },
+     {
+      "signature": "getOutstandingWithdrawRequests(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of pending requests for a user."
+     },
+     {
+      "signature": "withdrawRequests(address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Request i of a user: (collateralToken, withdrawRequestID, amountToRedeem, ezETHLocked, createdAt)."
+     },
+     {
+      "signature": "calculateAmountToRedeem(uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote: returns (per-delegator TVLs, amount of asset out) for an ezETH amount and asset out."
+     },
+     {
+      "signature": "coolDownPeriod()",
+      "kind": "read",
+      "payable": false,
+      "description": "Base cooldown in seconds between request and claim (14 days on 2026-11-25)."
+     },
+     {
+      "signature": "getAvailableToWithdraw(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Assets currently in the withdraw buffer for an asset (use the 0xEeee… address for ETH). Requests larger than this are queued until the buffer is refilled."
+     },
+     {
+      "signature": "withdrawalBufferTarget(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Buffer target for an asset; 0 means the asset is not supported for withdrawal."
+     },
+     {
+      "signature": "paused()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if withdrawals are paused."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x682C9Ee10E1F4bB820758F662BE0851D05150024",
+    "name": "InstantWithdrawer",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://app.renzoprotocol.com/_next/static/immutable/chunks/38v_bf0ddd1az.js",
+    "keyFunctions": [
+     {
+      "signature": "withdraw(uint256,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Redeem ezETH instantly from the withdraw buffer for a fee. Args: ezETH amount, redeem token (0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for ETH), minOut. Approve ezETH to this contract first. Reverts if the buffer would drop below its drawdown limit (NotEnoughWithdrawBuffer / BelowAllowedLimit) or the protocol is paused."
+     },
+     {
+      "signature": "getQuote(uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Amount out after fee for an ezETH amount and redeem token. Reverts when an instant withdrawal is not possible (it reverted on 2026-11-25: buffer 103 ETH below the 500 ETH drawdown limit)."
+     },
+     {
+      "signature": "getBufferDetails(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(buffer capacity, buffer available, drawdown limit) for a redeem token. Instant withdrawals work only while available minus your amount stays above the drawdown limit."
+     },
+     {
+      "signature": "minFeeBps()",
+      "kind": "read",
+      "payable": false,
+      "description": "Minimum fee in basis points (100 = 1% on 2026-11-25)."
+     },
+     {
+      "signature": "maxFeeBps()",
+      "kind": "read",
+      "payable": false,
+      "description": "Maximum fee in basis points (100 = 1% on 2026-11-25); the fee scales between min and max with buffer fullness."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xC8140dA31E6bCa19b287cC35531c2212763C2059",
+    "name": "ezETH Lockbox",
+    "role": "bridge",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/ethereum-mainnet",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Lock ezETH (approve the lockbox first) and receive the same amount of xezETH on Ethereum, the xERC20 form that bridges to L2s."
+     },
+     {
+      "signature": "depositTo(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Same as deposit, xezETH sent to another address."
+     },
+     {
+      "signature": "withdraw(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn xezETH and get back the same amount of ezETH."
+     },
+     {
+      "signature": "withdrawTo(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Same as withdraw, ezETH sent to another address."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+    "name": "xezETH (xERC20 ezETH, Ethereum)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/ethereum-mainnet",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "xezETH balance. Redeem for ezETH 1:1 through the lockbox."
+     },
+     {
+      "signature": "lockbox()",
+      "kind": "read",
+      "payable": false,
+      "description": "The lockbox address (0xC8140dA31E6bCa19b287cC35531c2212763C2059)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x8c9532a60E0E7C6BbD2B2c1303F63aCE1c3E9811",
+    "name": "pzETH",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/ethereum-mainnet",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "pzETH balance (Symbiotic restaked wstETH). Minting is discontinued; holders redeem to wstETH in the Renzo app (14-21 days)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x3B50805453023a91a8bf641e279401a0b23FA6F9",
+    "name": "REZ",
+    "role": "governance",
+    "proxy": false,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/ethereum-mainnet",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "REZ balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve the REZ staking contract before stake()."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x1736011D3E075351B319DBC1da28Dac68Ea830A6",
+    "name": "REZ Staking",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/ethereum-mainnet",
+    "keyFunctions": [
+     {
+      "signature": "stake(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake REZ (approve first)."
+     },
+     {
+      "signature": "unStake(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Start unstaking an amount of REZ; it becomes claimable after coolDownPeriod()."
+     },
+     {
+      "signature": "claim(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim unstake request at the given index once its cooldown has passed."
+     },
+     {
+      "signature": "activeStake(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "REZ currently staked by a user."
+     },
+     {
+      "signature": "getUnstakeRequestsLength(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of pending unstake requests."
+     },
+     {
+      "signature": "unstakeRequests(address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Unstake request details for a user and index."
+     },
+     {
+      "signature": "coolDownPeriod()",
+      "kind": "read",
+      "payable": false,
+      "description": "Unstake cooldown in seconds (3,600 = 1 hour on 2026-11-25)."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+    "name": "ezETH (xERC20)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/arbitrum",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "ezETH balance on the L2 (same address on every listed L2)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x2EfA125B4fcD5B082a4233BA55b53FeB2Fb4Ff33",
+    "name": "xRenzoDeposit (L2 deposit)",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://app.renzoprotocol.com/_next/static/immutable/chunks/38v_bf0ddd1az.js",
+    "keyFunctions": [
+     {
+      "signature": "depositETH(uint256,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Deposit ETH (msg.value) and mint ezETH on this L2 immediately at the L1 rate relayed to the L2. Args: minOut (ezETH wei), deadline (unix seconds). A bridge fee of bridgeFeeShare() bps (5 = 0.05% on 2026-11-25) is taken first."
+     },
+     {
+      "signature": "deposit(address,uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit a supported token (WETH; check depositTokenSupported) and mint ezETH. Args: token, amountIn, minOut, deadline. Approve the token first. Same bridge fee as depositETH."
+     },
+     {
+      "signature": "getMintRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "(ezETH price in ETH 1e18, timestamp of the last L1 price update)."
+     },
+     {
+      "signature": "getRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "ezETH price in ETH (1e18); reverts if the price is stale."
+     },
+     {
+      "signature": "depositTokenSupported(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if a token can be deposited (0xEeee… = native ETH)."
+     },
+     {
+      "signature": "bridgeFeeShare()",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit fee in basis points (FEE_BASIS 10000)."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+    "name": "ezETH (xERC20)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/base",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "ezETH balance."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x766A4df76Cb091C41De22F75b6BD6733fb730357",
+    "name": "xRenzoDeposit (L2 deposit)",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://app.renzoprotocol.com/_next/static/immutable/chunks/38v_bf0ddd1az.js",
+    "keyFunctions": [
+     {
+      "signature": "depositETH(uint256,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Deposit ETH and mint ezETH on Base. Args: minOut, deadline. 0.05% bridge fee (bridgeFeeShare 5 bps on 2026-11-25)."
+     },
+     {
+      "signature": "deposit(address,uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit a supported token (WETH 0x4200000000000000000000000000000000000006). Args: token, amountIn, minOut, deadline. Approve first."
+     },
+     {
+      "signature": "getMintRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "(ezETH price in ETH 1e18, last update timestamp)."
+     },
+     {
+      "signature": "depositTokenSupported(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if a token can be deposited."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xf757c9804cF2EE8d8Ed64e0A8936293Fe43a7252",
+    "name": "REZ (Base)",
+    "role": "governance",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/base",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "REZ balance on Base (xERC20)."
+     }
+    ]
+   },
+   {
+    "chain": "linea",
+    "chainId": 59144,
+    "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+    "name": "ezETH (xERC20)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/linea",
+    "keyFunctions": []
+   },
+   {
+    "chain": "linea",
+    "chainId": 59144,
+    "address": "0x657eaC5Dc9e0DAe2E949391377708ACb896b2999",
+    "name": "xRenzoDeposit (L2 deposit)",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://app.renzoprotocol.com/_next/static/immutable/chunks/38v_bf0ddd1az.js",
+    "keyFunctions": [
+     {
+      "signature": "depositETH(uint256,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Deposit ETH and mint ezETH on Linea. Args: minOut, deadline. 0.05% bridge fee."
+     },
+     {
+      "signature": "deposit(address,uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit a supported token (WETH 0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f). Args: token, amountIn, minOut, deadline."
+     },
+     {
+      "signature": "getMintRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "(ezETH price in ETH 1e18, last update timestamp)."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+    "name": "ezETH (xERC20)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/bnb-chain",
+    "keyFunctions": []
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0xf25484650484DE3d554fB0b7125e7696efA4ab99",
+    "name": "xRenzoDeposit (BNB Chain)",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/bnb-chain",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit the depositToken (Binance-Peg ETH 0x2170Ed0880ac9A755fd29B2688956BD959F933F8) and mint ezETH. Args: amountIn, minOut, deadline. Approve first. bridgeFeeShare was 0 on 2026-11-25."
+     },
+     {
+      "signature": "getMintRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "(ezETH price in ETH 1e18, last update timestamp)."
+     },
+     {
+      "signature": "depositToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "The token this contract accepts."
+     }
+    ]
+   },
+   {
+    "chain": "mode",
+    "chainId": 34443,
+    "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+    "name": "ezETH (xERC20)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/mode",
+    "keyFunctions": []
+   },
+   {
+    "chain": "mode",
+    "chainId": 34443,
+    "address": "0x4D7572040B84b41a6AA2efE4A93eFFF182388F88",
+    "name": "xRenzoDeposit (Mode)",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/mode",
+    "keyFunctions": [
+     {
+      "signature": "depositETH(uint256,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Deposit ETH and mint ezETH on Mode. Args: minOut, deadline. Implementation not verified on Sourcify; selector confirmed in bytecode."
+     },
+     {
+      "signature": "deposit(uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit WETH (0x4200000000000000000000000000000000000006). Args: amountIn, minOut, deadline. Approve first."
+     },
+     {
+      "signature": "getMintRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "(ezETH price in ETH 1e18, last update timestamp)."
+     }
+    ]
+   },
+   {
+    "chain": "fraxtal",
+    "chainId": 252,
+    "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+    "name": "ezETH (xERC20)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/fraxtal",
+    "keyFunctions": []
+   },
+   {
+    "chain": "unichain",
+    "chainId": 130,
+    "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+    "name": "ezETH (xERC20)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/unichain",
+    "keyFunctions": []
+   },
+   {
+    "chain": "unichain",
+    "chainId": 130,
+    "address": "0x9cb41CD74D01ae4b4f640EC40f7A60cA1bCF83E7",
+    "name": "pzETH (xERC20)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/unichain",
+    "keyFunctions": []
+   },
+   {
+    "chain": "worldchain",
+    "chainId": 480,
+    "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+    "name": "ezETH (xERC20)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/worldchain",
+    "keyFunctions": []
+   },
+   {
+    "chain": "zircuit",
+    "chainId": 48900,
+    "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+    "name": "ezETH (xERC20)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/zircuit-l2",
+    "keyFunctions": []
+   },
+   {
+    "chain": "solana",
+    "chainId": null,
+    "address": "ezSoL6fY1PVdJcJsUpe5CM3xkfmy3zoVCABybm5WtiC",
+    "name": "ezSOL (Jito vault receipt token)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/solana-mainnet",
+    "keyFunctions": []
+   },
+   {
+    "chain": "solana",
+    "chainId": null,
+    "address": "3DK98MXPz8TRuim7rfQnebSLpA7VSoc79Bgiee1m4Zw5",
+    "name": "REZ (Solana)",
+    "role": "governance",
+    "proxy": null,
+    "source": "https://docs.renzoprotocol.com/docs/contracts/solana-mainnet",
+    "keyFunctions": []
+   }
+  ],
+  "offchainApis": [],
+  "actions": [
+   {
+    "name": "restake ETH for ezETH (Ethereum)",
+    "description": "Mint ezETH from ETH on Ethereum.",
+    "how": "RestakeManager.depositETH() with ETH value. Check paused() first; expected ezETH = amount * ezETH.totalSupply() / calculateTVLs()[2]."
+   },
+   {
+    "name": "restake stETH for ezETH",
+    "description": "Mint ezETH from stETH.",
+    "how": "stETH.approve(RestakeManager, amount) then RestakeManager.deposit(stETH, amount)."
+   },
+   {
+    "name": "mint ezETH on an L2",
+    "description": "Mint ezETH directly on Arbitrum, Base, Linea (ETH or WETH), Mode (ETH or WETH) or BNB Chain (Binance-Peg ETH).",
+    "how": "xRenzoDeposit.depositETH(minOut, deadline) with ETH value, or approve WETH and call deposit(...) (signature differs per chain, see contracts). Set minOut from getMintRate() minus the bridge fee."
+   },
+   {
+    "name": "redeem ezETH (standard)",
+    "description": "Redeem ezETH for ETH at the protocol rate with a cooldown.",
+    "how": "ezETH.approve(WithdrawQueue, amount); WithdrawQueue.withdraw(amount, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE); after coolDownPeriod() (14 days on 2026-11-25) find the request index via getOutstandingWithdrawRequests/withdrawRequests and call claim(index, user)."
+   },
+   {
+    "name": "redeem ezETH instantly",
+    "description": "Redeem immediately for a 1% fee when the buffer allows.",
+    "how": "Check InstantWithdrawer.getQuote(amount, 0xEeee…) succeeds; ezETH.approve(InstantWithdrawer, amount); InstantWithdrawer.withdraw(amount, 0xEeee…, minOut)."
+   },
+   {
+    "name": "exit on an L2",
+    "description": "There is no withdraw contract on L2s.",
+    "how": "Sell ezETH on a DEX, or bridge it to Ethereum (Renzo app bridge, powered by Hyperlane), convert xezETH to ezETH with Lockbox.withdraw if needed, then use the WithdrawQueue."
+   },
+   {
+    "name": "stake REZ",
+    "description": "Stake REZ for governance/rewards.",
+    "how": "REZ.approve(REZ Staking, amount); stake(amount). Unstake with unStake(amount), then claim(index) after coolDownPeriod()."
+   }
+  ],
+  "risks": [
+   "ezETH is restaked through EigenLayer; operator/AVS slashing can reduce the backing and the ezETH rate.",
+   "Standard withdrawals are slow: the on-chain cooldown was 14 days on 2026-11-25 (docs say 7 days if the buffer has assets, 10-15 days otherwise), and requests larger than the buffer wait until it is refilled. The ETH amount is fixed at request time and can only go down at claim.",
+   "Instant withdrawals cost a fee (1% on 2026-11-25) and revert when the buffer is near its drawdown limit; on 2026-11-25 the buffer (about 103 ETH) was below the 500 ETH limit, so instant withdrawals were unavailable.",
+   "L2 ezETH is minted against an oracle price relayed from Ethereum; deposited ETH is bridged to Ethereum later. L2 ezETH depends on the xERC20 lockbox and bridge mint limits.",
+   "Contracts are upgradeable proxies; admin roles can pause deposits/withdrawals, change cooldowns, buffer targets and fees. A risk oracle can lengthen the withdrawal cooldown.",
+   "Renzo takes 10% of restaking rewards (split between treasury and node operators).",
+   "ezETH trades on DEXs and can trade below its backing rate when withdrawal demand is high.",
+   "pzETH and ezSOL minting is discontinued; only withdrawals via the app remain (pzETH 14-21 days, ezSOL about 2 epochs with a 0.2% fee).",
+   "Audits listed by Renzo: Halborn (2023, 2024), Sigma Prime (2024), Code4rena (2024), Nethermind (2025)."
+  ],
+  "notes": "Main ezETH contracts (RestakeManager, ezETH, WithdrawQueue, lockbox, xezETH) and L2 ezETH/REZ/pzETH tokens are from the Renzo docs contract pages. The docs list xRenzoDeposit 0xf25484650484DE3d554fB0b7125e7696efA4ab99 for Arbitrum and Base and 0x4D7572040B84b41a6AA2efE4A93eFFF182388F88 for Linea, but on those chains these are now deprecated stubs whose newRenzoDeposit() points to the new contracts listed here (0x2EfA… Arbitrum, 0x766A… Base, 0x657e… Linea); the new addresses and the InstantWithdrawer come from the official Renzo app config (app.renzoprotocol.com JS bundle; the chunk name changes with app releases) and match newRenzoDeposit() on-chain. The docs' Ethereum page prints pzETH truncated; the address used is the one in the docs' Etherscan link, which has code. Left out: xRenzoBridge, xERC20 factory, DepositQueue and RenzoOracle (internal, not called by users), EigenLayer StrategyManager (EigenLayer's contract), ezREZ, ezEIGEN, ezBTC, bzSOL, ezJTO and reserve vaults (smaller or separate products), Renzo on Ink (app lists a deposit contract but the docs list no Ink ezETH), and Sei RedETH. Optimism and Blast ezETH appear on DefiLlama but are not on the docs pages, so they are left out. The 24 Apr 2024 ezETH depeg is not described on the Renzo docs pages read, so it is not cited as a fact here. The docs say the WithdrawQueue buffer delay is 3 days, but coolDownPeriod() returned 14 days on-chain on 2026-11-25. No official public HTTP API is documented. Function signatures come from Sourcify-verified sources of the current implementations (Mode deposit implementation unverified; selectors checked in bytecode).",
+  "sources": [
+   "https://api.llama.fi/protocol/renzo",
+   "https://docs.renzoprotocol.com/docs/sitemap.md",
+   "https://docs.renzoprotocol.com/docs/llms-full.txt",
+   "https://docs.renzoprotocol.com/docs/contracts/ethereum-mainnet",
+   "https://docs.renzoprotocol.com/docs/contracts/layer-2s/arbitrum",
+   "https://docs.renzoprotocol.com/docs/contracts/layer-2s/base",
+   "https://docs.renzoprotocol.com/docs/contracts/layer-2s/bnb-chain",
+   "https://docs.renzoprotocol.com/docs/contracts/layer-2s/linea",
+   "https://docs.renzoprotocol.com/docs/contracts/layer-2s/mode",
+   "https://docs.renzoprotocol.com/docs/contracts/layer-2s/fraxtal",
+   "https://docs.renzoprotocol.com/docs/contracts/layer-2s/unichain",
+   "https://docs.renzoprotocol.com/docs/contracts/layer-2s/worldchain",
+   "https://docs.renzoprotocol.com/docs/contracts/layer-2s/zircuit-l2",
+   "https://docs.renzoprotocol.com/docs/contracts/solana-mainnet",
+   "https://docs.renzoprotocol.com/docs/contracts/third-party-integration",
+   "https://docs.renzoprotocol.com/docs/contracts/source-code",
+   "https://docs.renzoprotocol.com/docs/services/withdrawals",
+   "https://docs.renzoprotocol.com/docs/services/instant-withdrawals",
+   "https://docs.renzoprotocol.com/docs/services/bridge",
+   "https://docs.renzoprotocol.com/docs/products/staking-suite/pzeth",
+   "https://docs.renzoprotocol.com/docs/products/staking-suite/ezsol",
+   "https://docs.renzoprotocol.com/docs/security/audits",
+   "https://app.renzoprotocol.com/_next/static/immutable/chunks/38v_bf0ddd1az.js",
+   "https://github.com/Renzo-Protocol/contracts-public",
+   "https://sourcify.dev/server/v2/contract/1/0xd5b3be349ed0b7c82dbd9271ce3739a381fc7aa0",
+   "https://sourcify.dev/server/v2/contract/1/0xf821a5cff2cdd014c6e6bbb8e05b81c3d7e98003",
+   "https://sourcify.dev/server/v2/contract/1/0x2ddaa152b3cf455693c944f9f47925408ff6f8ff",
+   "https://sourcify.dev/server/v2/contract/1/0xeeada1f6061e30bb1501319bbffb44fdf7037ca8",
+   "https://sourcify.dev/server/v2/contract/1/0xb370a0bd64daf1c6b04eaf01c1dedf7c6bce30f7",
+   "https://sourcify.dev/server/v2/contract/1/0x1f7e86e15f5098ba6c0b59f1792af22167d01728",
+   "https://sourcify.dev/server/v2/contract/42161/0x766a4df76cb091c41de22f75b6bd6733fb730357",
+   "https://sourcify.dev/server/v2/contract/56/0xfde1366f26cc3621d944afbc96177a90f2849d26"
+  ],
+  "researchedAt": "2026-11-25"
+ },
+ {
   "slug": "saturn",
   "name": "Saturn",
   "category": "Stablecoin Wrapper",
@@ -16314,6 +22503,458 @@ export const PROTOCOLS: ProtocolEntry[] = [
    "https://arb1.arbitrum.io/rpc"
   ],
   "researchedAt": "2026-11-24"
+ },
+ {
+  "slug": "sierra-protocol",
+  "name": "Sierra Protocol",
+  "category": "Yield",
+  "description": "Issuer of USDC-backed, non-rebasing 'Liquid Yield Token' vault tokens (SIERRA, SPLUS) built on OpenTrade's LYT contracts: reserves are deployed into RWA and DeFi yield sources and yield accrues through a rising exchange rate. Agents can deposit USDC into SPLUS permissionlessly and request/claim redemptions, read exchange rates and positions, and hold/trade/bridge SIERRA (minting SIERRA directly is for whitelisted Authorized Participants).",
+  "website": "https://sierra.money",
+  "docs": "https://docs.sierra.money",
+  "defillama": "https://defillama.com/protocol/sierra-protocol",
+  "chains": [
+   "ethereum",
+   "avalanche"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xBcEb5f6877d979EC621AE694dA1102CB95691aD3",
+    "name": "SIERRA vault token (native, Ethereum)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://docs.sierra.money/building-with-sierra/blockchain-addresses",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Mint vault tokens: (assets in USDC (0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48) base units, 6 decimals; lender = msg.sender, otherwise reverts PoolInvalidState). Approve USDC (0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48) (asset()) to the vault first. Returns shares (6 decimals) at the current exchangeRate. Can revert DailyMintLimitExceeded or PoolPaused. On SIERRA the deposit is gated: onchain simulation from a non-whitelisted wallet reverts NotMarketMaker(); only whitelisted Authorized Participants (KYB'd institutions) can mint. Everyone else buys SIERRA on DEXs."
+     },
+     {
+      "signature": "requestRedeem(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Request a withdrawal: (shares, 6 decimals). Returns the net USDC amount after fees, fixed at the current exchange rate. Emits RedeemRequested(lender, assets, shares, uuid): save uuid. Requested shares stay in your balance but cannot be transferred. Max 100 open requests per wallet; RedeemBelowMinimum if too small. Gated like deposit (Authorized Participants only)."
+     },
+     {
+      "signature": "isClaimable(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "True once the issuer has processed the withdrawal request uuid (ClaimsOpened event)."
+     },
+     {
+      "signature": "claim(bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim a processed withdrawal (uuid) from the requesting wallet: burns the shares and sends USDC minus the fee."
+     },
+     {
+      "signature": "cancelRedemption(bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "Cancel an open withdrawal request by uuid (emits RedeemCancelled); check it succeeds with a simulation first."
+     },
+     {
+      "signature": "withdrawExtra(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "Details of a withdrawal request, including .fee (USDC, 6 decimals)."
+     },
+     {
+      "signature": "exchangeRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "USDC per vault token, 18 decimals (e.g. 1.05e18). Rises as reserves earn yield; updated by the issuer (hourly for DeFi yield, daily for RWA)."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "USDC (6 decimals) for a number of shares at the current rate."
+     },
+     {
+      "signature": "convertToShares(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Shares (6 decimals) for an amount of USDC."
+     },
+     {
+      "signature": "previewRedeemRequest(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "USDC a requestRedeem of the given shares would lock in now."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Vault tokens held (6 decimals), including shares reserved by open requests."
+     },
+     {
+      "signature": "assetBalanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Holder's tokens valued in USDC (6 decimals)."
+     },
+     {
+      "signature": "maxRedeemRequest(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Largest requestRedeem (shares) the wallet can make now."
+     },
+     {
+      "signature": "getLYTPoolAccountState(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Account summary: (poolAddr, accountAddr, liquidityAssetAddr, tokenBalance, assetBalance, maxWithdrawRequest, maxRedeemRequest, requestedSharesOf, requestedAssetsOf, assetsDeposited, assetsWithdrawn)."
+     },
+     {
+      "signature": "getLYTPoolOverviewState()",
+      "kind": "read",
+      "payable": false,
+      "description": "Vault state: totals, exchangeRate and its schedule fields, interestRate / indicativeInterestRate / collateralRate in bps, active withdrawal requests."
+     },
+     {
+      "signature": "asset()",
+      "kind": "read",
+      "payable": false,
+      "description": "Liquidity asset (USDC (0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48))."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x7706b1a531A7A8cB4c26D24CDc9ae4094a3e0302",
+    "name": "SPLUS vault token (Sierra OpenTrade Prime Plus Yield)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://docs.sierra.money/building-with-sierra/smart-contract-integration",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Mint vault tokens: (assets in USDC (0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48) base units, 6 decimals; lender = msg.sender, otherwise reverts PoolInvalidState). Approve USDC (0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48) (asset()) to the vault first. Returns shares (6 decimals) at the current exchangeRate. Can revert DailyMintLimitExceeded or PoolPaused. Permissionless (any non-sanctioned wallet); no mint fee."
+     },
+     {
+      "signature": "requestRedeem(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Request a withdrawal: (shares, 6 decimals). Returns the net USDC amount after fees, fixed at the current exchange rate. Emits RedeemRequested(lender, assets, shares, uuid): save uuid. Requested shares stay in your balance but cannot be transferred. Max 100 open requests per wallet; RedeemBelowMinimum if too small. Redemption fee 10 bps on SPLUS; docs SLA up to 7 business days (usually same day)."
+     },
+     {
+      "signature": "isClaimable(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "True once the issuer has processed the withdrawal request uuid (ClaimsOpened event)."
+     },
+     {
+      "signature": "claim(bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim a processed withdrawal (uuid) from the requesting wallet: burns the shares and sends USDC minus the fee."
+     },
+     {
+      "signature": "cancelRedemption(bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "Cancel an open withdrawal request by uuid (emits RedeemCancelled); check it succeeds with a simulation first."
+     },
+     {
+      "signature": "withdrawExtra(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "Details of a withdrawal request, including .fee (USDC, 6 decimals)."
+     },
+     {
+      "signature": "exchangeRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "USDC per vault token, 18 decimals (e.g. 1.05e18). Rises as reserves earn yield; updated by the issuer (hourly for DeFi yield, daily for RWA)."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "USDC (6 decimals) for a number of shares at the current rate."
+     },
+     {
+      "signature": "convertToShares(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Shares (6 decimals) for an amount of USDC."
+     },
+     {
+      "signature": "previewRedeemRequest(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "USDC a requestRedeem of the given shares would lock in now."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Vault tokens held (6 decimals), including shares reserved by open requests."
+     },
+     {
+      "signature": "assetBalanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Holder's tokens valued in USDC (6 decimals)."
+     },
+     {
+      "signature": "maxRedeemRequest(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Largest requestRedeem (shares) the wallet can make now."
+     },
+     {
+      "signature": "getLYTPoolAccountState(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Account summary: (poolAddr, accountAddr, liquidityAssetAddr, tokenBalance, assetBalance, maxWithdrawRequest, maxRedeemRequest, requestedSharesOf, requestedAssetsOf, assetsDeposited, assetsWithdrawn)."
+     },
+     {
+      "signature": "getLYTPoolOverviewState()",
+      "kind": "read",
+      "payable": false,
+      "description": "Vault state: totals, exchangeRate and its schedule fields, interestRate / indicativeInterestRate / collateralRate in bps, active withdrawal requests."
+     },
+     {
+      "signature": "asset()",
+      "kind": "read",
+      "payable": false,
+      "description": "Liquidity asset (USDC (0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48))."
+     }
+    ]
+   },
+   {
+    "chain": "avalanche",
+    "chainId": 43114,
+    "address": "0x6E6080e15f8C0010d333D8CAeEaD29292ADb78f7",
+    "name": "SIERRA vault token (native, Avalanche)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://docs.sierra.money/building-with-sierra/blockchain-addresses",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Mint vault tokens: (assets in USDC on Avalanche (0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E) base units, 6 decimals; lender = msg.sender, otherwise reverts PoolInvalidState). Approve USDC on Avalanche (0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E) (asset()) to the vault first. Returns shares (6 decimals) at the current exchangeRate. Can revert DailyMintLimitExceeded or PoolPaused. On SIERRA the deposit is gated: onchain simulation from a non-whitelisted wallet reverts NotMarketMaker(); only whitelisted Authorized Participants (KYB'd institutions) can mint. Everyone else buys SIERRA on DEXs."
+     },
+     {
+      "signature": "requestRedeem(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Request a withdrawal: (shares, 6 decimals). Returns the net USDC amount after fees, fixed at the current exchange rate. Emits RedeemRequested(lender, assets, shares, uuid): save uuid. Requested shares stay in your balance but cannot be transferred. Max 100 open requests per wallet; RedeemBelowMinimum if too small. Gated like deposit (Authorized Participants only)."
+     },
+     {
+      "signature": "isClaimable(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "True once the issuer has processed the withdrawal request uuid (ClaimsOpened event)."
+     },
+     {
+      "signature": "claim(bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim a processed withdrawal (uuid) from the requesting wallet: burns the shares and sends USDC minus the fee."
+     },
+     {
+      "signature": "cancelRedemption(bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "Cancel an open withdrawal request by uuid (emits RedeemCancelled); check it succeeds with a simulation first."
+     },
+     {
+      "signature": "withdrawExtra(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "Details of a withdrawal request, including .fee (USDC, 6 decimals)."
+     },
+     {
+      "signature": "exchangeRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "USDC per vault token, 18 decimals (e.g. 1.05e18). Rises as reserves earn yield; updated by the issuer (hourly for DeFi yield, daily for RWA)."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "USDC (6 decimals) for a number of shares at the current rate."
+     },
+     {
+      "signature": "convertToShares(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Shares (6 decimals) for an amount of USDC."
+     },
+     {
+      "signature": "previewRedeemRequest(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "USDC a requestRedeem of the given shares would lock in now."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Vault tokens held (6 decimals), including shares reserved by open requests."
+     },
+     {
+      "signature": "assetBalanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Holder's tokens valued in USDC (6 decimals)."
+     },
+     {
+      "signature": "maxRedeemRequest(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Largest requestRedeem (shares) the wallet can make now."
+     },
+     {
+      "signature": "getLYTPoolAccountState(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Account summary: (poolAddr, accountAddr, liquidityAssetAddr, tokenBalance, assetBalance, maxWithdrawRequest, maxRedeemRequest, requestedSharesOf, requestedAssetsOf, assetsDeposited, assetsWithdrawn)."
+     },
+     {
+      "signature": "getLYTPoolOverviewState()",
+      "kind": "read",
+      "payable": false,
+      "description": "Vault state: totals, exchangeRate and its schedule fields, interestRate / indicativeInterestRate / collateralRate in bps, active withdrawal requests."
+     },
+     {
+      "signature": "asset()",
+      "kind": "read",
+      "payable": false,
+      "description": "Liquidity asset (USDC on Avalanche (0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E))."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x6bf7788EAA948d9fFBA7E9bb386E2D3c9810e0fc",
+    "name": "SIERRA OFT (bridged from Avalanche via LayerZero)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.sierra.money/building-with-sierra/blockchain-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Bridged SIERRA balance (6 decimals). This is a DIFFERENT token from the native Ethereum SIERRA vault 0xBcEb...; it cannot be redeemed with the Ethereum vault."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer bridged SIERRA."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender (e.g. a DEX router)."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero fee quote for send: SendParam(dstEid, to as bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false. Avalanche dstEid = 30106 (the only peer configured)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge SIERRA back to Avalanche: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); msg.value = nativeFee. Tokens are burned here and released on Avalanche."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [
+   {
+    "name": "Sierra Protocol API",
+    "url": "https://api.sierra.money",
+    "auth": "api-key",
+    "use": "Read-only vault metrics: GET /lytHero/{lytPoolAddr} (exchange rate, market cap, 3/7/30-day APY) and GET /lytPoolReservesState/{lytPoolAddr} (reserve allocations). Header x-api-key; token issued by Sierra on request. No account data, cannot move funds.",
+    "source": "https://docs.sierra.money/building-with-sierra/api-integration"
+   },
+   {
+    "name": "RedStone SIERRA fundamental price feed",
+    "url": "https://app.redstone.finance/app/token/SIERRA_FUNDAMENTAL/",
+    "auth": "none",
+    "use": "SIERRA exchange-rate feed published by RedStone for lending markets/curators.",
+    "source": "https://docs.sierra.money/sierra/price-oracle"
+   }
+  ],
+  "actions": [
+   {
+    "name": "deposit-splus",
+    "description": "Mint SPLUS with USDC (permissionless)",
+    "how": "USDC.approve(0x7706b1a531A7A8cB4c26D24CDc9ae4094a3e0302, assets); SPLUS.deposit(assets, msg.sender). 6-decimal units; estimate with convertToShares(assets)."
+   },
+   {
+    "name": "redeem-splus",
+    "description": "Withdraw USDC from SPLUS (two-step)",
+    "how": "SPLUS.requestRedeem(shares) -> read uuid from the RedeemRequested event; poll isClaimable(uuid) (or watch ClaimsOpened); then claim(uuid) from the same wallet. 10 bps fee; up to 7 business days."
+   },
+   {
+    "name": "get-sierra",
+    "description": "Acquire SIERRA without AP status",
+    "how": "Swap USDC for SIERRA on a DEX (Uniswap on Ethereum, LFJ on Avalanche) or via the sierra.money swap page; check the token address is the one you want (native Ethereum vault 0xBcEb..., Avalanche 0x6E60..., or bridged OFT 0x6bf7... on Ethereum) and compare the price with exchangeRate()."
+   },
+   {
+    "name": "read-position",
+    "description": "Value a holder's position",
+    "how": "vault.getLYTPoolAccountState(holder) or balanceOf(holder) * exchangeRate() / 1e18 (result in USDC, 6 decimals)."
+   },
+   {
+    "name": "bridge-sierra",
+    "description": "Bridge OFT SIERRA from Ethereum to Avalanche",
+    "how": "fee = OFT.quoteSend((30106, bytes32(recipient), amount, minAmount, 0x, 0x, 0x), false); OFT.send(sendParam, fee, refund) with msg.value = fee.nativeFee."
+   }
+  ],
+  "risks": [
+   "Custodial/off-chain reserves: deposited USDC goes to a treasury wallet (Fireblocks MPC) and is deployed through OpenTrade into RWA (T-bill MMFs, commercial paper, AAA CLOs, trade finance, corporate bonds) and DeFi (Morpho, Aave etc.) yield sources; holders rely on Sierra Reserve Limited (BVI) and the OpenTrade Cayman SPC structure, not onchain collateral.",
+   "Redemptions are not instant: requestRedeem then the issuer processes it (SLA 3 business days for SIERRA, 7 for SPLUS; usually same day). SPLUS charges 10 bps. Daily mint limits and per-wallet/vault request caps apply.",
+   "Exchange rate is set onchain by the Sierra/OpenTrade issuer role (setExchangeRate), not computed trustlessly; a wrong or delayed update affects mint/redeem prices.",
+   "Admin powers: vaults are upgradeable beacon proxies (same beacon for SIERRA and SPLUS on Ethereum); admins can pause, set rates, process/cancel redemptions and blacklist addresses (BlacklistedAddress, restricted jurisdictions).",
+   "SIERRA minting/redeeming at the vault is limited to whitelisted Authorized Participants (deposit reverts NotMarketMaker for others); retail exits depend on DEX liquidity and can trade below the exchange rate.",
+   "Two different SIERRA tokens exist on Ethereum: the native vault 0xBcEb... and the LayerZero OFT 0x6bf7... bridged from Avalanche. Native Ethereum SIERRA and Avalanche SIERRA are separate vaults with different exchange rates. Bridged SIERRA also depends on LayerZero (5/5 DVN config per docs).",
+   "Audits: OpenTrade LYT protocol audited by Cantina/Spearbit (Aug 2025, no high/critical findings; and Oct 2026). Underlying OpenTrade vaults audited separately."
+  ],
+  "notes": "All four addresses are from Sierra's docs (Blockchain Addresses page; SPLUS also on the Smart Contract Integration page) and were checked onchain on 2026-11-25: SIERRA Ethereum (6 dec, ~25.9M supply, exchangeRate ~1.047), SPLUS (~6.6M, ~1.014), SIERRA Avalanche (~0.84M, ~1.050), SIERRA OFT on Ethereum (~0.50M). The three vaults are OpenZeppelin beacon proxies; the Ethereum implementation (LYTPool) is verified on Sourcify; the Avalanche implementation (0x51c3f2Ce5CA90687d4FcBd51d608909d62C03dFd) is not verified, but every LYTPool selector is present in its bytecode. Left out: the Avalanche-side LayerZero peer of the OFT (0xc472d3a47719de5f9d808ca91d7b70bd2138bcaa, read from OFT.peers(30106)) because no official page lists it; Plume (listed by DefiLlama) because the docs list no Plume contract; access-control, controller and treasury contracts (admin-only). Docs say 'SIERRA and SPLUS... the vault is permissionless' on the integration page but the SIERRA Mint & Redeem page requires Authorized Participant whitelisting, and onchain simulation confirms SIERRA deposit is gated. Amounts: assets and shares 6 decimals, exchange rate 18 decimals. Sierra also runs a GitBook MCP server for its docs (https://docs.sierra.money/~gitbook/mcp). A governance token (SGT) is announced but not live.",
+  "sources": [
+   "https://docs.sierra.money/building-with-sierra/blockchain-addresses",
+   "https://docs.sierra.money/building-with-sierra/smart-contract-integration",
+   "https://docs.sierra.money/building-with-sierra/api-integration",
+   "https://docs.sierra.money/sierra/mint-and-redeem-sierra",
+   "https://docs.sierra.money/splus/mint-and-redeem-splus",
+   "https://docs.sierra.money/sierra/buy-and-sell-sierra",
+   "https://docs.sierra.money/splus/buy-and-sell-splus",
+   "https://docs.sierra.money/sierra/price-oracle",
+   "https://docs.sierra.money/building-with-sierra/exchange-rate-mechanism",
+   "https://docs.sierra.money/building-with-sierra/smart-contract-audits",
+   "https://docs.sierra.money/building-with-sierra/risk-framework",
+   "https://docs.sierra.money/overview/core-concepts",
+   "https://docs.sierra.money/llms.txt",
+   "https://sourcify.dev/server/files/any/1/0xfd10892c8A1CaC5b279ee22877DCC735DB7b7833",
+   "https://sourcify.dev/server/files/any/1/0x6bf7788EAA948d9fFBA7E9bb386E2D3c9810e0fc",
+   "https://api.llama.fi/protocol/sierra-protocol",
+   "https://defillama.com/protocol/sierra-protocol"
+  ],
+  "researchedAt": "2026-11-25"
  },
  {
   "slug": "stackingdao",
@@ -19543,6 +26184,317 @@ export const PROTOCOLS: ProtocolEntry[] = [
    "https://api.mainnet-beta.solana.com"
   ],
   "researchedAt": "2026-11-24"
+ },
+ {
+  "slug": "sunswap-v2",
+  "name": "SUNSwap V2",
+  "category": "Dexs",
+  "description": "Uniswap-V2-style constant-product DEX on TRON run by SUN.io (Factory + Router02 + per-pair contracts, 0.3% fee). An agent can swap TRC-20 tokens and TRX, quote with getAmountsOut, add/remove liquidity and look up pairs on-chain, or get best routes across SunSwap V1/V2/V3/V4, PSM and SunCurve from the official SUN.io routing API.",
+  "website": "https://sun.io",
+  "docs": "https://docs.sun.io/protocols/sunswap-v2/overview",
+  "defillama": "https://defillama.com/protocol/sunswap-v2",
+  "chains": [
+   "tron"
+  ],
+  "vm": "mixed",
+  "agentAccess": "both",
+  "contracts": [
+   {
+    "chain": "tron",
+    "chainId": null,
+    "address": "TNJVzGqKBWkJxJB5XYSqGAwUTV15U24pPq",
+    "name": "SunSwap V2 Router (UniswapV2Router02)",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.sun.io/protocols/sunswap-v2/reference/contract",
+    "keyFunctions": [
+     {
+      "signature": "getAmountsOut(uint256,address[])",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote: amounts along path for an exact input (amountIn in the input token's base units). Includes the 0.3% fee per hop. Use WTRX TNUC9Qb1rRpS5CbWLmNMxXBjyFoydXjWFR in the path for TRX. Apply slippage to the last element to get amountOutMin."
+     },
+     {
+      "signature": "getAmountsIn(uint256,address[])",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote: required input for an exact output along path."
+     },
+     {
+      "signature": "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(amountIn, amountOutMin, path, to, deadline). Sell an exact amount of a TRC-20 for another TRC-20. Approve the Router on the input token first. deadline is a Unix timestamp in seconds. Path hops must be existing V2 pairs."
+     },
+     {
+      "signature": "swapExactETHForTokens(uint256,address[],address,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "(amountOutMin, path, to, deadline). Sell exact native TRX (callValue in sun, 1 TRX = 1e6 sun); path must start with WTRX TNUC9Qb1rRpS5CbWLmNMxXBjyFoydXjWFR. \"ETH\" in V2 names means TRX."
+     },
+     {
+      "signature": "swapExactTokensForETH(uint256,uint256,address[],address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(amountIn, amountOutMin, path, to, deadline). Sell a TRC-20 for native TRX; path must end with WTRX. Approve the Router first."
+     },
+     {
+      "signature": "swapTokensForExactTokens(uint256,uint256,address[],address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(amountOut, amountInMax, path, to, deadline). Buy an exact output amount spending at most amountInMax."
+     },
+     {
+      "signature": "swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Same as swapExactTokensForTokens but for tokens that take a fee on transfer; returns nothing."
+     },
+     {
+      "signature": "addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin, to, deadline). Add liquidity to a TRC-20/TRC-20 pair (created automatically if missing); LP tokens go to `to`. Approve both tokens to the Router."
+     },
+     {
+      "signature": "addLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "(token, amountTokenDesired, amountTokenMin, amountETHMin, to, deadline). Add liquidity to a token/TRX pair; send TRX as callValue (wrapped to WTRX)."
+     },
+     {
+      "signature": "removeLiquidity(address,address,uint256,uint256,uint256,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline). Burn LP for both tokens. Approve the pair (LP token) to the Router first."
+     },
+     {
+      "signature": "removeLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(token, liquidity, amountTokenMin, amountETHMin, to, deadline). Burn LP of a token/WTRX pair, receive the token and native TRX."
+     },
+     {
+      "signature": "WETH()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns WTRX TNUC9Qb1rRpS5CbWLmNMxXBjyFoydXjWFR (checked on-chain)."
+     },
+     {
+      "signature": "factory()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns the V2 Factory TKWJdrQkqHisa1X8HUdHEfREvTzw4pMAaY (checked on-chain)."
+     }
+    ]
+   },
+   {
+    "chain": "tron",
+    "chainId": null,
+    "address": "TKWJdrQkqHisa1X8HUdHEfREvTzw4pMAaY",
+    "name": "SunSwap V2 Factory (UniswapV2Factory)",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.sun.io/protocols/sunswap-v2/reference/contract",
+    "keyFunctions": [
+     {
+      "signature": "getPair(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pair (pool/LP token) address for two tokens; zero address if none. Use WTRX for TRX. Pairs expose standard Uniswap V2 getReserves(), token0(), token1(), totalSupply()."
+     },
+     {
+      "signature": "allPairsLength()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of pairs created."
+     },
+     {
+      "signature": "allPairs(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pair address by index."
+     },
+     {
+      "signature": "createPair(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless pair creation (addLiquidity also creates the pair if missing)."
+     },
+     {
+      "signature": "feeTo()",
+      "kind": "read",
+      "payable": false,
+      "description": "Protocol fee recipient (the 0.05% SUN buyback-and-burn share)."
+     }
+    ]
+   },
+   {
+    "chain": "tron",
+    "chainId": null,
+    "address": "TNUC9Qb1rRpS5CbWLmNMxXBjyFoydXjWFR",
+    "name": "WTRX (Wrapped TRX)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.sun.io/protocols/smart-router/reference/calculation-service",
+    "keyFunctions": [
+     {
+      "signature": "deposit()",
+      "kind": "write",
+      "payable": true,
+      "description": "Wrap TRX (callValue in sun) into WTRX 1:1. 6 decimals."
+     },
+     {
+      "signature": "withdraw(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Unwrap WTRX to TRX."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender such as the V2 Router."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "WTRX balance (6 decimals)."
+     }
+    ]
+   },
+   {
+    "chain": "tron",
+    "chainId": null,
+    "address": "TSSMHYeV2uE9qYH95DqyoCuNCzEL1NvU3S",
+    "name": "SUN token (TRC-20)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.sun.io/sun-ai/sun-cli/command-guide",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "SUN balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer SUN."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender, e.g. the V2 Router."
+     }
+    ]
+   },
+   {
+    "chain": "tron",
+    "chainId": null,
+    "address": "TGnC7LMji8hBpyvZt1TTEJhVpAZ5HFyJ3r",
+    "name": "SUN.io Smart Router (SmartExchangeRouter)",
+    "role": "router",
+    "proxy": null,
+    "source": "https://docs.sun.io/protocols/smart-router/reference/contract",
+    "keyFunctions": [
+     {
+      "signature": "swapExactInput(address[],string[],uint256[],uint24[],(uint256,uint256,address,uint256))",
+      "kind": "write",
+      "payable": true,
+      "description": "(path, poolVersion, versionLen, fees, data=(amountIn, amountOutMin, to, deadline)). Multi-protocol swap across SunSwap V1/V2/V3, PSM and curve pools, typically fed by the routing API output (pool names e.g. 'v1','v2','v3'; versionLen counts tokens per segment, first entry +1; fees all 0 except V3 hops, last entry 0). Use address T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb (zero address) for native TRX and send callValue = amountIn. Approve input TRC-20 to this router."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [
+   {
+    "name": "Smart Router calculation service",
+    "url": "https://open.sun.io/apiv2/quote/swap/routingInV2",
+    "auth": "none",
+    "use": "GET ?fromTokenAddr&toTokenAddr&inAmount (base units) returns the top 3 paths (roadForAddr, pool per hop, amount, impact, fee) across SunSwap V1/V2/V3/V4, PSM and SunCurve; feed into Smart Router swapExactInput.",
+    "source": "https://docs.sun.io/protocols/smart-router/reference/calculation-service"
+   },
+   {
+    "name": "SUN.IO API",
+    "url": "https://open.sun.io",
+    "auth": "none",
+    "use": "Read-only REST (GET, JSON): token prices and search, pools/pairs, user positions, transactions, protocol stats, Universal Router quotes, SUN token data. 10 QPS without key; optional X-API-KEY header for higher limits.",
+    "source": "https://docs.sun.io/api/sun-io-api"
+   },
+   {
+    "name": "SUN MCP Server",
+    "url": "https://mcp.sun.io",
+    "auth": "none",
+    "use": "Official hosted SUN MCP Server: read-only SunSwap data (prices, quotes, pools/APYs, protocol stats, positions) with no wallet credentials. Swaps/liquidity need the self-hosted (local) deployment.",
+    "source": "https://docs.sun.io/sun-ai/sun-mcp-server/official-server-access"
+   }
+  ],
+  "actions": [
+   {
+    "name": "quote",
+    "description": "Quote a V2 swap",
+    "how": "Router.getAmountsOut(amountIn, [tokenIn, ..., tokenOut]) with WTRX for TRX; or GET https://open.sun.io/apiv2/quote/swap/routingInV2 for best multi-protocol route"
+   },
+   {
+    "name": "swap-token-for-token",
+    "description": "Swap TRC-20 to TRC-20",
+    "how": "approve(Router, amountIn) on tokenIn, then Router.swapExactTokensForTokens(amountIn, amountOutMin, path, to, nowSec+600)"
+   },
+   {
+    "name": "swap-trx-for-token",
+    "description": "Sell TRX",
+    "how": "Router.swapExactETHForTokens(amountOutMin, [WTRX, token], to, deadline) with callValue = TRX amount in sun"
+   },
+   {
+    "name": "swap-token-for-trx",
+    "description": "Buy TRX",
+    "how": "approve Router, then Router.swapExactTokensForETH(amountIn, amountOutMin, [token, WTRX], to, deadline)"
+   },
+   {
+    "name": "add-liquidity",
+    "description": "Provide liquidity",
+    "how": "approve both tokens to Router; Router.addLiquidity(...) or addLiquidityETH(token, ..., to, deadline) with TRX callValue"
+   },
+   {
+    "name": "remove-liquidity",
+    "description": "Withdraw liquidity",
+    "how": "Factory.getPair(a,b) -> approve pair LP to Router -> Router.removeLiquidity(...) / removeLiquidityETH(...)"
+   }
+  ],
+  "risks": [
+   "Permissionless pair creation: anyone can list any TRC-20, including scam, copycat or fee-on-transfer/honeypot tokens. Verify token addresses (e.g. against the SUN.io token list) before swapping.",
+   "Router and Smart Router addresses have changed: SUN.io marks older mainnet V2 contracts (TXF1xDbVGdxFGbovmmmXvBGu8ZiE3Lq4mR, TMmRKgwC1hx4azzkXoPzujgQThzF48Actq) and older Smart Routers as deprecated. Use only the current addresses from docs.sun.io.",
+   "Fee 0.3% per hop: 0.25% to LPs and 0.05% used to buy back and burn SUN.",
+   "Uniswap V2 code: Factory feeToSetter can change the protocol fee recipient; Router/Factory/Pairs are not upgradeable proxies (TronGrid shows plain UniswapV2Factory/UniswapV2Router02 contracts).",
+   "TRON resource costs: write calls burn energy/bandwidth; set an adequate feeLimit (docs examples use up to 10,000 TRX for Smart Router) or the tx fails and still costs TRX.",
+   "Audits: SUN.io states its contracts were audited by SlowMist (https://docs.sun.io/get-started/risks); DefiLlama links https://sunswap.com/docs/audit-report_en.pdf. Standard AMM risks: impermanent loss, slippage, MEV."
+  ],
+  "notes": "VM is TVM (TRON Virtual Machine, EVM-compatible ABI); addresses are base58 T... Every address above is from docs.sun.io and was confirmed via TronGrid getcontract (Router = UniswapV2Router02, Factory = UniswapV2Factory, WTRX, SunToken, SmartExchangeRouter); Router.factory() and Router.WETH() return the listed Factory and WTRX. Testnet (Nile): Factory THomLGMLhAjMecQf9FQjbZ8a1RtwsZLrGE, Router TYMjxCXfqLpMWW1QToP6hbcjpion7EE25p. The often-cited router TKzxdSv2FZKQrEqkKVgp5DcwEXBEKMg2Ax is not on the official contract page and is left out. SUN.io also runs a Universal Router (TQqgNg13s2DjvXhW1ky4v6TsR8wZGvb7Y4, https://docs.sun.io/protocols/universal-router/reference/contract) with Permit2; it is not part of SunSwap V2 and its functions are not documented here. SunSwap V1/V3/V4 are separate protocols. Decimals per SUN CLI docs: TRX/WTRX/USDT 6, SUN/USDD/JST 18. Router function signatures come from the TronGrid ABI and docs.sun.io main-interfaces page. No specific SunSwap V2 exploit was found on official pages.",
+  "sources": [
+   "https://defillama.com/protocol/sunswap-v2",
+   "https://api.llama.fi/protocol/sunswap-v2",
+   "https://docs.sun.io/protocols/sunswap-v2/overview",
+   "https://docs.sun.io/protocols/sunswap-v2/reference/contract",
+   "https://docs.sun.io/protocols/sunswap-v2/reference/functions",
+   "https://docs.sun.io/protocols/smart-router/reference/contract",
+   "https://docs.sun.io/protocols/smart-router/reference/swap-functions",
+   "https://docs.sun.io/protocols/smart-router/reference/calculation-service",
+   "https://docs.sun.io/protocols/universal-router/reference/contract",
+   "https://docs.sun.io/api/sun-io-api",
+   "https://docs.sun.io/sun-ai/sun-mcp-server/official-server-access",
+   "https://docs.sun.io/sun-ai/sun-cli/command-guide",
+   "https://docs.sun.io/trade/trading-fee",
+   "https://docs.sun.io/get-started/risks",
+   "https://docs.sun.io/ecosystem/tokenomics/overview",
+   "https://api.trongrid.io/wallet/getcontract",
+   "https://api.trongrid.io/wallet/triggerconstantcontract"
+  ],
+  "researchedAt": "2026-11-25"
  },
  {
   "slug": "tether",
@@ -26723,6 +33675,786 @@ export const PROTOCOLS: ProtocolEntry[] = [
    "https://api.llama.fi/protocol/usdd",
    "https://api.trongrid.io",
    "https://ethereum-rpc.publicnode.com",
+   "https://bsc-dataseed.binance.org"
+  ],
+  "researchedAt": "2026-11-25"
+ },
+ {
+  "slug": "usual-usd0",
+  "name": "Usual USD0",
+  "category": "RWA",
+  "description": "Usual issues USD0, a stablecoin backed by tokenized US T-bills (USYC and other RWAs). Agents can mint or redeem USD0 against eligible RWA tokens through DaoCollateral, swap USDC and USD0 through the SwapperEngine order book, lock USD0 into the bUSD0 bond (matures 11 June 2028) and unlock it again with rt-bUSD0, save in sUSD0 (ERC-4626), and stake USUAL in USUALx.",
+  "website": "https://usual.money",
+  "docs": "https://tech.usual.money",
+  "defillama": "https://defillama.com/protocol/usual-usd0",
+  "chains": [
+   "ethereum",
+   "arbitrum",
+   "base",
+   "bsc"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x73A15FeD60Bf67631dC6cd7Bc5B6e8da8190aCF5",
+    "name": "USD0 (stablecoin)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "USD0 balance (18 decimals)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total USD0 supply (18 decimals)."
+     },
+     {
+      "signature": "isBlacklisted(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the address is blacklisted. Blacklisted addresses cannot send or receive USD0. Usual applies the OFAC SDN list."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender, e.g. bUSD0 (to mint the bond), sUSD0 (to deposit) or the SwapperEngine (to fill USDC orders). DaoCollateral.redeem burns USD0 under its own role and needs no approval."
+     },
+     {
+      "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "EIP-2612 permit: (owner, spender, value, deadline, v, r, s)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer USD0. Reverts if either side is blacklisted or the token is paused."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xde6e1F680C4816446C8D515989E2358636A38b04",
+    "name": "USD0 DaoCollateral (mint and redeem against RWAs)",
+    "role": "exchange",
+    "proxy": true,
+    "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+    "keyFunctions": [
+     {
+      "signature": "swap(address,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Mint USD0 with an eligible RWA token: (rwaToken, amount in the RWA's decimals, minAmountOut in USD0 wei). Priced by Usual's ClassicalOracle. The RWA goes to the Usual treasury. Approve the RWA token to DaoCollateral first. The contract has no whitelist, but the RWA tokens themselves (e.g. USYC) are permissioned, so in practice only KYC'd holders can use this path."
+     },
+     {
+      "signature": "swapWithPermit(address,uint256,uint256,uint256,uint8,bytes32,bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "Same as swap with an EIP-2612 permit on the RWA token: (rwaToken, amount, minAmountOut, deadline, v, r, s)."
+     },
+     {
+      "signature": "redeem(address,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn USD0 for an eligible RWA token: (rwaToken, USD0 amount in wei, minAmountOut in RWA decimals). A redemption fee of redeemFee() bps of 10,000 is charged in USD0 (5 = 0.05% on-chain on 2026-11-25; the docs quote 0.10%). If the Counter Bank Run mechanism is on, the RWA amount is cut by cbrCoef. You need to be able to hold the permissioned RWA token."
+     },
+     {
+      "signature": "redeemFee()",
+      "kind": "read",
+      "payable": false,
+      "description": "Redemption fee in basis points (out of 10,000)."
+     },
+     {
+      "signature": "isCBROn()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the Counter Bank Run mechanism is active (redemptions get cbrCoef() of par)."
+     },
+     {
+      "signature": "cbrCoef()",
+      "kind": "read",
+      "payable": false,
+      "description": "CBR haircut coefficient (1e18 = 100%), used only while isCBROn() is true."
+     },
+     {
+      "signature": "isSwapPaused()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if minting (swap) is paused."
+     },
+     {
+      "signature": "isRedeemPaused()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if redeem is paused."
+     },
+     {
+      "signature": "paused()",
+      "kind": "read",
+      "payable": false,
+      "description": "Global pause flag."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xB969B0d14F7682bAF37ba7c364b351B830a812B2",
+    "name": "USD0 SwapperEngine (USDC <-> USD0 order book)",
+    "role": "exchange",
+    "proxy": true,
+    "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+    "keyFunctions": [
+     {
+      "signature": "depositUSDC(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Open an order to buy USD0 with USDC (amount in USDC, 6 decimals). Must be at least minimumUSDCAmountProvided() (20,000 USDC on-chain on 2026-11-25; the docs mention a 100,000 USD0 launch-phase minimum). The order is filled later by a USD0 provider or a collateral provider through DaoCollateral at the oracle USDC price; USD0 is sent to you when filled. Approve USDC first. Permissionless."
+     },
+     {
+      "signature": "depositUSDCWithPermit(uint256,uint256,uint8,bytes32,bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "depositUSDC with a USDC permit: (amount, deadline, v, r, s)."
+     },
+     {
+      "signature": "withdrawUSDC(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Cancel your open order and get back the unfilled USDC: (orderId)."
+     },
+     {
+      "signature": "swapUsd0(address,uint256,uint256[],bool)",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell USD0 for USDC by filling open orders: (recipient of USDC, USD0 amount in wei, orderIds to take, partialMatchingAllowed). Returns USD0 actually provided. Approve USD0 to the SwapperEngine first. Permissionless, but only works while USDC orders are open."
+     },
+     {
+      "signature": "provideUsd0ReceiveUSDC(address,uint256,uint256[],bool)",
+      "kind": "write",
+      "payable": false,
+      "description": "Same as swapUsd0 but you name the USDC amount to take: (recipient, USDC amount in 6 decimals, orderIds, partialMatchingAllowed). Returns USD0 provided."
+     },
+     {
+      "signature": "getNextOrderId()",
+      "kind": "read",
+      "payable": false,
+      "description": "Next order id; existing orders are below it. Scan getOrder(id) to find active ones."
+     },
+     {
+      "signature": "getOrder(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (active, USDC amount remaining in 6 decimals) for an order id."
+     },
+     {
+      "signature": "minimumUSDCAmountProvided()",
+      "kind": "read",
+      "payable": false,
+      "description": "Minimum USDC per new order (6 decimals)."
+     },
+     {
+      "signature": "paused()",
+      "kind": "read",
+      "payable": false,
+      "description": "Pause flag."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x35D8949372D46B7a3D5A56006AE77B215fc69bC0",
+    "name": "bUSD0 (Bond USD0, formerly USD0++)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+    "keyFunctions": [
+     {
+      "signature": "mint(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Lock USD0 into the bond: you receive the same amount of bUSD0 and of rt-bUSD0 (18 decimals). Approve USD0 to bUSD0 first. USD0 is locked until getEndTime() (11 June 2028) unless you recombine with rt-bUSD0."
+     },
+     {
+      "signature": "mint(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Mint with separate recipients: (amountUsd0, bAssetRecipient for bUSD0, rAssetRecipient for rt-bUSD0)."
+     },
+     {
+      "signature": "mintWithPermit(uint256,uint256,uint8,bytes32,bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "mint with a USD0 permit: (amountUsd0, deadline, v, r, s)."
+     },
+     {
+      "signature": "reconstruct(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Exit early at par: burns the same amount of bUSD0 and rt-bUSD0 from the caller and sends that much USD0 to assetRecipient: (amount, assetRecipient). rt-bUSD0 can be bought on secondary markets if you lack it."
+     },
+     {
+      "signature": "unlockUsd0ppFloorPrice(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Exit early without rt-bUSD0 at the DAO floor price: you receive amount * getFloorPrice() / 1e18 USD0 (0.92 on 2026-11-25); the difference goes to the Usual treasury."
+     },
+     {
+      "signature": "unwrap()",
+      "kind": "write",
+      "payable": false,
+      "description": "After maturity (getEndTime()), burns your whole bUSD0 balance for the same amount of USD0. Reverts before maturity."
+     },
+     {
+      "signature": "getFloorPrice()",
+      "kind": "read",
+      "payable": false,
+      "description": "Floor price for unlockUsd0ppFloorPrice (1e18 = 1 USD0)."
+     },
+     {
+      "signature": "getEndTime()",
+      "kind": "read",
+      "payable": false,
+      "description": "Bond maturity timestamp (1844335800 = 2028-06-11 11:30 UTC)."
+     },
+     {
+      "signature": "calculateRequiredUsual(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "USUAL needed to unlock a bUSD0 amount early via unlockUSD0ppWithUsual (about 2.147 USUAL per bUSD0 on 2026-11-25; depends on DAO-set rate, duration factor and weekly outflows)."
+     },
+     {
+      "signature": "unlockUSD0ppWithUsual(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Early unlock 1:1 by paying USUAL: (bUSD0 amount, maxUsualAmount). Approve USUAL to bUSD0 first. Check calculateRequiredUsual first."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "bUSD0 balance (18 decimals). bUSD0 holders get daily USUAL rewards claimed through the Usual app (DistributionModule)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x82DCA22b48B14DE38ccf83B03330120c4b8acFe9",
+    "name": "rt-bUSD0 (bUSD0 redemption token)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "rt-bUSD0 balance (18 decimals). 1 rt-bUSD0 + 1 bUSD0 = 1 USD0 via bUSD0.reconstruct. Minted 1:1 alongside bUSD0."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer rt-bUSD0 (tradeable separately from bUSD0)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Standard ERC-20 approve. bUSD0.reconstruct burns rt-bUSD0 under its own role."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xd861bE82dEe3223CFBEd160791f6550b0704D406",
+    "name": "sUSD0 (USD0 Savings, ERC-4626)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit USD0 (approve first): (assets, receiver). Returns sUSD0 shares. Permissionless (blacklisted addresses excluded). Yield is minted daily by the Revenue Distribution Module and streamed over 24 hours."
+     },
+     {
+      "signature": "depositWithPermit(uint256,address,uint256,uint8,bytes32,bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit with a USD0 permit: (assets, receiver, deadline, v, r, s)."
+     },
+     {
+      "signature": "redeem(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn shares for USD0: (shares, receiver, owner). Instant, no cooldown. A withdrawal fee of withdrawFeeBps() is kept (3 bps on 2026-11-25)."
+     },
+     {
+      "signature": "withdraw(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw an exact USD0 amount net of fee: (assets, receiver, owner)."
+     },
+     {
+      "signature": "previewRedeem(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "USD0 a redeem returns now, after the withdrawal fee."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "USD0 per given shares (exchange rate, before fee)."
+     },
+     {
+      "signature": "withdrawFeeBps()",
+      "kind": "read",
+      "payable": false,
+      "description": "Withdrawal fee in bps (max 25%)."
+     },
+     {
+      "signature": "totalAssets()",
+      "kind": "read",
+      "payable": false,
+      "description": "USD0 held plus vested yield."
+     },
+     {
+      "signature": "maxRedeem(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Max shares the owner can redeem."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xC4441c2BE5d8fA8126822B9929CA0b81Ea0DE38E",
+    "name": "USUAL (governance token)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "USUAL balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve USUALx (to stake) or bUSD0 (to pay for unlockUSD0ppWithUsual)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer USUAL. Blacklisted addresses cannot send or receive."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x06B964d96f5dCF7Eae9d7C559B09EDCe244d4B8E",
+    "name": "USUALx (staked USUAL, ERC-4626)",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake USUAL (approve first): (assets, receiver). Returns USUALx shares (18 decimals). Rewards are USUAL streamed into the vault by the DistributionModule."
+     },
+     {
+      "signature": "redeem(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Unstake: (shares, receiver, owner). Instant but charges withdrawFeeBps() (1000 = 10% on 2026-11-25). Shares locked in the USUALx Lockup cannot be redeemed until released."
+     },
+     {
+      "signature": "withdraw(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw an exact USUAL amount net of fee: (assets, receiver, owner)."
+     },
+     {
+      "signature": "previewRedeem(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "USUAL a redeem returns now, after the withdrawal fee."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "USUAL per given shares (exchange rate, before fee)."
+     },
+     {
+      "signature": "withdrawFeeBps()",
+      "kind": "read",
+      "payable": false,
+      "description": "Unstaking fee in bps (max 25%)."
+     },
+     {
+      "signature": "getYieldRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "USUAL (wei) streamed into the vault per day during the current yield period (YIELD_PRECISION = 1 day in the source)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x85B6F9BDdb10c6B320d07416a250F984f0F0E9ED",
+    "name": "USUALx Lockup",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+    "keyFunctions": [
+     {
+      "signature": "lock(address,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Lock USUALx shares for a fixed term to get boosted rewards (boost computed off-chain): (receiver, USUALx amount, lockDuration in seconds). Approve USUALx to the Lockup first. Allowed durations are 1, 3, 6 and 12 months (1 month = 2,628,000 s); check getLockDurationStatus."
+     },
+     {
+      "signature": "release(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "After the lock ends, return the USUALx of a position to the user: (user, positionIndex)."
+     },
+     {
+      "signature": "releaseAndLock(address,uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Release a matured position and lock again: (user, positionIndex, amount, lockDuration)."
+     },
+     {
+      "signature": "intraDayTopUp(address,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Add USUALx to a position created the same UTC day: (receiver, amount, positionIndex)."
+     },
+     {
+      "signature": "getAllPositions(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "All positions of a user as (amount, startTime, endTime, isActive)."
+     },
+     {
+      "signature": "getLockDurationStatus(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Whether a lock duration (seconds) is enabled."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Total USUALx locked by a user."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x75cC0C0DDD2Ccafe6EC415bE686267588011E36A",
+    "name": "USUAL DistributionModule (reward claims)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+    "keyFunctions": [
+     {
+      "signature": "claimOffChainDistribution(address,uint256,bytes32[],uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim USUAL rewards (e.g. for holding bUSD0): (account, cumulative amount, Merkle proof, partialClaimAmount). The cumulative amount and proof come from Usual's off-chain distribution (the app.usual.money Earn page); no public proof API is documented. Mints only the unclaimed part."
+     },
+     {
+      "signature": "getOffChainTokensClaimed(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "USUAL already claimed by an account."
+     },
+     {
+      "signature": "getOffChainDistributionData()",
+      "kind": "read",
+      "payable": false,
+      "description": "(timestamp, merkleRoot) of the currently approved distribution, to pre-check a proof."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x35f1C5cB7Fb977E669fD244C567Da99d8a3a6850",
+    "name": "USD0 (Arbitrum, LayerZero OFT)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "USD0 balance (18 decimals). Bridged from Ethereum through the USD0 LayerZero OFT adapter; mint/redeem only exists on Ethereum."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer USD0."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x2B65F9d2e4B84a2dF6ff0525741b75d1276a9C2F",
+    "name": "bUSD0 (Arbitrum, LayerZero OFT)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Bridged bUSD0 balance (18 decimals). Reconstruct, floor unlock and unwrap only exist on Ethereum."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer bUSD0."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x6A5D904519A2b605Da2D5DA7137ED5F4184F6513",
+    "name": "USUAL (Arbitrum, LayerZero OFT)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "USUAL balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer USUAL."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x758a3e0b1F842C9306B783f8A4078C6C8C03a270",
+    "name": "USD0 (Base, Chainlink CCIP)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "USD0 balance (18 decimals). Bridged from Ethereum via Chainlink CCIP (BurnMintTokenPool); mint/redeem only exists on Ethereum."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer USD0."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x4ACD4D03af6F9cc0fB7C5f0868B7b6287D7969c5",
+    "name": "USUAL (Base, Chainlink CCIP)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "USUAL balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer USUAL."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x758a3e0b1F842C9306B783f8A4078C6C8C03a270",
+    "name": "USD0 (BNB Chain, Chainlink CCIP)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "USD0 balance (18 decimals). Same address as on Base. Bridged via Chainlink CCIP; mint/redeem only exists on Ethereum."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer USD0."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x4ACD4D03af6F9cc0fB7C5f0868B7b6287D7969c5",
+    "name": "USUAL (BNB Chain, Chainlink CCIP)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://tech.usual.money/smart-contracts/contract-deployments",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "USUAL balance (18 decimals). Same address as on Base."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer USUAL."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [],
+  "actions": [
+   {
+    "name": "buy USD0 with USDC (permissionless)",
+    "description": "Place a USDC order in the SwapperEngine; it is filled with USD0 at the oracle USDC price when a USD0 seller or collateral provider takes it.",
+    "how": "USDC.approve(SwapperEngine 0xB969B0d14F7682bAF37ba7c364b351B830a812B2, amount); SwapperEngine.depositUSDC(amount in 6 decimals, >= minimumUSDCAmountProvided()). Cancel the unfilled rest with withdrawUSDC(orderId). For small amounts the docs point to secondary markets (Curve USD0/USDC)."
+   },
+   {
+    "name": "sell USD0 for USDC (permissionless)",
+    "description": "Fill open USDC orders in the SwapperEngine with USD0.",
+    "how": "Find active orders with getNextOrderId() and getOrder(id); USD0.approve(SwapperEngine, amount); SwapperEngine.swapUsd0(recipient, USD0 amount in wei, orderIds, true)."
+   },
+   {
+    "name": "mint or redeem USD0 against RWAs",
+    "description": "Direct path for holders of eligible permissioned RWA tokens (e.g. USYC).",
+    "how": "Mint: rwa.approve(DaoCollateral 0xde6e1F680C4816446C8D515989E2358636A38b04, amt); DaoCollateral.swap(rwa, amt, minUsd0Out). Redeem: DaoCollateral.redeem(rwa, usd0Amount, minRwaOut); fee = redeemFee() bps."
+   },
+   {
+    "name": "lock USD0 into bUSD0",
+    "description": "Get bUSD0 (daily USUAL rewards) plus rt-bUSD0, 1:1 with USD0.",
+    "how": "USD0.approve(bUSD0 0x35D8949372D46B7a3D5A56006AE77B215fc69bC0, amt); bUSD0.mint(amt). The docs note bUSD0 may be cheaper on Curve when it trades below par."
+   },
+   {
+    "name": "exit bUSD0 early",
+    "description": "Three on-chain exits before 11 June 2028.",
+    "how": "At par with rt-bUSD0: bUSD0.reconstruct(amount, recipient) (needs equal rt-bUSD0). At the floor: bUSD0.unlockUsd0ppFloorPrice(amount) for amount * getFloorPrice()/1e18 USD0. Or sell on a DEX. After maturity: bUSD0.unwrap()."
+   },
+   {
+    "name": "save USD0 in sUSD0",
+    "description": "Earn T-bill yield on USD0 in an ERC-4626 vault, no lockup.",
+    "how": "USD0.approve(sUSD0 0xd861bE82dEe3223CFBEd160791f6550b0704D406, amt); sUSD0.deposit(amt, receiver). Exit with sUSD0.redeem(shares, receiver, owner) (withdrawFeeBps applies)."
+   },
+   {
+    "name": "stake USUAL",
+    "description": "Stake USUAL in USUALx; optionally lock USUALx for boosted rewards.",
+    "how": "USUAL.approve(USUALx 0x06B964d96f5dCF7Eae9d7C559B09EDCe244d4B8E, amt); USUALx.deposit(amt, receiver). To lock: USUALx.approve(Lockup 0x85B6F9BDdb10c6B320d07416a250F984f0F0E9ED, shares); Lockup.lock(receiver, shares, 2628000 * months)."
+   }
+  ],
+  "risks": [
+   "Minting USD0 directly needs a permissioned RWA token (e.g. USYC by Hashnote/Circle), which requires KYC with its issuer. Retail users reach USD0 through the SwapperEngine order book (minimum order size) or DEXs; secondary prices can deviate from $1.",
+   "bUSD0 is a bond: the USD0 inside is locked until 11 June 2028. Early exit at par needs an equal amount of rt-bUSD0; without it the protocol only pays the DAO floor price (0.92 USD0 on 2026-11-25) or you sell at market. bUSD0 has traded well below $1: in January 2025 a change to the then-USD0++ early-exit rules (floor redemption) was followed by a drop to roughly $0.89-0.92 (press reports, e.g. The Block; not on a current official page).",
+   "USUALx charges a withdrawal fee on unstaking (10% on-chain on 2026-11-25; the docs say a 10% fee may apply). sUSD0 charges 3 bps.",
+   "Admin powers: all core contracts are upgradeable transparent proxies; role holders can pause tokens, DaoCollateral and the SwapperEngine, blacklist addresses (USD0, bUSD0, USUAL, sUSD0, USUALx), change the redemption fee (capped by MAX_REDEEM_FEE) and the bUSD0 floor price, and turn on the Counter Bank Run mechanism, which cuts the RWA paid out on redemptions.",
+   "USD0 backing is off-chain-issued tokenized T-bills (USYC, M by M0, USDtb, USDC wrappers, etc.), so holders carry the issuers' custody and redemption risk.",
+   "USUAL rewards for bUSD0 are claimed with Merkle proofs produced by Usual off-chain; there is no documented public API for the proofs.",
+   "Audits listed by Usual: Cantina/Spearbit (May and Nov 2024), a Cantina public competition (June 2024), Paladin (L2 tokens and OFT adapters, Oct 2024), Halborn and Sherlock (V1, Nov 2024); DefiLlama also links a Hexens bUSD0 review (Nov 2025)."
+  ],
+  "notes": "All addresses are from Usual's official Contract Deployments page (tech.usual.money); every one has code on its chain and is an EIP-1967 proxy whose implementation is verified on Sourcify, where the signatures were taken. On-chain values (fees, floor price, maturity, minimum order) were read on 2026-11-25. Left out on purpose: USD0a, EUR0 (+ sEUR0) and ETH0, which are separate Usual stablecoins with their own DaoCollateral/SwapperEngine (listed on the same page); TAC-chain deployments (no RPC check done); registry, token-mapping, oracle, treasury and bridge adapter contracts (LayerZero OFT adapters and CCIP pools are listed on the same page); USUALS/USUALSP and the airdrop contracts (legacy); the documented USD0RewardsClaim contract, because the Revenue Distribution Module currently points its reward-claim buckets at a different, undocumented contract; and the usUSDS++ investment vault. Arbitrum also has a bUSD0 bridge; Base and BNB use Chainlink CCIP for USD0 and USUAL. DefiLlama lists Ethereum only, which is where all mint/redeem/bond logic lives.",
+  "sources": [
+   "https://tech.usual.money/smart-contracts/contract-deployments",
+   "https://tech.usual.money/smart-contracts/token-contracts/usd0",
+   "https://tech.usual.money/smart-contracts/token-contracts/usd0++",
+   "https://tech.usual.money/smart-contracts/token-contracts/susd0",
+   "https://tech.usual.money/smart-contracts/token-contracts/usual",
+   "https://tech.usual.money/smart-contracts/token-contracts/usualx",
+   "https://tech.usual.money/smart-contracts/protocol-contracts/usd0/usd0-daocollateral",
+   "https://tech.usual.money/smart-contracts/protocol-contracts/usd0/usd0-swapper-engine",
+   "https://tech.usual.money/smart-contracts/protocol-contracts/usd0/usd0-revenue-distribution-module",
+   "https://tech.usual.money/smart-contracts/protocol-contracts/usual/usualx-lockup-contract",
+   "https://tech.usual.money/smart-contracts/protocol-contracts/usual/usual-distribution/distribution-module",
+   "https://tech.usual.money/overview/features/usd0++",
+   "https://tech.usual.money/overview/features/mint-and-redeem-engine",
+   "https://tech.usual.money/integrations/integrate-busd0",
+   "https://tech.usual.money/security-and-audits/audits",
+   "https://docs.usual.money/usual-products/usd0-stablecoin/usd0/flow-and-architecture",
+   "https://docs.usual.money/usual-products/yield-products/usd-products/bond-usd0",
+   "https://docs.usual.money/usual-products/yield-products/usd-products/usd0-savings",
+   "https://docs.usual.money/llms-full.txt",
+   "https://sourcify.dev/server/v2/contract/1/0xAe12F6F805842e6Dafe71a6d2b41B28BA5fC821e",
+   "https://sourcify.dev/server/v2/contract/1/0x0eEc861D49f15F585D6Bb4301FC4f89BCe22AF4e",
+   "https://sourcify.dev/server/v2/contract/1/0xF65B0C88F65D620ea325FfB1aD46A5bA8A6E57d3",
+   "https://sourcify.dev/server/v2/contract/1/0x9F2BD21bF8012fce0D5845537c1DefF3a89BC85B",
+   "https://sourcify.dev/server/v2/contract/1/0x35AfCed133786a3e57fD1fE4C4cE32E48A1d94C4",
+   "https://sourcify.dev/server/v2/contract/1/0xe5a90E1a154D9444356A9DfA27bb164Feee847BF",
+   "https://sourcify.dev/server/v2/contract/1/0x2B65F9d2e4B84a2dF6ff0525741b75d1276a9C2F",
+   "https://sourcify.dev/server/v2/contract/1/0x236ce5Ed9e077AE63460148f860ED39D1b8808e9",
+   "https://sourcify.dev/server/v2/contract/1/0x395473D03FAfD7D189CE0E2d24f97FE0D7181b4b",
+   "https://sourcify.dev/server/v2/contract/1/0x93B25d31dc51f9734B5FE0477cb290B2EfA2cA66",
+   "https://sourcify.dev/server/v2/contract/1/0x45864fedF7a9b4795A06ac1C8979025C52A75375",
+   "https://www.theblock.co/post/333995/usual-money-protocol-update",
+   "https://defillama.com/protocol/usual-usd0",
+   "https://api.llama.fi/protocol/usual-usd0",
+   "https://ethereum-rpc.publicnode.com",
+   "https://arb1.arbitrum.io/rpc",
+   "https://mainnet.base.org",
    "https://bsc-dataseed.binance.org"
   ],
   "researchedAt": "2026-11-25"
