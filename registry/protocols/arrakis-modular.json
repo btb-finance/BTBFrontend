@@ -1,0 +1,875 @@
+{
+  "slug": "arrakis-modular",
+  "name": "Arrakis Modular",
+  "category": "Liquidity Manager",
+  "description": "Arrakis Modular is Arrakis Finance's vault framework for actively managed concentrated liquidity (Uniswap v3/v4, PancakeSwap, Aerodrome, Valantis HOT). An agent can discover public vaults through the ArrakisMetaVaultFactory, quote and deposit token pairs into a public vault for ERC20 LP shares through the ArrakisPublicVaultRouter, withdraw by burning shares, and read vault holdings and manager settings. Most TVL sits in private (Arrakis Pro) vaults that only their owner's whitelisted depositors can use.",
+  "website": "https://arrakis.finance",
+  "docs": "https://docs.arrakis.finance",
+  "defillama": "https://defillama.com/protocol/arrakis-modular",
+  "chains": [
+    "ethereum",
+    "arbitrum",
+    "base",
+    "plasma",
+    "bsc"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x820FB8127a689327C863de8433278d6181123982",
+      "name": "ArrakisMetaVaultFactory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "numOfPublicVaults()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of public vaults created by this factory on this chain (2026-11-25: Ethereum 2, Base 6, Arbitrum 1, Plasma 0, BNB Chain 0)."
+        },
+        {
+          "signature": "publicVaults(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Public vault addresses in index range [startIndex, endIndex). Use (0, numOfPublicVaults()) to discover every public vault on the chain; this is the official way to find per-vault addresses."
+        },
+        {
+          "signature": "isPublicVault(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is a public vault deployed by this factory. Check this before depositing into any vault address you were given."
+        },
+        {
+          "signature": "numOfPrivateVaults()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of private (Arrakis Pro) vaults. Private vaults only accept deposits from depositors the vault owner whitelisted."
+        },
+        {
+          "signature": "privateVaults(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Private vault addresses in index range [startIndex, endIndex)."
+        },
+        {
+          "signature": "isPrivateVault(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is a private vault deployed by this factory."
+        },
+        {
+          "signature": "manager()",
+          "kind": "read",
+          "payable": false,
+          "description": "The ArrakisStandardManager (0x2e6E879648293e939aA68bA4c6c129A1Be733bDA) that manages vaults."
+        },
+        {
+          "signature": "moduleRegistryPublic()",
+          "kind": "read",
+          "payable": false,
+          "description": "The public module registry (0x791d75F87a701C3F7dFfcEC1B6094dB22c779603): which modules (DEX integrations) public vaults may whitelist."
+        },
+        {
+          "signature": "getTokenName(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Name a public vault for the (token0, token1) pair gets, e.g. 'Arrakis Public LP WETH/USDC'."
+        },
+        {
+          "signature": "deployPublicVault(bytes32,address,address,address,address,bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create a public vault (salt, token0, token1, owner, beacon, moduleCreationPayload, initManagementPayload). Only whitelisted deployers (deployers()) can call it; ordinary users and agents cannot. Emits LogPublicVaultCreation."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x820FB8127a689327C863de8433278d6181123982",
+      "name": "ArrakisMetaVaultFactory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "numOfPublicVaults()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of public vaults created by this factory on this chain (2026-11-25: Ethereum 2, Base 6, Arbitrum 1, Plasma 0, BNB Chain 0)."
+        },
+        {
+          "signature": "publicVaults(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Public vault addresses in index range [startIndex, endIndex). Use (0, numOfPublicVaults()) to discover every public vault on the chain; this is the official way to find per-vault addresses."
+        },
+        {
+          "signature": "isPublicVault(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is a public vault deployed by this factory. Check this before depositing into any vault address you were given."
+        },
+        {
+          "signature": "numOfPrivateVaults()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of private (Arrakis Pro) vaults. Private vaults only accept deposits from depositors the vault owner whitelisted."
+        },
+        {
+          "signature": "privateVaults(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Private vault addresses in index range [startIndex, endIndex)."
+        },
+        {
+          "signature": "isPrivateVault(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is a private vault deployed by this factory."
+        },
+        {
+          "signature": "manager()",
+          "kind": "read",
+          "payable": false,
+          "description": "The ArrakisStandardManager (0x2e6E879648293e939aA68bA4c6c129A1Be733bDA) that manages vaults."
+        },
+        {
+          "signature": "moduleRegistryPublic()",
+          "kind": "read",
+          "payable": false,
+          "description": "The public module registry (0x791d75F87a701C3F7dFfcEC1B6094dB22c779603): which modules (DEX integrations) public vaults may whitelist."
+        },
+        {
+          "signature": "getTokenName(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Name a public vault for the (token0, token1) pair gets, e.g. 'Arrakis Public LP WETH/USDC'."
+        },
+        {
+          "signature": "deployPublicVault(bytes32,address,address,address,address,bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create a public vault (salt, token0, token1, owner, beacon, moduleCreationPayload, initManagementPayload). Only whitelisted deployers (deployers()) can call it; ordinary users and agents cannot. Emits LogPublicVaultCreation."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x820FB8127a689327C863de8433278d6181123982",
+      "name": "ArrakisMetaVaultFactory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "numOfPublicVaults()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of public vaults created by this factory on this chain (2026-11-25: Ethereum 2, Base 6, Arbitrum 1, Plasma 0, BNB Chain 0)."
+        },
+        {
+          "signature": "publicVaults(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Public vault addresses in index range [startIndex, endIndex). Use (0, numOfPublicVaults()) to discover every public vault on the chain; this is the official way to find per-vault addresses."
+        },
+        {
+          "signature": "isPublicVault(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is a public vault deployed by this factory. Check this before depositing into any vault address you were given."
+        },
+        {
+          "signature": "numOfPrivateVaults()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of private (Arrakis Pro) vaults. Private vaults only accept deposits from depositors the vault owner whitelisted."
+        },
+        {
+          "signature": "privateVaults(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Private vault addresses in index range [startIndex, endIndex)."
+        },
+        {
+          "signature": "isPrivateVault(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is a private vault deployed by this factory."
+        },
+        {
+          "signature": "manager()",
+          "kind": "read",
+          "payable": false,
+          "description": "The ArrakisStandardManager (0x2e6E879648293e939aA68bA4c6c129A1Be733bDA) that manages vaults."
+        },
+        {
+          "signature": "moduleRegistryPublic()",
+          "kind": "read",
+          "payable": false,
+          "description": "The public module registry (0x791d75F87a701C3F7dFfcEC1B6094dB22c779603): which modules (DEX integrations) public vaults may whitelist."
+        },
+        {
+          "signature": "getTokenName(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Name a public vault for the (token0, token1) pair gets, e.g. 'Arrakis Public LP WETH/USDC'."
+        },
+        {
+          "signature": "deployPublicVault(bytes32,address,address,address,address,bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create a public vault (salt, token0, token1, owner, beacon, moduleCreationPayload, initManagementPayload). Only whitelisted deployers (deployers()) can call it; ordinary users and agents cannot. Emits LogPublicVaultCreation."
+        }
+      ]
+    },
+    {
+      "chain": "plasma",
+      "chainId": 9745,
+      "address": "0x820FB8127a689327C863de8433278d6181123982",
+      "name": "ArrakisMetaVaultFactory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "numOfPublicVaults()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of public vaults created by this factory on this chain (2026-11-25: Ethereum 2, Base 6, Arbitrum 1, Plasma 0, BNB Chain 0)."
+        },
+        {
+          "signature": "publicVaults(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Public vault addresses in index range [startIndex, endIndex). Use (0, numOfPublicVaults()) to discover every public vault on the chain; this is the official way to find per-vault addresses."
+        },
+        {
+          "signature": "isPublicVault(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is a public vault deployed by this factory. Check this before depositing into any vault address you were given."
+        },
+        {
+          "signature": "numOfPrivateVaults()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of private (Arrakis Pro) vaults. Private vaults only accept deposits from depositors the vault owner whitelisted."
+        },
+        {
+          "signature": "privateVaults(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Private vault addresses in index range [startIndex, endIndex)."
+        },
+        {
+          "signature": "isPrivateVault(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is a private vault deployed by this factory."
+        },
+        {
+          "signature": "manager()",
+          "kind": "read",
+          "payable": false,
+          "description": "The ArrakisStandardManager (0x2e6E879648293e939aA68bA4c6c129A1Be733bDA) that manages vaults."
+        },
+        {
+          "signature": "moduleRegistryPublic()",
+          "kind": "read",
+          "payable": false,
+          "description": "The public module registry (0x791d75F87a701C3F7dFfcEC1B6094dB22c779603): which modules (DEX integrations) public vaults may whitelist."
+        },
+        {
+          "signature": "getTokenName(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Name a public vault for the (token0, token1) pair gets, e.g. 'Arrakis Public LP WETH/USDC'."
+        },
+        {
+          "signature": "deployPublicVault(bytes32,address,address,address,address,bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create a public vault (salt, token0, token1, owner, beacon, moduleCreationPayload, initManagementPayload). Only whitelisted deployers (deployers()) can call it; ordinary users and agents cannot. Emits LogPublicVaultCreation."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x820FB8127a689327C863de8433278d6181123982",
+      "name": "ArrakisMetaVaultFactory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "numOfPublicVaults()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of public vaults created by this factory on this chain (2026-11-25: Ethereum 2, Base 6, Arbitrum 1, Plasma 0, BNB Chain 0)."
+        },
+        {
+          "signature": "publicVaults(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Public vault addresses in index range [startIndex, endIndex). Use (0, numOfPublicVaults()) to discover every public vault on the chain; this is the official way to find per-vault addresses."
+        },
+        {
+          "signature": "isPublicVault(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is a public vault deployed by this factory. Check this before depositing into any vault address you were given."
+        },
+        {
+          "signature": "numOfPrivateVaults()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of private (Arrakis Pro) vaults. Private vaults only accept deposits from depositors the vault owner whitelisted."
+        },
+        {
+          "signature": "privateVaults(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Private vault addresses in index range [startIndex, endIndex)."
+        },
+        {
+          "signature": "isPrivateVault(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is a private vault deployed by this factory."
+        },
+        {
+          "signature": "manager()",
+          "kind": "read",
+          "payable": false,
+          "description": "The ArrakisStandardManager (0x2e6E879648293e939aA68bA4c6c129A1Be733bDA) that manages vaults."
+        },
+        {
+          "signature": "moduleRegistryPublic()",
+          "kind": "read",
+          "payable": false,
+          "description": "The public module registry (0x791d75F87a701C3F7dFfcEC1B6094dB22c779603): which modules (DEX integrations) public vaults may whitelist."
+        },
+        {
+          "signature": "getTokenName(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Name a public vault for the (token0, token1) pair gets, e.g. 'Arrakis Public LP WETH/USDC'."
+        },
+        {
+          "signature": "deployPublicVault(bytes32,address,address,address,address,bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create a public vault (salt, token0, token1, owner, beacon, moduleCreationPayload, initManagementPayload). Only whitelisted deployers (deployers()) can call it; ordinary users and agents cannot. Emits LogPublicVaultCreation."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x72aa2C8e6B14F30131081401Fa999fC964A66041",
+      "name": "ArrakisPublicVaultRouter",
+      "role": "router",
+      "proxy": false,
+      "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getMintAmounts(address,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a deposit: (vault, maxAmount0, maxAmount1) -> (shareToMint, amount0ToDeposit, amount1ToDeposit). Call first and derive amount0Min/amount1Min/amountSharesMin with your slippage tolerance."
+        },
+        {
+          "signature": "addLiquidity((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver))",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit token0+token1 into a public vault and mint LP shares to receiver. Tuple = AddLiquidityData. Approve the router for both tokens first (ERC20 approve) or use addLiquidityPermit2. Reverts for non-public vaults (onlyPublicVault) and when paused. Returns (amount0, amount1, sharesReceived)."
+        },
+        {
+          "signature": "wrapAndAddLiquidity((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver))",
+          "kind": "write",
+          "payable": true,
+          "description": "Same as addLiquidity but sends native ETH as msg.value, wrapped to WETH by the router, for vaults with WETH as a token."
+        },
+        {
+          "signature": "swapAndAddLiquidity(((bytes swapPayload,uint256 amountInSwap,uint256 amountOutSwap,address swapRouter,bool zeroForOne),(uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap part of one token through an external swap router (atomic, via the RouterSwapExecutor) and then deposit. SwapData: swapPayload (calldata for swapRouter), amountInSwap, amountOutSwap (minimum out), swapRouter, zeroForOne. Returns (amount0, amount1, sharesReceived, amount0Diff, amount1Diff)."
+        },
+        {
+          "signature": "addLiquidityPermit2(((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver),((address token,uint256 amount)[] permitted,uint256 nonce,uint256 deadline),bytes signature))",
+          "kind": "write",
+          "payable": true,
+          "description": "addLiquidity with Permit2 (0x000000000022D473030F116dDEE9F6B43aC78BA3) batch-transfer signature instead of ERC20 approvals to the router."
+        },
+        {
+          "signature": "removeLiquidity((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver))",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn vault shares and send token0/token1 to receiver. Tuple = RemoveLiquidityData. Approve the router to spend your vault (LP) shares first, or use removeLiquidityPermit2. Returns (amount0, amount1)."
+        },
+        {
+          "signature": "removeLiquidityPermit2(((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver),((address token,uint256 amount) permitted,uint256 nonce,uint256 deadline),bytes signature))",
+          "kind": "write",
+          "payable": false,
+          "description": "removeLiquidity using a Permit2 single-transfer signature over the vault shares."
+        },
+        {
+          "signature": "factory()",
+          "kind": "read",
+          "payable": false,
+          "description": "The ArrakisMetaVaultFactory (0x820FB8127a689327C863de8433278d6181123982) whose public vaults this router accepts."
+        },
+        {
+          "signature": "permit2()",
+          "kind": "read",
+          "payable": false,
+          "description": "Permit2 address used by the *Permit2 functions."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True when the router is paused (all deposit/withdraw functions revert)."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x72aa2C8e6B14F30131081401Fa999fC964A66041",
+      "name": "ArrakisPublicVaultRouter",
+      "role": "router",
+      "proxy": false,
+      "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getMintAmounts(address,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a deposit: (vault, maxAmount0, maxAmount1) -> (shareToMint, amount0ToDeposit, amount1ToDeposit). Call first and derive amount0Min/amount1Min/amountSharesMin with your slippage tolerance."
+        },
+        {
+          "signature": "addLiquidity((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver))",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit token0+token1 into a public vault and mint LP shares to receiver. Tuple = AddLiquidityData. Approve the router for both tokens first (ERC20 approve) or use addLiquidityPermit2. Reverts for non-public vaults (onlyPublicVault) and when paused. Returns (amount0, amount1, sharesReceived)."
+        },
+        {
+          "signature": "wrapAndAddLiquidity((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver))",
+          "kind": "write",
+          "payable": true,
+          "description": "Same as addLiquidity but sends native ETH as msg.value, wrapped to WETH by the router, for vaults with WETH as a token."
+        },
+        {
+          "signature": "swapAndAddLiquidity(((bytes swapPayload,uint256 amountInSwap,uint256 amountOutSwap,address swapRouter,bool zeroForOne),(uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap part of one token through an external swap router (atomic, via the RouterSwapExecutor) and then deposit. SwapData: swapPayload (calldata for swapRouter), amountInSwap, amountOutSwap (minimum out), swapRouter, zeroForOne. Returns (amount0, amount1, sharesReceived, amount0Diff, amount1Diff)."
+        },
+        {
+          "signature": "addLiquidityPermit2(((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver),((address token,uint256 amount)[] permitted,uint256 nonce,uint256 deadline),bytes signature))",
+          "kind": "write",
+          "payable": true,
+          "description": "addLiquidity with Permit2 (0x000000000022D473030F116dDEE9F6B43aC78BA3) batch-transfer signature instead of ERC20 approvals to the router."
+        },
+        {
+          "signature": "removeLiquidity((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver))",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn vault shares and send token0/token1 to receiver. Tuple = RemoveLiquidityData. Approve the router to spend your vault (LP) shares first, or use removeLiquidityPermit2. Returns (amount0, amount1)."
+        },
+        {
+          "signature": "removeLiquidityPermit2(((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver),((address token,uint256 amount) permitted,uint256 nonce,uint256 deadline),bytes signature))",
+          "kind": "write",
+          "payable": false,
+          "description": "removeLiquidity using a Permit2 single-transfer signature over the vault shares."
+        },
+        {
+          "signature": "factory()",
+          "kind": "read",
+          "payable": false,
+          "description": "The ArrakisMetaVaultFactory (0x820FB8127a689327C863de8433278d6181123982) whose public vaults this router accepts."
+        },
+        {
+          "signature": "permit2()",
+          "kind": "read",
+          "payable": false,
+          "description": "Permit2 address used by the *Permit2 functions."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True when the router is paused (all deposit/withdraw functions revert)."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x72aa2C8e6B14F30131081401Fa999fC964A66041",
+      "name": "ArrakisPublicVaultRouter",
+      "role": "router",
+      "proxy": false,
+      "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getMintAmounts(address,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a deposit: (vault, maxAmount0, maxAmount1) -> (shareToMint, amount0ToDeposit, amount1ToDeposit). Call first and derive amount0Min/amount1Min/amountSharesMin with your slippage tolerance."
+        },
+        {
+          "signature": "addLiquidity((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver))",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit token0+token1 into a public vault and mint LP shares to receiver. Tuple = AddLiquidityData. Approve the router for both tokens first (ERC20 approve) or use addLiquidityPermit2. Reverts for non-public vaults (onlyPublicVault) and when paused. Returns (amount0, amount1, sharesReceived)."
+        },
+        {
+          "signature": "wrapAndAddLiquidity((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver))",
+          "kind": "write",
+          "payable": true,
+          "description": "Same as addLiquidity but sends native ETH as msg.value, wrapped to WETH by the router, for vaults with WETH as a token."
+        },
+        {
+          "signature": "swapAndAddLiquidity(((bytes swapPayload,uint256 amountInSwap,uint256 amountOutSwap,address swapRouter,bool zeroForOne),(uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap part of one token through an external swap router (atomic, via the RouterSwapExecutor) and then deposit. SwapData: swapPayload (calldata for swapRouter), amountInSwap, amountOutSwap (minimum out), swapRouter, zeroForOne. Returns (amount0, amount1, sharesReceived, amount0Diff, amount1Diff)."
+        },
+        {
+          "signature": "addLiquidityPermit2(((uint256 amount0Max,uint256 amount1Max,uint256 amount0Min,uint256 amount1Min,uint256 amountSharesMin,address vault,address receiver),((address token,uint256 amount)[] permitted,uint256 nonce,uint256 deadline),bytes signature))",
+          "kind": "write",
+          "payable": true,
+          "description": "addLiquidity with Permit2 (0x000000000022D473030F116dDEE9F6B43aC78BA3) batch-transfer signature instead of ERC20 approvals to the router."
+        },
+        {
+          "signature": "removeLiquidity((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver))",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn vault shares and send token0/token1 to receiver. Tuple = RemoveLiquidityData. Approve the router to spend your vault (LP) shares first, or use removeLiquidityPermit2. Returns (amount0, amount1)."
+        },
+        {
+          "signature": "removeLiquidityPermit2(((uint256 burnAmount,uint256 amount0Min,uint256 amount1Min,address vault,address receiver),((address token,uint256 amount) permitted,uint256 nonce,uint256 deadline),bytes signature))",
+          "kind": "write",
+          "payable": false,
+          "description": "removeLiquidity using a Permit2 single-transfer signature over the vault shares."
+        },
+        {
+          "signature": "factory()",
+          "kind": "read",
+          "payable": false,
+          "description": "The ArrakisMetaVaultFactory (0x820FB8127a689327C863de8433278d6181123982) whose public vaults this router accepts."
+        },
+        {
+          "signature": "permit2()",
+          "kind": "read",
+          "payable": false,
+          "description": "Permit2 address used by the *Permit2 functions."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True when the router is paused (all deposit/withdraw functions revert)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x2e6E879648293e939aA68bA4c6c129A1Be733bDA",
+      "name": "ArrakisStandardManager",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "vaultInfo(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Per-vault management config: (lastRebalance, cooldownPeriod, oracle, maxDeviation, executor, stratAnnouncer, maxSlippagePIPS, managerFeePIPS). Shows who can rebalance the vault (executor) and the guardrails (oracle deviation, slippage, cooldown) that bound the manager."
+        },
+        {
+          "signature": "isManaged(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the vault is managed by the Standard Manager."
+        },
+        {
+          "signature": "numInitializedVaults()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of vaults the manager has initialized."
+        },
+        {
+          "signature": "initializedVaults(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Managed vault addresses in index range [start, end)."
+        },
+        {
+          "signature": "pendingFeeIncrease(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pending (timelocked) manager fee increase for a vault: (submitTimestamp, newFeePIPS)."
+        },
+        {
+          "signature": "timelock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Timelock that owns the manager's upgrade/admin path."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x2e6E879648293e939aA68bA4c6c129A1Be733bDA",
+      "name": "ArrakisStandardManager",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "vaultInfo(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Per-vault management config: (lastRebalance, cooldownPeriod, oracle, maxDeviation, executor, stratAnnouncer, maxSlippagePIPS, managerFeePIPS). Shows who can rebalance the vault (executor) and the guardrails (oracle deviation, slippage, cooldown) that bound the manager."
+        },
+        {
+          "signature": "isManaged(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the vault is managed by the Standard Manager."
+        },
+        {
+          "signature": "numInitializedVaults()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of vaults the manager has initialized."
+        },
+        {
+          "signature": "initializedVaults(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Managed vault addresses in index range [start, end)."
+        },
+        {
+          "signature": "pendingFeeIncrease(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pending (timelocked) manager fee increase for a vault: (submitTimestamp, newFeePIPS)."
+        },
+        {
+          "signature": "timelock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Timelock that owns the manager's upgrade/admin path."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x2e6E879648293e939aA68bA4c6c129A1Be733bDA",
+      "name": "ArrakisStandardManager",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "vaultInfo(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Per-vault management config: (lastRebalance, cooldownPeriod, oracle, maxDeviation, executor, stratAnnouncer, maxSlippagePIPS, managerFeePIPS). Shows who can rebalance the vault (executor) and the guardrails (oracle deviation, slippage, cooldown) that bound the manager."
+        },
+        {
+          "signature": "isManaged(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the vault is managed by the Standard Manager."
+        },
+        {
+          "signature": "numInitializedVaults()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of vaults the manager has initialized."
+        },
+        {
+          "signature": "initializedVaults(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Managed vault addresses in index range [start, end)."
+        },
+        {
+          "signature": "pendingFeeIncrease(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pending (timelocked) manager fee increase for a vault: (submitTimestamp, newFeePIPS)."
+        },
+        {
+          "signature": "timelock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Timelock that owns the manager's upgrade/admin path."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xf790870ccF6aE66DdC69f68e6d05d446f1a6ad83",
+      "name": "Arrakis Public LP USDC/WETH vault (ArrakisMetaVaultPublic, HOT AMM module)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/modules/hotAmm/publicVaults.md",
+      "keyFunctions": [
+        {
+          "signature": "totalUnderlying()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total token0 and token1 held by the vault's position (all depositors). Your share = balanceOf(you)/totalSupply()."
+        },
+        {
+          "signature": "totalUnderlyingAtPrice(uint160)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same as totalUnderlying but valued at a given sqrtPriceX96."
+        },
+        {
+          "signature": "getInits()",
+          "kind": "read",
+          "payable": false,
+          "description": "(init0, init1): token amounts needed to open a position when the vault is empty (totalSupply == 0)."
+        },
+        {
+          "signature": "token0()",
+          "kind": "read",
+          "payable": false,
+          "description": "Vault token0."
+        },
+        {
+          "signature": "token1()",
+          "kind": "read",
+          "payable": false,
+          "description": "Vault token1."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total LP shares (18 decimals)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LP share balance (vault shares are ERC20 and transferable)."
+        },
+        {
+          "signature": "module()",
+          "kind": "read",
+          "payable": false,
+          "description": "Active module (DEX integration) holding the liquidity; can be changed by the vault owner via setModule (timelocked for public vaults)."
+        },
+        {
+          "signature": "manager()",
+          "kind": "read",
+          "payable": false,
+          "description": "Manager contract allowed to rebalance (ArrakisStandardManager)."
+        },
+        {
+          "signature": "owner()",
+          "kind": "read",
+          "payable": false,
+          "description": "Vault owner. For this vault: a TimeLock (0xCFaD8B6981Da1c734352Bd31618040C23FE99117) administered by the Arrakis multisig."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Direct mint of an exact number of shares to receiver; returns (amount0, amount1) pulled. Prefer the ArrakisPublicVaultRouter (it computes amounts and enforces min/max). Direct calls have no slippage bounds."
+        },
+        {
+          "signature": "burn(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Direct burn of shares, sending token0/token1 to receiver; returns (amount0, amount1). No min-out check: prefer router.removeLiquidity."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "find public vaults",
+      "description": "List every public vault on a chain",
+      "how": "ArrakisMetaVaultFactory.numOfPublicVaults() then publicVaults(0, n); for each vault read name(), token0(), token1(), totalUnderlying(), totalSupply(), module(). Verify any vault address you get elsewhere with factory.isPublicVault(addr)."
+    },
+    {
+      "name": "deposit into a public vault",
+      "description": "Add token0/token1 liquidity and receive vault LP shares",
+      "how": "1) router.getMintAmounts(vault, max0, max1) -> (shares, amt0, amt1). 2) approve ArrakisPublicVaultRouter (0x72aa2C8e6B14F30131081401Fa999fC964A66041) for token0 and token1 (or sign Permit2). 3) router.addLiquidity((max0, max1, min0, min1, minShares, vault, receiver)); use wrapAndAddLiquidity with msg.value to pay the WETH side in ETH. Set min values from the quote minus slippage: the docs warn vault composition can change before execution."
+    },
+    {
+      "name": "withdraw from a public vault",
+      "description": "Burn LP shares for the underlying tokens",
+      "how": "approve the router to spend your vault shares (the vault address is the share token), then router.removeLiquidity((burnAmount, amount0Min, amount1Min, vault, receiver)). Preview with vault.totalUnderlying() * burnAmount / vault.totalSupply()."
+    },
+    {
+      "name": "deposit into a private (Arrakis Pro) vault",
+      "description": "Only for the vault owner's team",
+      "how": "vault owner calls whitelistDepositors([depositor]) on the ArrakisMetaVaultPrivate; the depositor approves vault.module() for the tokens and calls deposit(amount0, amount1) (payable for native ETH). Withdraw with withdraw(proportion, receiver) (owner only). Vaults are created by Arrakis on request."
+    },
+    {
+      "name": "check who controls a vault",
+      "description": "Read manager guardrails and ownership",
+      "how": "vault.owner() (public vaults: a timelock), vault.manager(), ArrakisStandardManager.vaultInfo(vault) for executor, oracle, maxDeviation, maxSlippagePIPS, cooldownPeriod and managerFeePIPS."
+    }
+  ],
+  "risks": [
+    "Active management: the vault's executor (an Arrakis-run backend set in ArrakisStandardManager) rebalances the position. Losses from rebalancing, impermanent loss and price moves fall on depositors; guardrails are an oracle deviation limit, max slippage and a cooldown per vault.",
+    "The vault owner can whitelist and switch modules (setModule), which changes where and how liquidity is deployed. For public vaults this is behind a timelock; for the Ethereum USDC/WETH vault the owner is TimeLock 0xCFaD8B6981Da1c734352Bd31618040C23FE99117 administered by the Arrakis multisig 0x5108EF86cF493905BcD35A3736e4B46DeCD7de58.",
+    "ArrakisStandardManager is an upgradeable (transparent) proxy whose admin is the Arrakis TimeLock 0xAf6f9640092cB1236E5DB6E517576355b6C40b7f; module implementations sit behind upgradeable beacons. Docs state all upgrades are timelocked and the Guardian can pause.",
+    "Public vs private: router functions only accept public vaults (onlyPublicVault). Private (Arrakis Pro) vaults are owned by a team through a PrivateVaultNFT; only whitelisted depositors can deposit and only the owner can withdraw. Anyone holding the NFT controls the funds.",
+    "Manager fee: a managerFeePIPS cut of earned swap fees (1% for the Ethereum USDC/WETH vault per docs).",
+    "The Ethereum USDC/WETH public vault uses the Valantis HOT AMM module, which relies on Arrakis-signed quotes (QuoteSigner) and Chainlink oracles.",
+    "Audits listed by Arrakis: ChainSecurity (Modular core Jul 2024, Uniswap V4 modules Dec 2024, Aerodrome Jan 2025), Sherlock, Watchpug, Enigma Dark, Cantina and Pashov (2023-2026). Reports are available on request from Arrakis; audits do not remove risk.",
+    "Public vault liquidity is small: on 2026-11-25 there were 2 public vaults on Ethereum, 6 on Base (mostly KAITO pairs), 1 on Arbitrum and none on Plasma or BNB Chain."
+  ],
+  "notes": "Addresses come from the official arrakis-docs GitHub repo (deployments.md, last commit 2026-05-21). The public docs site docs.arrakis.finance was rebuilt in 2026 around 'Arrakis Pro' and no longer has the technical pages (old URLs such as /text/arrakisModular/deployments.html now redirect to /arrakis-pro); app.arrakis.finance returns 404, and the arrakis-modular source repo is not public. The core contracts are deployed with CREATE3 at the same address on every chain listed by Arrakis (Ethereum, Base, Arbitrum, BNB Chain, Plasma, Optimism, Polygon, Ink, Unichain, Sepolia). Checked onchain 2026-11-25: the factory has code on Ethereum, Arbitrum, Base, Plasma and BNB Chain, and the manager is the factory's manager() everywhere; the ArrakisPublicVaultRouter, RouterSwapExecutor (0x19488620Cdf3Ff1B0784AC4529Fb5c5AbAceb1B6) and RouterSwapResolver (0xC6c53369c36D6b4f4A6c195441Fe2d33149FB265) have NO code on Plasma or BNB Chain, so on those chains only private vaults exist. Other core addresses from the same page (not listed as contracts because agents rarely call them): PrivateVaultNFT 0x44A801e7E2E073bd8bcE4bCCf653239Fa156B762, RenderController 0x1Cc0Adff599F244f036a5C2425f646Aef884149D, TimeLock 0xAf6f9640092cB1236E5DB6E517576355b6C40b7f, Guardian 0x6F441151B478E0d60588f221f1A35BcC3f7aB981, Public Module Registry 0x791d75F87a701C3F7dFfcEC1B6094dB22c779603, Private Module Registry 0xe278C1944BA3321C1079aBF94961E9fF1127A265, Pauser 0x700a1cdA1495C1B34c4962e9742A8A8832aAc03A, Withdraw Helper 0x3a2e9c26fBB53990BAFAec0342e38bd2a06f46d3, Migration Helper 0xd61407B9B63956CfB61341AAfeFbD7EDA1F9B962; per-chain Uniswap V3/V4, PancakeSwap and Aerodrome module beacons are on the same deployments page. The docs quickstart describes an 'ArrakisPublicVaultRouterV2' (same function names), but the deployments page lists only the router at 0x72aa\u20266041, which Sourcify verifies as ArrakisPublicVaultRouter (v1); no V2 address is published, so it is left out. Per-vault addresses are not listed except the Ethereum USDC/WETH flagship vault documented on the official public vault list; discover the rest with factory.publicVaults(). The address 0xf790870ccF6aE66DdC69f68e6d05d446f1a6ad83 also holds WETH/USDC public vaults on Base and Arbitrum (same CREATE3 address, different modules), but official docs only describe the Ethereum one. DefiLlama also lists Robinhood Chain; Arrakis's deployment list does not, so it is not covered. Arrakis publishes no public API or SDK for Modular; an official Uniswap v4 position-migration example is at github.com/ArrakisFinance/univ4-migration-example. Older Arrakis V1/V2 (PALM) vaults are separate products not covered here.",
+  "sources": [
+    "https://defillama.com/protocol/arrakis-modular",
+    "https://api.llama.fi/protocol/arrakis-modular",
+    "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/deployments.md",
+    "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/modules/hotAmm/publicVaults.md",
+    "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/quickstart/quickstartPublic.md",
+    "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/technicalReference/routers/contract.ArrakisPublicVaultRouter.md",
+    "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/technicalReference/routers/structs/struct.AddLiquidityData.md",
+    "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/technicalReference/routers/structs/struct.RemoveLiquidityData.md",
+    "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/technicalReference/metaVaults/publicVaults/contract.ArrakisMetaVaultPublic.md",
+    "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisModular/architecture/security.md",
+    "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisPro/setup.md",
+    "https://github.com/ArrakisFinance/arrakis-docs/blob/main/src/text/arrakisPro/modify.md",
+    "https://github.com/ArrakisFinance/univ4-migration-example",
+    "https://docs.arrakis.finance/llms.txt",
+    "https://docs.arrakis.finance/supported-chains",
+    "https://docs.arrakis.finance/audits",
+    "https://docs.arrakis.finance/arrakis-pro",
+    "https://sourcify.dev/server/v2/contract/1/0x820FB8127a689327C863de8433278d6181123982",
+    "https://sourcify.dev/server/v2/contract/1/0x72aa2C8e6B14F30131081401Fa999fC964A66041",
+    "https://sourcify.dev/server/v2/contract/1/0xf790870ccF6aE66DdC69f68e6d05d446f1a6ad83",
+    "https://sourcify.dev/server/v2/contract/8453/0xd6a035de7b5d5c7689f26a035bca9208cada7f9c"
+  ],
+  "researchedAt": "2026-11-25"
+}

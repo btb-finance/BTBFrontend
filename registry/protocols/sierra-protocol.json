@@ -1,0 +1,452 @@
+{
+  "slug": "sierra-protocol",
+  "name": "Sierra Protocol",
+  "category": "Yield",
+  "description": "Issuer of USDC-backed, non-rebasing 'Liquid Yield Token' vault tokens (SIERRA, SPLUS) built on OpenTrade's LYT contracts: reserves are deployed into RWA and DeFi yield sources and yield accrues through a rising exchange rate. Agents can deposit USDC into SPLUS permissionlessly and request/claim redemptions, read exchange rates and positions, and hold/trade/bridge SIERRA (minting SIERRA directly is for whitelisted Authorized Participants).",
+  "website": "https://sierra.money",
+  "docs": "https://docs.sierra.money",
+  "defillama": "https://defillama.com/protocol/sierra-protocol",
+  "chains": [
+    "ethereum",
+    "avalanche"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xBcEb5f6877d979EC621AE694dA1102CB95691aD3",
+      "name": "SIERRA vault token (native, Ethereum)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://docs.sierra.money/building-with-sierra/blockchain-addresses",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint vault tokens: (assets in USDC (0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48) base units, 6 decimals; lender = msg.sender, otherwise reverts PoolInvalidState). Approve USDC (0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48) (asset()) to the vault first. Returns shares (6 decimals) at the current exchangeRate. Can revert DailyMintLimitExceeded or PoolPaused. On SIERRA the deposit is gated: onchain simulation from a non-whitelisted wallet reverts NotMarketMaker(); only whitelisted Authorized Participants (KYB'd institutions) can mint. Everyone else buys SIERRA on DEXs."
+        },
+        {
+          "signature": "requestRedeem(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Request a withdrawal: (shares, 6 decimals). Returns the net USDC amount after fees, fixed at the current exchange rate. Emits RedeemRequested(lender, assets, shares, uuid): save uuid. Requested shares stay in your balance but cannot be transferred. Max 100 open requests per wallet; RedeemBelowMinimum if too small. Gated like deposit (Authorized Participants only)."
+        },
+        {
+          "signature": "isClaimable(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "True once the issuer has processed the withdrawal request uuid (ClaimsOpened event)."
+        },
+        {
+          "signature": "claim(bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim a processed withdrawal (uuid) from the requesting wallet: burns the shares and sends USDC minus the fee."
+        },
+        {
+          "signature": "cancelRedemption(bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Cancel an open withdrawal request by uuid (emits RedeemCancelled); check it succeeds with a simulation first."
+        },
+        {
+          "signature": "withdrawExtra(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Details of a withdrawal request, including .fee (USDC, 6 decimals)."
+        },
+        {
+          "signature": "exchangeRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDC per vault token, 18 decimals (e.g. 1.05e18). Rises as reserves earn yield; updated by the issuer (hourly for DeFi yield, daily for RWA)."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDC (6 decimals) for a number of shares at the current rate."
+        },
+        {
+          "signature": "convertToShares(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares (6 decimals) for an amount of USDC."
+        },
+        {
+          "signature": "previewRedeemRequest(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDC a requestRedeem of the given shares would lock in now."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Vault tokens held (6 decimals), including shares reserved by open requests."
+        },
+        {
+          "signature": "assetBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Holder's tokens valued in USDC (6 decimals)."
+        },
+        {
+          "signature": "maxRedeemRequest(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Largest requestRedeem (shares) the wallet can make now."
+        },
+        {
+          "signature": "getLYTPoolAccountState(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Account summary: (poolAddr, accountAddr, liquidityAssetAddr, tokenBalance, assetBalance, maxWithdrawRequest, maxRedeemRequest, requestedSharesOf, requestedAssetsOf, assetsDeposited, assetsWithdrawn)."
+        },
+        {
+          "signature": "getLYTPoolOverviewState()",
+          "kind": "read",
+          "payable": false,
+          "description": "Vault state: totals, exchangeRate and its schedule fields, interestRate / indicativeInterestRate / collateralRate in bps, active withdrawal requests."
+        },
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidity asset (USDC (0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48))."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x7706b1a531A7A8cB4c26D24CDc9ae4094a3e0302",
+      "name": "SPLUS vault token (Sierra OpenTrade Prime Plus Yield)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://docs.sierra.money/building-with-sierra/smart-contract-integration",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint vault tokens: (assets in USDC (0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48) base units, 6 decimals; lender = msg.sender, otherwise reverts PoolInvalidState). Approve USDC (0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48) (asset()) to the vault first. Returns shares (6 decimals) at the current exchangeRate. Can revert DailyMintLimitExceeded or PoolPaused. Permissionless (any non-sanctioned wallet); no mint fee."
+        },
+        {
+          "signature": "requestRedeem(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Request a withdrawal: (shares, 6 decimals). Returns the net USDC amount after fees, fixed at the current exchange rate. Emits RedeemRequested(lender, assets, shares, uuid): save uuid. Requested shares stay in your balance but cannot be transferred. Max 100 open requests per wallet; RedeemBelowMinimum if too small. Redemption fee 10 bps on SPLUS; docs SLA up to 7 business days (usually same day)."
+        },
+        {
+          "signature": "isClaimable(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "True once the issuer has processed the withdrawal request uuid (ClaimsOpened event)."
+        },
+        {
+          "signature": "claim(bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim a processed withdrawal (uuid) from the requesting wallet: burns the shares and sends USDC minus the fee."
+        },
+        {
+          "signature": "cancelRedemption(bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Cancel an open withdrawal request by uuid (emits RedeemCancelled); check it succeeds with a simulation first."
+        },
+        {
+          "signature": "withdrawExtra(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Details of a withdrawal request, including .fee (USDC, 6 decimals)."
+        },
+        {
+          "signature": "exchangeRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDC per vault token, 18 decimals (e.g. 1.05e18). Rises as reserves earn yield; updated by the issuer (hourly for DeFi yield, daily for RWA)."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDC (6 decimals) for a number of shares at the current rate."
+        },
+        {
+          "signature": "convertToShares(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares (6 decimals) for an amount of USDC."
+        },
+        {
+          "signature": "previewRedeemRequest(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDC a requestRedeem of the given shares would lock in now."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Vault tokens held (6 decimals), including shares reserved by open requests."
+        },
+        {
+          "signature": "assetBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Holder's tokens valued in USDC (6 decimals)."
+        },
+        {
+          "signature": "maxRedeemRequest(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Largest requestRedeem (shares) the wallet can make now."
+        },
+        {
+          "signature": "getLYTPoolAccountState(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Account summary: (poolAddr, accountAddr, liquidityAssetAddr, tokenBalance, assetBalance, maxWithdrawRequest, maxRedeemRequest, requestedSharesOf, requestedAssetsOf, assetsDeposited, assetsWithdrawn)."
+        },
+        {
+          "signature": "getLYTPoolOverviewState()",
+          "kind": "read",
+          "payable": false,
+          "description": "Vault state: totals, exchangeRate and its schedule fields, interestRate / indicativeInterestRate / collateralRate in bps, active withdrawal requests."
+        },
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidity asset (USDC (0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48))."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x6E6080e15f8C0010d333D8CAeEaD29292ADb78f7",
+      "name": "SIERRA vault token (native, Avalanche)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://docs.sierra.money/building-with-sierra/blockchain-addresses",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint vault tokens: (assets in USDC on Avalanche (0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E) base units, 6 decimals; lender = msg.sender, otherwise reverts PoolInvalidState). Approve USDC on Avalanche (0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E) (asset()) to the vault first. Returns shares (6 decimals) at the current exchangeRate. Can revert DailyMintLimitExceeded or PoolPaused. On SIERRA the deposit is gated: onchain simulation from a non-whitelisted wallet reverts NotMarketMaker(); only whitelisted Authorized Participants (KYB'd institutions) can mint. Everyone else buys SIERRA on DEXs."
+        },
+        {
+          "signature": "requestRedeem(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Request a withdrawal: (shares, 6 decimals). Returns the net USDC amount after fees, fixed at the current exchange rate. Emits RedeemRequested(lender, assets, shares, uuid): save uuid. Requested shares stay in your balance but cannot be transferred. Max 100 open requests per wallet; RedeemBelowMinimum if too small. Gated like deposit (Authorized Participants only)."
+        },
+        {
+          "signature": "isClaimable(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "True once the issuer has processed the withdrawal request uuid (ClaimsOpened event)."
+        },
+        {
+          "signature": "claim(bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim a processed withdrawal (uuid) from the requesting wallet: burns the shares and sends USDC minus the fee."
+        },
+        {
+          "signature": "cancelRedemption(bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Cancel an open withdrawal request by uuid (emits RedeemCancelled); check it succeeds with a simulation first."
+        },
+        {
+          "signature": "withdrawExtra(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Details of a withdrawal request, including .fee (USDC, 6 decimals)."
+        },
+        {
+          "signature": "exchangeRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDC per vault token, 18 decimals (e.g. 1.05e18). Rises as reserves earn yield; updated by the issuer (hourly for DeFi yield, daily for RWA)."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDC (6 decimals) for a number of shares at the current rate."
+        },
+        {
+          "signature": "convertToShares(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares (6 decimals) for an amount of USDC."
+        },
+        {
+          "signature": "previewRedeemRequest(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDC a requestRedeem of the given shares would lock in now."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Vault tokens held (6 decimals), including shares reserved by open requests."
+        },
+        {
+          "signature": "assetBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Holder's tokens valued in USDC (6 decimals)."
+        },
+        {
+          "signature": "maxRedeemRequest(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Largest requestRedeem (shares) the wallet can make now."
+        },
+        {
+          "signature": "getLYTPoolAccountState(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Account summary: (poolAddr, accountAddr, liquidityAssetAddr, tokenBalance, assetBalance, maxWithdrawRequest, maxRedeemRequest, requestedSharesOf, requestedAssetsOf, assetsDeposited, assetsWithdrawn)."
+        },
+        {
+          "signature": "getLYTPoolOverviewState()",
+          "kind": "read",
+          "payable": false,
+          "description": "Vault state: totals, exchangeRate and its schedule fields, interestRate / indicativeInterestRate / collateralRate in bps, active withdrawal requests."
+        },
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidity asset (USDC on Avalanche (0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E))."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6bf7788EAA948d9fFBA7E9bb386E2D3c9810e0fc",
+      "name": "SIERRA OFT (bridged from Avalanche via LayerZero)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.sierra.money/building-with-sierra/blockchain-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged SIERRA balance (6 decimals). This is a DIFFERENT token from the native Ethereum SIERRA vault 0xBcEb...; it cannot be redeemed with the Ethereum vault."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bridged SIERRA."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender (e.g. a DEX router)."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero fee quote for send: SendParam(dstEid, to as bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false. Avalanche dstEid = 30106 (the only peer configured)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge SIERRA back to Avalanche: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); msg.value = nativeFee. Tokens are burned here and released on Avalanche."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Sierra Protocol API",
+      "url": "https://api.sierra.money",
+      "auth": "api-key",
+      "use": "Read-only vault metrics: GET /lytHero/{lytPoolAddr} (exchange rate, market cap, 3/7/30-day APY) and GET /lytPoolReservesState/{lytPoolAddr} (reserve allocations). Header x-api-key; token issued by Sierra on request. No account data, cannot move funds.",
+      "source": "https://docs.sierra.money/building-with-sierra/api-integration"
+    },
+    {
+      "name": "RedStone SIERRA fundamental price feed",
+      "url": "https://app.redstone.finance/app/token/SIERRA_FUNDAMENTAL/",
+      "auth": "none",
+      "use": "SIERRA exchange-rate feed published by RedStone for lending markets/curators.",
+      "source": "https://docs.sierra.money/sierra/price-oracle"
+    }
+  ],
+  "actions": [
+    {
+      "name": "deposit-splus",
+      "description": "Mint SPLUS with USDC (permissionless)",
+      "how": "USDC.approve(0x7706b1a531A7A8cB4c26D24CDc9ae4094a3e0302, assets); SPLUS.deposit(assets, msg.sender). 6-decimal units; estimate with convertToShares(assets)."
+    },
+    {
+      "name": "redeem-splus",
+      "description": "Withdraw USDC from SPLUS (two-step)",
+      "how": "SPLUS.requestRedeem(shares) -> read uuid from the RedeemRequested event; poll isClaimable(uuid) (or watch ClaimsOpened); then claim(uuid) from the same wallet. 10 bps fee; up to 7 business days."
+    },
+    {
+      "name": "get-sierra",
+      "description": "Acquire SIERRA without AP status",
+      "how": "Swap USDC for SIERRA on a DEX (Uniswap on Ethereum, LFJ on Avalanche) or via the sierra.money swap page; check the token address is the one you want (native Ethereum vault 0xBcEb..., Avalanche 0x6E60..., or bridged OFT 0x6bf7... on Ethereum) and compare the price with exchangeRate()."
+    },
+    {
+      "name": "read-position",
+      "description": "Value a holder's position",
+      "how": "vault.getLYTPoolAccountState(holder) or balanceOf(holder) * exchangeRate() / 1e18 (result in USDC, 6 decimals)."
+    },
+    {
+      "name": "bridge-sierra",
+      "description": "Bridge OFT SIERRA from Ethereum to Avalanche",
+      "how": "fee = OFT.quoteSend((30106, bytes32(recipient), amount, minAmount, 0x, 0x, 0x), false); OFT.send(sendParam, fee, refund) with msg.value = fee.nativeFee."
+    }
+  ],
+  "risks": [
+    "Custodial/off-chain reserves: deposited USDC goes to a treasury wallet (Fireblocks MPC) and is deployed through OpenTrade into RWA (T-bill MMFs, commercial paper, AAA CLOs, trade finance, corporate bonds) and DeFi (Morpho, Aave etc.) yield sources; holders rely on Sierra Reserve Limited (BVI) and the OpenTrade Cayman SPC structure, not onchain collateral.",
+    "Redemptions are not instant: requestRedeem then the issuer processes it (SLA 3 business days for SIERRA, 7 for SPLUS; usually same day). SPLUS charges 10 bps. Daily mint limits and per-wallet/vault request caps apply.",
+    "Exchange rate is set onchain by the Sierra/OpenTrade issuer role (setExchangeRate), not computed trustlessly; a wrong or delayed update affects mint/redeem prices.",
+    "Admin powers: vaults are upgradeable beacon proxies (same beacon for SIERRA and SPLUS on Ethereum); admins can pause, set rates, process/cancel redemptions and blacklist addresses (BlacklistedAddress, restricted jurisdictions).",
+    "SIERRA minting/redeeming at the vault is limited to whitelisted Authorized Participants (deposit reverts NotMarketMaker for others); retail exits depend on DEX liquidity and can trade below the exchange rate.",
+    "Two different SIERRA tokens exist on Ethereum: the native vault 0xBcEb... and the LayerZero OFT 0x6bf7... bridged from Avalanche. Native Ethereum SIERRA and Avalanche SIERRA are separate vaults with different exchange rates. Bridged SIERRA also depends on LayerZero (5/5 DVN config per docs).",
+    "Audits: OpenTrade LYT protocol audited by Cantina/Spearbit (Aug 2025, no high/critical findings; and Oct 2026). Underlying OpenTrade vaults audited separately."
+  ],
+  "notes": "All four addresses are from Sierra's docs (Blockchain Addresses page; SPLUS also on the Smart Contract Integration page) and were checked onchain on 2026-11-25: SIERRA Ethereum (6 dec, ~25.9M supply, exchangeRate ~1.047), SPLUS (~6.6M, ~1.014), SIERRA Avalanche (~0.84M, ~1.050), SIERRA OFT on Ethereum (~0.50M). The three vaults are OpenZeppelin beacon proxies; the Ethereum implementation (LYTPool) is verified on Sourcify; the Avalanche implementation (0x51c3f2Ce5CA90687d4FcBd51d608909d62C03dFd) is not verified, but every LYTPool selector is present in its bytecode. Left out: the Avalanche-side LayerZero peer of the OFT (0xc472d3a47719de5f9d808ca91d7b70bd2138bcaa, read from OFT.peers(30106)) because no official page lists it; Plume (listed by DefiLlama) because the docs list no Plume contract; access-control, controller and treasury contracts (admin-only). Docs say 'SIERRA and SPLUS... the vault is permissionless' on the integration page but the SIERRA Mint & Redeem page requires Authorized Participant whitelisting, and onchain simulation confirms SIERRA deposit is gated. Amounts: assets and shares 6 decimals, exchange rate 18 decimals. Sierra also runs a GitBook MCP server for its docs (https://docs.sierra.money/~gitbook/mcp). A governance token (SGT) is announced but not live.",
+  "sources": [
+    "https://docs.sierra.money/building-with-sierra/blockchain-addresses",
+    "https://docs.sierra.money/building-with-sierra/smart-contract-integration",
+    "https://docs.sierra.money/building-with-sierra/api-integration",
+    "https://docs.sierra.money/sierra/mint-and-redeem-sierra",
+    "https://docs.sierra.money/splus/mint-and-redeem-splus",
+    "https://docs.sierra.money/sierra/buy-and-sell-sierra",
+    "https://docs.sierra.money/splus/buy-and-sell-splus",
+    "https://docs.sierra.money/sierra/price-oracle",
+    "https://docs.sierra.money/building-with-sierra/exchange-rate-mechanism",
+    "https://docs.sierra.money/building-with-sierra/smart-contract-audits",
+    "https://docs.sierra.money/building-with-sierra/risk-framework",
+    "https://docs.sierra.money/overview/core-concepts",
+    "https://docs.sierra.money/llms.txt",
+    "https://sourcify.dev/server/files/any/1/0xfd10892c8A1CaC5b279ee22877DCC735DB7b7833",
+    "https://sourcify.dev/server/files/any/1/0x6bf7788EAA948d9fFBA7E9bb386E2D3c9810e0fc",
+    "https://api.llama.fi/protocol/sierra-protocol",
+    "https://defillama.com/protocol/sierra-protocol"
+  ],
+  "researchedAt": "2026-11-25"
+}
