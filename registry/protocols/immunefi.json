@@ -1,0 +1,118 @@
+{
+  "slug": "immunefi",
+  "name": "Immunefi",
+  "category": "Services",
+  "description": "Web3 bug bounty and audit-competition platform. On chain there is the IMU token (ERC-20 on Ethereum) and the reward splitter contracts that let projects pay whitehats and Immunefi's fee in one transaction; bounty programs, reports and IMU pledging run through the immunefi.com web app.",
+  "website": "https://immunefi.com",
+  "docs": "https://docs.immunefi.foundation",
+  "defillama": "https://defillama.com/protocol/immunefi",
+  "chains": ["ethereum"],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xb48c6B24f36307c7A1f2a9281E978a9ef2902BA5",
+      "name": "IMU token",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.immunefi.foundation/imu-coinlist-token-claiming/",
+      "keyFunctions": [
+        { "signature": "balanceOf(address)", "kind": "read", "payable": false, "description": "IMU balance (18 decimals)." },
+        { "signature": "totalSupply()", "kind": "read", "payable": false, "description": "Total supply; 10,000,000,000 IMU at research time (equals the stated initial supply)." },
+        { "signature": "transfer(address,uint256)", "kind": "write", "payable": false, "description": "Transfer IMU." },
+        { "signature": "approve(address,uint256)", "kind": "write", "payable": false, "description": "Approve a spender." },
+        { "signature": "transferFrom(address,address,uint256)", "kind": "write", "payable": false, "description": "Transfer using an allowance." },
+        { "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)", "kind": "write", "payable": false, "description": "EIP-2612 gasless approval (owner, spender, value, deadline, v, r, s)." },
+        { "signature": "allowance(address,address)", "kind": "read", "payable": false, "description": "Current allowance." },
+        { "signature": "burn(uint256)", "kind": "write", "payable": false, "description": "Burn your own IMU." },
+        { "signature": "paused()", "kind": "read", "payable": false, "description": "True if transfers are paused by PAUSER_ROLE." }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x323498D3Fb02594ac3E0a11B2Dea337893ecABBe",
+      "name": "Immunefi reward Splitter",
+      "role": "other",
+      "proxy": false,
+      "source": "https://immunefi.com/bug-bounty/immunefi/scope/",
+      "keyFunctions": [
+        {
+          "signature": "payWhitehat(bytes32,address,(address,uint256)[],uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Project pays a bounty: (referenceId = Immunefi report id, whitehat address, ERC-20 payouts [(token, amount)], native ETH amount, gas for the ETH send (<= gasCap), fee in basis points (<= maxFee 1500 of FEE_BASIS 10000)). Sends payouts to the whitehat plus the fee to Immunefi's feeRecipient. Caller needs ERC-20 approvals to this contract and must send the ETH amount plus its fee as msg.value."
+        },
+        { "signature": "maxFee()", "kind": "read", "payable": false, "description": "Maximum fee in basis points (1500 = 15%)." },
+        { "signature": "feeRecipient()", "kind": "read", "payable": false, "description": "Immunefi fee recipient." },
+        { "signature": "gasCap()", "kind": "read", "payable": false, "description": "Maximum gas forwarded on the native-token payout." }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x03Fd3D61423E6d46DCC3917862fBC57653dc3Eb0",
+      "name": "Immunefi reward splitter, fixed-fee version (listed as 'Vault' in Immunefi's scope)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://immunefi.com/bug-bounty/immunefi/scope/",
+      "keyFunctions": [
+        {
+          "signature": "payWhitehat(bytes32,address,(address,uint256)[],uint256,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Older version: same as the Splitter's payWhitehat but the fee is the contract-wide fee() (1000 bps = 10% at research time) instead of a per-call argument."
+        },
+        { "signature": "fee()", "kind": "read", "payable": false, "description": "Current fee in basis points of FEE_BASIS (10000)." },
+        { "signature": "feeRecipient()", "kind": "read", "payable": false, "description": "Immunefi fee recipient." }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "transfer-imu",
+      "description": "Send or approve IMU",
+      "how": "IMU token transfer(to, amount) / approve(spender, amount) on Ethereum, 18 decimals"
+    },
+    {
+      "name": "pay-bounty",
+      "description": "A project pays a whitehat for a report on Immunefi",
+      "how": "approve each ERC-20 to the Splitter, then Splitter.payWhitehat(referenceId, whitehat, [(token, amount)], nativeAmount, gas, feeBps) with msg.value = native amount + native fee; normally done from the Immunefi dashboard"
+    },
+    {
+      "name": "pledge-imu",
+      "description": "Back a security researcher with IMU (Hacker Pledging)",
+      "how": "Only through the immunefi.com/hacker-pledging web app with a connected wallet; no official contract address published"
+    }
+  ],
+  "risks": [
+    "IMU is an upgradeable proxy (EIP-1967; implementation 0x39eacef0ee562109df742c989e9d5227d4c17d2e, proxy admin 0xb91d57d8f7bd2898f1251239e5816d2de45db228 at research time) with MINTER_ROLE, PAUSER_ROLE and DEFAULT_ADMIN_ROLE: role holders can mint, pause transfers and upgrade the logic.",
+    "Token unlocks: early backers (16%) unlock over three years and team (26.5%) over 36 months; 47.5% ecosystem/community and 10% reserve are released on a schedule the Foundation updates quarterly.",
+    "The splitter contracts are owned by Immunefi (owner 0x23261Bb09D0857E9788a2B9A9cEb9dD487268219), which can change the fee recipient and, on the older one, the fee (up to maxFee 15%).",
+    "Bounty outcomes, mediation and pledging rewards are decided off chain by Immunefi; on-chain contracts only move funds."
+  ],
+  "notes": "IMU address comes from the Immunefi Foundation docs (token-claiming page). Checked on Ethereum: name Immunefi, symbol IMU, 18 decimals, total supply 10,000,000,000. The two splitter addresses come from Immunefi's own bug bounty program scope (assets labelled 'Vault' and 'Splitter'). Their ABIs (verified on Sourcify) are both reward splitters. Left out: (1) the newer Safe-based Vaults System (Immunefi Guard/Module, RewardSystem, Arbitration; code at https://github.com/immunefi-team/vaults). No official deployment addresses are published, and each project's vault is its own Safe. Immunefi's own bounty vault is 0xf4a8714f6ca5Bf232F10b308C693448738be0661 per its program page, but it is project-specific. (2) Hacker Pledging. No contract address appears on the official pledging page; the addresses on it are pledgers' wallets. (3) A public bounties API: none confirmed from an official source. DefiLlama lists only Ethereum; no other official IMU deployments found.",
+  "sources": [
+    "https://defillama.com/protocol/immunefi",
+    "https://api.llama.fi/protocol/immunefi",
+    "https://immunefi.com",
+    "https://www.immunefi.foundation/",
+    "https://docs.immunefi.foundation/",
+    "https://docs.immunefi.foundation/imu-coinlist-token-claiming/",
+    "https://docs.immunefi.foundation/imu-token/",
+    "https://docs.immunefi.foundation/tokenomics/",
+    "https://docs.immunefi.foundation/token-flywheel/",
+    "https://docs.immunefi.foundation/july-2026-immunefi-ecosystem-update/",
+    "https://immunefi.com/bug-bounty/immunefi/scope/",
+    "https://immunefi.com/bug-bounty/immunefi/information/",
+    "https://immunefi.com/hacker-pledging/",
+    "https://immunefi.com/vaults/",
+    "https://immunefi.com/blog/product-updates/vaults-system/",
+    "https://github.com/immunefi-team/vaults",
+    "https://ethereum-rpc.publicnode.com"
+  ],
+  "researchedAt": "2026-11-24"
+}

@@ -1,0 +1,155 @@
+{
+  "slug": "stkesol-by-sol-strategies",
+  "name": "STKESOL by SOL Strategies",
+  "category": "Liquid Staking",
+  "description": "SOL liquid staking pool run by SOL Strategies (Nasdaq: STKE) on the standard SPL Stake Pool program. An agent can deposit SOL (or a stake account) to receive STKESOL, which appreciates against SOL as rewards accrue, and redeem STKESOL for SOL from the pool reserve or for a stake account, or swap it instantly via Jupiter.",
+  "website": "https://app.solstrategies.io",
+  "docs": "https://app.solstrategies.io/docs",
+  "defillama": "https://defillama.com/protocol/stkesol-by-sol-strategies",
+  "chains": ["solana"],
+  "vm": "solana",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "StKeDUdSu7jMSnPJ1MPqDnk3RdEwD2QbJaisHMebGhw",
+      "name": "STKESOL stake pool (pool account)",
+      "role": "staking",
+      "proxy": null,
+      "source": "https://app.solstrategies.io/docs",
+      "keyFunctions": [
+        {
+          "signature": "DepositSol(lamports: u64)",
+          "kind": "write",
+          "payable": true,
+          "description": "Instruction of the SPL Stake Pool program (SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy) against this pool: deposit SOL into the reserve and mint STKESOL to the depositor's token account. Permissionless (no sol_deposit_authority set). Pool deposit fee 0%. Easiest via @solana/spl-stake-pool depositSol(connection, poolAddress, from, lamports) or CLI `spl-stake-pool deposit-sol <pool> <amount>`."
+        },
+        {
+          "signature": "DepositSolWithSlippage(lamports_in: u64, minimum_pool_tokens_out: u64)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same as DepositSol with a minimum STKESOL out."
+        },
+        {
+          "signature": "DepositStake()",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit an active stake account delegated to one of the pool's validators and receive STKESOL. Uses the default program-derived stake deposit authority (7LYfeWY2cHtdgycPkTqcNppQbTqnPc7oP9Votq7dXrB7), so it is permissionless. Pool stake-deposit fee 0%."
+        },
+        {
+          "signature": "WithdrawSol(pool_tokens: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn STKESOL and receive SOL directly from the pool's reserve stake account. Only works while the reserve has enough SOL. Pool withdrawal fee 0.1%. SDK: withdrawSol(connection, poolAddress, tokenOwner, solReceiver, amount); CLI `spl-stake-pool withdraw-sol`."
+        },
+        {
+          "signature": "WithdrawSolWithSlippage(pool_tokens_in: u64, minimum_lamports_out: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as WithdrawSol with a minimum lamports out."
+        },
+        {
+          "signature": "WithdrawStake(pool_tokens: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn STKESOL and receive a split stake account (delegated to a pool validator) that you then deactivate and withdraw after the epoch ends (~2-3 days). Use when the reserve is too small for WithdrawSol. Pool withdrawal fee 0.1%."
+        },
+        {
+          "signature": "UpdateValidatorListBalance / UpdateStakePoolBalance",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless epoch update; deposits/withdrawals fail if the pool was not updated this epoch. The SDK/CLI (`spl-stake-pool update <pool>`) handles it."
+        },
+        {
+          "signature": "StakePool account (this address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Borsh-decoded StakePool state: total_lamports / pool_token_supply gives the SOL per STKESOL exchange rate; also manager, staker, validator_list (StkemQE9eEzPZViA52YwYQqZU5cnYLvVfvch4p4Lsez), reserve_stake (HHnQYTNjtrbuHgQhERpGQfgu11ngXEvyjiG9qb4ZvbNC), fees. SDK: stakePoolInfo(connection, poolAddress)."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "stke7uu3fXHsGqKVVjKnkmj65LRPVrqr4bLG2SJg7rh",
+      "name": "STKESOL token mint",
+      "role": "token",
+      "proxy": null,
+      "source": "https://app.solstrategies.io/docs",
+      "keyFunctions": [
+        {
+          "signature": "SPL Token transfer / transferChecked(amount: u64, decimals: 9)",
+          "kind": "write",
+          "payable": false,
+          "description": "Standard SPL Token (Tokenkeg program) mint, 9 decimals. Mint authority is the pool's withdraw-authority PDA; no freeze authority."
+        },
+        {
+          "signature": "Mint account (supply)",
+          "kind": "read",
+          "payable": false,
+          "description": "Total STKESOL supply; equals pool_token_supply in the stake pool account."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy",
+      "name": "SPL Stake Pool program",
+      "role": "other",
+      "proxy": true,
+      "source": "https://www.solana-program.com/docs/stake-pool",
+      "keyFunctions": [
+        {
+          "signature": "DepositSol / DepositStake / WithdrawSol / WithdrawStake",
+          "kind": "write",
+          "payable": true,
+          "description": "Shared SPL Stake Pool program used by this pool (owner of the pool account). Upgradeable (BPF upgradeable loader), maintained by the Solana program maintainers, not SOL Strategies. See the pool entry above for usage."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "stake",
+      "description": "Stake SOL for STKESOL",
+      "how": "SPL Stake Pool DepositSol(lamports) on pool StKeDUdSu7jMSnPJ1MPqDnk3RdEwD2QbJaisHMebGhw via @solana/spl-stake-pool depositSol(); or swap SOL -> STKESOL (mint stke7uu3fXHsGqKVVjKnkmj65LRPVrqr4bLG2SJg7rh) on Jupiter"
+    },
+    {
+      "name": "unstake-instant",
+      "description": "Redeem STKESOL for SOL now",
+      "how": "WithdrawSol(pool_tokens) if the reserve holds enough SOL (0.1% fee); otherwise swap STKESOL -> SOL on Jupiter (the SOL Strategies app uses Jupiter for instant withdrawals; market price and price impact apply)"
+    },
+    {
+      "name": "unstake-delayed",
+      "description": "Redeem STKESOL for a stake account",
+      "how": "WithdrawStake(pool_tokens) to get a stake account, then deactivate it and withdraw SOL after the epoch ends"
+    },
+    {
+      "name": "read-rate",
+      "description": "Get SOL per STKESOL",
+      "how": "Read the stake pool account: total_lamports / pool_token_supply (or stakePoolInfo() in @solana/spl-stake-pool)"
+    }
+  ],
+  "risks": [
+    "Fees (per SOL Strategies docs and on-chain pool state): 5% of epoch staking rewards, 0% deposit fee, 0.1% withdrawal fee (SOL or stake).",
+    "Native unstake goes through stake deactivation (end of the current epoch, ~2-3 days) unless the reserve covers WithdrawSol; instant exits via Jupiter depend on DEX liquidity and may trade below the pool rate.",
+    "Validator risk: stake is delegated to 40-80 validators chosen by SOL Strategies using the 30-day mean Wiz Score; validator downtime lowers rewards. Solana has no automatic slashing today, but that could change.",
+    "Issuer/manager risk: SOL Strategies is manager and staker (stker2jR6XibQZ3yT5xgEe4fYS5yHR1ZFVUj5fm7i1G) and can change fees (with an epoch delay), validators and authorities.",
+    "Program risk: the SPL Stake Pool program is upgradeable by its upgrade authority."
+  ],
+  "notes": "Pool and mint addresses come from the 'Pool addresses' section of the official STKESOL documentation page in the SOL Strategies app (https://app.solstrategies.io/docs). On 2026-11-24 I read that page's text from the app's JavaScript bundle; it is a client-rendered page. The support site support.solstrategies.io was unreachable from this environment. Checked on mainnet: the pool account is owned by SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy, its pool_mint is stke7uu3..., epoch fee 5/100, SOL and stake withdrawal fee 1/1000, deposit fees 0, no sol_deposit_authority or sol_withdraw_authority set, and the stake deposit authority is the default PDA. The mint has 9 decimals, mint authority 5vzKiHVuZNx1XQWQZQEcuqKaq4nfDp6LhuSvowQK2ayd (the pool's withdraw-authority PDA) and no freeze authority. Validator list, reserve and manager addresses come from the on-chain pool account, not from a SOL Strategies page. The SOL Strategies 'STKE' ticker token on DEXs is unrelated to STKESOL. No official public API found.",
+  "sources": [
+    "https://defillama.com/protocol/stkesol-by-sol-strategies",
+    "https://api.llama.fi/protocol/stkesol-by-sol-strategies",
+    "https://app.solstrategies.io",
+    "https://app.solstrategies.io/docs",
+    "https://solstrategies.io",
+    "https://www.solana-program.com/docs/stake-pool",
+    "https://www.solana-program.com/docs/stake-pool/cli",
+    "https://api.mainnet-beta.solana.com"
+  ],
+  "researchedAt": "2026-11-24"
+}

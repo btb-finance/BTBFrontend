@@ -1,0 +1,189 @@
+{
+  "slug": "gaib",
+  "name": "GAIB",
+  "category": "RWA",
+  "description": "GAIB tokenizes AI-infrastructure (GPU/compute) financing. Agents can mint AID (an 18-decimal synthetic dollar) 1:1 from USDC through the minter contracts on Ethereum, Base and Arbitrum, redeem AID for USDC on Ethereum (0.1% fee), and stake AID into sAID, an ERC-4626 vault whose share price rises with portfolio yield. Unstaking goes through a FIFO queue with a 30-day cooldown.",
+  "website": "https://gaib.ai",
+  "docs": "https://docs.gaib.ai",
+  "defillama": "https://defillama.com/protocol/gaib",
+  "chains": ["ethereum", "arbitrum", "base", "bsc"],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x18F52B3fb465118731d9e0d276d4Eb3599D57596",
+      "name": "AID (AI Dollar) token",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+      "keyFunctions": [
+        { "signature": "balanceOf(address)", "kind": "read", "payable": false, "description": "AID balance, 18 decimals (1 AID = 1e18)." },
+        { "signature": "decimals()", "kind": "read", "payable": false, "description": "Returns 18." },
+        { "signature": "totalSupply()", "kind": "read", "payable": false, "description": "AID supply on this chain." },
+        { "signature": "approve(address,uint256)", "kind": "write", "payable": false, "description": "Approve the sAID vault (to stake) or the StablecoinRedeemer (to redeem). The redeemer burns your AID by spending this allowance." },
+        { "signature": "transfer(address,uint256)", "kind": "write", "payable": false, "description": "ERC-20 transfer. Reverts if the sender is on the AID deny list or the token is paused." },
+        { "signature": "paused()", "kind": "read", "payable": false, "description": "true if the admin has paused AID (blocks mint/burn/transfers)." }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xE2E1424687EB676b3807693CBb439362b8eA908E",
+      "name": "AID StablecoinMinter (USDC, Ethereum)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+      "keyFunctions": [
+        { "signature": "mint(uint256)", "kind": "write", "payable": false, "description": "Deposit USDC (6 decimals; approve this contract on USDC 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 first) and receive AID 1:1 to msg.sender (amount * 1e12 in AID units). Returns the AID amount. The verified contract has no allowlist check; AID.paused() blocks it." },
+        { "signature": "stablecoin()", "kind": "read", "payable": false, "description": "Accepted stablecoin (USDC on Ethereum)." },
+        { "signature": "aid()", "kind": "read", "payable": false, "description": "AID token address." },
+        { "signature": "DECIMAL_ADJUSTMENT()", "kind": "read", "payable": false, "description": "Multiplier from stablecoin units to AID units (1e12 for USDC)." }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x52323f33551188F170D8de14fE8d8423a839629d",
+      "name": "AID StablecoinRedeemer (USDC, Ethereum)",
+      "role": "router",
+      "proxy": true,
+      "source": "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+      "keyFunctions": [
+        { "signature": "redeem(uint256)", "kind": "write", "payable": false, "description": "Burn aidAmount AID (18 decimals) from msg.sender (approve this contract on AID first) and receive USDC = aidAmount / 1e12 minus redemptionFeeBps (10 bps = 0.1% at research time). Reverts InsufficientLiquidity if the redeemer holds too little USDC, or DailyLimitExceeded. Returns USDC received (6 decimals)." },
+        { "signature": "redemptionFeeBps()", "kind": "read", "payable": false, "description": "Redemption fee in basis points (10 at research time)." },
+        { "signature": "redeemLimitPerDay()", "kind": "read", "payable": false, "description": "Max AID redeemable per UTC day across all users (18 decimals)." },
+        { "signature": "dailyRedeemed(uint256)", "kind": "read", "payable": false, "description": "AID already redeemed on a given day index (block.timestamp / 86400)." },
+        { "signature": "stablecoin()", "kind": "read", "payable": false, "description": "Payout stablecoin (USDC). Check USDC.balanceOf(redeemer) for available liquidity before redeeming." }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xB3B3c527BA57cd61648e2EC2F5e006A0B390A9F8",
+      "name": "sAID (Staked AI Dollar) ERC-4626 vault",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+      "keyFunctions": [
+        { "signature": "deposit(uint256,address)", "kind": "write", "payable": false, "description": "Stake AID: args assets (AID, 18 decimals), receiver. Approve the vault on AID first. Returns sAID shares minted at the staking rate (ignores unrealized losses). Reverts if paused or the caller is deny-listed." },
+        { "signature": "unstake(uint256)", "kind": "write", "payable": false, "description": "The exit path: burns `shares` sAID, fixes the AID owed at convertToAssetsWithLoss (no yield accrues afterwards) and queues it FIFO. Paid after getCooldownPeriod() (2,592,000 s = 30 days at research time) and only when processUnstakeQueue runs with enough liquidity. One active request per address. ERC-4626 withdraw/redeem revert (InstantWithdrawalDisabled) while the cooldown is non-zero." },
+        { "signature": "processUnstakeQueue(uint256)", "kind": "write", "payable": false, "description": "Anyone can call; pays up to maxIterations queue items in FIFO order whose cooldown has passed, from availableForUnstake(). AID is sent straight to each user (partial fills possible)." },
+        { "signature": "cancelUnstakeRequest()", "kind": "write", "payable": false, "description": "Cancel your pending request; the queued AID is converted back to sAID at the current rate (share count may differ)." },
+        { "signature": "getUnstakeRequest(address)", "kind": "read", "payable": false, "description": "Returns (requestTime, pendingAssets) for a user's pending request; (0,0) if none." },
+        { "signature": "getCooldownPeriod()", "kind": "read", "payable": false, "description": "Unstake cooldown in seconds." },
+        { "signature": "availableForUnstake()", "kind": "read", "payable": false, "description": "AID the operator has made available to pay the queue." },
+        { "signature": "totalQueuedAmount()", "kind": "read", "payable": false, "description": "AID currently queued for unstaking." },
+        { "signature": "convertToAssets(uint256)", "kind": "read", "payable": false, "description": "Staking NAV: AID per shares (pass 1e18 for one sAID; about 1.101 at research time)." },
+        { "signature": "convertToAssetsWithLoss(uint256)", "kind": "read", "payable": false, "description": "Unstaking NAV: AID per shares net of unrealized losses. This is what unstake() locks in." },
+        { "signature": "previewDeposit(uint256)", "kind": "read", "payable": false, "description": "sAID shares for a given AID deposit." },
+        { "signature": "balanceOf(address)", "kind": "read", "payable": false, "description": "sAID balance (18 decimals)." },
+        { "signature": "totalAssets()", "kind": "read", "payable": false, "description": "Vault AID (tracked assets minus still-vesting rewards)." },
+        { "signature": "paused()", "kind": "read", "payable": false, "description": "true if deposits, unstaking and transfers are paused." }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x18F52B3fb465118731d9e0d276d4Eb3599D57596",
+      "name": "AID (AI Dollar) token on Base",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+      "keyFunctions": [
+        { "signature": "balanceOf(address)", "kind": "read", "payable": false, "description": "AID balance, 18 decimals." },
+        { "signature": "approve(address,uint256)", "kind": "write", "payable": false, "description": "ERC-20 approve." },
+        { "signature": "transfer(address,uint256)", "kind": "write", "payable": false, "description": "ERC-20 transfer." }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x81c1FBa2C7Df54aC76de5Ebe373e89bCad3b8632",
+      "name": "AID StablecoinMinter (USDC, Base)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+      "keyFunctions": [
+        { "signature": "mint(uint256)", "kind": "write", "payable": false, "description": "Deposit Base USDC (0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, 6 decimals; approve first) and receive AID 1:1 on Base." },
+        { "signature": "stablecoin()", "kind": "read", "payable": false, "description": "Accepted stablecoin (USDC)." }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x18F52B3fb465118731d9e0d276d4Eb3599D57596",
+      "name": "AID (AI Dollar) token on Arbitrum",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+      "keyFunctions": [
+        { "signature": "balanceOf(address)", "kind": "read", "payable": false, "description": "AID balance, 18 decimals." },
+        { "signature": "approve(address,uint256)", "kind": "write", "payable": false, "description": "ERC-20 approve." },
+        { "signature": "transfer(address,uint256)", "kind": "write", "payable": false, "description": "ERC-20 transfer." }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x04DfA27c7D1Ade09dDfccfA233FB3c8490CA2b18",
+      "name": "AID StablecoinMinter (USDC, Arbitrum)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+      "keyFunctions": [
+        { "signature": "mint(uint256)", "kind": "write", "payable": false, "description": "Deposit Arbitrum native USDC (0xaf88d065e77c8cC2239327C5EDb3A432268e5831, 6 decimals; approve first) and receive AID 1:1 on Arbitrum." },
+        { "signature": "stablecoin()", "kind": "read", "payable": false, "description": "Accepted stablecoin (USDC)." }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x18F52B3fb465118731d9e0d276d4Eb3599D57596",
+      "name": "AID (AI Dollar) token on BNB Chain",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+      "keyFunctions": [
+        { "signature": "balanceOf(address)", "kind": "read", "payable": false, "description": "AID balance, 18 decimals." },
+        { "signature": "approve(address,uint256)", "kind": "write", "payable": false, "description": "ERC-20 approve." },
+        { "signature": "transfer(address,uint256)", "kind": "write", "payable": false, "description": "ERC-20 transfer." }
+      ]
+    }
+  ],
+  "offchainApis": [
+    { "name": "Protocol Public API", "url": "https://pre-vault-api.gaib.ai/api/protocol-public", "auth": "none", "use": "TVL (live and 30-day average), GAIB token price, daily sAID NAV history since 2025-12-01, and cumulative stake/unstake counters. Cache about 60 s.", "source": "https://docs.gaib.ai/products/gaib-products/protocol-public-api" }
+  ],
+  "actions": [
+    { "name": "mint AID", "description": "Turn USDC into AID 1:1.", "how": "USDC.approve(minter, amount); minter.mint(amount) on Ethereum, Base or Arbitrum (USDC 6-decimal units)." },
+    { "name": "redeem AID", "description": "Turn AID back into USDC (Ethereum only, 0.1% fee).", "how": "AID.approve(redeemer, aidAmount); redeemer 0x52323f33551188F170D8de14fE8d8423a839629d.redeem(aidAmount). Check USDC.balanceOf(redeemer) first; AID on other chains must be bridged to Ethereum or sold on a DEX." },
+    { "name": "stake AID", "description": "Earn AI-infrastructure yield via sAID.", "how": "AID.approve(sAID, amount); sAID.deposit(amount, receiver) on Ethereum." },
+    { "name": "unstake sAID", "description": "Exit sAID back to AID.", "how": "sAID.unstake(shares); after 30 days and once liquidity is available, call (or wait for) sAID.processUnstakeQueue(n); AID arrives in your wallet. Check getUnstakeRequest(you). Alternatively sell sAID on a DEX." }
+  ],
+  "risks": [
+    "sAID exits take at least the 30-day cooldown (docs: monthly cohorts, funds available on the 1st of the second month after the request) and depend on operator-supplied liquidity; requests can roll over and are paid FIFO, with partial fills possible.",
+    "sAID is not pegged to $1. NAV is updated monthly. The unstaking rate subtracts operator-set unrealized losses, so a credit event in the GPU/AI-infrastructure financings lowers what unstakers get. The vault is operated by Spiceflow Company Corp. (off-chain asset manager).",
+    "Admin powers: AID and sAID are UUPS-upgradeable proxies (the redeemer is a beacon proxy) and can be paused. AID has a deny list: denied addresses cannot transfer, stake or cancel unstakes. Admin roles can adminMint/adminBurn AID, execute arbitrary calls from the AID contract, set the sAID cooldown and loss values, and cancel queued unstakes.",
+    "AID redemption to USDC is only on Ethereum, is limited by the USDC the redeemer holds and by a daily limit, and costs 10 bps. AID on Base/Arbitrum/BNB is bridged (burn/mint via GAIB's LayerZero-based bridge).",
+    "Docs say direct mint/redeem is for whitelisted users and partners, but the verified minter and redeemer contracts have no allowlist check (only the AID deny list and pause). This may change by upgrade or role changes.",
+    "Audits: the docs Audits page links AID/sAID and AIDa audit PDFs without naming the auditor."
+  ],
+  "notes": "All addresses are from the official docs page 'AID and sAID Contracts'. Each was confirmed to have code on its chain, and function signatures come from the Sourcify-verified sources (AID impl 0x2db74834f556e1f19ed397e5f935a983e4c2f38b, sAID impl 0xe2986b3e5b3e77896ae0509f6740d1106273374d, StablecoinMinter, StablecoinRedeemer impl 0xb835004007296f5278fbf85f090af7195361e946 behind beacon 0xc787e7f060acab38d30aceb539355b328024e8b8). Live values read 2026-11-24: minters hold AID MINTER_ROLE on all three chains, sAID cooldown 30 days, sAID about 1.101 AID, redeemer fee 10 bps. DefiLlama lists Ethereum, Arbitrum and Base; the docs also list AID on BNB Chain (bsc), which is included as a token only. sAID is listed only on Ethereum. Left out: GAIB governance token, the legacy AIDa vault and GAIB Select (no official addresses found on the docs pages read), the bridge/OFT adapter contracts (not listed in the docs), and the address DefiLlama shows (0xc19d…8e50), because it is not on an official GAIB page that was found.",
+  "sources": [
+    "https://defillama.com/protocol/gaib",
+    "https://api.llama.fi/protocol/gaib",
+    "https://docs.gaib.ai/llms.txt",
+    "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+    "https://docs.gaib.ai/products/gaib-products/how-to-get-aid-said",
+    "https://docs.gaib.ai/products/gaib-products/ai-dollar-aid",
+    "https://docs.gaib.ai/products/gaib-products/staked-ai-dollar-said",
+    "https://docs.gaib.ai/products/gaib-products/protocol-public-api",
+    "https://docs.gaib.ai/products/gaib-products/audit",
+    "https://sourcify.dev/server/v2/contract/1/0xe2986b3e5b3e77896ae0509f6740d1106273374d",
+    "https://sourcify.dev/server/v2/contract/1/0x2db74834f556e1f19ed397e5f935a983e4c2f38b",
+    "https://sourcify.dev/server/v2/contract/1/0xE2E1424687EB676b3807693CBb439362b8eA908E",
+    "https://sourcify.dev/server/v2/contract/1/0xb835004007296f5278fbf85f090af7195361e946"
+  ],
+  "researchedAt": "2026-11-24"
+}
