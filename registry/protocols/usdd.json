@@ -1,0 +1,1443 @@
+{
+  "slug": "usdd",
+  "name": "USDD",
+  "category": "CDP",
+  "description": "Over-collateralized, MakerDAO (DSS)-style USD stablecoin on TRON, Ethereum and BNB Chain. Agents can mint/redeem USDD 1:1 against USDT/USDC through the Peg Stability Module (PSM), earn the savings rate by depositing USDD into sUSDD (ERC-4626, Ethereum and BNB Chain), open collateralized vaults (CDPs) via DSProxy + DssProxyActions, and migrate legacy USDDOLD to USDD on TRON.",
+  "website": "https://usdd.io",
+  "docs": "https://docs.usdd.io",
+  "defillama": "https://defillama.com/protocol/usdd",
+  "chains": [
+    "tron",
+    "ethereum",
+    "bsc"
+  ],
+  "vm": "mixed",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "TXDk8mbtRbXeYuMNS83CfKPaYYT8XWv9Hz",
+      "name": "USDD (TRC-20, USDD 2.0)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDD balance (18 decimals on every chain)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer USDD (wei, 18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the PSM TBXW4hS5KYjjbJXDpnrPf4zhkLwrpUjbyz before buyGem."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current allowance (owner, spender)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDD supply on this chain."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "18."
+        }
+      ]
+    },
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "TBXW4hS5KYjjbJXDpnrPf4zhkLwrpUjbyz",
+      "name": "PSM USDT (MCD_PSM_USDT_A)",
+      "role": "exchange",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "sellGem(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stablecoin -> USDD. Args (usr = USDD recipient, gemAmt in USDT TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t units, 6 decimals). First approve USDT TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t to the PSM's GemJoin TSUYvQ5tdd3DijCD1uGunGLpftHuSZ12sQ (NOT the PSM; the join pulls the tokens from msg.sender). Receives gemAmt scaled to 18 decimals minus tin fee. tin and tout were 0 at research time."
+        },
+        {
+          "signature": "buyGem(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "USDD -> stablecoin. Args (usr = recipient of USDT TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t, gemAmt in USDT TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t units, 6 decimals). First approve USDD to the PSM itself; it pulls gemAmt*10^(18-6) USDD plus the tout fee. Reverts if the PSM holds less USDT TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t than requested."
+        },
+        {
+          "signature": "tin()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee on sellGem, WAD (1e18 = 100%)."
+        },
+        {
+          "signature": "tout()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee on buyGem, WAD (1e18 = 100%)."
+        },
+        {
+          "signature": "sellEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "1 if sellGem is enabled; governance can switch it off."
+        },
+        {
+          "signature": "buyEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "1 if buyGem is enabled; governance can switch it off."
+        },
+        {
+          "signature": "gemJoin()",
+          "kind": "read",
+          "payable": false,
+          "description": "GemJoin adapter that holds the stablecoin (approval target for sellGem)."
+        },
+        {
+          "signature": "usdd()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDD token address."
+        }
+      ]
+    },
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "TSUYvQ5tdd3DijCD1uGunGLpftHuSZ12sQ",
+      "name": "PSM USDT GemJoin (JOIN_PSM_USDT_A, AuthGemJoin5)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "gem()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying stablecoin (USDT TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t)."
+        },
+        {
+          "signature": "dec()",
+          "kind": "read",
+          "payable": false,
+          "description": "Stablecoin decimals."
+        },
+        {
+          "signature": "live()",
+          "kind": "read",
+          "payable": false,
+          "description": "1 while the adapter is live; 0 after cage (emergency shutdown)."
+        }
+      ]
+    },
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "TQrq2p1aoAkNK94q3Q69ubJcv5nQ9y675R",
+      "name": "USDD Migration (USDDExchange)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "exchange(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap USDDOLD (TPYmHEhy5n8TCEfYGqW2rPxsghSfzghPDn) for USDD 2.0 at EXCHANGE_RATE (1 = 1:1), amount in wei (18 decimals). The contract pulls USDDOLD, so approve USDDOLD to this contract first. The docs describe this as migrate(usr, wad); the deployed contract's on-chain ABI exposes exchange(uint256)."
+        },
+        {
+          "signature": "EXCHANGE_RATE()",
+          "kind": "read",
+          "payable": false,
+          "description": "Old-to-new exchange rate (1 at research time)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if migration is paused by the owner."
+        },
+        {
+          "signature": "oldUSDD()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDDOLD token address."
+        },
+        {
+          "signature": "newUSDD()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDD 2.0 token address."
+        }
+      ]
+    },
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "THuVWkvAikvSqmoZXHMUQJAcocsgFr4wuk",
+      "name": "ProxyRegistry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "build()",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a DSProxy owned by msg.sender (one per user; needed for vault operations). Returns the proxy address."
+        },
+        {
+          "signature": "proxies(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "DSProxy of an owner (zero if none)."
+        }
+      ]
+    },
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "TEk9usYZsunkc5oYijyMte6sGurspik2Js",
+      "name": "DssProxyActions (vaults)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "open(address,bytes32,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Open an empty vault: (cdpManager, ilk as bytes32 e.g. 'TRX-A', usr = your DSProxy). Returns cdp id. Like every ProxyActions call, it must be sent as DSProxy.execute(ProxyActions, calldata) (delegatecall), never directly."
+        },
+        {
+          "signature": "openLockTRXAndDraw(address,address,address,address,bytes32,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Open a vault, lock native TRX (msg.value) and draw USDD: (cdpManager, jug, trxJoin, usddJoin, ilk, wadD = USDD to draw, 18 decimals). Send via DSProxy.execute with value."
+        },
+        {
+          "signature": "openLockGemAndDraw(address,address,address,address,bytes32,uint256,uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Open a vault, lock an ERC/TRC-20 collateral and draw USDD: (cdpManager, jug, gemJoin, usddJoin, ilk, amtC in collateral decimals, wadD, transferFrom = true to pull from the owner). Approve the collateral to your DSProxy first."
+        },
+        {
+          "signature": "lockTRXAndDraw(address,address,address,address,uint256,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add native TRX collateral and draw more USDD on an existing vault: (cdpManager, jug, trxJoin, usddJoin, cdp, wadD)."
+        },
+        {
+          "signature": "lockGemAndDraw(address,address,address,address,uint256,uint256,uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add token collateral and draw USDD: (cdpManager, jug, gemJoin, usddJoin, cdp, amtC, wadD, transferFrom)."
+        },
+        {
+          "signature": "draw(address,address,address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Draw more USDD: (cdpManager, jug, usddJoin, cdp, wad)."
+        },
+        {
+          "signature": "wipe(address,address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay USDD debt: (cdpManager, usddJoin, cdp, wad). Approve USDD to your DSProxy first."
+        },
+        {
+          "signature": "wipeAll(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay all debt of a vault: (cdpManager, usddJoin, cdp)."
+        },
+        {
+          "signature": "wipeAllAndFreeTRX(address,address,address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay all debt and withdraw native TRX: (cdpManager, trxJoin, usddJoin, cdp, amtC)."
+        },
+        {
+          "signature": "wipeAllAndFreeGem(address,address,address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay all debt and withdraw token collateral: (cdpManager, gemJoin, usddJoin, cdp, amtC)."
+        },
+        {
+          "signature": "freeTRX(address,address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw native TRX collateral: (cdpManager, trxJoin, cdp, wad)."
+        }
+      ]
+    },
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "TDDWjmQaquEtUn1Pa8wCd8dfWFPdQLGPYL",
+      "name": "DssCdpManager",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "first(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "First vault id owned by an owner (the DSProxy for app-created vaults)."
+        },
+        {
+          "signature": "count(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of vaults owned."
+        },
+        {
+          "signature": "list(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Linked list (prev, next) to enumerate an owner's vaults."
+        },
+        {
+          "signature": "ilks(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral type (bytes32) of a vault."
+        },
+        {
+          "signature": "urns(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Urn address of a vault; read its debt/collateral with Vat.urns(ilk, urn)."
+        },
+        {
+          "signature": "owns(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Owner of a vault."
+        }
+      ]
+    },
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "TH5dhX7o39afSbfDT2e3c9k4itWjNKD4D9",
+      "name": "Vat (core accounting)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "ilks(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral type params: (Art total normalized debt, rate, spot, line debt ceiling [RAD], dust min debt [RAD])."
+        },
+        {
+          "signature": "urns(bytes32,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Vault state (ink collateral, art normalized debt); debt in USDD = art * rate / 1e27."
+        },
+        {
+          "signature": "live()",
+          "kind": "read",
+          "payable": false,
+          "description": "1 unless global settlement (End) has been triggered."
+        }
+      ]
+    },
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "TJ1VWPvFVq7sVsN7J7dWJVZz4SLT14qRUr",
+      "name": "TRX-A collateral join (JOIN_TRX_A)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "ilk()",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral type (TRX-A)."
+        },
+        {
+          "signature": "live()",
+          "kind": "read",
+          "payable": false,
+          "description": "1 while live."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x4f8e5DE400DE08B164E7421B3EE387f461beCD1A",
+      "name": "USDD (ERC-20)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDD balance (18 decimals on every chain)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer USDD (wei, 18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the PSM before buyGem, or sUSDD before deposit."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current allowance (owner, spender)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDD supply on this chain."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "18."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,bool,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "DAI-style permit (holder, spender, nonce, expiry, allowed, v, r, s): allowed=true sets an unlimited allowance, false sets 0. Not EIP-2612."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xC5d6A7B61d18AfA11435a889557b068BB9f29930",
+      "name": "sUSDD (Savings USDD, ERC-4626)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.usdd.io/introduction/collateral-asset-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit USDD (assets, 18 decimals) and mint sUSDD to receiver: (assets, receiver). Approve USDD 0x4f8e5DE400DE08B164E7421B3EE387f461beCD1A to sUSDD first. Returns shares."
+        },
+        {
+          "signature": "deposit(uint256,address,uint16)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as deposit with a uint16 referral code (emits a Referral event)."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint an exact number of sUSDD shares: (shares, receiver). Returns USDD assets pulled."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn sUSDD shares for USDD: (shares, receiver, owner). No lock-up. Returns assets."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact USDD amount: (assets, receiver, owner). Returns shares burned."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDD value of a sUSDD amount (both 18 decimals); grows over time with the savings rate."
+        },
+        {
+          "signature": "previewDeposit(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "sUSDD shares minted for a USDD deposit."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDD received for redeeming shares."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Max USDD an owner can withdraw."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total USDD held (including accrued savings)."
+        },
+        {
+          "signature": "chi()",
+          "kind": "read",
+          "payable": false,
+          "description": "Rate accumulator (RAY, 1e27) from the savings Pot; USDD per sUSDD = chi/1e27 after drip."
+        },
+        {
+          "signature": "pot()",
+          "kind": "read",
+          "payable": false,
+          "description": "Savings Pot contract whose dsr() (per-second RAY rate) sets the yield."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "sUSDD balance (18 decimals)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xcE355440c00014A229bbEc030A2B8f8EB45a2897",
+      "name": "PSM USDT (MCD_PSM_USDT_A, UsddPsm7)",
+      "role": "exchange",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "sellGem(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stablecoin -> USDD. Args (usr = USDD recipient, gemAmt in USDT 0xdAC17F958D2ee523a2206206994597C13D831ec7 units, 6 decimals). First approve USDT 0xdAC17F958D2ee523a2206206994597C13D831ec7 to the PSM's GemJoin 0x217e42CEB2eAE9ECB788fDF0e31c806c531760A3 (NOT the PSM; the join pulls the tokens from msg.sender). Receives gemAmt scaled to 18 decimals minus tin fee. tin and tout were 0 at research time."
+        },
+        {
+          "signature": "buyGem(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "USDD -> stablecoin. Args (usr = recipient of USDT 0xdAC17F958D2ee523a2206206994597C13D831ec7, gemAmt in USDT 0xdAC17F958D2ee523a2206206994597C13D831ec7 units, 6 decimals). First approve USDD to the PSM itself; it pulls gemAmt*10^(18-6) USDD plus the tout fee. Reverts if the PSM holds less USDT 0xdAC17F958D2ee523a2206206994597C13D831ec7 than requested."
+        },
+        {
+          "signature": "tin()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee on sellGem, WAD (1e18 = 100%)."
+        },
+        {
+          "signature": "tout()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee on buyGem, WAD (1e18 = 100%)."
+        },
+        {
+          "signature": "sellEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "1 if sellGem is enabled; governance can switch it off."
+        },
+        {
+          "signature": "buyEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "1 if buyGem is enabled; governance can switch it off."
+        },
+        {
+          "signature": "gemJoin()",
+          "kind": "read",
+          "payable": false,
+          "description": "GemJoin adapter that holds the stablecoin (approval target for sellGem)."
+        },
+        {
+          "signature": "usdd()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDD token address."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x217e42CEB2eAE9ECB788fDF0e31c806c531760A3",
+      "name": "PSM USDT GemJoin (JOIN_PSM_USDT_A, AuthGemJoin7)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "gem()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying stablecoin (USDT 0xdAC17F958D2ee523a2206206994597C13D831ec7)."
+        },
+        {
+          "signature": "dec()",
+          "kind": "read",
+          "payable": false,
+          "description": "Stablecoin decimals."
+        },
+        {
+          "signature": "live()",
+          "kind": "read",
+          "payable": false,
+          "description": "1 while the adapter is live; 0 after cage (emergency shutdown)."
+        },
+        {
+          "signature": "implementations(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "AuthGemJoin7 only accepts USDT while USDT's current implementation (USDT.upgradedAddress()) is whitelisted here; if Tether upgrades USDT, joins/exits revert until governance whitelists it."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x12d0351F68035a41D13fc8324562e2d51B7A3b93",
+      "name": "PSM USDC (MCD_PSM_USDC_A)",
+      "role": "exchange",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "sellGem(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stablecoin -> USDD. Args (usr = USDD recipient, gemAmt in USDC 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 units, 6 decimals). First approve USDC 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 to the PSM's GemJoin 0x9A7E1B324060dB7342aeA08c0dc56F55CEd6F519 (NOT the PSM; the join pulls the tokens from msg.sender). Receives gemAmt scaled to 18 decimals minus tin fee. tin was 0.2% (2e15) and tout 0 at research time."
+        },
+        {
+          "signature": "buyGem(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "USDD -> stablecoin. Args (usr = recipient of USDC 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48, gemAmt in USDC 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 units, 6 decimals). First approve USDD to the PSM itself; it pulls gemAmt*10^(18-6) USDD plus the tout fee. Reverts if the PSM holds less USDC 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 than requested."
+        },
+        {
+          "signature": "tin()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee on sellGem, WAD (1e18 = 100%)."
+        },
+        {
+          "signature": "tout()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee on buyGem, WAD (1e18 = 100%)."
+        },
+        {
+          "signature": "sellEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "1 if sellGem is enabled; governance can switch it off."
+        },
+        {
+          "signature": "buyEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "1 if buyGem is enabled; governance can switch it off."
+        },
+        {
+          "signature": "gemJoin()",
+          "kind": "read",
+          "payable": false,
+          "description": "GemJoin adapter that holds the stablecoin (approval target for sellGem)."
+        },
+        {
+          "signature": "usdd()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDD token address."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x9A7E1B324060dB7342aeA08c0dc56F55CEd6F519",
+      "name": "PSM USDC GemJoin (JOIN_PSM_USDC_A, AuthGemJoin5)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "gem()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying stablecoin (USDC 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48)."
+        },
+        {
+          "signature": "dec()",
+          "kind": "read",
+          "payable": false,
+          "description": "Stablecoin decimals."
+        },
+        {
+          "signature": "live()",
+          "kind": "read",
+          "payable": false,
+          "description": "1 while the adapter is live; 0 after cage (emergency shutdown)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x8BE6B814bEb37e8028258777Af0ec6648A2A908E",
+      "name": "ProxyRegistry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "build()",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a DSProxy owned by msg.sender (one per user; needed for vault operations). Returns the proxy address."
+        },
+        {
+          "signature": "proxies(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "DSProxy of an owner (zero if none)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xb80751eF88d07FA33EE4fc0c6f8B4B6C6C31E708",
+      "name": "DssProxyActions (vaults)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "open(address,bytes32,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Open an empty vault: (cdpManager, ilk as bytes32 e.g. 'ETH-A', usr = your DSProxy). Returns cdp id. Like every ProxyActions call, it must be sent as DSProxy.execute(ProxyActions, calldata) (delegatecall), never directly."
+        },
+        {
+          "signature": "openLockETHAndDraw(address,address,address,address,bytes32,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Open a vault, lock native ETH (msg.value) and draw USDD: (cdpManager, jug, ethJoin, usddJoin, ilk, wadD = USDD to draw, 18 decimals). Send via DSProxy.execute with value."
+        },
+        {
+          "signature": "openLockGemAndDraw(address,address,address,address,bytes32,uint256,uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Open a vault, lock an ERC/TRC-20 collateral and draw USDD: (cdpManager, jug, gemJoin, usddJoin, ilk, amtC in collateral decimals, wadD, transferFrom = true to pull from the owner). Approve the collateral to your DSProxy first."
+        },
+        {
+          "signature": "lockETHAndDraw(address,address,address,address,uint256,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add native ETH collateral and draw more USDD on an existing vault: (cdpManager, jug, ethJoin, usddJoin, cdp, wadD)."
+        },
+        {
+          "signature": "lockGemAndDraw(address,address,address,address,uint256,uint256,uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add token collateral and draw USDD: (cdpManager, jug, gemJoin, usddJoin, cdp, amtC, wadD, transferFrom)."
+        },
+        {
+          "signature": "draw(address,address,address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Draw more USDD: (cdpManager, jug, usddJoin, cdp, wad)."
+        },
+        {
+          "signature": "wipe(address,address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay USDD debt: (cdpManager, usddJoin, cdp, wad). Approve USDD to your DSProxy first."
+        },
+        {
+          "signature": "wipeAll(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay all debt of a vault: (cdpManager, usddJoin, cdp)."
+        },
+        {
+          "signature": "wipeAllAndFreeETH(address,address,address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay all debt and withdraw native ETH: (cdpManager, ethJoin, usddJoin, cdp, amtC)."
+        },
+        {
+          "signature": "wipeAllAndFreeGem(address,address,address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay all debt and withdraw token collateral: (cdpManager, gemJoin, usddJoin, cdp, amtC)."
+        },
+        {
+          "signature": "freeETH(address,address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw native ETH collateral: (cdpManager, ethJoin, cdp, wad)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xB5b08E58E804E5937f56b1E633CF85AbBD269127",
+      "name": "DssCdpManager",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "first(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "First vault id owned by an owner (the DSProxy for app-created vaults)."
+        },
+        {
+          "signature": "count(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of vaults owned."
+        },
+        {
+          "signature": "list(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Linked list (prev, next) to enumerate an owner's vaults."
+        },
+        {
+          "signature": "ilks(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral type (bytes32) of a vault."
+        },
+        {
+          "signature": "urns(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Urn address of a vault; read its debt/collateral with Vat.urns(ilk, urn)."
+        },
+        {
+          "signature": "owns(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Owner of a vault."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xFf77F6209239DEB2c076179499f2346b0032097f",
+      "name": "Vat (core accounting)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "ilks(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral type params: (Art, rate, spot, line [RAD], dust [RAD])."
+        },
+        {
+          "signature": "urns(bytes32,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Vault state (ink, art); debt = art * rate / 1e27."
+        },
+        {
+          "signature": "live()",
+          "kind": "read",
+          "payable": false,
+          "description": "1 unless global settlement has been triggered."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x983DFef6d71862d809e239845Da5A959492f63b8",
+      "name": "USDD Join",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "usdd()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDD token."
+        },
+        {
+          "signature": "live()",
+          "kind": "read",
+          "payable": false,
+          "description": "1 while live."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x45E51bc23D592EB2DBA86da3985299f7895d66Ba",
+      "name": "USDD (BEP-20)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDD balance (18 decimals on every chain)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer USDD (wei, 18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the PSM before buyGem, or sUSDD before deposit."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current allowance (owner, spender)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDD supply on this chain."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "18."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,bool,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "DAI-style permit (holder, spender, nonce, expiry, allowed, v, r, s): allowed=true sets an unlimited allowance, false sets 0. Not EIP-2612."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x8bA9dA757d1D66c58b1ae7e2ED6c04087348A82d",
+      "name": "sUSDD (Savings USDD, ERC-4626)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.usdd.io/introduction/collateral-asset-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit USDD (assets, 18 decimals) and mint sUSDD to receiver: (assets, receiver). Approve USDD 0x45E51bc23D592EB2DBA86da3985299f7895d66Ba to sUSDD first. Returns shares."
+        },
+        {
+          "signature": "deposit(uint256,address,uint16)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as deposit with a uint16 referral code (emits a Referral event)."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint an exact number of sUSDD shares: (shares, receiver). Returns USDD assets pulled."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn sUSDD shares for USDD: (shares, receiver, owner). No lock-up. Returns assets."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact USDD amount: (assets, receiver, owner). Returns shares burned."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDD value of a sUSDD amount (both 18 decimals); grows over time with the savings rate."
+        },
+        {
+          "signature": "previewDeposit(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "sUSDD shares minted for a USDD deposit."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDD received for redeeming shares."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Max USDD an owner can withdraw."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total USDD held (including accrued savings)."
+        },
+        {
+          "signature": "chi()",
+          "kind": "read",
+          "payable": false,
+          "description": "Rate accumulator (RAY, 1e27) from the savings Pot; USDD per sUSDD = chi/1e27 after drip."
+        },
+        {
+          "signature": "pot()",
+          "kind": "read",
+          "payable": false,
+          "description": "Savings Pot contract whose dsr() (per-second RAY rate) sets the yield."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "sUSDD balance (18 decimals)."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x939d3FB56cd12d68CaA1125cc57a8d2391F7Ee29",
+      "name": "PSM USDT (MCD_PSM_USDT_A)",
+      "role": "exchange",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "sellGem(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stablecoin -> USDD. Args (usr = USDD recipient, gemAmt in USDT 0x55d398326f99059fF775485246999027B3197955 units, 18 decimals). First approve USDT 0x55d398326f99059fF775485246999027B3197955 to the PSM's GemJoin 0xe229FdA620B8a9B98ef184830EE3063F0F86B790 (NOT the PSM; the join pulls the tokens from msg.sender). Receives gemAmt scaled to 18 decimals minus tin fee. tin and tout were 0 at research time."
+        },
+        {
+          "signature": "buyGem(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "USDD -> stablecoin. Args (usr = recipient of USDT 0x55d398326f99059fF775485246999027B3197955, gemAmt in USDT 0x55d398326f99059fF775485246999027B3197955 units, 18 decimals). First approve USDD to the PSM itself; it pulls gemAmt*10^(18-18) USDD plus the tout fee. Reverts if the PSM holds less USDT 0x55d398326f99059fF775485246999027B3197955 than requested."
+        },
+        {
+          "signature": "tin()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee on sellGem, WAD (1e18 = 100%)."
+        },
+        {
+          "signature": "tout()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee on buyGem, WAD (1e18 = 100%)."
+        },
+        {
+          "signature": "sellEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "1 if sellGem is enabled; governance can switch it off."
+        },
+        {
+          "signature": "buyEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "1 if buyGem is enabled; governance can switch it off."
+        },
+        {
+          "signature": "gemJoin()",
+          "kind": "read",
+          "payable": false,
+          "description": "GemJoin adapter that holds the stablecoin (approval target for sellGem)."
+        },
+        {
+          "signature": "usdd()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDD token address."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xe229FdA620B8a9B98ef184830EE3063F0F86B790",
+      "name": "PSM USDT GemJoin (JOIN_PSM_USDT_A)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "gem()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying stablecoin (USDT 0x55d398326f99059fF775485246999027B3197955)."
+        },
+        {
+          "signature": "dec()",
+          "kind": "read",
+          "payable": false,
+          "description": "Stablecoin decimals."
+        },
+        {
+          "signature": "live()",
+          "kind": "read",
+          "payable": false,
+          "description": "1 while the adapter is live; 0 after cage (emergency shutdown)."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x57f7ef5f22c8DB13E4F181fc218478a749d7EC4f",
+      "name": "PSM USDC",
+      "role": "exchange",
+      "proxy": false,
+      "source": "https://github.com/decentralized-usd/mcp-server-usdd/blob/3692921667fc948f03c368be36a7842ea5cb562f/src/core/chains.ts",
+      "keyFunctions": [
+        {
+          "signature": "sellGem(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stablecoin -> USDD. Args (usr = USDD recipient, gemAmt in USDC 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d units, 18 decimals). First approve USDC 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d to the PSM's GemJoin 0x664781cA89A786E66120cD98187d731850516cb3 (NOT the PSM; the join pulls the tokens from msg.sender). Receives gemAmt scaled to 18 decimals minus tin fee. tin was 0.2% (2e15) and tout 0 at research time."
+        },
+        {
+          "signature": "buyGem(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "USDD -> stablecoin. Args (usr = recipient of USDC 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d, gemAmt in USDC 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d units, 18 decimals). First approve USDD to the PSM itself; it pulls gemAmt*10^(18-18) USDD plus the tout fee. Reverts if the PSM holds less USDC 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d than requested."
+        },
+        {
+          "signature": "tin()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee on sellGem, WAD (1e18 = 100%)."
+        },
+        {
+          "signature": "tout()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee on buyGem, WAD (1e18 = 100%)."
+        },
+        {
+          "signature": "sellEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "1 if sellGem is enabled; governance can switch it off."
+        },
+        {
+          "signature": "buyEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "1 if buyGem is enabled; governance can switch it off."
+        },
+        {
+          "signature": "gemJoin()",
+          "kind": "read",
+          "payable": false,
+          "description": "GemJoin adapter that holds the stablecoin (approval target for sellGem)."
+        },
+        {
+          "signature": "usdd()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDD token address."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x664781cA89A786E66120cD98187d731850516cb3",
+      "name": "PSM USDC GemJoin",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/decentralized-usd/mcp-server-usdd/blob/3692921667fc948f03c368be36a7842ea5cb562f/src/core/chains.ts",
+      "keyFunctions": [
+        {
+          "signature": "gem()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying stablecoin (USDC 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d)."
+        },
+        {
+          "signature": "dec()",
+          "kind": "read",
+          "payable": false,
+          "description": "Stablecoin decimals."
+        },
+        {
+          "signature": "live()",
+          "kind": "read",
+          "payable": false,
+          "description": "1 while the adapter is live; 0 after cage (emergency shutdown)."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x0144FCCe201dc3957FcF75269C10c21cCa41ba73",
+      "name": "ProxyRegistry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "build()",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a DSProxy owned by msg.sender (one per user; needed for vault operations). Returns the proxy address."
+        },
+        {
+          "signature": "proxies(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "DSProxy of an owner (zero if none)."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x777684F6425D095e9166f5f694F50e48A16bCB25",
+      "name": "DssProxyActions (vaults)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "open(address,bytes32,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Open an empty vault: (cdpManager, ilk as bytes32 - read available ilks from the public API /api/v1/vault/collaterals; BSC currently lists PSM and Smart Allocator ilks), usr = your DSProxy). Returns cdp id. Like every ProxyActions call, it must be sent as DSProxy.execute(ProxyActions, calldata) (delegatecall), never directly."
+        },
+        {
+          "signature": "openLockGemAndDraw(address,address,address,address,bytes32,uint256,uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Open a vault, lock an ERC/TRC-20 collateral and draw USDD: (cdpManager, jug, gemJoin, usddJoin, ilk, amtC in collateral decimals, wadD, transferFrom = true to pull from the owner). Approve the collateral to your DSProxy first."
+        },
+        {
+          "signature": "lockGemAndDraw(address,address,address,address,uint256,uint256,uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add token collateral and draw USDD: (cdpManager, jug, gemJoin, usddJoin, cdp, amtC, wadD, transferFrom)."
+        },
+        {
+          "signature": "draw(address,address,address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Draw more USDD: (cdpManager, jug, usddJoin, cdp, wad)."
+        },
+        {
+          "signature": "wipe(address,address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay USDD debt: (cdpManager, usddJoin, cdp, wad). Approve USDD to your DSProxy first."
+        },
+        {
+          "signature": "wipeAll(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay all debt of a vault: (cdpManager, usddJoin, cdp)."
+        },
+        {
+          "signature": "wipeAllAndFreeGem(address,address,address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay all debt and withdraw token collateral: (cdpManager, gemJoin, usddJoin, cdp, amtC)."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xa4109496a660eBc8D74dE991ac3b04c136C9BA09",
+      "name": "DssCdpManager",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.usdd.io/developers/deployment-addresses",
+      "keyFunctions": [
+        {
+          "signature": "first(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "First vault id owned by an owner (the DSProxy for app-created vaults)."
+        },
+        {
+          "signature": "count(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of vaults owned."
+        },
+        {
+          "signature": "list(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Linked list (prev, next) to enumerate an owner's vaults."
+        },
+        {
+          "signature": "ilks(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral type (bytes32) of a vault."
+        },
+        {
+          "signature": "urns(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Urn address of a vault; read its debt/collateral with Vat.urns(ilk, urn)."
+        },
+        {
+          "signature": "owns(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Owner of a vault."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "USDD Public API",
+      "url": "https://openapi.usdd.io",
+      "auth": "none",
+      "use": "GET-only stats: /totalSupply, /circulatingSupply, /api/v1/external/earn-apy, /api/v1/external/total-supply/usdd and /susdd (per chain), /api/v1/market-site/overview/apy (savings APY), /api/v1/vault/collaterals (vault params), /api/v1/data-platform/latest-collateral. Amounts are already de-scaled; rates are decimals (0.045 = 4.5%).",
+      "source": "https://docs.usdd.io/developers/usdd-public-api"
+    },
+    {
+      "name": "USDD MCP server",
+      "url": "https://github.com/decentralized-usd/mcp-server-usdd",
+      "auth": "none",
+      "use": "Official Model Context Protocol server (npm @usdd/mcp-server-usdd) for vault, PSM and savings operations on TRON, Ethereum and BNB Chain; it signs with a local agent wallet.",
+      "source": "https://docs.usdd.io/ai-support/mcp-server"
+    }
+  ],
+  "actions": [
+    {
+      "name": "mint USDD with USDT (PSM)",
+      "description": "Swap USDT (or USDC) into USDD 1:1 minus tin.",
+      "how": "Check PSM.sellEnabled()==1 and tin(). approve USDT to the PSM's GemJoin (Ethereum 0x217e42CEB2eAE9ECB788fDF0e31c806c531760A3, BSC 0xe229FdA620B8a9B98ef184830EE3063F0F86B790, TRON TSUYvQ5tdd3DijCD1uGunGLpftHuSZ12sQ), then PSM.sellGem(recipient, amount in USDT decimals: 6 on Ethereum/TRON, 18 on BSC)."
+    },
+    {
+      "name": "redeem USDD for USDT (PSM)",
+      "description": "Swap USDD into USDT (or USDC) 1:1 plus tout.",
+      "how": "Check buyEnabled()==1, tout() and that the GemJoin holds enough USDT (USDT.balanceOf(gemJoin)). approve USDD (amount*10^(18-gemDecimals) plus fee) to the PSM, then PSM.buyGem(recipient, amount in USDT decimals)."
+    },
+    {
+      "name": "earn savings (sUSDD)",
+      "description": "Deposit USDD into sUSDD on Ethereum or BNB Chain.",
+      "how": "approve USDD to sUSDD (Ethereum 0xC5d6A7B61d18AfA11435a889557b068BB9f29930, BSC 0x8bA9dA757d1D66c58b1ae7e2ED6c04087348A82d), then sUSDD.deposit(assets, receiver). Exit any time with redeem(shares, receiver, owner). Value: convertToAssets(shares)."
+    },
+    {
+      "name": "open a vault",
+      "description": "Borrow USDD against collateral (e.g. TRX on TRON).",
+      "how": "ProxyRegistry.build() once to get a DSProxy (read ProxyRegistry.proxies(owner)). Then DSProxy.execute(ProxyActions, abi.encodeWithSignature('openLockTRXAndDraw(address,address,address,address,bytes32,uint256)', cdpManager, jug, TRX-A join TJ1VWPvFVq7sVsN7J7dWJVZz4SLT14qRUr, usddJoin, 'TRX-A', wadD)) with the TRX as call value. Jug and USDD Join addresses are on the deployment-addresses page. Keep collateral ratio well above the ilk minimum or the vault is liquidated (Dutch auction)."
+    },
+    {
+      "name": "migrate USDDOLD",
+      "description": "Convert legacy USDD (USDDOLD, TPYmHEhy5n8TCEfYGqW2rPxsghSfzghPDn) to USDD 2.0 on TRON.",
+      "how": "approve USDDOLD to TQrq2p1aoAkNK94q3Q69ubJcv5nQ9y675R, then exchange(amount)."
+    }
+  ],
+  "risks": [
+    "Two different tokens named USDD exist on TRON: USDD 2.0 is TXDk8mbtRbXeYuMNS83CfKPaYYT8XWv9Hz; the 2022 token TPYmHEhy5n8TCEfYGqW2rPxsghSfzghPDn is now 'USDDOLD' (issued by TRON DAO Reserve). Always check the contract address. The legacy 2022 Ethereum USDD contract is not the current one.",
+    "Peg history: the original USDD (now USDDOLD) traded well below $1 in mid-2022 (widely reported lows around $0.93) and took months to recover. USDD 2.0 relaunched in January 2025 with Maker-style vaults and a PSM.",
+    "Collateral includes volatile assets (TRX, sTRX, WBTC, ETH), stablecoins (USDT, USDC via PSM) and protocol-run Smart Allocator ilks (SA001-A/SA002-A), which mint USDD that the team deploys into external yield venues such as Aave; their returns fund the savings rate and they carry those venues' risks.",
+    "Admin powers: governance 'wards' can mint USDD, change PSM fees (tin/tout) and disable sellGem/buyGem, change debt ceilings and rates, and trigger emergency shutdown (ESM/End). The USDD token contract itself has no blacklist/freeze or pause function (DAI-style), but USDT and USDC held by the PSM can be frozen by their issuers, and the Ethereum USDT GemJoin stops working if Tether upgrades USDT until governance whitelists the new implementation.",
+    "PSM redemption (buyGem) is limited by the stablecoin reserves currently in each GemJoin; reserves and fees differ per chain.",
+    "The savings rate (Pot dsr, about 4% APY at research time) is set by governance and can change; sUSDD has no lock-up.",
+    "Vaults are liquidated by Dutch auction (Clip) when under-collateralized, with a penalty; vault actions go through a per-user DSProxy that executes delegatecalls - only call the official ProxyActions address.",
+    "Audits listed in the docs: ChainSecurity (USDD v2, PSM, Exchange on TRON, Jan 2025; Ethereum and BSC, Oct 2025) and CertiK (Ethereum, Sep 2025)."
+  ],
+  "notes": "Addresses from the official docs (deployment-addresses and collateral-asset-contract-addresses pages); BSC PSM-USDC and its GemJoin only appear in the official USDD MCP server config on GitHub (linked from docs.usdd.io), so that file is cited for them. Every EVM address was checked for code on Ethereum/BSC and wiring confirmed on-chain (PSM.gemJoin/usdd/usddJoin, GemJoin.gem, sUSDD.asset); PSM, GemJoin, sUSDD, USDD, CdpManager and ProxyActions sources are verified on Sourcify. TRON addresses were checked with TronGrid (PSM.gemJoin = TSUYvQ5tdd3DijCD1uGunGLpftHuSZ12sQ, its gem = USDT TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t, PSM.usdd = TXDk8mbtRbXeYuMNS83CfKPaYYT8XWv9Hz). TRON contracts mostly have no on-chain ABI; signatures there follow the TRON ABIs where published (PSM, ProxyActions, CdpManager, Migration) and the identical EVM contracts otherwise. sUSDD/Savings exists only on Ethereum and BNB Chain per the docs. Not listed individually (all on the deployment-addresses page): Jug, Dog, Vow, Flap, Flop, Spot, End, ESM, Pause, PauseProxy, price feeds (PIP_*), auction (CLIP_*) contracts, and the other collateral joins (TRON TRX-B/TRX-C/USDT-A/sTRX-A/WBTC-A/WBTC-B; Ethereum ETH-A 0x75a3a7075867AF105a9ca4b0D25a6806cd682079, ETH-B, ETH-C, WBTC-A/B/C and SA001-A on the collateral page). At research time Ethereum ETH/WBTC ilks had debt ceilings but no debt. The docs label 0x3dbA111255d3888c723242320595588754Cf493e (Ethereum) as GovActionsProxy while the MCP config calls it proxyActionsProxy; it was left out because its purpose is unclear. Contracts whose proxy status is unknown (TRON USDD has no published ABI) are marked null.",
+  "sources": [
+    "https://usdd.io",
+    "https://docs.usdd.io",
+    "https://docs.usdd.io/developers/deployment-addresses",
+    "https://docs.usdd.io/introduction/collateral-asset-contract-addresses",
+    "https://docs.usdd.io/developers/core-contracts",
+    "https://docs.usdd.io/developers/core-contracts/psm",
+    "https://docs.usdd.io/developers/core-contracts/migrate",
+    "https://docs.usdd.io/developers/core-contracts/proxy-contract",
+    "https://docs.usdd.io/system-architecture/susdd-mechanism",
+    "https://docs.usdd.io/system-architecture/system-architecture",
+    "https://docs.usdd.io/system-architecture/smart-allocator",
+    "https://docs.usdd.io/user-guide/psm-peg-stability-module",
+    "https://docs.usdd.io/user-guide/usdd-savings",
+    "https://docs.usdd.io/security/audits",
+    "https://docs.usdd.io/introduction/what-is-usddold",
+    "https://docs.usdd.io/introduction/ecosystem-migration-progress",
+    "https://docs.usdd.io/developers/oracle",
+    "https://docs.usdd.io/developers/usdd-public-api",
+    "https://docs.usdd.io/ai-support/mcp-server",
+    "https://github.com/decentralized-usd/mcp-server-usdd",
+    "https://github.com/decentralized-usd/mcp-server-usdd/blob/3692921667fc948f03c368be36a7842ea5cb562f/src/core/chains.ts",
+    "https://sourcify.dev/server/v2/contract/1/0xcE355440c00014A229bbEc030A2B8f8EB45a2897",
+    "https://sourcify.dev/server/v2/contract/1/0xC5d6A7B61d18AfA11435a889557b068BB9f29930",
+    "https://sourcify.dev/server/v2/contract/56/0x939d3FB56cd12d68CaA1125cc57a8d2391F7Ee29",
+    "https://defillama.com/protocol/usdd",
+    "https://api.llama.fi/protocol/usdd",
+    "https://api.trongrid.io",
+    "https://ethereum-rpc.publicnode.com",
+    "https://bsc-dataseed.binance.org"
+  ],
+  "researchedAt": "2026-11-25"
+}

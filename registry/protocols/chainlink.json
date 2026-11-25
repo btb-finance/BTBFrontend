@@ -1,0 +1,1864 @@
+{
+  "slug": "chainlink",
+  "name": "Chainlink",
+  "category": "Oracle",
+  "description": "Oracle network. Agents read Chainlink Data Feeds (AggregatorV3 proxy contracts, e.g. ETH/USD) on-chain for reference prices, and move tokens or messages between chains with CCIP by calling the CCIP Router (getFee, then ccipSend). LINK is the network's ERC-677 token and a CCIP fee token.",
+  "website": "https://chain.link",
+  "docs": "https://docs.chain.link",
+  "defillama": "https://defillama.com/protocol/chainlink",
+  "chains": [
+    "ethereum",
+    "base",
+    "arbitrum",
+    "optimism",
+    "polygon",
+    "bsc",
+    "avalanche"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
+      "name": "Chainlink ETH / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-mainnet.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the ETH / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 3600 s and deviation threshold 0.5% (per Chainlink's feed directory): the answer updates when price moves more than 0.5% or 3600 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"ETH / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c",
+      "name": "Chainlink BTC / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-mainnet.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the BTC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 3600 s and deviation threshold 0.5% (per Chainlink's feed directory): the answer updates when price moves more than 0.5% or 3600 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"BTC / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6",
+      "name": "Chainlink USDC / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-mainnet.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the USDC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 82800 s and deviation threshold 0.25% (per Chainlink's feed directory): the answer updates when price moves more than 0.25% or 82800 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"USDC / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "name": "Chainlink LINK / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-mainnet.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the LINK / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 3600 s and deviation threshold 0.5% (per Chainlink's feed directory): the answer updates when price moves more than 0.5% or 3600 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"LINK / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x80226fc0Ee2b096224EeAc085Bb9a8cba1146f7D",
+      "name": "CCIP Router (chain selector 5009297550715157269)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://docs.chain.link/ccip/directory/mainnet/chain/mainnet",
+      "keyFunctions": [
+        {
+          "signature": "ccipSend(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Send a cross-chain message and/or tokens. Args: destinationChainSelector (uint64, NOT the EVM chainId; see CCIP Directory), Client.EVM2AnyMessage {bytes receiver = abi.encode(receiverAddress) for EVM destinations; bytes data (payload, empty for token-only transfers); EVMTokenAmount[] tokenAmounts {address token, uint256 amount} (tokens must be CCIP-enabled on this lane and approved to this Router first); address feeToken (address(0) = pay in native gas token via msg.value, or LINK / listed fee token, approved to the Router); bytes extraArgs}. extraArgs = bytes4 tag 0x181dcf10 (GENERIC_EXTRA_ARGS_V2_TAG) + abi.encode(uint256 gasLimit, bool allowOutOfOrderExecution); use gasLimit 0 for token-only transfers to an EOA; empty extraArgs defaults to 200k gas but Chainlink recommends always setting it explicitly. Returns bytes32 messageId. If paying natively, msg.value must be >= getFee(); overpayment is not refunded."
+        },
+        {
+          "signature": "getFee(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee for the exact same (destinationChainSelector, message) you will pass to ccipSend, denominated in message.feeToken (native wei if feeToken = address(0)). Call right before sending; add a small buffer when paying natively."
+        },
+        {
+          "signature": "isChainSupported(uint64)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the destination chain selector has a lane from this chain. Check before ccipSend (otherwise UnsupportedDestinationChain)."
+        },
+        {
+          "signature": "getWrappedNative()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped native token accepted as a fee token on this chain (WETH 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2)."
+        },
+        {
+          "signature": "getOnRamp(uint64)",
+          "kind": "read",
+          "payable": false,
+          "description": "OnRamp contract for a destination selector (zero address if no lane)."
+        },
+        {
+          "signature": "typeAndVersion()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns \"Router 1.2.0\"."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x514910771AF9Ca656af840dff83E8264EcF986CA",
+      "name": "LINK token (LINK)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.chain.link/resources/link-token-contracts",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send LINK (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the CCIP Router when paying CCIP fees in LINK."
+        },
+        {
+          "signature": "transferAndCall(address,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-677: transfer LINK to a contract and call its onTokenTransfer(sender, amount, data) in one tx (used by VRF subscriptions, staking and legacy oracle requests). Only works if the receiver implements onTokenTransfer."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LINK balance in base units (18 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "18."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70",
+      "name": "Chainlink ETH / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-base-1.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the ETH / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 1200 s and deviation threshold 0.15% (per Chainlink's feed directory): the answer updates when price moves more than 0.15% or 1200 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0. On this L2 also check the L2 Sequencer Uptime Feed first (answer must be 0 and the grace period since startedAt must have passed)."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"ETH / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x64c911996D3c6aC71f9b455B1E8E7266BcbD848F",
+      "name": "Chainlink BTC / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-base-1.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the BTC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 1200 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 1200 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0. On this L2 also check the L2 Sequencer Uptime Feed first (answer must be 0 and the grace period since startedAt must have passed)."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"BTC / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x7e860098F58bBFC8648a4311b374B1D669a2bc6B",
+      "name": "Chainlink USDC / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-base-1.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the USDC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 86400 s and deviation threshold 0.3% (per Chainlink's feed directory): the answer updates when price moves more than 0.3% or 86400 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0. On this L2 also check the L2 Sequencer Uptime Feed first (answer must be 0 and the grace period since startedAt must have passed)."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"USDC / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xBCF85224fc0756B9Fa45aA7892530B47e10b6433",
+      "name": "Chainlink L2 Sequencer Uptime Status Feed",
+      "role": "other",
+      "proxy": true,
+      "source": "https://docs.chain.link/data-feeds/l2-sequencer-feeds",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "answer 0 = sequencer up, 1 = sequencer down. startedAt = when the status last changed. Before trusting any price feed on this L2: require answer == 0 and block.timestamp - startedAt > GRACE_PERIOD (Chainlink's example uses 3600 s). On Arbitrum startedAt can be 0 only if the feed is not initialised; treat that as invalid."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x881e3A65B4d4a04dD529061dd0071cf975F58bCD",
+      "name": "CCIP Router (chain selector 15971525489660198786)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://docs.chain.link/ccip/directory/mainnet/chain/ethereum-mainnet-base-1",
+      "keyFunctions": [
+        {
+          "signature": "ccipSend(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Send a cross-chain message and/or tokens. Args: destinationChainSelector (uint64, NOT the EVM chainId; see CCIP Directory), Client.EVM2AnyMessage {bytes receiver = abi.encode(receiverAddress) for EVM destinations; bytes data (payload, empty for token-only transfers); EVMTokenAmount[] tokenAmounts {address token, uint256 amount} (tokens must be CCIP-enabled on this lane and approved to this Router first); address feeToken (address(0) = pay in native gas token via msg.value, or LINK / listed fee token, approved to the Router); bytes extraArgs}. extraArgs = bytes4 tag 0x181dcf10 (GENERIC_EXTRA_ARGS_V2_TAG) + abi.encode(uint256 gasLimit, bool allowOutOfOrderExecution); use gasLimit 0 for token-only transfers to an EOA; empty extraArgs defaults to 200k gas but Chainlink recommends always setting it explicitly. Returns bytes32 messageId. If paying natively, msg.value must be >= getFee(); overpayment is not refunded."
+        },
+        {
+          "signature": "getFee(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee for the exact same (destinationChainSelector, message) you will pass to ccipSend, denominated in message.feeToken (native wei if feeToken = address(0)). Call right before sending; add a small buffer when paying natively."
+        },
+        {
+          "signature": "isChainSupported(uint64)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the destination chain selector has a lane from this chain. Check before ccipSend (otherwise UnsupportedDestinationChain)."
+        },
+        {
+          "signature": "getWrappedNative()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped native token accepted as a fee token on this chain (WETH 0x4200000000000000000000000000000000000006)."
+        },
+        {
+          "signature": "getOnRamp(uint64)",
+          "kind": "read",
+          "payable": false,
+          "description": "OnRamp contract for a destination selector (zero address if no lane)."
+        },
+        {
+          "signature": "typeAndVersion()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns \"Router 1.2.0\"."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x88Fb150BDc53A65fe94Dea0c9BA0a6dAf8C6e196",
+      "name": "LINK token (LINK)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.chain.link/resources/link-token-contracts",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send LINK (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the CCIP Router when paying CCIP fees in LINK."
+        },
+        {
+          "signature": "transferAndCall(address,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-677: transfer LINK to a contract and call its onTokenTransfer(sender, amount, data) in one tx (used by VRF subscriptions, staking and legacy oracle requests). Only works if the receiver implements onTokenTransfer."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LINK balance in base units (18 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "18."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612",
+      "name": "Chainlink ETH / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-arbitrum-1.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the ETH / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 1755 s and deviation threshold 0.05% (per Chainlink's feed directory): the answer updates when price moves more than 0.05% or 1755 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0. On this L2 also check the L2 Sequencer Uptime Feed first (answer must be 0 and the grace period since startedAt must have passed)."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"ETH / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x6ce185860a4963106506C203335A2910413708e9",
+      "name": "Chainlink BTC / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-arbitrum-1.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the BTC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 1755 s and deviation threshold 0.05% (per Chainlink's feed directory): the answer updates when price moves more than 0.05% or 1755 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0. On this L2 also check the L2 Sequencer Uptime Feed first (answer must be 0 and the grace period since startedAt must have passed)."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"BTC / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3",
+      "name": "Chainlink USDC / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-arbitrum-1.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the USDC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 255 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 255 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0. On this L2 also check the L2 Sequencer Uptime Feed first (answer must be 0 and the grace period since startedAt must have passed)."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"USDC / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xFdB631F5EE196F0ed6FAa767959853A9F217697D",
+      "name": "Chainlink L2 Sequencer Uptime Status Feed",
+      "role": "other",
+      "proxy": true,
+      "source": "https://docs.chain.link/data-feeds/l2-sequencer-feeds",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "answer 0 = sequencer up, 1 = sequencer down. startedAt = when the status last changed. Before trusting any price feed on this L2: require answer == 0 and block.timestamp - startedAt > GRACE_PERIOD (Chainlink's example uses 3600 s). On Arbitrum startedAt can be 0 only if the feed is not initialised; treat that as invalid."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x141fa059441E0ca23ce184B6A78bafD2A517DdE8",
+      "name": "CCIP Router (chain selector 4949039107694359620)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://docs.chain.link/ccip/directory/mainnet/chain/ethereum-mainnet-arbitrum-1",
+      "keyFunctions": [
+        {
+          "signature": "ccipSend(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Send a cross-chain message and/or tokens. Args: destinationChainSelector (uint64, NOT the EVM chainId; see CCIP Directory), Client.EVM2AnyMessage {bytes receiver = abi.encode(receiverAddress) for EVM destinations; bytes data (payload, empty for token-only transfers); EVMTokenAmount[] tokenAmounts {address token, uint256 amount} (tokens must be CCIP-enabled on this lane and approved to this Router first); address feeToken (address(0) = pay in native gas token via msg.value, or LINK / listed fee token, approved to the Router); bytes extraArgs}. extraArgs = bytes4 tag 0x181dcf10 (GENERIC_EXTRA_ARGS_V2_TAG) + abi.encode(uint256 gasLimit, bool allowOutOfOrderExecution); use gasLimit 0 for token-only transfers to an EOA; empty extraArgs defaults to 200k gas but Chainlink recommends always setting it explicitly. Returns bytes32 messageId. If paying natively, msg.value must be >= getFee(); overpayment is not refunded."
+        },
+        {
+          "signature": "getFee(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee for the exact same (destinationChainSelector, message) you will pass to ccipSend, denominated in message.feeToken (native wei if feeToken = address(0)). Call right before sending; add a small buffer when paying natively."
+        },
+        {
+          "signature": "isChainSupported(uint64)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the destination chain selector has a lane from this chain. Check before ccipSend (otherwise UnsupportedDestinationChain)."
+        },
+        {
+          "signature": "getWrappedNative()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped native token accepted as a fee token on this chain (WETH 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1)."
+        },
+        {
+          "signature": "getOnRamp(uint64)",
+          "kind": "read",
+          "payable": false,
+          "description": "OnRamp contract for a destination selector (zero address if no lane)."
+        },
+        {
+          "signature": "typeAndVersion()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns \"Router 1.2.0\"."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4",
+      "name": "LINK token (LINK)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.chain.link/resources/link-token-contracts",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send LINK (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the CCIP Router when paying CCIP fees in LINK."
+        },
+        {
+          "signature": "transferAndCall(address,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-677: transfer LINK to a contract and call its onTokenTransfer(sender, amount, data) in one tx (used by VRF subscriptions, staking and legacy oracle requests). Only works if the receiver implements onTokenTransfer."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LINK balance in base units (18 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "18."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x13e3Ee699D1909E989722E753853AE30b17e08c5",
+      "name": "Chainlink ETH / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-optimism-1.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the ETH / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 1200 s and deviation threshold 0.15% (per Chainlink's feed directory): the answer updates when price moves more than 0.15% or 1200 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0. On this L2 also check the L2 Sequencer Uptime Feed first (answer must be 0 and the grace period since startedAt must have passed)."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"ETH / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0xD702DD976Fb76Fffc2D3963D037dfDae5b04E593",
+      "name": "Chainlink BTC / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-optimism-1.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the BTC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 1200 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 1200 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0. On this L2 also check the L2 Sequencer Uptime Feed first (answer must be 0 and the grace period since startedAt must have passed)."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"BTC / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x16a9FA2FDa030272Ce99B29CF780dFA30361E0f3",
+      "name": "Chainlink USDC / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-optimism-1.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the USDC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 86400 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 86400 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0. On this L2 also check the L2 Sequencer Uptime Feed first (answer must be 0 and the grace period since startedAt must have passed)."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"USDC / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x371EAD81c9102C9BF4874A9075FFFf170F2Ee389",
+      "name": "Chainlink L2 Sequencer Uptime Status Feed",
+      "role": "other",
+      "proxy": true,
+      "source": "https://docs.chain.link/data-feeds/l2-sequencer-feeds",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "answer 0 = sequencer up, 1 = sequencer down. startedAt = when the status last changed. Before trusting any price feed on this L2: require answer == 0 and block.timestamp - startedAt > GRACE_PERIOD (Chainlink's example uses 3600 s). On Arbitrum startedAt can be 0 only if the feed is not initialised; treat that as invalid."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x3206695CaE29952f4b0c22a169725a865bc8Ce0f",
+      "name": "CCIP Router (chain selector 3734403246176062136)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://docs.chain.link/ccip/directory/mainnet/chain/ethereum-mainnet-optimism-1",
+      "keyFunctions": [
+        {
+          "signature": "ccipSend(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Send a cross-chain message and/or tokens. Args: destinationChainSelector (uint64, NOT the EVM chainId; see CCIP Directory), Client.EVM2AnyMessage {bytes receiver = abi.encode(receiverAddress) for EVM destinations; bytes data (payload, empty for token-only transfers); EVMTokenAmount[] tokenAmounts {address token, uint256 amount} (tokens must be CCIP-enabled on this lane and approved to this Router first); address feeToken (address(0) = pay in native gas token via msg.value, or LINK / listed fee token, approved to the Router); bytes extraArgs}. extraArgs = bytes4 tag 0x181dcf10 (GENERIC_EXTRA_ARGS_V2_TAG) + abi.encode(uint256 gasLimit, bool allowOutOfOrderExecution); use gasLimit 0 for token-only transfers to an EOA; empty extraArgs defaults to 200k gas but Chainlink recommends always setting it explicitly. Returns bytes32 messageId. If paying natively, msg.value must be >= getFee(); overpayment is not refunded."
+        },
+        {
+          "signature": "getFee(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee for the exact same (destinationChainSelector, message) you will pass to ccipSend, denominated in message.feeToken (native wei if feeToken = address(0)). Call right before sending; add a small buffer when paying natively."
+        },
+        {
+          "signature": "isChainSupported(uint64)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the destination chain selector has a lane from this chain. Check before ccipSend (otherwise UnsupportedDestinationChain)."
+        },
+        {
+          "signature": "getWrappedNative()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped native token accepted as a fee token on this chain (WETH 0x4200000000000000000000000000000000000006)."
+        },
+        {
+          "signature": "getOnRamp(uint64)",
+          "kind": "read",
+          "payable": false,
+          "description": "OnRamp contract for a destination selector (zero address if no lane)."
+        },
+        {
+          "signature": "typeAndVersion()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns \"Router 1.2.0\"."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6",
+      "name": "LINK token (LINK)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.chain.link/resources/link-token-contracts",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send LINK (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the CCIP Router when paying CCIP fees in LINK."
+        },
+        {
+          "signature": "transferAndCall(address,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-677: transfer LINK to a contract and call its onTokenTransfer(sender, amount, data) in one tx (used by VRF subscriptions, staking and legacy oracle requests). Only works if the receiver implements onTokenTransfer."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LINK balance in base units (18 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "18."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xF9680D99D6C9589e2a93a78A04A279e509205945",
+      "name": "Chainlink ETH / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-matic-mainnet.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the ETH / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 27 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 27 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"ETH / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xc907E116054Ad103354f2D350FD2514433D57F6f",
+      "name": "Chainlink BTC / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-matic-mainnet.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the BTC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 27 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 27 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"BTC / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xfE4A8cc5b5B2366C1B58Bea3858e81843581b2F7",
+      "name": "Chainlink USDC / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-matic-mainnet.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the USDC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 27 s and deviation threshold 0.005% (per Chainlink's feed directory): the answer updates when price moves more than 0.005% or 27 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"USDC / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x849c5ED5a80F5B408Dd4969b78c2C8fdf0565Bfe",
+      "name": "CCIP Router (chain selector 4051577828743386545)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://docs.chain.link/ccip/directory/mainnet/chain/matic-mainnet",
+      "keyFunctions": [
+        {
+          "signature": "ccipSend(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Send a cross-chain message and/or tokens. Args: destinationChainSelector (uint64, NOT the EVM chainId; see CCIP Directory), Client.EVM2AnyMessage {bytes receiver = abi.encode(receiverAddress) for EVM destinations; bytes data (payload, empty for token-only transfers); EVMTokenAmount[] tokenAmounts {address token, uint256 amount} (tokens must be CCIP-enabled on this lane and approved to this Router first); address feeToken (address(0) = pay in native gas token via msg.value, or LINK / listed fee token, approved to the Router); bytes extraArgs}. extraArgs = bytes4 tag 0x181dcf10 (GENERIC_EXTRA_ARGS_V2_TAG) + abi.encode(uint256 gasLimit, bool allowOutOfOrderExecution); use gasLimit 0 for token-only transfers to an EOA; empty extraArgs defaults to 200k gas but Chainlink recommends always setting it explicitly. Returns bytes32 messageId. If paying natively, msg.value must be >= getFee(); overpayment is not refunded."
+        },
+        {
+          "signature": "getFee(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee for the exact same (destinationChainSelector, message) you will pass to ccipSend, denominated in message.feeToken (native wei if feeToken = address(0)). Call right before sending; add a small buffer when paying natively."
+        },
+        {
+          "signature": "isChainSupported(uint64)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the destination chain selector has a lane from this chain. Check before ccipSend (otherwise UnsupportedDestinationChain)."
+        },
+        {
+          "signature": "getWrappedNative()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped native token accepted as a fee token on this chain (WPOL 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270)."
+        },
+        {
+          "signature": "getOnRamp(uint64)",
+          "kind": "read",
+          "payable": false,
+          "description": "OnRamp contract for a destination selector (zero address if no lane)."
+        },
+        {
+          "signature": "typeAndVersion()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns \"Router 1.2.0\"."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xb0897686c545045aFc77CF20eC7A532E3120E0F1",
+      "name": "LINK token (LINK)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.chain.link/resources/link-token-contracts",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send LINK (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the CCIP Router when paying CCIP fees in LINK."
+        },
+        {
+          "signature": "transferAndCall(address,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-677: transfer LINK to a contract and call its onTokenTransfer(sender, amount, data) in one tx (used by VRF subscriptions, staking and legacy oracle requests). Only works if the receiver implements onTokenTransfer."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LINK balance in base units (18 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "18."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x9ef1B8c0E4F7dc8bF5719Ea496883DC6401d5b2e",
+      "name": "Chainlink ETH / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-bsc-mainnet.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the ETH / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 60 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 60 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"ETH / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x264990fbd0A4796A3E3d8E37C4d5F87a3aCa5Ebf",
+      "name": "Chainlink BTC / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-bsc-mainnet.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the BTC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 60 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 60 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"BTC / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x51597f405303C4377E36123cBc172b13269EA163",
+      "name": "Chainlink USDC / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-bsc-mainnet.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the USDC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 900 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 900 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"USDC / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x34B03Cb9086d7D758AC55af71584F81A598759FE",
+      "name": "CCIP Router (chain selector 11344663589394136015)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://docs.chain.link/ccip/directory/mainnet/chain/bsc-mainnet",
+      "keyFunctions": [
+        {
+          "signature": "ccipSend(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Send a cross-chain message and/or tokens. Args: destinationChainSelector (uint64, NOT the EVM chainId; see CCIP Directory), Client.EVM2AnyMessage {bytes receiver = abi.encode(receiverAddress) for EVM destinations; bytes data (payload, empty for token-only transfers); EVMTokenAmount[] tokenAmounts {address token, uint256 amount} (tokens must be CCIP-enabled on this lane and approved to this Router first); address feeToken (address(0) = pay in native gas token via msg.value, or LINK / listed fee token, approved to the Router); bytes extraArgs}. extraArgs = bytes4 tag 0x181dcf10 (GENERIC_EXTRA_ARGS_V2_TAG) + abi.encode(uint256 gasLimit, bool allowOutOfOrderExecution); use gasLimit 0 for token-only transfers to an EOA; empty extraArgs defaults to 200k gas but Chainlink recommends always setting it explicitly. Returns bytes32 messageId. If paying natively, msg.value must be >= getFee(); overpayment is not refunded."
+        },
+        {
+          "signature": "getFee(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee for the exact same (destinationChainSelector, message) you will pass to ccipSend, denominated in message.feeToken (native wei if feeToken = address(0)). Call right before sending; add a small buffer when paying natively."
+        },
+        {
+          "signature": "isChainSupported(uint64)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the destination chain selector has a lane from this chain. Check before ccipSend (otherwise UnsupportedDestinationChain)."
+        },
+        {
+          "signature": "getWrappedNative()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped native token accepted as a fee token on this chain (WBNB 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c)."
+        },
+        {
+          "signature": "getOnRamp(uint64)",
+          "kind": "read",
+          "payable": false,
+          "description": "OnRamp contract for a destination selector (zero address if no lane)."
+        },
+        {
+          "signature": "typeAndVersion()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns \"Router 1.2.0\"."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x404460C6A5EdE2D891e8297795264fDe62ADBB75",
+      "name": "LINK token (LINK)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.chain.link/resources/link-token-contracts",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send LINK (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the CCIP Router when paying CCIP fees in LINK."
+        },
+        {
+          "signature": "transferAndCall(address,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-677: transfer LINK to a contract and call its onTokenTransfer(sender, amount, data) in one tx (used by VRF subscriptions, staking and legacy oracle requests). Only works if the receiver implements onTokenTransfer."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LINK balance in base units (18 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "18."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x976B3D034E162d8bD72D6b9C989d545b839003b0",
+      "name": "Chainlink ETH / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-avalanche-mainnet.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the ETH / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 86400 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 86400 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"ETH / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x2779D32d5166BAaa2B2b658333bA7e6Ec0C65743",
+      "name": "Chainlink BTC / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-avalanche-mainnet.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the BTC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 86400 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 86400 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"BTC / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0xF096872672F44d6EBA71458D74fe67F9a77a23B9",
+      "name": "Chainlink USDC / USD price feed (proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://reference-data-directory.vercel.app/feeds-avalanche-mainnet.json",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the USDC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 86400 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 86400 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+        },
+        {
+          "signature": "description()",
+          "kind": "read",
+          "payable": false,
+          "description": "Human-readable pair, returns \"USDC / USD\". Use it to sanity-check you have the right proxy."
+        },
+        {
+          "signature": "getRoundData(uint80)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+        },
+        {
+          "signature": "aggregator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Aggregator interface version."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0xF4c7E640EdA248ef95972845a62bdC74237805dB",
+      "name": "CCIP Router (chain selector 6433500567565415381)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://docs.chain.link/ccip/directory/mainnet/chain/avalanche-mainnet",
+      "keyFunctions": [
+        {
+          "signature": "ccipSend(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Send a cross-chain message and/or tokens. Args: destinationChainSelector (uint64, NOT the EVM chainId; see CCIP Directory), Client.EVM2AnyMessage {bytes receiver = abi.encode(receiverAddress) for EVM destinations; bytes data (payload, empty for token-only transfers); EVMTokenAmount[] tokenAmounts {address token, uint256 amount} (tokens must be CCIP-enabled on this lane and approved to this Router first); address feeToken (address(0) = pay in native gas token via msg.value, or LINK / listed fee token, approved to the Router); bytes extraArgs}. extraArgs = bytes4 tag 0x181dcf10 (GENERIC_EXTRA_ARGS_V2_TAG) + abi.encode(uint256 gasLimit, bool allowOutOfOrderExecution); use gasLimit 0 for token-only transfers to an EOA; empty extraArgs defaults to 200k gas but Chainlink recommends always setting it explicitly. Returns bytes32 messageId. If paying natively, msg.value must be >= getFee(); overpayment is not refunded."
+        },
+        {
+          "signature": "getFee(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee for the exact same (destinationChainSelector, message) you will pass to ccipSend, denominated in message.feeToken (native wei if feeToken = address(0)). Call right before sending; add a small buffer when paying natively."
+        },
+        {
+          "signature": "isChainSupported(uint64)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the destination chain selector has a lane from this chain. Check before ccipSend (otherwise UnsupportedDestinationChain)."
+        },
+        {
+          "signature": "getWrappedNative()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped native token accepted as a fee token on this chain (WAVAX 0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7)."
+        },
+        {
+          "signature": "getOnRamp(uint64)",
+          "kind": "read",
+          "payable": false,
+          "description": "OnRamp contract for a destination selector (zero address if no lane)."
+        },
+        {
+          "signature": "typeAndVersion()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns \"Router 1.2.0\"."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x5947BB275c521040051D82396192181b413227A3",
+      "name": "LINK token (LINK.e (bridged via Avalanche Bridge, Chainlink's official LINK on Avalanche))",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.chain.link/resources/link-token-contracts",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send LINK (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the CCIP Router when paying CCIP fees in LINK."
+        },
+        {
+          "signature": "transferAndCall(address,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-677: transfer LINK to a contract and call its onTokenTransfer(sender, amount, data) in one tx (used by VRF subscriptions, staking and legacy oracle requests). Only works if the receiver implements onTokenTransfer."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LINK balance in base units (18 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "18."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Data Feeds directory (data.chain.link)",
+      "url": "https://data.chain.link",
+      "auth": "none",
+      "use": "Search every Chainlink feed by pair and network; each feed page shows the proxy address to call, decimals, heartbeat and deviation threshold, and whether it is deprecated.",
+      "source": "https://docs.chain.link/data-feeds/price-feeds/addresses"
+    },
+    {
+      "name": "Feed reference data directory (JSON)",
+      "url": "https://reference-data-directory.vercel.app/feeds-{network}.json",
+      "auth": "none",
+      "use": "Machine-readable list of all feeds for one network (the same data docs.chain.link renders). Fields: name, proxyAddress (call this), decimals, heartbeat, threshold, feedCategory, docs.hidden / shutdownDate. {network} examples: mainnet (Ethereum), ethereum-mainnet-base-1, ethereum-mainnet-arbitrum-1, ethereum-mainnet-optimism-1, matic-mainnet, bsc-mainnet, avalanche-mainnet. Some entries have secondaryProxyAddress/secondaryProxyEns (e.g. Base ETH/USD): the standard proxy is the one whose ens is the plain pair name (eth-usd); 'svr' proxies are Smart Value Recapture variants.",
+      "source": "https://docs.chain.link/data-feeds/price-feeds/addresses"
+    },
+    {
+      "name": "CCIP Directory",
+      "url": "https://docs.chain.link/ccip/directory/mainnet",
+      "auth": "none",
+      "use": "Per-chain Router address, chain selector, fee tokens, supported lanes and supported tokens (with token pool and rate limits) for CCIP mainnet.",
+      "source": "https://docs.chain.link/ccip/directory/mainnet"
+    },
+    {
+      "name": "CCIP Explorer",
+      "url": "https://ccip.chain.link",
+      "auth": "none",
+      "use": "Track a CCIP message by messageId or source tx hash (status: waiting for finality, committed, success/failure; manual execution if it failed on the destination).",
+      "source": "https://docs.chain.link/ccip"
+    }
+  ],
+  "actions": [
+    {
+      "name": "read-price",
+      "description": "Get a reference USD price on-chain",
+      "how": "Call latestRoundData() on the feed proxy for the pair and chain (this file for ETH/BTC/USDC; any other pair: look up the proxyAddress on data.chain.link or the reference-data-directory JSON). price = answer / 10^decimals(). Reject if answer <= 0 or now - updatedAt > heartbeat. On Arbitrum/Base/Optimism first check the L2 Sequencer Uptime Feed (answer == 0 and now - startedAt > grace period)."
+    },
+    {
+      "name": "ccip-token-transfer",
+      "description": "Bridge a CCIP-supported token to another chain",
+      "how": "1) Confirm the token is supported on the lane in the CCIP Directory and router.isChainSupported(destSelector). 2) token.approve(router, amount). 3) Build EVM2AnyMessage{receiver: abi.encode(recipient), data: \"\", tokenAmounts: [(token, amount)], feeToken: LINK or address(0), extraArgs: 0x181dcf10 ++ abi.encode(0, true)}. 4) fee = router.getFee(destSelector, msg). 5) If feeToken is LINK, LINK.approve(router, fee) (plus amount if LINK is also the token sent); else send value = fee. 6) router.ccipSend(destSelector, msg). 7) Track messageId on ccip.chain.link."
+    },
+    {
+      "name": "ccip-message",
+      "description": "Send arbitrary data to a receiver contract on another chain",
+      "how": "Same as token transfer with data = your payload, tokenAmounts = [], and extraArgs gasLimit sized for the receiver's ccipReceive (the receiver must implement CCIPReceiver / IAny2EVMMessageReceiver)."
+    },
+    {
+      "name": "get-link",
+      "description": "Obtain/identify official LINK",
+      "how": "Use the LINK address for the chain from this file (from docs.chain.link/resources/link-token-contracts). On BNB Chain and Polygon, bridged LINK from the chain's native bridge is not ERC-677 and must be converted with Chainlink PegSwap before use with Chainlink services."
+    }
+  ],
+  "risks": [
+    "Stale prices: a feed only updates on its deviation threshold or heartbeat; always compare updatedAt with the heartbeat listed for that feed, and do not assume the same heartbeat across chains (e.g. ETH/USD is 3600 s on Ethereum but 27 s on Polygon, 86400 s on Avalanche).",
+    "Feeds get deprecated: Chainlink marks feeds for shutdown on data.chain.link and in the directory JSON (shutdownDate / hidden). A deprecated proxy can stop updating; check before integrating and re-check periodically.",
+    "Use the proxy, never the aggregator address; aggregators are replaced during upgrades. Several networks also list SVR (Smart Value Recapture) proxies and Arbitrum lists hidden 'cre-backup' proxies for the same pair with different decimals (18): read decimals() and use the standard proxy unless you specifically want SVR.",
+    "L2s (Arbitrum, Base, Optimism): if the sequencer is down, feeds can look fresh but be wrong for users who cannot transact; check the L2 Sequencer Uptime Feed and enforce a grace period after it comes back up. The directory JSON currently flags the Optimism sequencer feed as hidden although the L2 sequencer docs page still lists it.",
+    "Data feeds are market references with a deviation band (e.g. 0.5%); they are not exact execution prices and can be manipulated on low-liquidity assets ('medium'/'high' risk categories on data.chain.link).",
+    "CCIP fees: getFee depends on the destination, data size, gas limit and token amounts; overpaid native fees are not refunded. Messages wait for source-chain finality (minutes on Ethereum, can be longer on some chains).",
+    "CCIP rate limits: each token pool has per-lane capacity and refill-rate limits; transfers above the available capacity revert. Check the token's rate limits in the CCIP Directory before large transfers.",
+    "CCIP chain selectors are not EVM chain IDs; sending to a wrong selector or an unsupported lane reverts with UnsupportedDestinationChain. Receiver must be abi.encode(address) for EVM destinations; tokens sent to a contract that cannot handle them may be stuck.",
+    "Bridged LINK from BNB Chain's and Polygon's native bridges is not ERC-677 and is not usable with Chainlink services; use PegSwap to convert. LINK on Avalanche reports symbol LINK.e."
+  ],
+  "notes": "DefiLlama lists Chainlink as a parent protocol 'chainlink' with child entries (Chainlink Requests 'chainlink-requests', CCIP, Chainlink Staking); 'chainlink' is used because this file covers Data Feeds, CCIP and LINK together. Feed proxies are the standard (non-SVR) proxies from Chainlink's reference data directory JSON, which docs.chain.link/data-feeds/price-feeds/addresses loads; on Base the standard eth-usd and btc-usd proxies appear as secondaryProxyAddress of the shared-SVR entries. LINK/USD is included for Ethereum only. All feeds were checked on 2026-11-25 with description(), decimals() (all 8) and latestRoundData() (ETH ~1652 USD, BTC ~58,950 USD, USDC ~0.9999 USD); all CCIP routers returned typeAndVersion 'Router 1.2.0' and isChainSupported true for the other test chains; all LINK addresses returned decimals 18. Left out: the Ethereum Feed Registry: docs.chain.link/data-feeds/feed-registry now redirects to the Data Feeds overview and no current official page lists its address, so it is omitted (read individual proxies instead). Other CCIP contracts per chain (RMN proxy/armProxy, TokenAdminRegistry, RegistryModuleOwnerCustom, TokenPoolFactory, OnRamps/OffRamps) are listed in the CCIP Directory and in https://github.com/smartcontractkit/documentation/blob/main/src/config/data/ccip/v1_2_0/mainnet/chains.json. Every other price feed (thousands, on 50+ networks) is listed at data.chain.link with its proxy address. Polygon here means Polygon PoS (chainId 137).",
+  "sources": [
+    "https://docs.chain.link",
+    "https://docs.chain.link/data-feeds",
+    "https://docs.chain.link/data-feeds/price-feeds/addresses",
+    "https://docs.chain.link/data-feeds/price-feeds/addresses?network=ethereum",
+    "https://docs.chain.link/data-feeds/l2-sequencer-feeds",
+    "https://docs.chain.link/data-feeds/api-reference",
+    "https://docs.chain.link/data-feeds/feed-registry",
+    "https://data.chain.link",
+    "https://reference-data-directory.vercel.app/feeds-mainnet.json",
+    "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-base-1.json",
+    "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-arbitrum-1.json",
+    "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-optimism-1.json",
+    "https://reference-data-directory.vercel.app/feeds-matic-mainnet.json",
+    "https://reference-data-directory.vercel.app/feeds-bsc-mainnet.json",
+    "https://reference-data-directory.vercel.app/feeds-avalanche-mainnet.json",
+    "https://docs.chain.link/resources/link-token-contracts",
+    "https://docs.chain.link/ccip/directory/mainnet",
+    "https://docs.chain.link/ccip/directory/mainnet/chain/mainnet",
+    "https://docs.chain.link/ccip/directory/mainnet/chain/ethereum-mainnet-base-1",
+    "https://docs.chain.link/ccip/directory/mainnet/chain/ethereum-mainnet-arbitrum-1",
+    "https://docs.chain.link/ccip/directory/mainnet/chain/ethereum-mainnet-optimism-1",
+    "https://docs.chain.link/ccip/directory/mainnet/chain/matic-mainnet",
+    "https://docs.chain.link/ccip/directory/mainnet/chain/bsc-mainnet",
+    "https://docs.chain.link/ccip/directory/mainnet/chain/avalanche-mainnet",
+    "https://docs.chain.link/ccip/v1/evm/api-reference/v1.6.2/client",
+    "https://docs.chain.link/ccip/v1/evm/api-reference/v1.6.2/i-router-client",
+    "https://raw.githubusercontent.com/smartcontractkit/documentation/main/src/config/data/ccip/v1_2_0/mainnet/chains.json",
+    "https://raw.githubusercontent.com/smartcontractkit/documentation/main/src/config/data/ccip/v1_2_0/mainnet/tokens.json",
+    "https://github.com/smartcontractkit/documentation/blob/main/src/features/data/chains.ts",
+    "https://ccip.chain.link",
+    "https://api.llama.fi/protocol/chainlink",
+    "https://api.llama.fi/protocol/chainlink-requests"
+  ],
+  "researchedAt": "2026-11-25"
+}

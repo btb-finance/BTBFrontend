@@ -1,0 +1,596 @@
+{
+  "slug": "compound-v2",
+  "name": "Compound V2",
+  "category": "Lending",
+  "description": "Legacy pooled money market on Ethereum (Comptroller + cTokens). As of late 2026 every V2 market has supply (mint) and borrow paused, so agents use it to read positions, redeem cTokens, repay or liquidate borrows and claim previously accrued COMP. New lending happens on Compound III (Comet).",
+  "website": "https://www.compound.xyz",
+  "docs": "https://docs.compound.xyz/v2/",
+  "defillama": "https://defillama.com/protocol/compound-v2",
+  "chains": [
+    "ethereum"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B",
+      "name": "Comptroller (Unitroller proxy)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://docs.compound.xyz/v2/",
+      "keyFunctions": [
+        {
+          "signature": "enterMarkets(address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Mark the given cTokens as collateral (needed before borrowing against them). Returns one error code per market (0 = ok)."
+        },
+        {
+          "signature": "exitMarket(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stop using a cToken as collateral. Fails if the account still borrows from that market or exiting would leave it short."
+        },
+        {
+          "signature": "getAccountLiquidity(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (error, liquidity, shortfall) in USD scaled 1e18. shortfall > 0 means the account can be liquidated."
+        },
+        {
+          "signature": "getHypotheticalAccountLiquidity(address,address,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(account, cTokenModify, redeemTokens, borrowAmount) -> (error, liquidity, shortfall) after a hypothetical redeem/borrow."
+        },
+        {
+          "signature": "getAssetsIn(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "cTokens the account has entered as collateral."
+        },
+        {
+          "signature": "markets(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (isListed, collateralFactorMantissa (1e18 = 100%), isComped)."
+        },
+        {
+          "signature": "getAllMarkets()",
+          "kind": "read",
+          "payable": false,
+          "description": "All listed cToken addresses."
+        },
+        {
+          "signature": "mintGuardianPaused(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if minting in that cToken is paused (true for every market as of 2026-11-25)."
+        },
+        {
+          "signature": "borrowGuardianPaused(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if borrowing in that cToken is paused (true for every market as of 2026-11-25)."
+        },
+        {
+          "signature": "isDeprecated(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the market is deprecated (collateral factor 0, borrow paused, reserve factor 100%): any borrow there can be fully liquidated."
+        },
+        {
+          "signature": "closeFactorMantissa()",
+          "kind": "read",
+          "payable": false,
+          "description": "Max share of a borrow repayable in one liquidation (0.5e18 = 50% on 2026-11-25)."
+        },
+        {
+          "signature": "liquidationIncentiveMantissa()",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral bonus to liquidators, 1e18-scaled (1.08e18 = 8% on 2026-11-25)."
+        },
+        {
+          "signature": "liquidateCalculateSeizeTokens(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(cTokenBorrowed, cTokenCollateral, repayAmount) -> (error, cTokens seized)."
+        },
+        {
+          "signature": "compAccrued(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "COMP already accrued but not yet claimed (excludes amounts since the last index update)."
+        },
+        {
+          "signature": "claimComp(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued COMP for a holder across all markets (anyone may call; COMP goes to the holder). V2 COMP supply/borrow speeds are 0, so only past accruals remain."
+        },
+        {
+          "signature": "claimComp(address,address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued COMP for a holder in the given markets only (cheaper)."
+        },
+        {
+          "signature": "oracle()",
+          "kind": "read",
+          "payable": false,
+          "description": "Price oracle used by the Comptroller (currently the Compound v2 Price Feed)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5",
+      "name": "cETH - Compound V2 market for ETH",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.compound.xyz/v2/",
+      "keyFunctions": [
+        {
+          "signature": "mint()",
+          "kind": "write",
+          "payable": true,
+          "description": "Supply ETH (msg.value) for cETH. Reverts on failure. Guardian-paused as of 2026-11-25."
+        },
+        {
+          "signature": "redeem(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn cETH (8 decimals) for ETH. Reverts on failure."
+        },
+        {
+          "signature": "redeemUnderlying(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact amount of ETH (wei)."
+        },
+        {
+          "signature": "repayBorrow()",
+          "kind": "write",
+          "payable": true,
+          "description": "Repay own ETH borrow with msg.value. Sending more than owed reverts; use Maximillion.repayBehalf to repay exactly in full."
+        },
+        {
+          "signature": "repayBorrowBehalf(address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Repay another account's ETH borrow with msg.value."
+        },
+        {
+          "signature": "liquidateBorrow(address,address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Liquidate (borrower, cTokenCollateral) repaying msg.value ETH."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x39AA39c021dfbaE8faC545936693aC917d5E7563",
+      "name": "cUSDC - Compound V2 market for USDC",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.compound.xyz/v2/",
+      "keyFunctions": [
+        {
+          "signature": "mint(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply underlying (approve the cToken first; amount in underlying base units) and receive cTokens (8 decimals). Returns 0 on success, a non-zero Compound error code on failure (it does not always revert, so check the return value / Failure event). NOTE: mint is guardian-paused on every V2 market as of 2026-11-25, so this reverts."
+        },
+        {
+          "signature": "redeem(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn an exact number of cTokens (8 decimals) for underlying. Returns 0 on success, error code otherwise. Fails if the withdrawal would leave the account short of liquidity or the market lacks cash (getCash())."
+        },
+        {
+          "signature": "redeemUnderlying(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact amount of underlying (underlying decimals), burning the needed cTokens. Returns 0 on success, error code otherwise."
+        },
+        {
+          "signature": "borrow(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow underlying against collateral in entered markets. Returns 0 on success. NOTE: borrow is guardian-paused on every V2 market as of 2026-11-25."
+        },
+        {
+          "signature": "repayBorrow(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay own borrow in underlying (approve first). Pass type(uint256).max (2^256-1) to repay the full balance including interest accrued this block. Returns 0 on success."
+        },
+        {
+          "signature": "repayBorrowBehalf(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay another account's borrow: (borrower, amount). Max uint repays all."
+        },
+        {
+          "signature": "liquidateBorrow(address,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidate an underwater account: (borrower, repayAmount in this market's underlying, cTokenCollateral to seize). Max repay per call = closeFactor x borrow; liquidator receives collateral cTokens plus the liquidation incentive. Returns 0 on success."
+        },
+        {
+          "signature": "balanceOfUnderlying(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Non-view (accrues interest) - call with eth_call/simulate. Returns the account's supplied balance in underlying units."
+        },
+        {
+          "signature": "exchangeRateCurrent()",
+          "kind": "write",
+          "payable": false,
+          "description": "Non-view, accrues interest; call via eth_call. Underlying per cToken scaled by 1e(18 + underlyingDecimals - 8)."
+        },
+        {
+          "signature": "exchangeRateStored()",
+          "kind": "read",
+          "payable": false,
+          "description": "Exchange rate as of the last accrual (same scaling as exchangeRateCurrent). underlying = cTokens * rate / 1e18."
+        },
+        {
+          "signature": "borrowBalanceCurrent(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Non-view, accrues interest; call via eth_call. Outstanding borrow incl. interest, in underlying units."
+        },
+        {
+          "signature": "borrowBalanceStored(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Borrow balance as of the last accrual, in underlying units."
+        },
+        {
+          "signature": "getAccountSnapshot(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (errorCode, cTokenBalance, borrowBalance, exchangeRateMantissa) for an account in one call."
+        },
+        {
+          "signature": "supplyRatePerBlock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply interest rate per Ethereum block, scaled 1e18. APY ~ (1 + rate * 7200)^365 - 1 (12 s blocks)."
+        },
+        {
+          "signature": "borrowRatePerBlock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Borrow interest rate per block, scaled 1e18."
+        },
+        {
+          "signature": "getCash()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying held by the market, i.e. liquidity available for redeems and borrows."
+        },
+        {
+          "signature": "underlying()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the underlying ERC-20 (not present on cETH)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643",
+      "name": "cDAI - Compound V2 market for DAI",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://docs.compound.xyz/v2/"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xf650C3d88D12dB855b8bf7D11Be6C55A4e07dCC9",
+      "name": "cUSDT - Compound V2 market for USDT (deprecated market)",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://docs.compound.xyz/v2/"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xccF4429DB6322D5C611ee964527D42E5d685DD6a",
+      "name": "cWBTC2 - Compound V2 market for WBTC (current WBTC market; on-chain symbol cWBTC)",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://docs.compound.xyz/v2/"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xC11b1268C1A384e55C48c2391d8d480264A3A7F4",
+      "name": "cWBTC (legacy) - Compound V2 market for WBTC (original market, superseded by cWBTC2)",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.compound.xyz/v2/"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x70e36f6BF80a52b3B46b3aF8e106CC0ed743E8e4",
+      "name": "cCOMP - Compound V2 market for COMP (deprecated market)",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://docs.compound.xyz/v2/"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x35A18000230DA775CAc24873d00Ff85BccdeD550",
+      "name": "cUNI - Compound V2 market for UNI",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://docs.compound.xyz/v2/"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xFAce851a4921ce59e912d19329929CE6da6EB0c7",
+      "name": "cLINK - Compound V2 market for LINK",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://docs.compound.xyz/v2/"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xe65cdB6479BaC1e22340E4E755fAE7E509EcD06c",
+      "name": "cAAVE - Compound V2 market for AAVE",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://docs.compound.xyz/v2/"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x95b4eF2869eBD94BEb4eEE400a99824BF5DC325b",
+      "name": "cMKR - Compound V2 market for MKR",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://docs.compound.xyz/v2/"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x4B0181102A0112A2ef11AbEE5563bb4a3176c9d7",
+      "name": "cSUSHI - Compound V2 market for SUSHI",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://docs.compound.xyz/v2/"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x80a2AE356fc9ef4305676f7a3E2Ed04e12C33946",
+      "name": "cYFI - Compound V2 market for YFI",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://docs.compound.xyz/v2/"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6C8c6b02E7b2BE14d4fA6022Dfd6d75921D90E4E",
+      "name": "cBAT - Compound V2 market for BAT",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.compound.xyz/v2/"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xB3319f5D18Bc0D84dD1b4825Dcde5d5f7266d407",
+      "name": "cZRX - Compound V2 market for ZRX (deprecated market)",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.compound.xyz/v2/"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x12392F67bdf24faE0AF363c24aC620a2f67DAd86",
+      "name": "cTUSD - Compound V2 market for TUSD (deprecated market)",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://docs.compound.xyz/v2/"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x041171993284df560249B57358F931D9eB7b925D",
+      "name": "cUSDP - Compound V2 market for USDP (deprecated market)",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://docs.compound.xyz/v2/"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x7713DD9Ca933848F6819F38B8352D9A15EA73F67",
+      "name": "cFEI - Compound V2 market for FEI (deprecated, fixed oracle price)",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://docs.compound.xyz/v2/"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x158079Ee67Fce2f58472A96584A73C7Ab9AC95c1",
+      "name": "cREP - Compound V2 market for REP (deprecated, fixed oracle price)",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.compound.xyz/v2/"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xF5DCe57282A584D2746FaF1593d3121Fcac444dC",
+      "name": "cSAI - Compound V2 market for SAI (single-collateral DAI; deprecated, fixed oracle price; on-chain symbol cDAI)",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.compound.xyz/v2/"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x8CF42B08AD13761345531b839487aA4d113955d9",
+      "name": "Compound v2 Price Feed (PriceOracle, Chainlink-based)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.compound.xyz/v2/prices/",
+      "keyFunctions": [
+        {
+          "signature": "getUnderlyingPrice(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USD price of a cToken's underlying, scaled 1e(36 - underlyingDecimals) (e.g. USDC price ~1e30, ETH price ~ price*1e18). Deprecated FEI/REP/SAI return fixed prices."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xf859A1AD94BcF445A406B892eF0d3082f4174088",
+      "name": "Maximillion (repay full cETH borrow)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://github.com/compound-finance/compound-protocol/blob/master/networks/mainnet.json",
+      "keyFunctions": [
+        {
+          "signature": "repayBehalf(address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Repay a borrower's entire cETH borrow with msg.value; any excess ETH is refunded to the caller. Send slightly more than borrowBalanceCurrent."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xc00e94Cb662C3520282E6f5717214004A7f26888",
+      "name": "COMP token",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.compound.xyz/v2/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "COMP balance (18 decimals)."
+        },
+        {
+          "signature": "delegate(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Delegate voting power (votes only count once delegated, including to yourself)."
+        },
+        {
+          "signature": "getCurrentVotes(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current votes delegated to an account."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xc0Da02939E1441F497fd74F78cE7Decb17B66529",
+      "name": "GovernorBravo (Compound governance)",
+      "role": "governance",
+      "proxy": true,
+      "source": "https://docs.compound.xyz/v2/"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6d903f6003cca6255D85CcA4D3B5E5146dC33925",
+      "name": "Timelock (admin of the Comptroller and markets)",
+      "role": "governance",
+      "proxy": false,
+      "source": "https://docs.compound.xyz/v2/"
+    }
+  ],
+  "actions": [
+    {
+      "name": "withdraw-supply",
+      "description": "Withdraw supplied assets from a V2 market",
+      "how": "cToken.redeemUnderlying(amount in underlying units) or cToken.redeem(cTokenAmount). Check Comptroller.getHypotheticalAccountLiquidity(account, cToken, redeemTokens, 0) if you also borrow, and cToken.getCash() for available liquidity. Check the uint return value: 0 = success."
+    },
+    {
+      "name": "repay",
+      "description": "Repay a V2 borrow",
+      "how": "ERC-20 markets: underlying.approve(cToken, amt) then cToken.repayBorrow(amt) (2^256-1 = full). cETH: Maximillion.repayBehalf(borrower) with a little more ETH than borrowBalanceCurrent (excess refunded)."
+    },
+    {
+      "name": "check-health",
+      "description": "Read an account's position",
+      "how": "Comptroller.getAccountLiquidity(account) -> (err, liquidity, shortfall) in USD 1e18; per market cToken.getAccountSnapshot(account); collateral factors via Comptroller.markets(cToken)."
+    },
+    {
+      "name": "liquidate",
+      "description": "Liquidate an account with shortfall",
+      "how": "When getAccountLiquidity shows shortfall > 0: approve the borrowed underlying, then cTokenBorrowed.liquidateBorrow(borrower, repayAmount <= closeFactor x borrow, cTokenCollateral); you receive collateral cTokens, then redeem them."
+    },
+    {
+      "name": "claim-comp",
+      "description": "Claim accrued COMP",
+      "how": "Comptroller.claimComp(holder) (or claimComp(holder, [cTokens])). Read Comptroller.compAccrued(holder) first; new COMP emissions on V2 are zero."
+    },
+    {
+      "name": "exit-collateral",
+      "description": "Remove a market from collateral",
+      "how": "Comptroller.exitMarket(cToken) once nothing is borrowed from it and the account stays healthy."
+    }
+  ],
+  "risks": [
+    "Legacy version: Compound V2 is being wound down; the current product is Compound III (Comet), which has separate per-base-asset deployments not covered here.",
+    "On-chain state checked 2026-11-25: mintGuardianPaused and borrowGuardianPaused are true for all 20 listed markets, so mint() and borrow() revert; redeem, repay and liquidation still work. COMP supply/borrow speeds are 0 on every market.",
+    "Deprecated markets (isDeprecated = true: cUSDT, cZRX, cCOMP, cTUSD, cUSDP, cFEI, cREP, cSAI) have collateral factor 0 and 100% reserve factor, so open borrows there can be liquidated in full.",
+    "Collateral factors on the remaining markets (e.g. cUSDC 84.5%, cDAI 83.5%, cETH 82.5% on 2026-11-25) can be cut by governance at any time, which can push accounts into shortfall; closeFactor is 50% and liquidation incentive 8%.",
+    "Liquidity risk: redeem fails if the market's getCash() is below the requested amount (cash is lent out to borrowers).",
+    "Many write functions return a non-zero error code instead of reverting (CErc20 mint/redeem/borrow/repay). Always check the return value or the Failure event; cETH reverts instead.",
+    "Oracle risk: prices come from the Compound v2 Price Feed (Chainlink feeds, configurable by the Compound community multisig); deprecated FEI, REP and SAI use fixed prices.",
+    "Governance: the Comptroller and all markets are administered by the Timelock controlled by COMP holders via GovernorBravo; parameters, pauses and implementations can change by vote.",
+    "Past incident (26 Nov 2020): a brief DAI spike to ~$1.30 on Coinbase, which fed the then-oracle, caused roughly $89M of liquidations on Compound; affected users were not compensated.",
+    "Past incident (29-30 Sep 2021): a bug in the Comptroller upgrade from Proposal 62 over-distributed COMP rewards (tens of millions of USD); user deposits were not at risk, but the fix needed further governance proposals (63/64) over about a week."
+  ],
+  "notes": "Addresses are taken from the mainnet network config embedded in the official v2 docs (docs.compound.finance/v2 now redirects to docs.compound.xyz/v2/), which matches compound-finance/compound-protocol networks/mainnet.json; the Price Feed address is from the v2 Prices docs page and equals Comptroller.oracle() on-chain; Maximillion is from the official networks/mainnet.json. keyFunctions are listed once on cUSDC (CErc20 interface) and on cETH (payable variants); all other cTokens share the cUSDC interface (cTokens have 8 decimals). Delegator markets (proxy: true) are CErc20Delegator proxies. cWBTC (0xC11b...) is the original WBTC market and cWBTC2 (0xccF4...) the later one; both report symbol cWBTC. Left out: CompoundLens, interest-rate models, Reservoir and older Comptroller implementations (listed in mainnet.json but not needed by agents), and all Compound III (Comet) contracts, which belong to a separate protocol entry. The old api.compound.finance REST API is not listed because it is not documented as live.",
+  "sources": [
+    "https://docs.compound.xyz/v2/",
+    "https://docs.compound.finance/v2/",
+    "https://docs.compound.xyz/v2/ctokens/",
+    "https://docs.compound.xyz/v2/comptroller/",
+    "https://docs.compound.xyz/v2/prices/",
+    "https://raw.githubusercontent.com/compound-finance/compound-protocol/master/networks/mainnet.json",
+    "https://github.com/compound-finance/compound-protocol/blob/master/contracts/CToken.sol",
+    "https://github.com/compound-finance/compound-protocol/blob/master/contracts/CErc20.sol",
+    "https://github.com/compound-finance/compound-protocol/blob/master/contracts/CEther.sol",
+    "https://github.com/compound-finance/compound-protocol/blob/master/contracts/Comptroller.sol",
+    "https://api.llama.fi/protocol/compound-v2",
+    "https://defillama.com/protocol/compound-v2",
+    "https://www.theblock.co/post/85850/dai-compound-dydx-liquidations-defi",
+    "https://decrypt.co/49657/oracle-exploit-sees-100-million-liquidated-on-compound",
+    "https://www.theblock.co/post/119086/compound-bug-comp-risk-misreward",
+    "https://ethereum-rpc.publicnode.com"
+  ],
+  "researchedAt": "2026-11-25"
+}

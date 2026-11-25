@@ -1,0 +1,2115 @@
+{
+  "slug": "curve-dex",
+  "name": "Curve DEX",
+  "category": "Dexs",
+  "description": "Curve's AMM for stablecoins, pegged assets (StableSwap) and volatile pairs (Twocrypto/Tricrypto). Agents can swap through CurveRouterNG with an off-chain computed route, discover pools on-chain via MetaRegistry/AddressProvider, provide liquidity, stake LP in gauges for CRV, lock CRV as veCRV to vote and earn revenue, and use crvUSD/scrvUSD.",
+  "website": "https://curve.finance",
+  "docs": "https://docs.curve.finance",
+  "defillama": "https://defillama.com/protocol/curve-dex",
+  "chains": [
+    "ethereum",
+    "arbitrum",
+    "base",
+    "optimism",
+    "polygon",
+    "bsc",
+    "avalanche"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x45312ea0eFf7E09C83CBE249fa1d7598c4C8cd4e",
+      "name": "CurveRouterNG v1.2.0",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "exchange(address[11],uint256[5][5],uint256,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap along a route of up to 5 Curve pools: (_route, _swap_params, _amount of _route[0] in its decimals, _expected = min output of the final token). Approve _route[0] to the router first; send ETH as msg.value when _route[0] is 0xEeee...EEeE. Returns the amount received. _route is address[11] = [tokenIn, pool1, token1, pool2, token2, ...] padded with zero addresses (up to 5 hops; native ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). _swap_params is uint256[5][5], one row per hop = [i, j, swap_type, pool_type, n_coins] where i/j are coin indices in that pool (pool.coins(n) or MetaRegistry.get_coin_indices), swap_type 1=exchange, 2=exchange_underlying, 3=underlying via zap, 4=coin->LP (add_liquidity), 5=lending underlying->LP, 6=LP->coin (remove_liquidity_one_coin), 7=LP->lending underlying, 8=ETH/WETH/stETH-type wraps, 9=SNX; pool_type 1=stableswap, 2=twocrypto, 3=tricrypto, 4=LLAMMA; unused rows are zeros. Routes are computed off-chain: use Curve's JS library (@curvefi/api router, github.com/curvefi/curve-js, or curve-router-js) or build a one-hop route yourself from MetaRegistry.find_pools_for_coins + get_coin_indices."
+        },
+        {
+          "signature": "exchange(address[11],uint256[5][5],uint256,uint256,address[5],address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same with _pools (only needed for swap_type 3 zaps; zeros otherwise) and an explicit _receiver."
+        },
+        {
+          "signature": "get_dy(address[11],uint256[5][5],uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote output of the final token for _amount in (same route encoding). Use it to set _expected with slippage."
+        },
+        {
+          "signature": "get_dy(address[11],uint256[5][5],uint256,address[5])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote with _pools for zap routes."
+        },
+        {
+          "signature": "get_dx(address[11],uint256[5][5],uint256,address[5])",
+          "kind": "read",
+          "payable": false,
+          "description": "Required input for a desired final output (_out_amount); pass zero-filled _pools when not using zaps. Approximate for crypto pools."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router version string."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x16C6521Dff6baB339122a0FE25a9116693265353",
+      "name": "CurveRouterNG v1.1 (AddressProvider ID 2)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "exchange(address[11],uint256[5][5],uint256,uint256,address[5],address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same interface as v1.2 (route/swap_params encoding identical). Still registered as 'Exchange Router' (ID 2) in the Ethereum AddressProvider; the docs list it as router-v1 and 0x45312ea0eFf7E09C83CBE249fa1d7598c4C8cd4e (v1.2) as router-v2. Approve _route[0] to whichever router you call."
+        },
+        {
+          "signature": "get_dy(address[11],uint256[5][5],uint256,address[5])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote output for a route."
+        },
+        {
+          "signature": "get_dx(address[11],uint256[5][5],uint256,address[5],address[5],address[5])",
+          "kind": "read",
+          "payable": false,
+          "description": "Required input for a desired output (_out_amount, _pools, _base_pools, _base_tokens)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x5ffe7FB82894076ECB99A30D6A32e969e6e35E98",
+      "name": "AddressProvider (NG)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "get_address(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Address registered under an ID. IDs: 2 Exchange Router, 7 MetaRegistry, 11 TricryptoNG Factory, 12 StableswapNG Factory, 13 TwocryptoNG Factory, 14/15 calc zaps, 16 crvUSD controller factory, 19 CRV, 25 crvUSD (not every ID exists on every chain)."
+        },
+        {
+          "signature": "get_id_info(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(addr, description, version, last_modified) for an ID."
+        },
+        {
+          "signature": "ids()",
+          "kind": "read",
+          "payable": false,
+          "description": "All registered IDs."
+        },
+        {
+          "signature": "num_entries()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of entries."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xF98B45FA17DE75FB1aD0e7aFD971b0ca00e379fC",
+      "name": "MetaRegistry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "find_pools_for_coins(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "All registered pools (all factories and legacy registries) that hold both tokens. Main on-chain pool discovery call."
+        },
+        {
+          "signature": "find_pool_for_coins(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "The i-th pool for a token pair (i = 0 is the first)."
+        },
+        {
+          "signature": "get_coin_indices(address,address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(pool, from, to) -> (i, j, is_underlying). Use i/j in pool.exchange or as the router's swap_params."
+        },
+        {
+          "signature": "get_coins(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coins of a pool (address[8], zero-padded)."
+        },
+        {
+          "signature": "get_n_coins(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of coins."
+        },
+        {
+          "signature": "get_decimals(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coin decimals (uint256[8])."
+        },
+        {
+          "signature": "get_balances(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool balances (uint256[8])."
+        },
+        {
+          "signature": "get_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token of a pool (same as the pool for NG pools)."
+        },
+        {
+          "signature": "get_pool_from_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address for an LP token (e.g. 3Crv -> 3pool)."
+        },
+        {
+          "signature": "get_gauge(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidity gauge of a pool (zero if none)."
+        },
+        {
+          "signature": "get_virtual_price_from_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LP virtual price (1e18)."
+        },
+        {
+          "signature": "get_pool_name(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool name."
+        },
+        {
+          "signature": "pool_count()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of registered pools; enumerate with pool_list(uint256)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6A8cbed756804B16E05E741eDaBd5cB544AE21bf",
+      "name": "Stableswap-NG Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "find_pool_for_coins(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "i-th pool deployed by this factory that holds both coins."
+        },
+        {
+          "signature": "pool_count()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of pools deployed by this factory; enumerate with pool_list(uint256)."
+        },
+        {
+          "signature": "pool_list(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address by index."
+        },
+        {
+          "signature": "get_coins(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coins of a pool deployed by this factory."
+        },
+        {
+          "signature": "get_coin_indices(address,address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(pool, from, to) -> coin indices (int128 i, int128 j, is_underlying)."
+        },
+        {
+          "signature": "get_gauge(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Gauge of a pool (zero if none)."
+        },
+        {
+          "signature": "deploy_gauge(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless: deploy a liquidity gauge for a pool of this factory (it still needs a DAO vote to receive CRV emissions)."
+        },
+        {
+          "signature": "deploy_plain_pool(string,string,address[],uint256,uint256,uint256,uint256,uint256,uint8[],bytes4[],address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless pool creation (name, symbol, coins, A, fee, offpeg_fee_multiplier, ma_exp_time, implementation_idx, asset_types, method_ids, oracles). Pools from this factory are the LP token themselves and expose exchange(int128,int128,uint256,uint256[,address receiver]) -> uint256, exchange_received(int128,int128,uint256,uint256,address), get_dy(int128,int128,uint256), get_dx(int128,int128,uint256), add_liquidity(uint256[],uint256[,address]) (dynamic array), calc_token_amount(uint256[],bool), remove_liquidity_one_coin(uint256,int128,uint256[,address]) and calc_withdraw_one_coin(uint256,int128)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x98EE851a00abeE0d95D08cF4CA2BdCE32aeaAF7F",
+      "name": "Twocrypto-NG Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "find_pool_for_coins(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "i-th pool deployed by this factory that holds both coins."
+        },
+        {
+          "signature": "pool_count()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of pools deployed by this factory; enumerate with pool_list(uint256)."
+        },
+        {
+          "signature": "pool_list(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address by index."
+        },
+        {
+          "signature": "get_coins(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coins of a pool deployed by this factory."
+        },
+        {
+          "signature": "get_coin_indices(address,address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(pool, from, to) -> coin indices (uint256 i, uint256 j)."
+        },
+        {
+          "signature": "get_gauge(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Gauge of a pool (zero if none)."
+        },
+        {
+          "signature": "deploy_gauge(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless: deploy a liquidity gauge for a pool of this factory (it still needs a DAO vote to receive CRV emissions)."
+        },
+        {
+          "signature": "deploy_pool(string,string,address[2],uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless two-coin volatile pool creation. Twocrypto-NG pools are their own LP token and expose exchange(uint256,uint256,uint256,uint256[,address]) -> uint256 (uint256 indices), exchange_received, get_dy(uint256,uint256,uint256), get_dx, add_liquidity(uint256[2],uint256[,address]), calc_token_amount(uint256[2],bool), remove_liquidity_one_coin(uint256,uint256,uint256[,address]), calc_withdraw_one_coin(uint256,uint256). The same factory also deploys FXSwap pools."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963",
+      "name": "Tricrypto-NG Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "find_pool_for_coins(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "i-th pool deployed by this factory that holds both coins."
+        },
+        {
+          "signature": "pool_count()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of pools deployed by this factory; enumerate with pool_list(uint256)."
+        },
+        {
+          "signature": "pool_list(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address by index."
+        },
+        {
+          "signature": "get_coins(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coins of a pool deployed by this factory."
+        },
+        {
+          "signature": "get_coin_indices(address,address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(pool, from, to) -> coin indices (uint256 i, uint256 j)."
+        },
+        {
+          "signature": "get_gauge(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Gauge of a pool (zero if none)."
+        },
+        {
+          "signature": "deploy_gauge(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless: deploy a liquidity gauge for a pool of this factory (it still needs a DAO vote to receive CRV emissions)."
+        },
+        {
+          "signature": "deploy_pool(string,string,address[3],address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256[2])",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless three-coin volatile pool creation. Tricrypto-NG pools are their own LP token and expose exchange(uint256,uint256,uint256,uint256[,bool use_eth][,address receiver]), get_dy(uint256,uint256,uint256), add_liquidity(uint256[3],uint256[,bool,address]), calc_token_amount(uint256[3],bool), remove_liquidity_one_coin(uint256,uint256,uint256[,bool,address])."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xD533a949740bb3306d119CC777fa900bA034cd52",
+      "name": "CRV (Curve DAO Token)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "CRV balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender. Approve CRV to veCRV 0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2 before create_lock/increase_amount."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer (18 decimals)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2",
+      "name": "veCRV (VotingEscrow)",
+      "role": "governance",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "create_lock(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Lock CRV (_value, 18 decimals) until _unlock_time (unix seconds, rounded down to whole weeks; 1 week to 4 years). Approve CRV to veCRV first. One lock per address; smart contracts must be whitelisted by the DAO (smart_wallet_checker)."
+        },
+        {
+          "signature": "increase_amount(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add CRV to an existing, unexpired lock."
+        },
+        {
+          "signature": "increase_unlock_time(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Extend the lock end (new time, rounded to weeks, max 4 years from now)."
+        },
+        {
+          "signature": "withdraw()",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw all CRV after the lock has expired. No early exit."
+        },
+        {
+          "signature": "locked(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(amount int128, end) of a lock."
+        },
+        {
+          "signature": "locked__end(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Lock end timestamp."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current veCRV voting power (decays linearly to 0 at lock end); not transferable."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total veCRV voting power."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x2F50D538606Fa9EDD2B11E2446BEb18C9D5846bB",
+      "name": "GaugeController",
+      "role": "governance",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "vote_for_gauge_weights(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Allocate veCRV voting power to a gauge (_user_weight in basis points, 0-10000 across all your votes). Each gauge vote can be changed once every 10 days."
+        },
+        {
+          "signature": "gauge_relative_weight(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Gauge's share of weekly CRV emissions (1e18 = 100%)."
+        },
+        {
+          "signature": "get_gauge_weight(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Absolute gauge weight."
+        },
+        {
+          "signature": "gauge_types(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Gauge type id (reverts if the gauge is not added)."
+        },
+        {
+          "signature": "vote_user_power(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Basis points of a user's voting power already used."
+        },
+        {
+          "signature": "last_user_vote(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Timestamp of a user's last vote for a gauge."
+        },
+        {
+          "signature": "n_gauges()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of gauges; gauges(uint256) enumerates them."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xd061D61a4d941c39E5453435B6345Dc261C2fcE0",
+      "name": "Minter (CRV emissions)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "mint(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim the caller's accrued CRV from an Ethereum liquidity gauge (gauge address as argument)."
+        },
+        {
+          "signature": "mint_many(address[8])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim CRV from up to 8 gauges (zero-padded)."
+        },
+        {
+          "signature": "mint_for(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim for another address (gauge, for); that address must have approved the caller via toggle_approve_mint."
+        },
+        {
+          "signature": "minted(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "CRV already minted (user, gauge)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xD16d5eC345Dd86Fb63C6a9C43c517210F1027914",
+      "name": "FeeDistributor (crvUSD revenue to veCRV)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "claim()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim the caller's weekly protocol revenue (paid in crvUSD) earned by veCRV. Revenue is distributed within 24 h after Thursday 00:00 UTC each week."
+        },
+        {
+          "signature": "claim(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim on behalf of an address (funds go to that address)."
+        },
+        {
+          "signature": "claim_many(address[20])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim for up to 20 addresses."
+        },
+        {
+          "signature": "token()",
+          "kind": "read",
+          "payable": false,
+          "description": "Reward token (crvUSD)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E",
+      "name": "crvUSD",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "crvUSD balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender. Approve to scrvUSD 0x0655977FEb2f289A4aB78af67BAB0d17aAb84367 for deposit, or to a pool/router for swaps."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer (18 decimals)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xC9332fdCB1C491Dcc683bAe86Fe3cb70360738BC",
+      "name": "crvUSD ControllerFactory (mint markets)",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "n_collaterals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of crvUSD mint markets (9 at research time); enumerate with collaterals(uint256), controllers(uint256), amms(uint256)."
+        },
+        {
+          "signature": "get_controller(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Controller (loan management) for a collateral token. Controllers expose create_loan(uint256 collateral, uint256 debt, uint256 N) (payable for ETH markets), add_collateral(uint256), remove_collateral(uint256), borrow_more(uint256,uint256), repay(...), debt(address), health(address), max_borrowable(uint256,uint256); approve collateral to the Controller first. N = number of LLAMMA liquidation bands (4-50)."
+        },
+        {
+          "signature": "get_amm(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LLAMMA AMM for a collateral token."
+        },
+        {
+          "signature": "controllers(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Controller by index."
+        },
+        {
+          "signature": "total_debt()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total crvUSD debt across mint markets."
+        },
+        {
+          "signature": "debt_ceiling(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Debt ceiling of a controller."
+        },
+        {
+          "signature": "stablecoin()",
+          "kind": "read",
+          "payable": false,
+          "description": "crvUSD address."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x0655977FEb2f289A4aB78af67BAB0d17aAb84367",
+      "name": "scrvUSD (Savings crvUSD, Yearn V3 vault, ERC-4626)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit crvUSD (assets, 18 decimals) for scrvUSD shares. Approve crvUSD to scrvUSD first."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares (shares, receiver, owner) for crvUSD."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact crvUSD amount."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "crvUSD per share amount."
+        },
+        {
+          "signature": "pricePerShare()",
+          "kind": "read",
+          "payable": false,
+          "description": "crvUSD per 1e18 shares (about 1.1158 at research time)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Exact crvUSD for redeeming shares."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total crvUSD in the vault."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "scrvUSD balance (18 decimals)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7",
+      "name": "3pool (DAI/USDC/USDT StableSwap)",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://github.com/curvefi/curve-contract/tree/master/contracts/pools/3pool",
+      "keyFunctions": [
+        {
+          "signature": "exchange(int128,int128,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap coin i for coin j (indices: 0 DAI 18 dec, 1 USDC 6 dec, 2 USDT 6 dec): (i, j, dx in coin i units, min_dy). Approve coin i to the pool first (USDT requires resetting the allowance to 0 before setting a new non-zero value). Returns nothing; check balances."
+        },
+        {
+          "signature": "get_dy(int128,int128,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Output amount of coin j for dx of coin i (after fee)."
+        },
+        {
+          "signature": "add_liquidity(uint256[3],uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit [DAI, USDC, USDT] amounts (each in its own decimals) for at least min_mint_amount 3Crv LP (0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490). Approve each coin first."
+        },
+        {
+          "signature": "calc_token_amount(uint256[3],bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Approximate LP minted (deposit=true) or burned (false), fees excluded; apply slippage."
+        },
+        {
+          "signature": "remove_liquidity_one_coin(uint256,int128,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn 3Crv (_token_amount) for one coin i with min_amount."
+        },
+        {
+          "signature": "calc_withdraw_one_coin(uint256,int128)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coin i received for burning an LP amount."
+        },
+        {
+          "signature": "remove_liquidity(uint256,uint256[3])",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn LP for all three coins proportionally (min_amounts)."
+        },
+        {
+          "signature": "get_virtual_price()",
+          "kind": "read",
+          "payable": false,
+          "description": "LP value in USD-ish units (1e18)."
+        },
+        {
+          "signature": "coins(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coin address by index."
+        },
+        {
+          "signature": "balances(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool balance of coin index."
+        },
+        {
+          "signature": "fee()",
+          "kind": "read",
+          "payable": false,
+          "description": "Swap fee (1e10 = 100%)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490",
+      "name": "3Crv (3pool LP token)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://github.com/curvefi/curve-contract/tree/master/contracts/pools/3pool",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "3Crv balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender. Approve to the 3pool gauge 0xbFcF63294aD7105dEa65aA58F8AE5BE2D9d0952A before deposit."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer (18 decimals)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xbFcF63294aD7105dEa65aA58F8AE5BE2D9d0952A",
+      "name": "3pool LiquidityGauge (v1)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://github.com/curvefi/curve-contract/tree/master/contracts/pools/3pool",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake 3Crv (approve 3Crv to the gauge first) to earn CRV emissions."
+        },
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake on behalf of an address."
+        },
+        {
+          "signature": "withdraw(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake 3Crv."
+        },
+        {
+          "signature": "claimable_tokens(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Pending CRV (non-view in Vyper; call it with eth_call). CRV is claimed through Minter 0xd061D61a4d941c39E5453435B6345Dc261C2fcE0 .mint(gauge), not on the gauge. Newer gauges (LiquidityGaugeV6) add deposit(uint256,address,bool), withdraw(uint256,bool) and claim_rewards() for extra reward tokens."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Staked LP."
+        },
+        {
+          "signature": "working_balances(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Boost-adjusted balance (veCRV boost up to 2.5x)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E",
+      "name": "crvUSD/USDC pool (Stableswap factory plain pool)",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://docs.curve.finance/developer/amm/router/curve-router-ng.md",
+      "keyFunctions": [
+        {
+          "signature": "exchange(int128,int128,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap (i, j, dx, min_dy); coins: 0 USDC (6 dec), 1 crvUSD (18 dec). Approve coin i first. Returns dy."
+        },
+        {
+          "signature": "exchange(int128,int128,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap with a receiver."
+        },
+        {
+          "signature": "get_dy(int128,int128,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote."
+        },
+        {
+          "signature": "add_liquidity(uint256[2],uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit [USDC, crvUSD]; the pool is its own LP token."
+        },
+        {
+          "signature": "calc_token_amount(uint256[2],bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Approximate LP for a deposit/withdrawal."
+        },
+        {
+          "signature": "remove_liquidity_one_coin(uint256,int128,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn LP for one coin."
+        },
+        {
+          "signature": "calc_withdraw_one_coin(uint256,int128)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coin received for an LP amount."
+        },
+        {
+          "signature": "price_oracle()",
+          "kind": "read",
+          "payable": false,
+          "description": "EMA price of crvUSD in USDC (1e18)."
+        },
+        {
+          "signature": "coins(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coin by index."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x2191718CD32d02B8E60BAdFFeA33E4B5DD9A0A0D",
+      "name": "CurveRouterNG v1.1.0",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "exchange(address[11],uint256[5][5],uint256,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap along a route of up to 5 Curve pools: (_route, _swap_params, _amount of _route[0] in its decimals, _expected = min output of the final token). Approve _route[0] to the router first; send ETH as msg.value when _route[0] is 0xEeee...EEeE. Returns the amount received. _route is address[11] = [tokenIn, pool1, token1, pool2, token2, ...] padded with zero addresses (up to 5 hops; native ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). _swap_params is uint256[5][5], one row per hop = [i, j, swap_type, pool_type, n_coins] where i/j are coin indices in that pool (pool.coins(n) or MetaRegistry.get_coin_indices), swap_type 1=exchange, 2=exchange_underlying, 3=underlying via zap, 4=coin->LP (add_liquidity), 5=lending underlying->LP, 6=LP->coin (remove_liquidity_one_coin), 7=LP->lending underlying, 8=ETH/WETH/stETH-type wraps, 9=SNX; pool_type 1=stableswap, 2=twocrypto, 3=tricrypto, 4=LLAMMA; unused rows are zeros. Routes are computed off-chain: use Curve's JS library (@curvefi/api router, github.com/curvefi/curve-js, or curve-router-js) or build a one-hop route yourself from MetaRegistry.find_pools_for_coins + get_coin_indices."
+        },
+        {
+          "signature": "exchange(address[11],uint256[5][5],uint256,uint256,address[5],address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same with _pools (only needed for swap_type 3 zaps; zeros otherwise) and an explicit _receiver."
+        },
+        {
+          "signature": "get_dy(address[11],uint256[5][5],uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote output of the final token for _amount in (same route encoding). Use it to set _expected with slippage."
+        },
+        {
+          "signature": "get_dy(address[11],uint256[5][5],uint256,address[5])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote with _pools for zap routes."
+        },
+        {
+          "signature": "get_dx(address[11],uint256[5][5],uint256,address[5])",
+          "kind": "read",
+          "payable": false,
+          "description": "Required input for a desired final output (_out_amount); pass zero-filled _pools when not using zaps. Approximate for crypto pools."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router version string."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x5ffe7FB82894076ECB99A30D6A32e969e6e35E98",
+      "name": "AddressProvider (NG)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "get_address(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Address registered under an ID. IDs: 2 Exchange Router, 7 MetaRegistry, 11 TricryptoNG Factory, 12 StableswapNG Factory, 13 TwocryptoNG Factory, 14/15 calc zaps, 16 crvUSD controller factory, 19 CRV, 25 crvUSD (not every ID exists on every chain)."
+        },
+        {
+          "signature": "get_id_info(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(addr, description, version, last_modified) for an ID."
+        },
+        {
+          "signature": "ids()",
+          "kind": "read",
+          "payable": false,
+          "description": "All registered IDs."
+        },
+        {
+          "signature": "num_entries()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of entries."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x13526206545e2DC7CcfBaF28dC88F440ce7AD3e0",
+      "name": "MetaRegistry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "find_pools_for_coins(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "All registered pools (all factories and legacy registries) that hold both tokens. Main on-chain pool discovery call."
+        },
+        {
+          "signature": "find_pool_for_coins(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "The i-th pool for a token pair (i = 0 is the first)."
+        },
+        {
+          "signature": "get_coin_indices(address,address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(pool, from, to) -> (i, j, is_underlying). Use i/j in pool.exchange or as the router's swap_params."
+        },
+        {
+          "signature": "get_coins(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coins of a pool (address[8], zero-padded)."
+        },
+        {
+          "signature": "get_n_coins(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of coins."
+        },
+        {
+          "signature": "get_decimals(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coin decimals (uint256[8])."
+        },
+        {
+          "signature": "get_balances(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool balances (uint256[8])."
+        },
+        {
+          "signature": "get_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token of a pool (same as the pool for NG pools)."
+        },
+        {
+          "signature": "get_pool_from_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address for an LP token (e.g. 3Crv -> 3pool)."
+        },
+        {
+          "signature": "get_gauge(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidity gauge of a pool (zero if none)."
+        },
+        {
+          "signature": "get_virtual_price_from_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LP virtual price (1e18)."
+        },
+        {
+          "signature": "get_pool_name(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool name."
+        },
+        {
+          "signature": "pool_count()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of registered pools; enumerate with pool_list(uint256)."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x4f37A9d177470499A2dD084621020b023fcffc1F",
+      "name": "CurveRouterNG v1.1.0",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "exchange(address[11],uint256[5][5],uint256,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap along a route of up to 5 Curve pools: (_route, _swap_params, _amount of _route[0] in its decimals, _expected = min output of the final token). Approve _route[0] to the router first; send ETH as msg.value when _route[0] is 0xEeee...EEeE. Returns the amount received. _route is address[11] = [tokenIn, pool1, token1, pool2, token2, ...] padded with zero addresses (up to 5 hops; native ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). _swap_params is uint256[5][5], one row per hop = [i, j, swap_type, pool_type, n_coins] where i/j are coin indices in that pool (pool.coins(n) or MetaRegistry.get_coin_indices), swap_type 1=exchange, 2=exchange_underlying, 3=underlying via zap, 4=coin->LP (add_liquidity), 5=lending underlying->LP, 6=LP->coin (remove_liquidity_one_coin), 7=LP->lending underlying, 8=ETH/WETH/stETH-type wraps, 9=SNX; pool_type 1=stableswap, 2=twocrypto, 3=tricrypto, 4=LLAMMA; unused rows are zeros. Routes are computed off-chain: use Curve's JS library (@curvefi/api router, github.com/curvefi/curve-js, or curve-router-js) or build a one-hop route yourself from MetaRegistry.find_pools_for_coins + get_coin_indices."
+        },
+        {
+          "signature": "exchange(address[11],uint256[5][5],uint256,uint256,address[5],address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same with _pools (only needed for swap_type 3 zaps; zeros otherwise) and an explicit _receiver."
+        },
+        {
+          "signature": "get_dy(address[11],uint256[5][5],uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote output of the final token for _amount in (same route encoding). Use it to set _expected with slippage."
+        },
+        {
+          "signature": "get_dy(address[11],uint256[5][5],uint256,address[5])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote with _pools for zap routes."
+        },
+        {
+          "signature": "get_dx(address[11],uint256[5][5],uint256,address[5])",
+          "kind": "read",
+          "payable": false,
+          "description": "Required input for a desired final output (_out_amount); pass zero-filled _pools when not using zaps. Approximate for crypto pools."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router version string."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x5ffe7FB82894076ECB99A30D6A32e969e6e35E98",
+      "name": "AddressProvider (NG)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "get_address(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Address registered under an ID. IDs: 2 Exchange Router, 7 MetaRegistry, 11 TricryptoNG Factory, 12 StableswapNG Factory, 13 TwocryptoNG Factory, 14/15 calc zaps, 16 crvUSD controller factory, 19 CRV, 25 crvUSD (not every ID exists on every chain)."
+        },
+        {
+          "signature": "get_id_info(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(addr, description, version, last_modified) for an ID."
+        },
+        {
+          "signature": "ids()",
+          "kind": "read",
+          "payable": false,
+          "description": "All registered IDs."
+        },
+        {
+          "signature": "num_entries()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of entries."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x87DD13Dd25a1DBde0E1EdcF5B8Fa6cfff7eABCaD",
+      "name": "MetaRegistry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "find_pools_for_coins(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "All registered pools (all factories and legacy registries) that hold both tokens. Main on-chain pool discovery call."
+        },
+        {
+          "signature": "find_pool_for_coins(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "The i-th pool for a token pair (i = 0 is the first)."
+        },
+        {
+          "signature": "get_coin_indices(address,address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(pool, from, to) -> (i, j, is_underlying). Use i/j in pool.exchange or as the router's swap_params."
+        },
+        {
+          "signature": "get_coins(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coins of a pool (address[8], zero-padded)."
+        },
+        {
+          "signature": "get_n_coins(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of coins."
+        },
+        {
+          "signature": "get_decimals(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coin decimals (uint256[8])."
+        },
+        {
+          "signature": "get_balances(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool balances (uint256[8])."
+        },
+        {
+          "signature": "get_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token of a pool (same as the pool for NG pools)."
+        },
+        {
+          "signature": "get_pool_from_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address for an LP token (e.g. 3Crv -> 3pool)."
+        },
+        {
+          "signature": "get_gauge(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidity gauge of a pool (zero if none)."
+        },
+        {
+          "signature": "get_virtual_price_from_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LP virtual price (1e18)."
+        },
+        {
+          "signature": "get_pool_name(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool name."
+        },
+        {
+          "signature": "pool_count()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of registered pools; enumerate with pool_list(uint256)."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x0DCDED3545D565bA3B19E683431381007245d983",
+      "name": "CurveRouterNG v1.1.0",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "exchange(address[11],uint256[5][5],uint256,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap along a route of up to 5 Curve pools: (_route, _swap_params, _amount of _route[0] in its decimals, _expected = min output of the final token). Approve _route[0] to the router first; send ETH as msg.value when _route[0] is 0xEeee...EEeE. Returns the amount received. _route is address[11] = [tokenIn, pool1, token1, pool2, token2, ...] padded with zero addresses (up to 5 hops; native ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). _swap_params is uint256[5][5], one row per hop = [i, j, swap_type, pool_type, n_coins] where i/j are coin indices in that pool (pool.coins(n) or MetaRegistry.get_coin_indices), swap_type 1=exchange, 2=exchange_underlying, 3=underlying via zap, 4=coin->LP (add_liquidity), 5=lending underlying->LP, 6=LP->coin (remove_liquidity_one_coin), 7=LP->lending underlying, 8=ETH/WETH/stETH-type wraps, 9=SNX; pool_type 1=stableswap, 2=twocrypto, 3=tricrypto, 4=LLAMMA; unused rows are zeros. Routes are computed off-chain: use Curve's JS library (@curvefi/api router, github.com/curvefi/curve-js, or curve-router-js) or build a one-hop route yourself from MetaRegistry.find_pools_for_coins + get_coin_indices."
+        },
+        {
+          "signature": "exchange(address[11],uint256[5][5],uint256,uint256,address[5],address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same with _pools (only needed for swap_type 3 zaps; zeros otherwise) and an explicit _receiver."
+        },
+        {
+          "signature": "get_dy(address[11],uint256[5][5],uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote output of the final token for _amount in (same route encoding). Use it to set _expected with slippage."
+        },
+        {
+          "signature": "get_dy(address[11],uint256[5][5],uint256,address[5])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote with _pools for zap routes."
+        },
+        {
+          "signature": "get_dx(address[11],uint256[5][5],uint256,address[5])",
+          "kind": "read",
+          "payable": false,
+          "description": "Required input for a desired final output (_out_amount); pass zero-filled _pools when not using zaps. Approximate for crypto pools."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router version string."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x5ffe7FB82894076ECB99A30D6A32e969e6e35E98",
+      "name": "AddressProvider (NG)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "get_address(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Address registered under an ID. IDs: 2 Exchange Router, 7 MetaRegistry, 11 TricryptoNG Factory, 12 StableswapNG Factory, 13 TwocryptoNG Factory, 14/15 calc zaps, 16 crvUSD controller factory, 19 CRV, 25 crvUSD (not every ID exists on every chain)."
+        },
+        {
+          "signature": "get_id_info(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(addr, description, version, last_modified) for an ID."
+        },
+        {
+          "signature": "ids()",
+          "kind": "read",
+          "payable": false,
+          "description": "All registered IDs."
+        },
+        {
+          "signature": "num_entries()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of entries."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0xc65CB3156225380BEda366610BaB18D5835A1647",
+      "name": "MetaRegistry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "find_pools_for_coins(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "All registered pools (all factories and legacy registries) that hold both tokens. Main on-chain pool discovery call."
+        },
+        {
+          "signature": "find_pool_for_coins(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "The i-th pool for a token pair (i = 0 is the first)."
+        },
+        {
+          "signature": "get_coin_indices(address,address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(pool, from, to) -> (i, j, is_underlying). Use i/j in pool.exchange or as the router's swap_params."
+        },
+        {
+          "signature": "get_coins(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coins of a pool (address[8], zero-padded)."
+        },
+        {
+          "signature": "get_n_coins(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of coins."
+        },
+        {
+          "signature": "get_decimals(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coin decimals (uint256[8])."
+        },
+        {
+          "signature": "get_balances(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool balances (uint256[8])."
+        },
+        {
+          "signature": "get_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token of a pool (same as the pool for NG pools)."
+        },
+        {
+          "signature": "get_pool_from_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address for an LP token (e.g. 3Crv -> 3pool)."
+        },
+        {
+          "signature": "get_gauge(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidity gauge of a pool (zero if none)."
+        },
+        {
+          "signature": "get_virtual_price_from_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LP virtual price (1e18)."
+        },
+        {
+          "signature": "get_pool_name(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool name."
+        },
+        {
+          "signature": "pool_count()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of registered pools; enumerate with pool_list(uint256)."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x0DCDED3545D565bA3B19E683431381007245d983",
+      "name": "CurveRouterNG v1.1.0",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "exchange(address[11],uint256[5][5],uint256,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap along a route of up to 5 Curve pools: (_route, _swap_params, _amount of _route[0] in its decimals, _expected = min output of the final token). Approve _route[0] to the router first; send ETH as msg.value when _route[0] is 0xEeee...EEeE. Returns the amount received. _route is address[11] = [tokenIn, pool1, token1, pool2, token2, ...] padded with zero addresses (up to 5 hops; native ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). _swap_params is uint256[5][5], one row per hop = [i, j, swap_type, pool_type, n_coins] where i/j are coin indices in that pool (pool.coins(n) or MetaRegistry.get_coin_indices), swap_type 1=exchange, 2=exchange_underlying, 3=underlying via zap, 4=coin->LP (add_liquidity), 5=lending underlying->LP, 6=LP->coin (remove_liquidity_one_coin), 7=LP->lending underlying, 8=ETH/WETH/stETH-type wraps, 9=SNX; pool_type 1=stableswap, 2=twocrypto, 3=tricrypto, 4=LLAMMA; unused rows are zeros. Routes are computed off-chain: use Curve's JS library (@curvefi/api router, github.com/curvefi/curve-js, or curve-router-js) or build a one-hop route yourself from MetaRegistry.find_pools_for_coins + get_coin_indices."
+        },
+        {
+          "signature": "exchange(address[11],uint256[5][5],uint256,uint256,address[5],address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same with _pools (only needed for swap_type 3 zaps; zeros otherwise) and an explicit _receiver."
+        },
+        {
+          "signature": "get_dy(address[11],uint256[5][5],uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote output of the final token for _amount in (same route encoding). Use it to set _expected with slippage."
+        },
+        {
+          "signature": "get_dy(address[11],uint256[5][5],uint256,address[5])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote with _pools for zap routes."
+        },
+        {
+          "signature": "get_dx(address[11],uint256[5][5],uint256,address[5])",
+          "kind": "read",
+          "payable": false,
+          "description": "Required input for a desired final output (_out_amount); pass zero-filled _pools when not using zaps. Approximate for crypto pools."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router version string."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x5ffe7FB82894076ECB99A30D6A32e969e6e35E98",
+      "name": "AddressProvider (NG)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "get_address(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Address registered under an ID. IDs: 2 Exchange Router, 7 MetaRegistry, 11 TricryptoNG Factory, 12 StableswapNG Factory, 13 TwocryptoNG Factory, 14/15 calc zaps, 16 crvUSD controller factory, 19 CRV, 25 crvUSD (not every ID exists on every chain)."
+        },
+        {
+          "signature": "get_id_info(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(addr, description, version, last_modified) for an ID."
+        },
+        {
+          "signature": "ids()",
+          "kind": "read",
+          "payable": false,
+          "description": "All registered IDs."
+        },
+        {
+          "signature": "num_entries()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of entries."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x296d2B5C23833A70D07c8fCBB97d846c1ff90DDD",
+      "name": "MetaRegistry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "find_pools_for_coins(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "All registered pools (all factories and legacy registries) that hold both tokens. Main on-chain pool discovery call."
+        },
+        {
+          "signature": "find_pool_for_coins(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "The i-th pool for a token pair (i = 0 is the first)."
+        },
+        {
+          "signature": "get_coin_indices(address,address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(pool, from, to) -> (i, j, is_underlying). Use i/j in pool.exchange or as the router's swap_params."
+        },
+        {
+          "signature": "get_coins(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coins of a pool (address[8], zero-padded)."
+        },
+        {
+          "signature": "get_n_coins(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of coins."
+        },
+        {
+          "signature": "get_decimals(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coin decimals (uint256[8])."
+        },
+        {
+          "signature": "get_balances(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool balances (uint256[8])."
+        },
+        {
+          "signature": "get_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token of a pool (same as the pool for NG pools)."
+        },
+        {
+          "signature": "get_pool_from_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address for an LP token (e.g. 3Crv -> 3pool)."
+        },
+        {
+          "signature": "get_gauge(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidity gauge of a pool (zero if none)."
+        },
+        {
+          "signature": "get_virtual_price_from_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LP virtual price (1e18)."
+        },
+        {
+          "signature": "get_pool_name(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool name."
+        },
+        {
+          "signature": "pool_count()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of registered pools; enumerate with pool_list(uint256)."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xA72C85C258A81761433B4e8da60505Fe3Dd551CC",
+      "name": "CurveRouterNG v1.1.0",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "exchange(address[11],uint256[5][5],uint256,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap along a route of up to 5 Curve pools: (_route, _swap_params, _amount of _route[0] in its decimals, _expected = min output of the final token). Approve _route[0] to the router first; send ETH as msg.value when _route[0] is 0xEeee...EEeE. Returns the amount received. _route is address[11] = [tokenIn, pool1, token1, pool2, token2, ...] padded with zero addresses (up to 5 hops; native ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). _swap_params is uint256[5][5], one row per hop = [i, j, swap_type, pool_type, n_coins] where i/j are coin indices in that pool (pool.coins(n) or MetaRegistry.get_coin_indices), swap_type 1=exchange, 2=exchange_underlying, 3=underlying via zap, 4=coin->LP (add_liquidity), 5=lending underlying->LP, 6=LP->coin (remove_liquidity_one_coin), 7=LP->lending underlying, 8=ETH/WETH/stETH-type wraps, 9=SNX; pool_type 1=stableswap, 2=twocrypto, 3=tricrypto, 4=LLAMMA; unused rows are zeros. Routes are computed off-chain: use Curve's JS library (@curvefi/api router, github.com/curvefi/curve-js, or curve-router-js) or build a one-hop route yourself from MetaRegistry.find_pools_for_coins + get_coin_indices."
+        },
+        {
+          "signature": "exchange(address[11],uint256[5][5],uint256,uint256,address[5],address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same with _pools (only needed for swap_type 3 zaps; zeros otherwise) and an explicit _receiver."
+        },
+        {
+          "signature": "get_dy(address[11],uint256[5][5],uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote output of the final token for _amount in (same route encoding). Use it to set _expected with slippage."
+        },
+        {
+          "signature": "get_dy(address[11],uint256[5][5],uint256,address[5])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote with _pools for zap routes."
+        },
+        {
+          "signature": "get_dx(address[11],uint256[5][5],uint256,address[5])",
+          "kind": "read",
+          "payable": false,
+          "description": "Required input for a desired final output (_out_amount); pass zero-filled _pools when not using zaps. Approximate for crypto pools."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router version string."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x5ffe7FB82894076ECB99A30D6A32e969e6e35E98",
+      "name": "AddressProvider (NG)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "get_address(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Address registered under an ID. IDs: 2 Exchange Router, 7 MetaRegistry, 11 TricryptoNG Factory, 12 StableswapNG Factory, 13 TwocryptoNG Factory, 14/15 calc zaps, 16 crvUSD controller factory, 19 CRV, 25 crvUSD (not every ID exists on every chain)."
+        },
+        {
+          "signature": "get_id_info(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(addr, description, version, last_modified) for an ID."
+        },
+        {
+          "signature": "ids()",
+          "kind": "read",
+          "payable": false,
+          "description": "All registered IDs."
+        },
+        {
+          "signature": "num_entries()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of entries."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x4C7A5A5D57F98D362f1c00D7135F0dA5B6f82227",
+      "name": "MetaRegistry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "find_pools_for_coins(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "All registered pools (all factories and legacy registries) that hold both tokens. Main on-chain pool discovery call."
+        },
+        {
+          "signature": "find_pool_for_coins(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "The i-th pool for a token pair (i = 0 is the first)."
+        },
+        {
+          "signature": "get_coin_indices(address,address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(pool, from, to) -> (i, j, is_underlying). Use i/j in pool.exchange or as the router's swap_params."
+        },
+        {
+          "signature": "get_coins(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coins of a pool (address[8], zero-padded)."
+        },
+        {
+          "signature": "get_n_coins(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of coins."
+        },
+        {
+          "signature": "get_decimals(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coin decimals (uint256[8])."
+        },
+        {
+          "signature": "get_balances(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool balances (uint256[8])."
+        },
+        {
+          "signature": "get_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token of a pool (same as the pool for NG pools)."
+        },
+        {
+          "signature": "get_pool_from_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address for an LP token (e.g. 3Crv -> 3pool)."
+        },
+        {
+          "signature": "get_gauge(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidity gauge of a pool (zero if none)."
+        },
+        {
+          "signature": "get_virtual_price_from_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LP virtual price (1e18)."
+        },
+        {
+          "signature": "get_pool_name(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool name."
+        },
+        {
+          "signature": "pool_count()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of registered pools; enumerate with pool_list(uint256)."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x0DCDED3545D565bA3B19E683431381007245d983",
+      "name": "CurveRouterNG v1.1.0",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "exchange(address[11],uint256[5][5],uint256,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap along a route of up to 5 Curve pools: (_route, _swap_params, _amount of _route[0] in its decimals, _expected = min output of the final token). Approve _route[0] to the router first; send ETH as msg.value when _route[0] is 0xEeee...EEeE. Returns the amount received. _route is address[11] = [tokenIn, pool1, token1, pool2, token2, ...] padded with zero addresses (up to 5 hops; native ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). _swap_params is uint256[5][5], one row per hop = [i, j, swap_type, pool_type, n_coins] where i/j are coin indices in that pool (pool.coins(n) or MetaRegistry.get_coin_indices), swap_type 1=exchange, 2=exchange_underlying, 3=underlying via zap, 4=coin->LP (add_liquidity), 5=lending underlying->LP, 6=LP->coin (remove_liquidity_one_coin), 7=LP->lending underlying, 8=ETH/WETH/stETH-type wraps, 9=SNX; pool_type 1=stableswap, 2=twocrypto, 3=tricrypto, 4=LLAMMA; unused rows are zeros. Routes are computed off-chain: use Curve's JS library (@curvefi/api router, github.com/curvefi/curve-js, or curve-router-js) or build a one-hop route yourself from MetaRegistry.find_pools_for_coins + get_coin_indices."
+        },
+        {
+          "signature": "exchange(address[11],uint256[5][5],uint256,uint256,address[5],address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same with _pools (only needed for swap_type 3 zaps; zeros otherwise) and an explicit _receiver."
+        },
+        {
+          "signature": "get_dy(address[11],uint256[5][5],uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote output of the final token for _amount in (same route encoding). Use it to set _expected with slippage."
+        },
+        {
+          "signature": "get_dy(address[11],uint256[5][5],uint256,address[5])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote with _pools for zap routes."
+        },
+        {
+          "signature": "get_dx(address[11],uint256[5][5],uint256,address[5])",
+          "kind": "read",
+          "payable": false,
+          "description": "Required input for a desired final output (_out_amount); pass zero-filled _pools when not using zaps. Approximate for crypto pools."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router version string."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x5ffe7FB82894076ECB99A30D6A32e969e6e35E98",
+      "name": "AddressProvider (NG)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "get_address(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Address registered under an ID. IDs: 2 Exchange Router, 7 MetaRegistry, 11 TricryptoNG Factory, 12 StableswapNG Factory, 13 TwocryptoNG Factory, 14/15 calc zaps, 16 crvUSD controller factory, 19 CRV, 25 crvUSD (not every ID exists on every chain)."
+        },
+        {
+          "signature": "get_id_info(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(addr, description, version, last_modified) for an ID."
+        },
+        {
+          "signature": "ids()",
+          "kind": "read",
+          "payable": false,
+          "description": "All registered IDs."
+        },
+        {
+          "signature": "num_entries()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of entries."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0xB6845b562F01eB02ef20CBB63553d2a768e5a1Cb",
+      "name": "MetaRegistry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.curve.finance/deployments.json",
+      "keyFunctions": [
+        {
+          "signature": "find_pools_for_coins(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "All registered pools (all factories and legacy registries) that hold both tokens. Main on-chain pool discovery call."
+        },
+        {
+          "signature": "find_pool_for_coins(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "The i-th pool for a token pair (i = 0 is the first)."
+        },
+        {
+          "signature": "get_coin_indices(address,address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(pool, from, to) -> (i, j, is_underlying). Use i/j in pool.exchange or as the router's swap_params."
+        },
+        {
+          "signature": "get_coins(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coins of a pool (address[8], zero-padded)."
+        },
+        {
+          "signature": "get_n_coins(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of coins."
+        },
+        {
+          "signature": "get_decimals(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Coin decimals (uint256[8])."
+        },
+        {
+          "signature": "get_balances(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool balances (uint256[8])."
+        },
+        {
+          "signature": "get_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token of a pool (same as the pool for NG pools)."
+        },
+        {
+          "signature": "get_pool_from_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address for an LP token (e.g. 3Crv -> 3pool)."
+        },
+        {
+          "signature": "get_gauge(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidity gauge of a pool (zero if none)."
+        },
+        {
+          "signature": "get_virtual_price_from_lp_token(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LP virtual price (1e18)."
+        },
+        {
+          "signature": "get_pool_name(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool name."
+        },
+        {
+          "signature": "pool_count()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of registered pools; enumerate with pool_list(uint256)."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Curve API",
+      "url": "https://api.curve.finance/v1",
+      "auth": "none",
+      "use": "Pool lists with coins, balances, TVL, APYs and gauge data: e.g. /getPools/all/{blockchainId} (ethereum, arbitrum, base, ...), /getPoolList/{blockchainId}, /getAllGauges, /getVolumes/{blockchainId}, /getTokens/all/{blockchainId}. OpenAPI spec at https://api.curve.finance/v1/openapi.json. Use it to pick pools and coin indices for routes.",
+      "source": "https://docs.curve.finance/developer/integration/api/curve-api"
+    },
+    {
+      "name": "Curve Prices API",
+      "url": "https://prices.curve.finance",
+      "auth": "none",
+      "use": "Pool metadata, OHLC, trades, volume, liquidity and LP positions, crvUSD markets: e.g. /v1/pools/{chain}/{address}, /v1/ohlc/{chain}/{address}, /v1/liquidity/{chain}/{user}/positions, /v1/crvusd/markets. OpenAPI spec at https://prices.curve.finance/feeds-docs/openapi.json.",
+      "source": "https://docs.curve.finance/developer/integration/api/curve-prices"
+    },
+    {
+      "name": "Curve deployments JSON",
+      "url": "https://docs.curve.finance/deployments.json",
+      "auth": "none",
+      "use": "Machine-readable list of every official Curve contract per chain (routers, registries, factories, gauges, tokens, crvUSD, LlamaLend).",
+      "source": "https://docs.curve.finance/llms.txt"
+    }
+  ],
+  "actions": [
+    {
+      "name": "swap via router",
+      "description": "Swap any tokens through up to 5 Curve pools.",
+      "how": "Compute _route and _swap_params off-chain (Curve JS @curvefi/api router or curve-router-js), or for one hop: pool = MetaRegistry.find_pools_for_coins(tokenIn, tokenOut)[0]; (i, j, _) = MetaRegistry.get_coin_indices(pool, tokenIn, tokenOut); route = [tokenIn, pool, tokenOut, 0x0...]; params[0] = [i, j, 1, pool_type, n_coins]. Quote router.get_dy(route, params, amount); approve tokenIn to the router (Ethereum v1.2 0x45312ea0eFf7E09C83CBE249fa1d7598c4C8cd4e); router.exchange(route, params, amount, minOut)."
+    },
+    {
+      "name": "swap directly in a pool",
+      "description": "Single-pool swap without the router.",
+      "how": "Find indices with pool.coins(n) or MetaRegistry.get_coin_indices; approve coin i to the pool; pool.exchange(i, j, dx, min_dy). Stableswap pools use int128 indices, Twocrypto/Tricrypto-NG use uint256."
+    },
+    {
+      "name": "add liquidity",
+      "description": "Deposit coins into a pool for LP.",
+      "how": "Approve each coin to the pool; quote calc_token_amount(amounts, true); add_liquidity(amounts, minLP). Amount array length = n_coins (NG stableswap takes a dynamic array). Remove with remove_liquidity_one_coin(lp, i, min) after calc_withdraw_one_coin."
+    },
+    {
+      "name": "stake LP for CRV",
+      "description": "Earn CRV emissions on Ethereum.",
+      "how": "gauge = MetaRegistry.get_gauge(pool); approve LP to gauge; gauge.deposit(amount). Claim CRV with Minter.mint(gauge); extra rewards with gauge.claim_rewards() on newer gauges."
+    },
+    {
+      "name": "lock CRV (veCRV)",
+      "description": "Get voting power, boost and revenue.",
+      "how": "CRV.approve(veCRV, amt); veCRV.create_lock(amt, unlockTime up to now+4y). Vote with GaugeController.vote_for_gauge_weights(gauge, bps). Claim weekly crvUSD revenue with FeeDistributor.claim(). Withdraw only after expiry: veCRV.withdraw()."
+    },
+    {
+      "name": "save in scrvUSD",
+      "description": "Earn the crvUSD savings rate.",
+      "how": "crvUSD.approve(scrvUSD, amt); scrvUSD.deposit(amt, receiver); exit with redeem(shares, receiver, owner)."
+    }
+  ],
+  "risks": [
+    "July 30, 2023: a Vyper compiler bug (versions 0.2.15, 0.2.16, 0.3.0 had broken @nonreentrant locks) let attackers re-enter and drain several Curve pools compiled with those versions (tens of millions of USD lost; partly recovered). Current pool implementations use fixed compiler versions, but old pools and other Vyper contracts may still carry legacy code risk.",
+    "Depeg risk: in stable pools an LP ends up holding mostly the depegged asset if one coin loses its peg; losses can be permanent.",
+    "Permissionless factories: anyone can deploy pools with any token (including malicious or fee-on-transfer tokens). Only use pools whose coins you have verified; MetaRegistry/API listing is not an endorsement.",
+    "Volatile (Twocrypto/Tricrypto) pools have impermanent loss and re-pegging dynamics; quotes for multi-hop routes can move between quote and execution: always set _expected/min_dy.",
+    "Governance: the Curve DAO (veCRV) controls pool parameters, gauge additions and crvUSD markets; the Emergency DAO (5-of-9 multisig) can kill gauges and cancel parameter changes. The AddressProvider is administered by a Curve individual and its IDs can change, so verify addresses it returns.",
+    "veCRV locks cannot be withdrawn before expiry and are non-transferable. crvUSD loans in LLAMMA are soft-liquidated gradually and can be hard-liquidated if health drops below 0.",
+    "USDT (3pool coin 2) requires approve(0) before changing a non-zero allowance; 3pool's exchange returns no value."
+  ],
+  "notes": "All addresses come from Curve's official deployments data (docs.curve.finance/deployments.json, rendered at docs.curve.finance/developer/deployments.md), except the 3pool/3Crv/3pool gauge (official curvefi/curve-contract GitHub README and pooldata.json) and the crvUSD/USDC pool (example pool in the official CurveRouterNG docs). Every Ethereum address and every L2 router/AddressProvider/MetaRegistry was checked for code on-chain; router versions were read on-chain (Ethereum 0x45312ea0... = 1.2.0, 0x16C6521D... = 1.1.0, all listed L2 routers = 1.1.0). Wiring checked: MetaRegistry.get_pool_from_lp_token(3Crv) = 3pool, get_gauge(3pool) = the listed gauge, scrvUSD.asset = crvUSD, ControllerFactory.stablecoin = crvUSD, crvUSD/USDC pool coins = [USDC, crvUSD]; the Ethereum AddressProvider IDs were enumerated on-chain. Signatures are from Sourcify-verified Vyper sources (router v1.2, MetaRegistry, factories, veCRV, GaugeController, Minter, FeeDistributor, ControllerFactory, 3pool, gauge, scrvUSD's Yearn V3 implementation, crvUSD/USDC pool implementation) and Curve docs (AddressProvider ABI, NG pool and LiquidityGaugeV6 signatures). Pools are not enumerated here: discover them with MetaRegistry.find_pools_for_coins / pool_list, the factories' pool_list, or the Curve API. CRV emissions are claimed via the Minter only on Ethereum; L2 gauges are child gauges (see docs.curve.finance/developer/gauges/xchain-gauges/). Not listed: L2 factories, CRV/crvUSD/scrvUSD token addresses on L2s and the ~25 other chains (all in deployments.json), LlamaLend v1/v2 contracts (separate DefiLlama entries), individual crvUSD controllers (get them from ControllerFactory), calc zaps, fee burners and DAO Aragon voting contracts. The AddressProvider ID 2 'Exchange Router' on Ethereum still points to router v1.1 while the deployments page also lists v1.2; both work with the same route encoding.",
+  "sources": [
+    "https://docs.curve.finance/deployments.json",
+    "https://docs.curve.finance/developer/deployments.md",
+    "https://docs.curve.finance/user/deployments.md",
+    "https://docs.curve.finance/llms.txt",
+    "https://docs.curve.finance/developer/amm/router/curve-router-ng.md",
+    "https://docs.curve.finance/developer/integration/address-provider.md",
+    "https://docs.curve.finance/developer/integration/meta-registry.md",
+    "https://docs.curve.finance/developer/amm/stableswap-ng/pools/plainpool.md",
+    "https://docs.curve.finance/developer/amm/twocrypto-ng/pools/twocrypto.md",
+    "https://docs.curve.finance/developer/gauges/gauges/liquidity-gauge-v6.md",
+    "https://docs.curve.finance/developer/integration/api/curve-api",
+    "https://api.curve.finance/v1/openapi.json",
+    "https://docs.curve.finance/developer/integration/api/curve-prices",
+    "https://prices.curve.finance/feeds-docs/openapi.json",
+    "https://docs.curve.finance/user/security/risks/pools.md",
+    "https://github.com/curvefi/curve-contract/tree/master/contracts/pools/3pool",
+    "https://raw.githubusercontent.com/curvefi/curve-contract/master/contracts/pools/3pool/pooldata.json",
+    "https://github.com/curvefi/curve-router-ng/tree/master/contracts",
+    "https://hackmd.io/@vyperlang/HJUgNMhs2",
+    "https://sourcify.dev/server/v2/contract/1/0x45312ea0eFf7E09C83CBE249fa1d7598c4C8cd4e",
+    "https://sourcify.dev/server/v2/contract/1/0xF98B45FA17DE75FB1aD0e7aFD971b0ca00e379fC",
+    "https://sourcify.dev/server/v2/contract/1/0x6A8cbed756804B16E05E741eDaBd5cB544AE21bf",
+    "https://sourcify.dev/server/v2/contract/1/0x98EE851a00abeE0d95D08cF4CA2BdCE32aeaAF7F",
+    "https://sourcify.dev/server/v2/contract/1/0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963",
+    "https://sourcify.dev/server/v2/contract/1/0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2",
+    "https://sourcify.dev/server/v2/contract/1/0x2F50D538606Fa9EDD2B11E2446BEb18C9D5846bB",
+    "https://sourcify.dev/server/v2/contract/1/0xd061D61a4d941c39E5453435B6345Dc261C2fcE0",
+    "https://sourcify.dev/server/v2/contract/1/0xD16d5eC345Dd86Fb63C6a9C43c517210F1027914",
+    "https://sourcify.dev/server/v2/contract/1/0xC9332fdCB1C491Dcc683bAe86Fe3cb70360738BC",
+    "https://sourcify.dev/server/v2/contract/1/0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7",
+    "https://sourcify.dev/server/v2/contract/1/0xbFcF63294aD7105dEa65aA58F8AE5BE2D9d0952A",
+    "https://sourcify.dev/server/v2/contract/1/0xd8063123bba3b480569244ae66bfe72b6c84b00d",
+    "https://sourcify.dev/server/v2/contract/1/0x67fe41a94e779ccfa22cff02cc2957dc9c0e4286",
+    "https://api.llama.fi/protocol/curve-dex"
+  ],
+  "researchedAt": "2026-11-25"
+}

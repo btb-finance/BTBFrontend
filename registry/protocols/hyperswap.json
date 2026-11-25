@@ -1,0 +1,597 @@
+{
+  "slug": "hyperswap",
+  "name": "HyperSwap",
+  "category": "Dexs",
+  "description": "The first native AMM DEX on HyperEVM (chainId 999): Uniswap-V2-style constant-product pools (Camelot-style router with a referrer argument) and Uniswap-V3-style concentrated liquidity. An agent can quote and swap (V2 Router, SwapRouter02, QuoterV2), add/remove V2 liquidity, manage V3 position NFTs, and zap single-asset liquidity.",
+  "website": "https://hyperswap.exchange",
+  "docs": "https://docs.hyperswap.exchange/docs/amm",
+  "defillama": "https://defillama.com/protocol/hyperswap",
+  "chains": [
+    "hyperevm"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0xb4a9C4e6Ea8E2191d2FA5B380452a634Fb21240A",
+      "name": "HyperSwap V2 Router",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/v2",
+      "keyFunctions": [
+        {
+          "signature": "getAmountsOut(uint256,address[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a V2 swap: amounts out along path for an exact amountIn (base units). Returns uint256[] with one entry per path element; last = expected output before slippage."
+        },
+        {
+          "signature": "swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256,uint256,address[],address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap exact ERC-20 for ERC-20. Args: amountIn, amountOutMin, path, to, referrer (zero address if none), deadline (unix seconds). Approve the router for amountIn first. No return value: read the balance change. This router has NO plain swapExactTokensForTokens / swapTokensForExactTokens / getAmountsIn (Camelot-style router with a referrer argument)."
+        },
+        {
+          "signature": "swapExactETHForTokensSupportingFeeOnTransferTokens(uint256,address[],address,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap exact native HYPE (msg.value) for tokens. Args: amountOutMin, path (must start with WETH() = WHYPE), to, referrer, deadline."
+        },
+        {
+          "signature": "swapExactTokensForETHSupportingFeeOnTransferTokens(uint256,uint256,address[],address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap exact tokens for native HYPE. Args: amountIn, amountOutMin, path (must end with WHYPE), to, referrer, deadline."
+        },
+        {
+          "signature": "addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add liquidity to a token/token V2 pair (creates the pair if missing). Args: tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin, to, deadline. Returns (amountA, amountB, liquidity LP minted). Approve both tokens first."
+        },
+        {
+          "signature": "addLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity to a token/HYPE pair; send HYPE as msg.value. Args: token, amountTokenDesired, amountTokenMin, amountETHMin, to, deadline. Returns (amountToken, amountETH, liquidity)."
+        },
+        {
+          "signature": "removeLiquidity(address,address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn LP tokens for both tokens. Args: tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline. Approve the pair (LP token) to the router first. Returns (amountA, amountB)."
+        },
+        {
+          "signature": "removeLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn LP of a token/WHYPE pair and receive token + native HYPE. Args: token, liquidity, amountTokenMin, amountETHMin, to, deadline."
+        },
+        {
+          "signature": "removeLiquidityWithPermit(address,address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "removeLiquidity using an EIP-2612 permit signature on the LP token instead of a separate approve. Extra args: approveMax, v, r, s."
+        },
+        {
+          "signature": "getPair(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "V2 pair address for two tokens (zero address if none)."
+        },
+        {
+          "signature": "quote(uint256,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pure helper: amountB = amountA * reserveB / reserveA (no fee). Use for proportional liquidity amounts, not swap quotes."
+        },
+        {
+          "signature": "WETH()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped native token used by the router (WHYPE 0x5555555555555555555555555555555555555555)."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x724412C00059bf7d6ee7d4a1d0D5cd4de3ea1C48",
+      "name": "HyperSwap V2 Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/v2",
+      "keyFunctions": [
+        {
+          "signature": "getPair(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pair (LP token) address for a token pair; zero address if none."
+        },
+        {
+          "signature": "allPairsLength()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of V2 pairs."
+        },
+        {
+          "signature": "allPairs(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pair address by index."
+        },
+        {
+          "signature": "createPair(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a new V2 pair (permissionless). Returns the pair address."
+        },
+        {
+          "signature": "feeInfo()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (ownerFeeShare, feeTo): protocol share of swap fees and its recipient."
+        },
+        {
+          "signature": "INIT_CODE_PAIR_HASH()",
+          "kind": "read",
+          "payable": false,
+          "description": "Pair init code hash (docs: 0xc83d9df19c8c8a0a1229bd3122cbb86fd8ff56f79cc6781c15999d39425466e9) for computing pair addresses offline."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0xB1c0fa0B789320044A6F623cFe5eBda9562602E3",
+      "name": "HyperSwap V3 Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/v3",
+      "keyFunctions": [
+        {
+          "signature": "getPool(address,address,uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "V3 pool for (tokenA, tokenB, fee). Fee in hundredths of a bip; enabled tiers on-chain: 100 (0.01%, tick spacing 1), 500 (0.05%, 10), 3000 (0.3%, 60), 10000 (1%, 200). Zero address if none."
+        },
+        {
+          "signature": "feeAmountTickSpacing(uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tick spacing for a fee tier; 0 means the tier is not enabled."
+        },
+        {
+          "signature": "createPool(address,address,uint24)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a new V3 pool for an enabled fee tier (must then be initialized with a price, e.g. via the position manager)."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x6D99e7f6747AF2cDbB5164b6DD50e40D4fDe1e77",
+      "name": "HyperSwap SwapRouter02 (V3 + V2)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/v3",
+      "keyFunctions": [
+        {
+          "signature": "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap an exact amount through one V3 pool. Params tuple: (tokenIn, tokenOut, fee, recipient, amountIn, amountOutMinimum, sqrtPriceLimitX96=0). No deadline inside the struct: wrap in multicall(uint256 deadline, bytes[]) to enforce one. Returns amountOut. Approve tokenIn to this router; for native HYPE in, send msg.value with tokenIn = WHYPE."
+        },
+        {
+          "signature": "exactInput((bytes,address,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop V3 exact-input swap. Params: (path = abi.encodePacked(token0, fee, token1, fee, token2...), recipient, amountIn, amountOutMinimum). Returns amountOut."
+        },
+        {
+          "signature": "exactOutputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap for an exact output through one V3 pool. Params: (tokenIn, tokenOut, fee, recipient, amountOut, amountInMaximum, sqrtPriceLimitX96). Returns amountIn. Call refundETH in the same multicall if paying with HYPE."
+        },
+        {
+          "signature": "exactOutput((bytes,address,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop exact-output swap; path is encoded in REVERSE (tokenOut first). Params: (path, recipient, amountOut, amountInMaximum)."
+        },
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address)",
+          "kind": "write",
+          "payable": true,
+          "description": "V2-pool swap through this router (uses the V2 factory). Args: amountIn, amountOutMin, path, to. Returns amountOut."
+        },
+        {
+          "signature": "multicall(uint256,bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch several router calls with a deadline (unix seconds); reverts if expired. Typical: [exactInputSingle(recipient=router), unwrapWETH9(min, user)] to receive native HYPE."
+        },
+        {
+          "signature": "unwrapWETH9(uint256,address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Unwrap the router's WHYPE balance and send native HYPE to recipient (use inside multicall after a swap with recipient = router address)."
+        },
+        {
+          "signature": "refundETH()",
+          "kind": "write",
+          "payable": true,
+          "description": "Return leftover native HYPE held by the router to msg.sender (after exact-output swaps paid in HYPE)."
+        },
+        {
+          "signature": "sweepToken(address,uint256,address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Send the router's balance of a token to recipient (min amount check)."
+        },
+        {
+          "signature": "referralFee()",
+          "kind": "read",
+          "payable": false,
+          "description": "Referral fee parameter of this router (read 1000 on 2026-11-25; units not documented)."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x03A918028f22D9E1473B7959C927AD7425A45C7C",
+      "name": "HyperSwap QuoterV2",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/v3",
+      "keyFunctions": [
+        {
+          "signature": "quoteExactInputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a single-pool V3 swap. Params: (tokenIn, tokenOut, amountIn, fee, sqrtPriceLimitX96=0). Returns (amountOut, sqrtPriceX96After, initializedTicksCrossed, gasEstimate). Not a view function: call with eth_call only."
+        },
+        {
+          "signature": "quoteExactInput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi-hop V3 exact-input swap. Args: packed path, amountIn. Returns (amountOut, sqrtPriceX96AfterList, initializedTicksCrossedList, gasEstimate). eth_call only."
+        },
+        {
+          "signature": "quoteExactOutputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote input needed for an exact output. Params: (tokenIn, tokenOut, amountOut, fee, sqrtPriceLimitX96). Returns (amountIn, ...). eth_call only."
+        },
+        {
+          "signature": "quoteExactOutput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Multi-hop exact-output quote (path reversed). eth_call only."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x6eDA206207c09e5428F281761DdC0D300851fBC8",
+      "name": "HyperSwap NonfungiblePositionManager (V3)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/v3",
+      "keyFunctions": [
+        {
+          "signature": "mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Open a V3 position NFT. Params: (token0, token1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline). token0 < token1 by address; ticks multiples of tick spacing. Approve both tokens first. Returns (tokenId, liquidity, amount0, amount1)."
+        },
+        {
+          "signature": "increaseLiquidity((uint256,uint256,uint256,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Add to a position. Params: (tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline). Returns (liquidity, amount0, amount1)."
+        },
+        {
+          "signature": "decreaseLiquidity((uint256,uint128,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Remove liquidity. Params: (tokenId, liquidity, amount0Min, amount1Min, deadline). Tokens become owed; call collect to receive them."
+        },
+        {
+          "signature": "collect((uint256,address,uint128,uint128))",
+          "kind": "write",
+          "payable": true,
+          "description": "Withdraw owed tokens and fees. Params: (tokenId, recipient, amount0Max, amount1Max); use 2^128-1 for all. Returns (amount0, amount1)."
+        },
+        {
+          "signature": "positions(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position data: nonce, operator, token0, token1, fee, tickLower, tickUpper, liquidity, feeGrowthInside0/1LastX128, tokensOwed0, tokensOwed1."
+        },
+        {
+          "signature": "burn(uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Burn an empty position NFT (zero liquidity, nothing owed)."
+        },
+        {
+          "signature": "createAndInitializePoolIfNecessary(address,address,uint24,uint160)",
+          "kind": "write",
+          "payable": true,
+          "description": "Create and initialize a pool at sqrtPriceX96 if it does not exist. Returns pool address."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch calls, e.g. decreaseLiquidity + collect, or mint + refundETH."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of position NFTs owned."
+        },
+        {
+          "signature": "tokenOfOwnerByIndex(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Enumerate an owner's position tokenIds."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x093dE46C90bEA4A730b1914748cC43d909b53661",
+      "name": "HyperSwap Single Asset Zap",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/tools",
+      "keyFunctions": [
+        {
+          "signature": "provideLiquidityV2((address,address,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Add V2 liquidity with one token. Params: (tokenA = token you provide, tokenB, amountA, slippage in bps, 100 = 1%). The contract swaps part of tokenA and adds liquidity. Returns (liquidity, amount0Used, amount1Used). Approve tokenA to the zap first. Pool must exist with enough liquidity."
+        },
+        {
+          "signature": "provideLiquidityV3((address,address,uint256,uint24,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Add FULL-RANGE V3 liquidity with one token. Params: (tokenA, tokenB, amountA, fee tier, slippage bps). Returns (tokenId, liquidity, amount0Used, amount1Used)."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0xefAbEB7A19bB848b359e5dd5a63b1a634AAfD229",
+      "name": "HyperSwap Universal Router",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/tools",
+      "keyFunctions": [
+        {
+          "signature": "execute(bytes,bytes[],uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Run encoded commands (V2/V3 swaps, wrap/unwrap, Permit2 transfers) with a deadline. Inputs follow Uniswap UniversalRouter command encoding; tokens are pulled via Permit2. Prefer SwapRouter02 for simple swaps."
+        },
+        {
+          "signature": "execute(bytes,bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Same as above without a deadline (not recommended)."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+      "name": "Permit2",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/tools",
+      "keyFunctions": [
+        {
+          "signature": "approve(address,address,uint160,uint48)",
+          "kind": "write",
+          "payable": false,
+          "description": "Allow a spender (e.g. the Universal Router) to pull token via Permit2: (token, spender, amount, expiration). Requires an ERC-20 approve of the token to Permit2 first."
+        },
+        {
+          "signature": "allowance(address,address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(amount, expiration, nonce) for (owner, token, spender)."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x5555555555555555555555555555555555555555",
+      "name": "WHYPE (wrapped HYPE)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm",
+      "keyFunctions": [
+        {
+          "signature": "deposit()",
+          "kind": "write",
+          "payable": true,
+          "description": "Wrap native HYPE (msg.value) into WHYPE 1:1."
+        },
+        {
+          "signature": "withdraw(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unwrap WHYPE to native HYPE."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a router or position manager."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "WHYPE balance (18 decimals)."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x03832767BDf9A8EF007449942125Ad605aCfADb8",
+      "name": "SWAP token",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.hyperswap.exchange/docs/amm/tokens/usdswap",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "SWAP balance."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer SWAP."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0xF535D7406BaF7322171142BB165643821cAb01Fe",
+      "name": "xSWAP (escrowed SWAP)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.hyperswap.exchange/docs/amm/tokens/usdxswap",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "xSWAP balance. xSWAP is the liquidity-mining reward token; converting to SWAP vests over a user-chosen period (6 months full; early exit within 15 days at 50% penalty per docs). Use the app for conversion."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "HyperSwap V3 subgraph",
+      "url": "https://api.subgraph.ormilabs.com/api/public/33c67399-d625-4929-b239-5709cd66e422/subgraphs/hyperswap-v3/v0.1.2/gn",
+      "auth": "none",
+      "use": "GraphQL: V3 pools, ticks, positions, swaps, TVL/volume history.",
+      "source": "https://docs.hyperswap.exchange/docs/amm/for-developers/subgraphs"
+    },
+    {
+      "name": "HyperSwap V2 subgraph",
+      "url": "https://api.subgraph.ormilabs.com/api/public/33c67399-d625-4929-b239-5709cd66e422/subgraphs/hyperswap-v2/v1.0.0/gn",
+      "auth": "none",
+      "use": "GraphQL: V2 pairs, reserves, swaps and liquidity events.",
+      "source": "https://docs.hyperswap.exchange/docs/amm/for-developers/subgraphs"
+    }
+  ],
+  "actions": [
+    {
+      "name": "quote (V2)",
+      "description": "Expected output of a V2 swap",
+      "how": "eth_call V2Router.getAmountsOut(amountIn, [tokenIn, ..., tokenOut]); last element is the output."
+    },
+    {
+      "name": "quote (V3)",
+      "description": "Expected output of a V3 swap",
+      "how": "eth_call QuoterV2.quoteExactInputSingle((tokenIn, tokenOut, amountIn, fee, 0)); try fee tiers 100/500/3000/10000 (check V3Factory.getPool != 0)."
+    },
+    {
+      "name": "swap (V2)",
+      "description": "Swap through a V2 pool",
+      "how": "ERC-20 approve(V2Router, amountIn); V2Router.swapExactTokensForTokensSupportingFeeOnTransferTokens(amountIn, amountOutMin, path, to, 0x0000000000000000000000000000000000000000, deadline). For native HYPE use the ...ETH... variants with WHYPE at the path end/start."
+    },
+    {
+      "name": "swap (V3)",
+      "description": "Swap through a V3 pool",
+      "how": "approve(SwapRouter02, amountIn); SwapRouter02.multicall(deadline, [exactInputSingle((tokenIn, tokenOut, fee, recipient, amountIn, amountOutMinimum, 0))]). To receive native HYPE set recipient = router and append unwrapWETH9(amountOutMinimum, user)."
+    },
+    {
+      "name": "add / remove liquidity (V2)",
+      "description": "Classic LP",
+      "how": "approve both tokens to V2Router, addLiquidity(...) or addLiquidityETH(...); to exit approve the pair LP token to V2Router and removeLiquidity(...)."
+    },
+    {
+      "name": "add / remove liquidity (V3)",
+      "description": "Concentrated liquidity position",
+      "how": "approve tokens to NonfungiblePositionManager; mint((token0, token1, fee, tickLower, tickUpper, a0, a1, a0Min, a1Min, recipient, deadline)). Exit: multicall([decreaseLiquidity((tokenId, liquidity, min0, min1, deadline)), collect((tokenId, recipient, 2^128-1, 2^128-1))])."
+    },
+    {
+      "name": "single-asset zap",
+      "description": "LP with one token",
+      "how": "approve tokenA to Zap; Zap.provideLiquidityV2((tokenA, tokenB, amountA, slippageBps)) or provideLiquidityV3((tokenA, tokenB, amountA, fee, slippageBps)) (V3 = full range)."
+    }
+  ],
+  "risks": [
+    "The V2 router is NOT the stock Uniswap V2 router: only the ...SupportingFeeOnTransferTokens swap functions exist and they take an extra referrer address; there is no getAmountsIn or exact-output V2 swap. Calls built for Uniswap V2 router ABIs will revert.",
+    "V2 pairs use per-token fee fields (token0FeePercent/token1FeePercent; read 300 = 0.3% on WHYPE/SWAP on 2026-11-25, Camelot-style denominator 100000) that the factory owner can configure; fees can differ by pair.",
+    "SwapRouter02 exactInput/exactOutput structs have no deadline; always wrap them in multicall(deadline, ...) and set amountOutMinimum, or the swap can be sandwiched.",
+    "QuoterV2 functions are not view: call them only via eth_call, never as a transaction.",
+    "V3 positions earn fees only in range and suffer impermanent loss. The Zap's V3 path always mints a full-range position.",
+    "Admin keys: on 2026-11-25 the V3 factory owner() was an externally owned account (0xBC7e493fd3ed834eD563f9597AAAED94e446bBc7) and the V2 factory owner was the ProxyAdmin contract listed in the docs (0x56dEE154EA6CD473Ed76353f4045e92A5D44Bb15). Owners can set protocol fee shares and enable fee tiers.",
+    "Audited by PeckShield (V2, V3 and the DelegatedPositionVault \"Burn & Earn\"); reports linked from the docs audits page. Audits do not cover every deployment detail.",
+    "Single-chain: HyperEVM only. Tokens bridged from HyperCore or other chains carry their own bridge/issuer risk."
+  ],
+  "notes": "All addresses come from the HyperSwap docs Contracts pages (docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/*) and were confirmed as deployed contracts on HyperEVM (chainId 999) with eth_getCode; function selectors were checked against bytecode and against the official ABIs in github.com/HyperSwapX/abis. Also listed in the docs but omitted here: SwapRouter01 0x4E2960a8cd19B467b82d26D83fAcb0fAE26b094D (legacy router whose exactInputSingle has a deadline field), QuoterV1, Mixed Route QuoterV1, TickLens, V3 Migrator, Position Modifier (edit CL position), Multicall contracts, Launcher, HyperCore precompile, LMBooster Staking and the Burn & Delegate Fees vault (DelegatedPositionVault 0x744C89B7b7F8Cb1E955B1Dcd842A5378d75c96Dc). HyperSwap X (gasless intent swaps), limit orders and DCA (OpenOcean) are app features with no public documented API; the docs say API access is granted on request via Discord. The testnet deployment (chainId 998) has different addresses. Init code hashes: V2 0xc83d9df19c8c8a0a1229bd3122cbb86fd8ff56f79cc6781c15999d39425466e9, V3 0xe3572921be1688dba92df30c6781b8770499ff274d20ae9b325f4242634774fb. DefiLlama lists the chain as \"Hyperliquid L1\"; the contracts are on HyperEVM.",
+  "sources": [
+    "https://defillama.com/protocol/hyperswap",
+    "https://api.llama.fi/protocol/hyperswap",
+    "https://docs.hyperswap.exchange/llms.txt",
+    "https://docs.hyperswap.exchange/llms-full.txt",
+    "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm",
+    "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/v2",
+    "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/v3",
+    "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/tools",
+    "https://docs.hyperswap.exchange/docs/amm/tokens/usdswap",
+    "https://docs.hyperswap.exchange/docs/amm/tokens/usdxswap",
+    "https://docs.hyperswap.exchange/docs/amm/for-developers/integrations/quick-start/v2/functions",
+    "https://docs.hyperswap.exchange/docs/amm/for-developers/integrations/quick-start/single-asset-zap/functions",
+    "https://docs.hyperswap.exchange/docs/amm/for-developers/subgraphs",
+    "https://docs.hyperswap.exchange/docs/amm/for-developers/api",
+    "https://docs.hyperswap.exchange/docs/amm/references/audits",
+    "https://docs.hyperswap.exchange/docs/amm/token-design/protocol-earnings",
+    "https://docs.hyperswap.exchange/docs/amm/token-design/revenues-sharing-model",
+    "https://docs.hyperswap.exchange/docs/amm/protocol-concepts/hyperswap-x",
+    "https://docs.hyperswap.exchange/docs/amm/official-links",
+    "https://github.com/HyperSwapX/abis/blob/main/AMM/hyperswap_router_V2.json",
+    "https://github.com/HyperSwapX/abis/blob/main/AMM/hyperswap_factory_V2.json",
+    "https://github.com/HyperSwapX/abis/blob/main/CL/HyperswapV3Factory.json",
+    "https://github.com/HyperSwapX/abis/blob/main/CL/QuoterV2.json",
+    "https://github.com/HyperSwapX/abis/blob/main/CL/SwapRouter02.json",
+    "https://github.com/HyperSwapX/abis/blob/main/CL/NonfungiblePositionManager.json",
+    "https://github.com/HyperSwapX/abis/blob/main/Tools/UniversalRouter.json",
+    "https://github.com/HyperSwapX/abis/blob/main/Tools/SingleAssetZap.json",
+    "https://rpc.hyperliquid.xyz/evm"
+  ],
+  "researchedAt": "2026-11-24"
+}

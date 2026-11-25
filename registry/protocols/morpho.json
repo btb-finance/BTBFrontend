@@ -1,0 +1,977 @@
+{
+  "slug": "morpho",
+  "name": "Morpho",
+  "category": "Lending",
+  "description": "Permissionless lending: Morpho Blue is one immutable contract holding isolated variable-rate markets (one loan token, one collateral token, an oracle, an IRM and a fixed LLTV each); curated ERC-4626 vaults (Vault V1 'MetaMorpho' and Vault V2) spread deposits across markets. Agents can lend or borrow directly in a market, deposit into a vault, use Bundles for one-transaction flows, and read everything via the public Morpho Read API.",
+  "website": "https://morpho.org",
+  "docs": "https://docs.morpho.org",
+  "defillama": "https://defillama.com/protocol/morpho",
+  "chains": [
+    "ethereum",
+    "base",
+    "arbitrum",
+    "optimism",
+    "polygon",
+    "unichain",
+    "avalanche",
+    "bnb"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+      "name": "Morpho (Morpho Blue singleton, variable-rate markets)",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "supply((address,address,address,address,uint256),uint256,uint256,address,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Lend the loan token to one market: (marketParams, assets, shares, onBehalf, data). Set exactly one of assets/shares (other 0); data = empty bytes (non-empty triggers an onMorphoSupply callback). approve(Morpho, assets) on the loan token first. MarketParams = (loanToken, collateralToken, oracle, irm, lltv); lltv scaled by 1e18 (e.g. 860000000000000000 = 86%). Get it from idToMarketParams(marketId) or the Read API."
+        },
+        {
+          "signature": "withdraw((address,address,address,address,uint256),uint256,uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw lent assets: (marketParams, assets, shares, onBehalf, receiver). One of assets/shares non-zero; to exit fully pass shares = position(id,user).supplyShares. Reverts if the market lacks liquidity (utilisation 100%). Caller must be onBehalf or authorized by it."
+        },
+        {
+          "signature": "supplyCollateral((address,address,address,address,uint256),uint256,address,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit collateral (not lent out, earns no interest): (marketParams, assets, onBehalf, data=empty). approve(Morpho) on the collateral token first."
+        },
+        {
+          "signature": "borrow((address,address,address,address,uint256),uint256,uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow the loan token: (marketParams, assets, shares, onBehalf, receiver). Position LTV must stay below the market's LLTV (collateral valued with the market oracle). Caller must be onBehalf or authorized (setAuthorization)."
+        },
+        {
+          "signature": "repay((address,address,address,address,uint256),uint256,uint256,address,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay debt: (marketParams, assets, shares, onBehalf, data=empty). To repay fully pass shares = position(id,user).borrowShares (assets would leave dust as interest accrues). approve(Morpho) on the loan token first; anyone can repay for anyone."
+        },
+        {
+          "signature": "withdrawCollateral((address,address,address,address,uint256),uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw collateral: (marketParams, assets, onBehalf, receiver). Reverts if the position would become unhealthy."
+        },
+        {
+          "signature": "position(bytes32,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(marketId, user) -> (supplyShares, borrowShares, collateral). Collateral in token units; convert shares to assets with market(): assets = shares * (totalAssets + 1) / (totalShares + 1e6) (round up for borrow)."
+        },
+        {
+          "signature": "market(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "marketId -> (totalSupplyAssets, totalSupplyShares, totalBorrowAssets, totalBorrowShares, lastUpdate, fee). Values exclude interest accrued since lastUpdate; call accrueInterest or use the Read API for live numbers."
+        },
+        {
+          "signature": "idToMarketParams(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "marketId -> (loanToken, collateralToken, oracle, irm, lltv). marketId = keccak256(abi.encode(marketParams))."
+        },
+        {
+          "signature": "setAuthorization(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Let another address (e.g. a bundler or manager contract) manage your positions: borrow / withdraw / withdrawCollateral on your behalf. Revoke with false."
+        },
+        {
+          "signature": "isAuthorized(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(authorizer, authorized) -> bool."
+        },
+        {
+          "signature": "accrueInterest((address,address,address,address,uint256))",
+          "kind": "write",
+          "payable": false,
+          "description": "Accrue interest on a market so market()/position() reads are up to date."
+        },
+        {
+          "signature": "liquidate((address,address,address,address,uint256),address,uint256,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidate an unhealthy borrower (LTV > LLTV): (marketParams, borrower, seizedAssets, repaidShares, data). Set one of seizedAssets/repaidShares. Liquidation incentive depends on LLTV (max 15%)."
+        },
+        {
+          "signature": "flashLoan(address,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Free flash loan of any token Morpho holds: (token, assets, data); caller must implement onMorphoFlashLoan and approve repayment."
+        },
+        {
+          "signature": "createMarket((address,address,address,address,uint256))",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless market creation with a governance-enabled IRM and LLTV. Markets are immutable once created."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC",
+      "name": "AdaptiveCurveIrm (governance-approved interest rate model)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xA1D94F746dEfa1928926b84fB2596c06926C0405",
+      "name": "VaultV2Factory (Morpho Vault V2)",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "createVaultV2(address,address,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a Morpho Vault V2: (owner, asset, salt). For curators."
+        },
+        {
+          "signature": "isVaultV2(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is a Vault V2 deployed by this factory. Verify a vault with this before depositing."
+        },
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "[Called on a Vault V2, not on the factory] ERC-4626 deposit: (assets, onBehalf). approve(vault) first. Reverts if a gate blocks the caller."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "[On a Vault V2] Withdraw an exact asset amount: (assets, receiver, onBehalf). Served from idle assets and the liquidity adapter; reverts if not enough liquidity (use forceDeallocate or VaultExitBundlesV1)."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "[On a Vault V2] Burn shares: (shares, receiver, onBehalf)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "[On a Vault V2] Assets returned for shares now. Note: Vault V2 maxDeposit/maxMint/maxWithdraw/maxRedeem always return 0 by design (gates make them unpredictable), so do not use them to size withdrawals; use previewRedeem and the Read API's withdrawable_assets."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "[On a Vault V2] Total assets under management."
+        },
+        {
+          "signature": "forceDeallocate(address,bytes,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "[On a Vault V2] Non-custodial exit: (adapter, data, assets, onBehalf) pulls assets out of an adapter into idle so they can be withdrawn, paying the adapter's forceDeallocatePenalty in shares."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1897A8997241C1cD4bD0698647e4EB7213535c24",
+      "name": "MetaMorpho Factory V1.1 (Morpho Vault V1)",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "createMetaMorpho(address,uint256,address,string,string,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a Vault V1 (MetaMorpho v1.1): (initialOwner, initialTimelock, asset, name, symbol, salt). For curators; agents normally only deposit into existing vaults."
+        },
+        {
+          "signature": "isMetaMorpho(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is a vault created by this factory. Use it to verify a vault before depositing."
+        },
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "[Called on a Vault V1 created by this factory, not on the factory] ERC-4626 deposit: (assets, receiver). approve(vault, assets) on the vault asset first. Assets are supplied to the curator's Morpho Blue markets following the supply queue."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "[On a Vault V1] ERC-4626 withdraw an exact asset amount: (assets, receiver, owner). Limited by liquidity in the underlying markets."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "[On a Vault V1] Burn shares for assets: (shares, receiver, owner). Use balanceOf(you) as shares to exit fully."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "[On a Vault V1] Max assets the owner can withdraw now (bounded by underlying market liquidity)."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "[On a Vault V1] Asset value of shares (share price)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xA9c3D3a366466Fa809d1Ae982Fb2c46E5fC41101",
+      "name": "MetaMorpho Factory [OLD] (Vault V1.0)",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "isMetaMorpho(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True for Vault V1.0 vaults created by this older factory."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x00b8e1509398ED692C3F326CbAf1694F9A881e27",
+      "name": "Blue Public Allocator (Vault V2)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "reallocate(address,address,(address,address,address,address,uint256),address,(address,address,address,address,uint256),uint128,uint64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Move a Vault V2's liquidity between Blue markets so you can borrow/withdraw where liquidity is short: (vault, deallocateAdapter, deallocateMarketParams, allocateAdapter, allocateMarketParams, assets, penalty). Pass penalty = vaultData(vault).penalty; if non-zero, approve this contract for the penalty amount in the vault asset first. Subject to the vault's caps set in this contract."
+        },
+        {
+          "signature": "allocateFromIdle(address,address,(address,address,address,address,uint256),uint128,uint64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Allocate a Vault V2's idle assets to a market: (vault, adapter, marketParams, assets, penalty). Only if vaultData(vault).canPullFromIdle."
+        },
+        {
+          "signature": "vaultData(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "vault -> (canPullFromIdle, penalty). penalty is WAD-scaled (1e18 = 100%)."
+        },
+        {
+          "signature": "absoluteCap(address,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "(vault, allocationId) -> cap for allocations through the Public Allocator; allocationId = keccak256(abi.encode(\"this/marketParams\", adapter, marketParams))."
+        },
+        {
+          "signature": "canPullFromMarket(address,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "(vault, allocationId) -> whether liquidity may be pulled from that market."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x38B0C12AB81976e9417D4ebfe2A34DB6DF22e6AD",
+      "name": "BlueBundlesV1 (one-tx Morpho Blue actions)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "blueBundlesV1Supply((address,address,address,address,uint256),uint256,(uint8,bytes),uint256,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Supply loan assets to a market in one tx: (marketParams, assets, loanTokenPermit, referralFeePct, referralFeeRecipient, deadline). loanTokenPermit empty (kind 0, data 0x) = you approved this contract beforehand; otherwise an ERC-2612 or Permit2 signature. referralFeePct WAD-scaled (0 = none). Payable per ABI."
+        },
+        {
+          "signature": "blueBundlesV1SupplyCollateralAndBorrow((address,address,address,address,uint256),uint256,uint256,uint256,(uint8,bytes),((uint8,bytes32,bytes32),uint256,uint256),(address,address,(address,address,address,address,uint256),bool,address,(address,address,address,address,uint256),uint128,uint64)[],uint256,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "One-click borrow: (marketParams, collateralAssets, borrowAssets, maxLtv, collateralPermit, signedAuthorization, reallocations, referralFeePct, referralFeeRecipient, deadline). Reverts if resulting LTV > maxLtv (WAD). signedAuthorization = Morpho setAuthorizationWithSig for this contract (empty signature if already authorized). reallocations = optional Public Allocator moves to source liquidity."
+        },
+        {
+          "signature": "blueBundlesV1RepayAndWithdrawCollateral((address,address,address,address,uint256),uint256,uint256,uint256,uint256,uint256,(uint8,bytes),((uint8,bytes32,bytes32),uint256,uint256),uint256,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "(marketParams, repayAssets, repayShares, maxRepayAssets, collateralAssets, maxLtv, loanTokenPermit, signedAuthorization, referralFeePct, referralFeeRecipient, deadline). Repay by assets or shares (one of them), then withdraw collateral, checking maxLtv."
+        },
+        {
+          "signature": "blueBundlesV1Withdraw((address,address,address,address,uint256),uint256,uint256,((uint8,bytes32,bytes32),uint256,uint256),(address,address,(address,address,address,address,uint256),bool,address,(address,address,address,address,uint256),uint128,uint64)[],uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(marketParams, withdrawAssets, withdrawShares, signedAuthorization, reallocations, referralFeePct, referralFeeRecipient, deadline). Withdraw lent assets, optionally pulling public-allocator liquidity first."
+        },
+        {
+          "signature": "blueBundlesV1MigrateBorrowPosition((address,address,address,address,uint256),(address,address,address,address,uint256),uint256,((uint8,bytes32,bytes32),uint256,uint256),(address,address,(address,address,address,address,uint256),bool,address,(address,address,address,address,uint256),uint128,uint64)[],uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Move a whole borrow position (collateral + debt) to another market with the same loan/collateral tokens: (sourceMarketParams, destMarketParams, maxLtv, signedAuthorization, reallocations, referralFeePct, referralFeeRecipient, deadline)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x02912516d49dE997db75B9D7858faAE59209650B",
+      "name": "VaultBundlesV1 (one-tx vault deposit/withdraw/migrate)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "vaultBundlesV1Deposit(address,uint256,uint256,(uint8,bytes),uint256,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit into a Vault V1 or V2: (vault, assets, maxSharePriceE27, assetPermit, referralFeePct, referralFeeRecipient, deadline). maxSharePriceE27 = slippage guard on share price (assets per share scaled 1e27). Empty permit = prior ERC-20 approval to this contract."
+        },
+        {
+          "signature": "vaultBundlesV1Withdraw(address,uint256,uint256,(uint256,uint256,uint256,uint8,bytes32,bytes32),uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(vault, assets, shares, sharesPermit, referralFeePct, referralFeeRecipient, deadline). Withdraw by assets or shares; needs a share allowance to this contract or an ERC-2612 share permit."
+        },
+        {
+          "signature": "vaultBundlesV1Migrate(address,address,uint256,uint256,uint256,(uint256,uint256,uint256,uint8,bytes32,bytes32),uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(sourceVault, destVault, assetsWithdrawn, sharesRedeemed, destMaxSharePriceE27, sharesPermit, referralFeePct, referralFeeRecipient, deadline). E.g. Vault V1 to its V2 successor in one tx."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xaf85aF286637A033BE7d59ED8cC566afa3309B02",
+      "name": "VaultExitBundlesV1 (exits from illiquid vaults)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "vaultExitBundlesV1ForceWithdrawVaultV2(address,address,uint256,uint256,(uint256,uint256,uint256,uint8,bytes32,bytes32),uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit an illiquid Vault V2 whose underlying markets are liquid, paying the force-deallocate penalty (idle and liquidity-adapter assets first, penalty-free)."
+        },
+        {
+          "signature": "vaultExitBundlesV1InKindRedemptionVaultV2(address,address,(address,address,address,address,uint256)[],uint256,(uint256,uint256,uint256,uint8,bytes32,bytes32),uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw idle assets and take the rest in kind (as Morpho Blue supply positions) from an illiquid Vault V2."
+        },
+        {
+          "signature": "vaultExitBundlesV1InKindRedemptionVaultV1(address,(address,address,address,address,uint256)[],uint256,(uint256,uint256,uint256,uint8,bytes32,bytes32),uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem in kind from an illiquid Vault V1."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6566194141eefa99Af43Bb5Aa71460Ca2Dc90245",
+      "name": "Bundler3 (DEPRECATED, replaced by Bundles)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x4A6c312ec70E8747a587EE860a0353cd42Be0aE0",
+      "name": "EthereumGeneralAdapter1 (Bundler3 adapter, DEPRECATED)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x471686c42792F93528B000beF54bC10E3aa2045f",
+      "name": "Midnight (Morpho Midnight fixed-rate, fixed-term order-book markets)",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x58D97B57BB95320F9a05dC918Aef65434969c2B2",
+      "name": "MORPHO token (wrapped, transferable)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "MORPHO balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer MORPHO."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "delegate(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Delegate on-chain voting power."
+        },
+        {
+          "signature": "delegatee(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current delegatee of an account."
+        },
+        {
+          "signature": "delegatedVotingPower(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Voting power delegated to an account."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x9D03bb2092270648d7480049d0E58d2FcF0E5123",
+      "name": "MORPHO wrapper (legacy MORPHO -> MORPHO 1:1)",
+      "role": "other",
+      "proxy": null,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositFor(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Wrap legacy MORPHO (0x9994E35Db50125E0DF82e4c2dde62496CE330999, non-transferable) into the new MORPHO: (account, amount); approve the wrapper on the legacy token first."
+        },
+        {
+          "signature": "withdrawTo(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unwrap back to legacy MORPHO."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+      "name": "Morpho (Morpho Blue singleton) - same interface as the Ethereum entry",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x46415998764C29aB2a25CbeA6254146D50D22687",
+      "name": "AdaptiveCurveIrm",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x4501125508079A99ebBebCE205DeC9593C2b5857",
+      "name": "VaultV2Factory - same interface as the Ethereum entry",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xFf62A7c278C62eD665133147129245053Bbf5918",
+      "name": "MetaMorpho Factory V1.1 - same interface as the Ethereum entry",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xA9c3D3a366466Fa809d1Ae982Fb2c46E5fC41101",
+      "name": "MetaMorpho Factory [OLD] (Vault V1.0)",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xAED282B8aD9257BB1272e93aE63A32A53621e412",
+      "name": "Blue Public Allocator (Vault V2) - same interface as the Ethereum entry",
+      "role": "other",
+      "proxy": null,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x4D28D900e381eCE4B351302f1Abe588496793A2b",
+      "name": "BlueBundlesV1 - same interface as the Ethereum entry",
+      "role": "router",
+      "proxy": null,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x2B08A911f48dE25A7e305D910Afb5597aBE8ea7B",
+      "name": "VaultBundlesV1 - same interface as the Ethereum entry",
+      "role": "router",
+      "proxy": null,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xE52E169C342C096C4949ABb944DC9f30E3F5Ea84",
+      "name": "VaultExitBundlesV1 - same interface as the Ethereum entry",
+      "role": "router",
+      "proxy": null,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x6BFd8137e702540E7A42B74178A4a49Ba43920C4",
+      "name": "Bundler3 (DEPRECATED, replaced by Bundles)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xb98c948CFA24072e58935BC004a8A7b376AE746A",
+      "name": "GeneralAdapter1 (Bundler3 adapter, DEPRECATED)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xAdedD8ab6dE832766Fedf0FaC4992E5C4D3EA18A",
+      "name": "Midnight (fixed-rate markets)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xBAa5CC21fd487B8Fcc2F632f3F4E8D37262a0842",
+      "name": "MORPHO token (Base)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x6c247b1F6182318877311737BaC0844bAa518F5e",
+      "name": "Morpho (Morpho Blue singleton; address differs from Ethereum/Base) - same interface as the Ethereum entry",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x6b46fa3cc9EBF8aB230aBAc664E37F2966Bf7971",
+      "name": "VaultV2Factory - same interface as the Ethereum entry",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x878988f5f561081deEa117717052164ea1Ef0c82",
+      "name": "MetaMorpho Factory V1.1 - same interface as the Ethereum entry",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x85b66Fe31e6788E5a6825EAe689f4c6c38AF3704",
+      "name": "Blue Public Allocator (Vault V2) - same interface as the Ethereum entry",
+      "role": "other",
+      "proxy": null,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0xce95AfbB8EA029495c66020883F87aaE8864AF92",
+      "name": "Morpho (Morpho Blue singleton; address differs from Ethereum/Base) - same interface as the Ethereum entry",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x6128b680b277Bf4Df80DFE9D8c55A498660870ef",
+      "name": "VaultV2Factory - same interface as the Ethereum entry",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x3Bb6A6A0Bc85b367EFE0A5bAc81c5E52C892839a",
+      "name": "MetaMorpho Factory V1.1 - same interface as the Ethereum entry",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0xc6945A915Bb7e2A365469f120A33D2FA42951cF3",
+      "name": "Blue Public Allocator (Vault V2) - same interface as the Ethereum entry",
+      "role": "other",
+      "proxy": null,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x1bF0c2541F820E775182832f06c0B7Fc27A25f67",
+      "name": "Morpho (Morpho Blue singleton; address differs from Ethereum/Base) - same interface as the Ethereum entry",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xC11a53eE9B1eCc7a068D8e40F8F17926584F97Cf",
+      "name": "VaultV2Factory - same interface as the Ethereum entry",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xa9c87daB340631C34BB738625C70499e29ddDC98",
+      "name": "MetaMorpho Factory V1.1 - same interface as the Ethereum entry",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xAb06a92cd253Bc12Dec8f719a693a6b472CCDfF4",
+      "name": "Blue Public Allocator (Vault V2) - same interface as the Ethereum entry",
+      "role": "other",
+      "proxy": null,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x8f5ae9CddB9f68de460C77730b018Ae7E04a140A",
+      "name": "Morpho (Morpho Blue singleton; address differs from Ethereum/Base) - same interface as the Ethereum entry",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0xC9b34c108014B44e5a189A830e7e04c56704a0c9",
+      "name": "VaultV2Factory - same interface as the Ethereum entry",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0xe9EdE3929F43a7062a007C3e8652e4ACa610Bdc0",
+      "name": "MetaMorpho Factory V1.1 - same interface as the Ethereum entry",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x2b7Bf2f2027bcfE3A1F6Bc93EA80220a883a6851",
+      "name": "Blue Public Allocator (Vault V2) - same interface as the Ethereum entry",
+      "role": "other",
+      "proxy": null,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x895383274303AA19fe978AFB4Ac55C7f094f982C",
+      "name": "Morpho (Morpho Blue singleton; address differs from Ethereum/Base) - same interface as the Ethereum entry",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0xf7b1d9e43BAeA3705f2B303693766ACbcfec6A55",
+      "name": "VaultV2Factory - same interface as the Ethereum entry",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x1cc30758C8c406D0Bc463Ee89613bA21A2576662",
+      "name": "Blue Public Allocator (Vault V2) - same interface as the Ethereum entry",
+      "role": "other",
+      "proxy": null,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x01b0Bd309AA75547f7a37Ad7B1219A898E67a83a",
+      "name": "Morpho (Morpho Blue singleton; address differs from Ethereum/Base) - same interface as the Ethereum entry",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x29955201601630f686beAF47b0B03be7b86d160F",
+      "name": "VaultV2Factory - same interface as the Ethereum entry",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x92983687e672cA6d96530f9Dbe11a196cE905d72",
+      "name": "MetaMorpho Factory V1.1 - same interface as the Ethereum entry",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x0254e254f50fD4c4A8F38fAAB735487FD5Fe1BD5",
+      "name": "Blue Public Allocator (Vault V2) - same interface as the Ethereum entry",
+      "role": "other",
+      "proxy": null,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x40BD670A58238e6E230c430BBb5cE6ec0d40df48",
+      "name": "MORPHO token (Arbitrum)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.morpho.org/developers/contracts/addresses",
+      "keyFunctions": []
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Morpho Read API",
+      "url": "https://api.morpho.org",
+      "auth": "none",
+      "use": "REST reads for agents and apps: /v0/blue/markets (list, filter by chain_id), /v0/blue/markets/{market}/state, /liquidity, /public-allocator-vaults, /users/{address}/position; /v0/vaults-v1 and /v0/vaults-v2 lists, /v1/vaults-v2/{vault}/state (total_assets, share_price_ray, withdrawable_assets), /v0/vaults-v2/{vault}/allocations, user positions, /v0/tokens/{token}/price, /v0/oracles/{oracle}/state, Midnight books. Rate-limited without a key; OpenAPI at https://docs.morpho.org/openapi.json.",
+      "source": "https://docs.morpho.org/api"
+    },
+    {
+      "name": "Morpho Actions API",
+      "url": "https://private.api.morpho.org",
+      "auth": "api-key",
+      "use": "Builds transaction calls (supply, borrow, vault deposit, etc.) for the user's wallet to sign. API key in the x-api-key header; action requests to api.morpho.org are refused (403).",
+      "source": "https://docs.morpho.org/api"
+    },
+    {
+      "name": "Morpho GraphQL API (legacy)",
+      "url": "https://api.morpho.org/graphql",
+      "auth": "none",
+      "use": "Legacy GraphQL for markets, vaults and positions. Shuts down on January 29, 2027; use the Read API instead.",
+      "source": "https://docs.morpho.org/developers/api/migrate-from-graphql"
+    }
+  ],
+  "actions": [
+    {
+      "name": "find markets / vaults",
+      "description": "Discover markets and vaults (they are not listed one by one here)",
+      "how": "Read API GET https://api.morpho.org/v0/blue/markets?chain_id=1 or /v0/vaults-v2 (listed vaults). On-chain: CreateMarket events on Morpho give marketParams; idToMarketParams(id) returns them; VaultV2Factory.isVaultV2(addr) / MetaMorpho factory isMetaMorpho(addr) verify a vault is genuine."
+    },
+    {
+      "name": "lend in a market",
+      "description": "Supply the loan token to one Morpho Blue market",
+      "how": "approve(Morpho, amount) on the loan token; Morpho.supply(marketParams, amount, 0, you, 0x). Or BlueBundlesV1.blueBundlesV1Supply(...)."
+    },
+    {
+      "name": "borrow",
+      "description": "Borrow against collateral in one market",
+      "how": "approve(Morpho) on collateral; Morpho.supplyCollateral(marketParams, collAmount, you, 0x); then Morpho.borrow(marketParams, amount, 0, you, you). Keep LTV well under LLTV. One tx: BlueBundlesV1.blueBundlesV1SupplyCollateralAndBorrow with a maxLtv guard (needs Morpho authorization for the bundle, by setAuthorization or signedAuthorization)."
+    },
+    {
+      "name": "repay and withdraw collateral",
+      "description": "Close a loan",
+      "how": "approve(Morpho) on the loan token; Morpho.repay(marketParams, 0, position(id,you).borrowShares, you, 0x); Morpho.withdrawCollateral(marketParams, position.collateral, you, you)."
+    },
+    {
+      "name": "deposit into a vault",
+      "description": "Earn curated yield",
+      "how": "Verify the vault with VaultV2Factory.isVaultV2 or isMetaMorpho; approve(vault, amount) on its asset(); vault.deposit(amount, you). Exit: vault.redeem(shares, you, you). Or VaultBundlesV1.vaultBundlesV1Deposit with a maxSharePriceE27 slippage guard."
+    },
+    {
+      "name": "exit an illiquid Vault V2",
+      "description": "Get funds out when the vault's liquidity is allocated",
+      "how": "VaultExitBundlesV1.vaultExitBundlesV1ForceWithdrawVaultV2 (pays the forceDeallocate penalty) or vaultExitBundlesV1InKindRedemptionVaultV2 (take Blue supply positions in kind)."
+    },
+    {
+      "name": "source extra liquidity",
+      "description": "Borrow more than a market currently holds",
+      "how": "Check /v0/blue/markets/{id}/public-allocator-vaults, then BluePublicAllocator.reallocate(...) or pass reallocations to a BlueBundlesV1 entrypoint."
+    }
+  ],
+  "risks": [
+    "Liquidation: if a borrower's LTV (debt / collateral valued by the market's oracle) exceeds the market's immutable LLTV, anyone can liquidate it and seize collateral with an incentive of up to 15% (MAX_LIQUIDATION_INCENTIVE_FACTOR 1.15; the incentive is larger for lower LLTVs).",
+    "Oracle risk: each market's oracle is fixed at creation and anyone can create markets with any oracle; a wrong or manipulable oracle can cause unfair liquidations or bad debt. Morpho's docs say no oracle is immune to manipulation; check the oracle (Read API /v0/oracles/{oracle}/state) before using a market.",
+    "Bad debt is realised immediately and socialised to that market's lenders (and to vaults allocated there). Markets are isolated, so losses stay in the affected market.",
+    "Liquidity risk: lenders can only withdraw what is not borrowed; at 100% utilisation withdrawals revert until borrowers repay (the AdaptiveCurveIrm raises rates sharply to restore liquidity).",
+    "Curator risk (vaults): Vault V1 curators/allocators and Vault V2 Owner/Curator/Allocators/Sentinels decide which markets and adapters the vault uses; a bad allocation means losses for depositors. Most risk-increasing changes are timelocked, gates can block deposits/withdrawals, and fees are capped (Vault V2: performance <= 50%, management <= 5%/yr). Check the vault's curator, timelock and allocations before depositing.",
+    "Vault V2 maxDeposit/maxMint/maxWithdraw/maxRedeem always return 0 by design; integrations that rely on these ERC-4626 limits will think the vault is closed.",
+    "Counterparty risk on assets: centralised loan or collateral tokens can be frozen or blacklisted by their issuer.",
+    "Smart-contract risk: Morpho Blue and the vault contracts are immutable (no admin upgrade); governance (MORPHO holders) can only enable new IRMs/LLTVs and set a fee switch (capped at 25% of interest). Bundler3 and its adapters are deprecated in favour of Bundles; existing deployments stay live but the Morpho app no longer uses them."
+  ],
+  "notes": "Slug: DefiLlama lists Morpho as a parent protocol (api.llama.fi/protocol/morpho) whose main child is 'Morpho Blue' (slug morpho-blue), plus Morpho Midnight and the retired Morpho Optimizers; this file covers the Morpho family. All addresses are from the official docs page https://docs.morpho.org/developers/contracts/addresses (raw markdown at https://docs.morpho.org/developers/contracts/addresses.md) and every one was checked to have contract code (eth_getCode). The Morpho Blue singleton is 0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb only on Ethereum and Base; on other chains it has a different address (listed). keyFunctions are given once on the Ethereum entries; same-named contracts elsewhere share the interface. Vault ERC-4626 functions are shown on the factory entries, marked '[On a Vault ...]', because individual vaults are not listed: find them with the Read API (/v0/vaults-v1, /v0/vaults-v2) and verify with isMetaMorpho / isVaultV2. Morpho is on about 40 chains (HyperEVM, Katana, Monad, Sonic, World Chain, Plasma, Sei, Stable, Tempo, Robinhood Chain, etc.); those, plus ChainlinkOracleV2 factories, MorphoRegistry, Vault V2 adapter factories, Universal Rewards Distributors, Bundler3 migration/Paraswap adapters, MidnightBundles, Midnight ratifiers/periphery and the legacy Morpho Optimizers, are on the addresses page but not listed here. The Vault V1 PublicAllocator is intentionally omitted: the docs say retired Vault V1 allocator addresses are left out and integrators should use the Vault V2 Blue Public Allocator. Midnight (fixed-rate, fixed-term order-book markets) is listed on Ethereum and Base without keyFunctions because its interface (offers, ratifiers, callbacks) is complex; use MidnightBundlesV2 and the Midnight docs (https://docs.morpho.org/developers/midnight/resources/all). Legacy MORPHO 0x9994E35Db50125E0DF82e4c2dde62496CE330999 is not transferable; only wrapped MORPHO is. Signatures come from Sourcify full/partial matches (Morpho, factories, Public Allocator, Bundles, MORPHO implementation) and morpho-org GitHub sources (vault-v2 IVaultV2/IERC4626, VaultV2.sol, metamorpho IMetaMorpho). No dated security incidents are included because none were found on an official Morpho page during research.",
+  "sources": [
+    "https://defillama.com/protocol/morpho",
+    "https://api.llama.fi/protocol/morpho",
+    "https://api.llama.fi/protocol/morpho-blue",
+    "https://docs.morpho.org/llms.txt",
+    "https://docs.morpho.org/developers/contracts/addresses",
+    "https://docs.morpho.org/developers/contracts/addresses.md",
+    "https://docs.morpho.org/developers/contracts/bundles",
+    "https://docs.morpho.org/learn/concepts/bundles",
+    "https://docs.morpho.org/developers/contracts/blue-public-allocator",
+    "https://docs.morpho.org/api",
+    "https://docs.morpho.org/developers/api/migrate-from-graphql",
+    "https://docs.morpho.org/learn/resources/risks",
+    "https://docs.morpho.org/learn/concepts/blue",
+    "https://docs.morpho.org/learn/governance/organization",
+    "https://github.com/morpho-org/morpho-blue/blob/main/src/libraries/ConstantsLib.sol",
+    "https://docs.morpho.org/learn/concepts/vault-v2",
+    "https://docs.morpho.org/learn/governance/morpho-token",
+    "https://sourcify.dev/server/v2/contract/1/0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+    "https://sourcify.dev/server/v2/contract/1/0x1897A8997241C1cD4bD0698647e4EB7213535c24",
+    "https://sourcify.dev/server/v2/contract/1/0xA1D94F746dEfa1928926b84fB2596c06926C0405",
+    "https://sourcify.dev/server/v2/contract/1/0x00b8e1509398ED692C3F326CbAf1694F9A881e27",
+    "https://sourcify.dev/server/v2/contract/1/0x38B0C12AB81976e9417D4ebfe2A34DB6DF22e6AD",
+    "https://sourcify.dev/server/v2/contract/1/0x02912516d49dE997db75B9D7858faAE59209650B",
+    "https://sourcify.dev/server/v2/contract/1/0xaf85aF286637A033BE7d59ED8cC566afa3309B02",
+    "https://sourcify.dev/server/v2/contract/1/0x9D03bb2092270648d7480049d0E58d2FcF0E5123",
+    "https://github.com/morpho-org/vault-v2/blob/main/src/interfaces/IVaultV2.sol",
+    "https://github.com/morpho-org/vault-v2/blob/main/src/interfaces/IERC4626.sol",
+    "https://github.com/morpho-org/vault-v2/blob/main/src/VaultV2.sol",
+    "https://github.com/morpho-org/vault-v2/blob/main/src/VaultV2Factory.sol",
+    "https://github.com/morpho-org/metamorpho/blob/main/src/interfaces/IMetaMorpho.sol"
+  ],
+  "researchedAt": "2026-11-25"
+}

@@ -1,0 +1,1162 @@
+{
+  "slug": "aave-v3",
+  "name": "Aave V3",
+  "category": "Lending",
+  "description": "The largest multi-chain lending market: supply assets to earn variable interest (receive aTokens), borrow against collateral at variable rates, use e-mode for correlated assets, flash-loan, and use GHO (Aave's stablecoin), Savings GHO (sGHO), AAVE staking and Umbrella aToken staking. Agents call the Pool (or the WrappedTokenGateway for native ETH/POL/AVAX/BNB) and read positions via the data providers or the public Aave V3 GraphQL API.",
+  "website": "https://aave.com",
+  "docs": "https://aave.com/docs/aave-v3",
+  "defillama": "https://defillama.com/protocol/aave-v3",
+  "chains": [
+    "ethereum",
+    "base",
+    "arbitrum",
+    "optimism",
+    "polygon",
+    "avalanche",
+    "bnb"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+      "name": "Pool (Ethereum Core)",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+      "keyFunctions": [
+        {
+          "signature": "supply(address,uint256,address,uint16)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply an asset: (asset, amount, onBehalfOf, referralCode=0). Amount in the asset's base units. ERC-20 approve(Pool, amount) first. Mints aTokens 1:1 to onBehalfOf; aToken balance grows with interest. Reverts if the reserve is paused, frozen, inactive or the supply cap is reached."
+        },
+        {
+          "signature": "withdraw(address,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw supplied asset: (asset, amount, to). Burns aTokens. amount = type(uint256).max withdraws the whole balance. Reverts if it would push the health factor below 1 or if the reserve lacks liquidity (high utilisation). Returns the amount withdrawn."
+        },
+        {
+          "signature": "borrow(address,uint256,uint256,uint16,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow: (asset, amount, interestRateMode, referralCode=0, onBehalfOf). interestRateMode must be 2 (variable); stable rate was removed in v3.2. Needs enough collateral (see getUserAccountData.availableBorrowsBase). Debt is a VariableDebtToken balance. Borrowing on behalf of another address needs credit delegation (approveDelegation on the variable debt token)."
+        },
+        {
+          "signature": "repay(address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay debt: (asset, amount, interestRateMode=2, onBehalfOf). ERC-20 approve(Pool) first. amount = type(uint256).max repays the full debt of msg.sender (only when onBehalfOf = msg.sender; for others pass the exact amount). Returns the amount repaid."
+        },
+        {
+          "signature": "repayWithATokens(address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay debt by burning your aTokens of the same asset: (asset, amount, interestRateMode=2). No approval needed. type(uint256).max repays up to the debt with available aTokens."
+        },
+        {
+          "signature": "setUserUseReserveAsCollateral(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Enable/disable a supplied asset as collateral. Disabling reverts if it would drop the health factor below 1. Some assets (LTV 0 or isolated) cannot be enabled together with others."
+        },
+        {
+          "signature": "setUserEMode(uint8)",
+          "kind": "write",
+          "payable": false,
+          "description": "Enter an efficiency-mode category (e.g. ETH-correlated or stablecoin) for higher LTV/liquidation threshold among correlated assets; 0 = leave e-mode. Reverts if current positions are not allowed in the category or the HF would fall below 1. Read categories with getEModeCategoryData / UiPoolDataProvider.getEModes."
+        },
+        {
+          "signature": "getUserAccountData(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (totalCollateralBase, totalDebtBase, availableBorrowsBase, currentLiquidationThreshold, ltv, healthFactor). Base amounts are in the oracle base currency (USD with 8 decimals on these markets; check Oracle.BASE_CURRENCY_UNIT). ltv/threshold in bps. healthFactor has 18 decimals; below 1e18 the position can be liquidated; type(uint256).max when there is no debt."
+        },
+        {
+          "signature": "getReserveData(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Reserve state and config for an asset (ReserveDataLegacy struct): configuration bitmap, liquidityIndex, currentLiquidityRate and currentVariableBorrowRate (ray, 27 decimals, per-second-compounded APR), id, aTokenAddress, variableDebtTokenAddress, interestRateStrategyAddress, accruedToTreasury. Use it to find the aToken / debt token for an asset."
+        },
+        {
+          "signature": "getReservesList()",
+          "kind": "read",
+          "payable": false,
+          "description": "All reserve (underlying asset) addresses listed in this market."
+        },
+        {
+          "signature": "getUserEMode(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "E-mode category id the user is in (0 = none)."
+        },
+        {
+          "signature": "getEModeCategoryData(uint8)",
+          "kind": "read",
+          "payable": false,
+          "description": "E-mode category LTV, liquidation threshold, liquidation bonus and label (legacy struct)."
+        },
+        {
+          "signature": "flashLoanSimple(address,address,uint256,bytes,uint16)",
+          "kind": "write",
+          "payable": false,
+          "description": "Flash loan one asset: (receiverAddress, asset, amount, params, referralCode). receiverAddress must be a contract implementing executeOperation and approve amount + premium back to the Pool in the same tx. Premium is FLASHLOAN_PREMIUM_TOTAL (governance-set, read it on the Pool)."
+        },
+        {
+          "signature": "liquidationCall(address,address,address,uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidate a position with health factor < 1: (collateralAsset, debtAsset, borrower, debtToCover, receiveAToken). Approve debtAsset first. Receives collateral plus the liquidation bonus. Usually up to 50% of the debt per call (100% when HF is very low or position small)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e",
+      "name": "PoolAddressesProvider (Ethereum Core)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+      "keyFunctions": [
+        {
+          "signature": "getPool()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current Pool proxy address of this market. Use it instead of hard-coding if in doubt."
+        },
+        {
+          "signature": "getPriceOracle()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current AaveOracle address."
+        },
+        {
+          "signature": "getPoolDataProvider()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current AaveProtocolDataProvider address."
+        },
+        {
+          "signature": "getACLManager()",
+          "kind": "read",
+          "payable": false,
+          "description": "ACLManager (roles: pool admin, emergency admin, risk admin)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x0a16f2FCC0D44FaE41cc54e079281D84A363bECD",
+      "name": "AaveProtocolDataProvider / PoolDataProvider (Ethereum Core)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+      "keyFunctions": [
+        {
+          "signature": "getReserveTokensAddresses(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(aTokenAddress, stableDebtTokenAddress [deprecated, zero/unused], variableDebtTokenAddress) for an underlying asset. The way to find an asset's aToken and debt token."
+        },
+        {
+          "signature": "getAllReservesTokens()",
+          "kind": "read",
+          "payable": false,
+          "description": "List of (symbol, tokenAddress) for every reserve in the market."
+        },
+        {
+          "signature": "getAllATokens()",
+          "kind": "read",
+          "payable": false,
+          "description": "List of (symbol, aTokenAddress) for every aToken in the market."
+        },
+        {
+          "signature": "getUserReserveData(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(asset, user) -> currentATokenBalance, currentStableDebt (deprecated), currentVariableDebt, principalStableDebt, scaledVariableDebt, stableBorrowRate, liquidityRate, stableRateLastUpdated, usageAsCollateralEnabled. Balances in asset base units; rates in ray."
+        },
+        {
+          "signature": "getReserveConfigurationData(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(decimals, ltv, liquidationThreshold, liquidationBonus, reserveFactor, usageAsCollateralEnabled, borrowingEnabled, stableBorrowRateEnabled, isActive, isFrozen). ltv/threshold/bonus in bps (bonus 10500 = 5%)."
+        },
+        {
+          "signature": "getReserveCaps(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(borrowCap, supplyCap) in whole tokens (not base units); 0 = no cap."
+        },
+        {
+          "signature": "getPaused(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the reserve is paused (no supply, withdraw, borrow, repay or liquidation)."
+        },
+        {
+          "signature": "getReserveData(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Totals and rates: unbacked, accruedToTreasuryScaled, totalAToken, totalStableDebt, totalVariableDebt, liquidityRate, variableBorrowRate (ray), indexes, lastUpdateTimestamp."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x2dAd8162A989cd99D673dE4425Bb2298Db1E1aA2",
+      "name": "UiPoolDataProviderV3 (Ethereum Core)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+      "keyFunctions": [
+        {
+          "signature": "getReservesData(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Argument: the market's PoolAddressesProvider. Returns every reserve with config, caps, rates, prices, e-mode info, plus base-currency info. One call for a full market snapshot."
+        },
+        {
+          "signature": "getUserReservesData(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(PoolAddressesProvider, user) -> per-reserve scaled aToken balance, collateral flag, scaled variable debt, plus the user's e-mode id."
+        },
+        {
+          "signature": "getEModes(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Argument: PoolAddressesProvider. All e-mode categories with their LTV, liquidation threshold, bonus and collateral/borrowable bitmaps."
+        },
+        {
+          "signature": "getReservesList(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Argument: PoolAddressesProvider. Reserve asset list."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xd01607c3C5eCABa394D8be377a08590149325722",
+      "name": "WrappedTokenGatewayV3 (Ethereum Core)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+      "keyFunctions": [
+        {
+          "signature": "depositETH(address,address,uint16)",
+          "kind": "write",
+          "payable": true,
+          "description": "Supply native gas token (ETH/POL/AVAX/BNB) with msg.value: (pool [unused, kept for compatibility; pass the Pool address], onBehalfOf, referralCode=0). Wraps to WETH/WPOL/etc. and mints the aToken to onBehalfOf."
+        },
+        {
+          "signature": "withdrawETH(address,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw native token: (pool [unused], amount, to). First approve the gateway to spend your aWETH (aToken of the wrapped native) for amount. type(uint256).max withdraws all."
+        },
+        {
+          "signature": "borrowETH(address,uint256,uint16)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow native token: (pool [unused], amount, referralCode=0). First call approveDelegation(gateway, amount) on the wrapped-native VariableDebtToken (from getReserveData(WETH).variableDebtTokenAddress); interest rate mode is variable."
+        },
+        {
+          "signature": "repayETH(address,uint256,address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Repay native-token debt with msg.value: (pool [unused], amount, onBehalfOf). Send msg.value >= amount; excess is refunded. type(uint256).max repays the whole debt if msg.value covers it."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x54586bE62E3c3580375aE3723C145253060Ca0C2",
+      "name": "AaveOracle (Ethereum Core)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+      "keyFunctions": [
+        {
+          "signature": "getAssetPrice(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Price of an asset in the base currency (USD, 8 decimals on these markets; check BASE_CURRENCY_UNIT). This is the price Aave uses for health factor and liquidations."
+        },
+        {
+          "signature": "getAssetsPrices(address[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Prices for several assets."
+        },
+        {
+          "signature": "BASE_CURRENCY_UNIT()",
+          "kind": "read",
+          "payable": false,
+          "description": "Unit of the base currency (1e8 for USD-based markets)."
+        },
+        {
+          "signature": "getSourceOfAsset(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Price feed (usually a Chainlink aggregator or a CAPO adapter) used for an asset."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x4e033931ad43597d96D6bcc25c280717730B58B1",
+      "name": "Pool (Ethereum Prime (address book: AaveV3EthereumLido)) - same interface as the Ethereum Core entry",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3EthereumLido.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xcfBf336fe147D643B9Cb705648500e101504B16d",
+      "name": "PoolAddressesProvider (Ethereum Prime (address book: AaveV3EthereumLido)) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3EthereumLido.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xB85B2bFEbeC4F5f401dbf92ac147A3076391fCD5",
+      "name": "AaveProtocolDataProvider / PoolDataProvider (Ethereum Prime (address book: AaveV3EthereumLido)) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3EthereumLido.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x2dAd8162A989cd99D673dE4425Bb2298Db1E1aA2",
+      "name": "UiPoolDataProviderV3 (Ethereum Prime (address book: AaveV3EthereumLido)) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3EthereumLido.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x3167C452fA3fa1e5C16bB83Bc0fde4519C464299",
+      "name": "WrappedTokenGatewayV3 (Ethereum Prime (address book: AaveV3EthereumLido)) - same interface as the Ethereum Core entry",
+      "role": "router",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3EthereumLido.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xE3C061981870C0C7b1f3C4F4bB36B95f1F260BE6",
+      "name": "AaveOracle (Ethereum Prime (address book: AaveV3EthereumLido)) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3EthereumLido.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+      "name": "Pool (Base) - same interface as the Ethereum Core entry",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D",
+      "name": "PoolAddressesProvider (Base) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x0F43731EB8d45A581f4a36DD74F5f358bc90C73A",
+      "name": "AaveProtocolDataProvider / PoolDataProvider (Base) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x0C6BC4a12039788be08F87e87Cff87FEDbd1D386",
+      "name": "UiPoolDataProviderV3 (Base) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xa0d9C1E9E48Ca30c8d8C3B5D69FF5dc1f6DFfC24",
+      "name": "WrappedTokenGatewayV3 (Base) - same interface as the Ethereum Core entry",
+      "role": "router",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x2Cc0Fc26eD4563A5ce5e8bdcfe1A2878676Ae156",
+      "name": "AaveOracle (Base) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+      "name": "Pool (Arbitrum) - same interface as the Ethereum Core entry",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
+      "name": "PoolAddressesProvider (Arbitrum) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x243Aa95cAC2a25651eda86e80bEe66114413c43b",
+      "name": "AaveProtocolDataProvider / PoolDataProvider (Arbitrum) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x91E04cf78e53aEBe609e8a7f2003e7EECD743F2B",
+      "name": "UiPoolDataProviderV3 (Arbitrum) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x5283BEcEd7ADF6D003225C13896E536f2D4264FF",
+      "name": "WrappedTokenGatewayV3 (Arbitrum) - same interface as the Ethereum Core entry",
+      "role": "router",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xb56c2F0B653B2e0b10C9b928C8580Ac5Df02C7C7",
+      "name": "AaveOracle (Arbitrum) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+      "name": "Pool (Optimism) - same interface as the Ethereum Core entry",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
+      "name": "PoolAddressesProvider (Optimism) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x243Aa95cAC2a25651eda86e80bEe66114413c43b",
+      "name": "AaveProtocolDataProvider / PoolDataProvider (Optimism) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x68100bD5345eA474D93577127C11F39FF8463e93",
+      "name": "UiPoolDataProviderV3 (Optimism) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x5f2508cAE9923b02316254026CD43d7902866725",
+      "name": "WrappedTokenGatewayV3 (Optimism) - same interface as the Ethereum Core entry",
+      "role": "router",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0xD81eb3728a631871a7eBBaD631b5f424909f0c77",
+      "name": "AaveOracle (Optimism) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+      "name": "Pool (Polygon) - same interface as the Ethereum Core entry",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
+      "name": "PoolAddressesProvider (Polygon) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x243Aa95cAC2a25651eda86e80bEe66114413c43b",
+      "name": "AaveProtocolDataProvider / PoolDataProvider (Polygon) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x66E1aBdb06e7363a618D65a910c540dfED23754f",
+      "name": "UiPoolDataProviderV3 (Polygon) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xBC302053db3aA514A3c86B9221082f162B91ad63",
+      "name": "WrappedTokenGatewayV3 (Polygon) - same interface as the Ethereum Core entry",
+      "role": "router",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xb023e699F5a33916Ea823A16485e259257cA8Bd1",
+      "name": "AaveOracle (Polygon) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+      "name": "Pool (Avalanche) - same interface as the Ethereum Core entry",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
+      "name": "PoolAddressesProvider (Avalanche) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x243Aa95cAC2a25651eda86e80bEe66114413c43b",
+      "name": "AaveProtocolDataProvider / PoolDataProvider (Avalanche) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0xFBa4Df643205c5400BC3e05a1E67E0dFaEeeb41F",
+      "name": "UiPoolDataProviderV3 (Avalanche) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x2825cE5921538d17cc15Ae00a8B24fF759C6CDaE",
+      "name": "WrappedTokenGatewayV3 (Avalanche) - same interface as the Ethereum Core entry",
+      "role": "router",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0xEBd36016B3eD09D4693Ed4251c67Bd858c3c7C9C",
+      "name": "AaveOracle (Avalanche) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x6807dc923806fE8Fd134338EABCA509979a7e0cB",
+      "name": "Pool (BNB Chain) - same interface as the Ethereum Core entry",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0xff75B6da14FfbbfD355Daf7a2731456b3562Ba6D",
+      "name": "PoolAddressesProvider (BNB Chain) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0xc90Df74A7c16245c5F5C5870327Ceb38Fe5d5328",
+      "name": "AaveProtocolDataProvider / PoolDataProvider (BNB Chain) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x68100bD5345eA474D93577127C11F39FF8463e93",
+      "name": "UiPoolDataProviderV3 (BNB Chain) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x0c2C95b24529664fE55D4437D7A31175CFE6c4f7",
+      "name": "WrappedTokenGatewayV3 (BNB Chain) - same interface as the Ethereum Core entry",
+      "role": "router",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x39bc1bfDa2130d6Bb6DBEfd366939b4c7aa7C697",
+      "name": "AaveOracle (BNB Chain) - same interface as the Ethereum Core entry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9",
+      "name": "AAVE token",
+      "role": "token",
+      "proxy": true,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "AAVE balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer AAVE."
+        },
+        {
+          "signature": "delegate(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Delegate both voting and proposition power to an address (Aave Governance V3)."
+        },
+        {
+          "signature": "getPowerCurrent(address,uint8)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current governance power of a user: (user, delegationType) with 0 = voting, 1 = proposition."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x40D16FC0246aD3160Ccc09B8D0D3A2cD28aE6C2f",
+      "name": "GHO stablecoin",
+      "role": "token",
+      "proxy": false,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/GhoEthereum.sol",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "GHO balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer GHO."
+        },
+        {
+          "signature": "getFacilitatorsList()",
+          "kind": "read",
+          "payable": false,
+          "description": "Addresses allowed to mint GHO (Aave pools, GSMs, flash minter, bridge)."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x6Bb7a212910682DCFdbd5BCBb3e28FB4E8da10Ee",
+      "name": "GHO stablecoin (Base, CCIP-bridged) - standard ERC-20",
+      "role": "token",
+      "proxy": true,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/GhoBase.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x7dfF72693f6A4149b17e7C6314655f6A9F7c8B33",
+      "name": "GHO stablecoin (Arbitrum, CCIP-bridged) - standard ERC-20",
+      "role": "token",
+      "proxy": true,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/GhoArbitrum.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0xfc421aD3C883Bf9E7C4f42dE845C4e4405799e73",
+      "name": "GHO stablecoin (Avalanche, CCIP-bridged) - standard ERC-20",
+      "role": "token",
+      "proxy": null,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/GhoAvalanche.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xE1753F2e00940cC31213dd92013cF019DFE4ca1d",
+      "name": "sGHO (Savings GHO, ERC-4626)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://aave.com/docs/ecosystem/gho/sgho",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit GHO (approve sGHO first): (assets, receiver). Returns shares. Yield accrues via an on-chain rate set by governance; no cooldown, no slashing."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares for GHO instantly: (shares, receiver, owner)."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact GHO amount: (assets, receiver, owner)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "GHO received for a number of shares."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "GHO value of shares (exchange rate)."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Max GHO the owner can withdraw now."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total GHO held by the vault."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x4da27a545c0c5B758a6BA100e3a049001de870f5",
+      "name": "stkAAVE (legacy Safety Module, staked AAVE)",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveSafetyModule.sol",
+      "keyFunctions": [
+        {
+          "signature": "stake(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake AAVE (approve stkAAVE first): (onBehalfOf, amount). Mints stkAAVE, earns AAVE rewards, keeps governance power."
+        },
+        {
+          "signature": "cooldown()",
+          "kind": "write",
+          "payable": false,
+          "description": "Start the unstake cooldown for your whole balance. After the cooldown (getCooldownSeconds) you have a limited unstake window to redeem; otherwise restart it."
+        },
+        {
+          "signature": "redeem(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake after the cooldown, inside the unstake window: (to, amount). Returns AAVE at the current exchange rate."
+        },
+        {
+          "signature": "claimRewards(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued AAVE rewards: (to, amount); type(uint256).max claims all."
+        },
+        {
+          "signature": "getTotalRewardsBalance(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimable AAVE rewards of a staker."
+        },
+        {
+          "signature": "getCooldownSeconds()",
+          "kind": "read",
+          "payable": false,
+          "description": "Cooldown length in seconds."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "AAVE received for an amount of stkAAVE (exchange rate can fall if slashed)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1a88Df1cFe15Af22B3c4c783D4e6F7F9e0C1885d",
+      "name": "stkGHO (legacy Safety Module, being phased out for sGHO / Umbrella stkGHO) - same staking interface as stkAAVE",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveSafetyModule.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xD400fc38ED4732893174325693a63C30ee3881a8",
+      "name": "Umbrella (core, Ethereum) - users interact with the StakeTokens, not this contract",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/UmbrellaEthereum.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6bf183243FdD1e306ad2C4450BC7dcf6f0bf8Aa6",
+      "name": "Umbrella StakeToken stkwaUSDC.v1 (Ethereum Core aUSDC)",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/UmbrellaEthereum.sol",
+      "keyFunctions": [
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token to stake: a wrapped aToken (stata token, e.g. waEthUSDC) or GHO. Plain aTokens can be wrapped and staked in one tx via UmbrellaBatchHelper (see address book)."
+        },
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake (approve the StakeToken for asset() first): (assets, receiver). Mints shares; the exchange rate starts 1:1 and only falls if slashed."
+        },
+        {
+          "signature": "cooldown()",
+          "kind": "write",
+          "payable": false,
+          "description": "Start the 20-day cooldown (governance-configurable). Funds stay slashable during it; then a 2-day window to withdraw."
+        },
+        {
+          "signature": "getStakerCooldown(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Cooldown snapshot of a user (amount, end time, withdrawal window)."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake shares inside the unstake window: (shares, receiver, owner)."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake an exact asset amount inside the window: (assets, receiver, owner)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Assets for shares at the current (possibly slashed) rate."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xA484Ab92fe32B143AEE7019fC1502b1dAA522D31",
+      "name": "Umbrella StakeToken stkwaUSDT.v1 (Ethereum Core aUSDT) - same ERC-4626 StakeToken interface as stkwaUSDC.v1",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/UmbrellaEthereum.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xaAFD07D53A7365D3e9fb6F3a3B09EC19676B73Ce",
+      "name": "Umbrella StakeToken stkwaWETH.v1 (Ethereum Core aWETH) - same ERC-4626 StakeToken interface as stkwaUSDC.v1",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/UmbrellaEthereum.sol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x4f827A63755855cDf3e8f3bcD20265C833f15033",
+      "name": "Umbrella StakeToken stkGHO.v1 (GHO) - same ERC-4626 StakeToken interface as stkwaUSDC.v1",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/UmbrellaEthereum.sol",
+      "keyFunctions": []
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Aave V3 GraphQL API (AaveKit API)",
+      "url": "https://api.v3.aave.com/graphql",
+      "auth": "none",
+      "use": "Markets, reserves, rates and user positions across all Aave V3 chains, and transaction building: simple queries return a TransactionRequest (to, data, value, chainId); complex ones return an ExecutionPlan (ApprovalRequired first, then the tx; or InsufficientBalanceError). Also sGHO vault previews and deposit/redeem plans. The URL is also a GraphQL playground.",
+      "source": "https://aave.com/docs/aave-v3/getting-started/graphql"
+    }
+  ],
+  "actions": [
+    {
+      "name": "supply",
+      "description": "Lend an ERC-20 and earn interest",
+      "how": "ERC-20 approve(Pool, amount); Pool.supply(asset, amount, onBehalfOf=you, 0). Native token: WrappedTokenGatewayV3.depositETH(Pool, you, 0) with msg.value."
+    },
+    {
+      "name": "withdraw",
+      "description": "Take supplied assets back",
+      "how": "Pool.withdraw(asset, amount or type(uint256).max, to). Native: approve aWETH to the gateway, then gateway.withdrawETH(Pool, amount, to)."
+    },
+    {
+      "name": "borrow",
+      "description": "Borrow against collateral at a variable rate",
+      "how": "Make sure the supplied asset is collateral (setUserUseReserveAsCollateral(asset,true) if needed), check Pool.getUserAccountData(you).availableBorrowsBase, convert to token units with Oracle.getAssetPrice, then Pool.borrow(asset, amount, 2, 0, you). Keep the health factor well above 1e18."
+    },
+    {
+      "name": "repay",
+      "description": "Repay a loan",
+      "how": "approve(Pool, amount); Pool.repay(asset, amount or type(uint256).max, 2, you). Or repayWithATokens(asset, amount, 2) to repay with your deposits of the same asset."
+    },
+    {
+      "name": "find aToken / debt token addresses",
+      "description": "Get the aToken and variable debt token of any reserve",
+      "how": "AaveProtocolDataProvider.getReserveTokensAddresses(asset) or Pool.getReserveData(asset).aTokenAddress / variableDebtTokenAddress. List reserves with Pool.getReservesList(). Full lists are in the per-market address-book file (…Assets library)."
+    },
+    {
+      "name": "check health / risk",
+      "description": "Read a user's position",
+      "how": "Pool.getUserAccountData(user) (healthFactor 18 decimals; < 1e18 = liquidatable); per-asset detail via ProtocolDataProvider.getUserReserveData(asset,user) or UiPoolDataProvider.getUserReservesData(provider,user)."
+    },
+    {
+      "name": "e-mode",
+      "description": "Higher LTV for correlated assets",
+      "how": "Read categories via UiPoolDataProvider.getEModes(provider); Pool.setUserEMode(categoryId). 0 exits."
+    },
+    {
+      "name": "save in GHO",
+      "description": "Earn the GHO savings rate",
+      "how": "approve(sGHO, amount) on GHO; sGHO.deposit(amount, you). Exit any time with sGHO.redeem(shares, you, you)."
+    },
+    {
+      "name": "stake in Umbrella",
+      "description": "Earn extra rewards by covering bad debt",
+      "how": "approve the StakeToken for its asset() (wrapped aToken or GHO); StakeToken.deposit(assets, you). To exit: cooldown(), wait 20 days, then redeem within the 2-day window."
+    },
+    {
+      "name": "build tx via API",
+      "description": "Let Aave build the calldata",
+      "how": "POST a GraphQL query to https://api.v3.aave.com/graphql (supply/borrow/repay/withdraw queries) and sign the returned TransactionRequest / ExecutionPlan steps."
+    }
+  ],
+  "risks": [
+    "Liquidation: if the health factor (getUserAccountData, 18 decimals) drops below 1, anyone can repay part of the debt and seize collateral plus that reserve's liquidation bonus (getReserveConfigurationData.liquidationBonus, e.g. 10500 = 5%). Prices come from AaveOracle (mostly Chainlink feeds, some with CAPO price caps for LSTs/stablecoins); oracle errors or delays can cause unexpected liquidations.",
+    "Variable rates only: stable-rate borrowing was removed (v3.2); interestRateMode must be 2. Rates jump sharply above each reserve's optimal utilisation, and at 100% utilisation suppliers cannot withdraw until borrowers repay or new supply arrives.",
+    "Reserves can be frozen (no new supply/borrow; repay/withdraw still work) or paused (nothing works, including liquidations) by governance or the Protocol Guardian; supply and borrow caps can make transactions revert. Check ProtocolDataProvider.getReserveConfigurationData (isFrozen) and getPaused before acting.",
+    "Isolation mode / siloed borrowing / e-mode restrict what a user can borrow alongside certain collateral. The aave-v3-origin main branch marks debt-ceiling isolation and siloed borrowing as deprecated in v3.7.0 in favour of isolated e-mode categories; which behaviour applies depends on the version deployed in each market, so read the reserve config rather than assuming.",
+    "aTokens and debt tokens are rebasing (balances grow every second); integrations that cache balances will be off. Debt tokens are non-transferable.",
+    "Pools, aTokens and most periphery are upgradeable proxies controlled by Aave Governance V3 (AAVE holders, with timelocked executors) plus a Protocol Guardian multisig that can pause/freeze; contract logic can change after a governance vote.",
+    "Umbrella stakers and legacy stkAAVE/stkABPT can be slashed to cover bad debt (Umbrella: per asset/network, 20-day cooldown then a 2-day window, slashable during cooldown). sGHO has no cooldown and no slashing.",
+    "GHO is minted by facilitators (Aave pools, GSMs, bridges) with rates and caps set by governance; it is a soft-pegged stablecoin and can trade off peg. Bridged GHO on Base/Arbitrum/Avalanche moves via Chainlink CCIP.",
+    "L2 markets (Base, Arbitrum, Optimism, Polygon, Avalanche) use the L2Pool variant, which also accepts the normal Pool function signatures; BNB, Base and Ethereum Prime have different addresses from the shared 0x794a... Pool used on Arbitrum/Optimism/Polygon/Avalanche."
+  ],
+  "notes": "Every address comes from the official BGD Labs aave-address-book (github.com/bgd-labs/aave-address-book, autogenerated from on-chain governance state; the aave.com docs point to it as the address registry). 'Ethereum Prime' is the market the address book still names AaveV3EthereumLido (its GHO steward is called GHO_AAVE_PRIME_STEWARD). keyFunctions are listed once on the Ethereum Core contracts; all other markets' Pool, PoolAddressesProvider, PoolDataProvider, UiPoolDataProvider, Gateway and Oracle share the same interface. Not listed on purpose: individual aTokens, variable debt tokens, stata tokens and per-asset oracles (hundreds; get them with getReserveTokensAddresses / getReserveData or the …Assets library in each address-book file), PoolConfigurator/ACLManager/Collector/EmissionManager (admin only), UiIncentiveDataProvider and RewardsController (in the address book if you need incentives), swap adapters (ParaSwap/CoW, change often), GHO GSMs (GhoEthereum.sol: GSM_USDC 0x3A3868898305f04beC7FEa77BecFf04C13444112, GSM_USDT 0x882285E62656b9623AF136Ce3078c6BdCc33F5E3 - not added as contracts because their underlying asset could not be re-checked on-chain during research), stkABPT, UmbrellaBatchHelper (0xCe6Ced23118EDEb23054E06118a702797b13fc2F in UmbrellaEthereum.sol; signatures not verified here), and Aave V3 on the ~30 other chains DefiLlama lists (Gnosis, Scroll, Linea, Sonic, zkSync, Mantle, Metis, Celo, Soneium, Plasma, MegaETH, X Layer, Monad, Ethereum EtherFi/Horizon markets, etc.: see AaveV3<Chain>.sol files in the address book). Aave V4 is a separate protocol (api.v4.aave.com) and not covered. All addresses have contract code on their chain (eth_getCode checked for every Ethereum address and every Pool/provider/gateway/oracle/UiPoolDataProvider elsewhere). Signatures come from aave-dao/aave-v3-origin interfaces, bgd-labs/aave-stk-v1-5 (stkAAVE) and Sourcify (Umbrella StakeToken, sGHO implementations). AAVE token and stkAAVE/umbrella use 18 decimals.",
+  "sources": [
+    "https://defillama.com/protocol/aave-v3",
+    "https://api.llama.fi/protocol/aave-v3",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3EthereumLido.sol",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/GhoEthereum.sol",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/GhoBase.sol",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/GhoArbitrum.sol",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/GhoAvalanche.sol",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveSafetyModule.sol",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/UmbrellaEthereum.sol",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/MiscEthereum.sol",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/GovernanceV3Ethereum.sol",
+    "https://raw.githubusercontent.com/bgd-labs/aave-address-book/main/src/AaveV3Ethereum.sol",
+    "https://github.com/aave-dao/aave-v3-origin/blob/main/src/contracts/interfaces/IPool.sol",
+    "https://github.com/aave-dao/aave-v3-origin/blob/main/src/contracts/interfaces/IPoolDataProvider.sol",
+    "https://github.com/aave-dao/aave-v3-origin/blob/main/src/contracts/helpers/interfaces/IWrappedTokenGatewayV3.sol",
+    "https://github.com/aave-dao/aave-v3-origin/blob/main/src/contracts/helpers/interfaces/IUiPoolDataProviderV3.sol",
+    "https://github.com/aave-dao/aave-v3-origin/blob/main/src/contracts/interfaces/IAaveOracle.sol",
+    "https://github.com/aave-dao/aave-v3-origin/blob/main/src/contracts/interfaces/IPriceOracleGetter.sol",
+    "https://github.com/bgd-labs/aave-stk-v1-5/blob/main/src/interfaces/IStakedTokenV2.sol",
+    "https://github.com/bgd-labs/aave-stk-v1-5/blob/main/src/interfaces/IStakedTokenV3.sol",
+    "https://sourcify.dev/server/v2/contract/1/0x75e8aC0c063B6966E2A9954adEdf39BdE9370197",
+    "https://aave.com/docs/llms.txt",
+    "https://aave.com/docs/aave-v3/getting-started/graphql",
+    "https://aave.com/docs/aave-v3/smart-contracts/wrapped-token-gateway",
+    "https://aave.com/docs/aave-v3/umbrella",
+    "https://aave.com/docs/ecosystem/gho/sgho",
+    "https://aave.com/docs/ecosystem/gho",
+    "https://aave.com/docs/resources/addresses"
+  ],
+  "researchedAt": "2026-11-25"
+}

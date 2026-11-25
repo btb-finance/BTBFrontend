@@ -1,0 +1,881 @@
+{
+  "slug": "olympus-dao",
+  "name": "Olympus DAO",
+  "category": "Reserve Currency",
+  "description": "OHM is a treasury-backed, free-floating reserve currency. Agents can stake OHM into gOHM (wrap/unwrap), borrow USDS against gOHM in Cooler Loans V2 (perpetual, fixed rate, no price liquidations), bid USDS in the Convertible Deposits auction for an option to convert into OHM, sell OHM into the Yield Repurchase Facility's daily Bond Protocol markets, bridge OHM between Ethereum, Arbitrum, Optimism, Base and Berachain through Chainlink CCIP, and vote with gOHM in Governor Bravo.",
+  "website": "https://olympusdao.finance",
+  "docs": "https://docs.olympusdao.finance",
+  "defillama": "https://defillama.com/protocol/olympus-dao",
+  "chains": [
+    "ethereum",
+    "arbitrum",
+    "base",
+    "berachain",
+    "optimism"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5",
+      "name": "OHM",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "OHM balance (9 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve Staking (stake), the CCIP bridge (bridge) or the Bond Teller (sell into YRF markets)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Ethereum OHM supply; includes OHM locked in the CCIP lock/release pool for other chains."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x0ab87046fBb341D058F17CBC4c1133F25a20a52f",
+      "name": "gOHM",
+      "role": "governance",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "gOHM balance (18 decimals)."
+        },
+        {
+          "signature": "index()",
+          "kind": "read",
+          "payable": false,
+          "description": "OHM per gOHM with 9 decimals (269238508004 = 269.2385 OHM per gOHM on 2026-11-25; fixed since rebases stopped)."
+        },
+        {
+          "signature": "balanceFrom(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert a gOHM amount (18 dec) to OHM (9 dec)."
+        },
+        {
+          "signature": "balanceTo(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert an OHM amount (9 dec) to gOHM (18 dec)."
+        },
+        {
+          "signature": "delegate(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Delegate gOHM voting power (required to vote in Governor Bravo, including for yourself)."
+        },
+        {
+          "signature": "getCurrentVotes(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current delegated votes of an account."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve MonoCooler before addCollateral."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x04906695D6D12CF5459975d7C3C03356E4Ccd460",
+      "name": "sOHM",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "sOHM balance (9 decimals). Legacy rebasing staked OHM; rebasing has ended."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve Staking before wrap() or unstake(...,_rebasing=true)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xB63cac384247597756545b500253ff8E607a8020",
+      "name": "OlympusStaking",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "stake(address,uint256,bool,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake OHM. Args: _to, _amount (OHM, 9 dec), _rebasing (false = receive gOHM, true = sOHM), _claim (true; warmupPeriod is 0). Approve OHM to Staking first. Returns amount received."
+        },
+        {
+          "signature": "unstake(address,uint256,bool,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake to OHM. Args: _to, _amount, _trigger (false; no rebase rewards are distributed), _rebasing (false = _amount is gOHM, burned from caller, no approval needed; true = _amount is sOHM, approve sOHM first). No cooldown or fee."
+        },
+        {
+          "signature": "wrap(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Convert sOHM to gOHM. Args: _to, sOHM amount. Approve sOHM first."
+        },
+        {
+          "signature": "unwrap(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Convert gOHM to sOHM. Args: _to, gOHM amount."
+        },
+        {
+          "signature": "index()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current index (9 decimals)."
+        },
+        {
+          "signature": "warmupPeriod()",
+          "kind": "read",
+          "payable": false,
+          "description": "Warmup epochs before staked OHM is claimable (0 on 2026-11-25)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xdb591Ea2e5Db886dA872654D58f6cc584b68e7cC",
+      "name": "Cooler Loans V2 (MonoCooler)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "addCollateral(uint128,address,(address,int256)[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit gOHM collateral. Args: collateralAmount (18 dec), onBehalfOf, delegationRequests [(delegate, amount)] (may be empty). Approve gOHM to MonoCooler first."
+        },
+        {
+          "signature": "borrow(uint128,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow USDS (debtToken 0xdC035D45d973E3EC169d2276DDab16f1e407384F). Args: borrowAmountInWad (18 dec; type(uint128).max = max up to origination LTV), onBehalfOf, recipient. Debt must be >= minDebtRequired (1,000 USDS). Interest accrues continuously at interestRateWad (0.49875%/yr on 2026-11-25); no term or expiry."
+        },
+        {
+          "signature": "repay(uint128,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay USDS debt (approve USDS first). Args: repayAmountInWad (capped at current debt), onBehalfOf. Remaining debt must stay >= 1,000 USDS unless fully repaid. Interest is paid first. No fee."
+        },
+        {
+          "signature": "withdrawCollateral(uint128,address,address,(address,int256)[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw gOHM. Args: collateralAmount (type(uint128).max = max allowed), onBehalfOf, recipient, delegationRequests (undelegations needed to free the gOHM). LTV must stay <= origination LTV."
+        },
+        {
+          "signature": "accountPosition(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(collateral, currentDebt, maxOriginationDebtAmount, liquidationDebtAmount, healthFactor, currentLtv, totalDelegated, numDelegateAddresses, maxDelegateAddresses) for an account."
+        },
+        {
+          "signature": "debtDeltaForMaxOriginationLtv(address,int128)",
+          "kind": "read",
+          "payable": false,
+          "description": "Extra USDS that can be borrowed (positive) or must be repaid (negative) after a collateral change."
+        },
+        {
+          "signature": "loanToValues()",
+          "kind": "read",
+          "payable": false,
+          "description": "(maxOriginationLtv, liquidationLtv) in USDS per gOHM, 18 dec (3,123.18 and 3,154.42 on 2026-11-25). Set by governance via the LTV oracle, not by market price."
+        },
+        {
+          "signature": "interestRateWad()",
+          "kind": "read",
+          "payable": false,
+          "description": "Annual interest rate (1e18 = 100%)."
+        },
+        {
+          "signature": "setAuthorization(address,uint96)",
+          "kind": "write",
+          "payable": false,
+          "description": "Authorize another address (e.g. the Composites periphery) to act on your position until a deadline."
+        },
+        {
+          "signature": "applyDelegations((address,int256)[],address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Delegate/undelegate collateral gOHM voting power (up to 10 delegates)."
+        },
+        {
+          "signature": "borrowsPaused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if new borrows are paused."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6593768feBF9C95aC857Fb7Ef244D5738D1C57Fd",
+      "name": "Cooler V2 Composites (periphery)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "addCollateralAndBorrow((address,address,uint96,uint256,uint256),(uint8,bytes32,bytes32),uint128,uint128,(address,int256)[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Add gOHM and borrow USDS in one tx. Args: authorization (account, authorized = Composites, authorizationDeadline, nonce, signatureDeadline), EIP-712 signature (v,r,s) for MonoCooler.setAuthorizationWithSig (pass a zero authorization/signature if already authorized), collateralAmount, borrowAmount, delegationRequests. Approve gOHM to Composites."
+        },
+        {
+          "signature": "repayAndRemoveCollateral((address,address,uint96,uint256,uint256),(uint8,bytes32,bytes32),uint128,uint128,(address,int256)[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay USDS and withdraw gOHM in one tx. Args: authorization, signature, repayAmount, collateralAmount, delegationRequests. Approve USDS to Composites."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xF35193DA8C10e44aF10853Ba5a3a1a6F7529E39a",
+      "name": "ConvertibleDepositAuctioneer",
+      "role": "exchange",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "bid(uint8,uint256,uint256,bool,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Bid USDS for a convertible deposit. Args: depositPeriod (months; getDepositPeriods() returned [6] on 2026-11-25), depositAmount (USDS, 18 dec), minOhmOut (slippage: minimum OHM the position converts to), wrapPosition (ERC721), wrapReceipt (ERC20). Approve USDS to the DepositManager (0xcb4E21Eb404d80F3e1dB781aAd9AD6A1217fbbf2). Returns (ohmOut, positionId, receiptTokenId, actualAmount). Minimum bid getMinimumBid() was 100,000 USDS on 2026-11-25."
+        },
+        {
+          "signature": "previewBid(uint8,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "OHM a bid of depositAmount would be convertible into (average conversion price across ticks)."
+        },
+        {
+          "signature": "isAuctionActive()",
+          "kind": "read",
+          "payable": false,
+          "description": "True when the EmissionManager has an auction running (it runs only while OHM trades above the minimum premium to backing; false on 2026-11-25)."
+        },
+        {
+          "signature": "getCurrentTick(uint8)",
+          "kind": "read",
+          "payable": false,
+          "description": "(price in USDS per OHM, remaining OHM capacity, lastUpdate) of the current tick for a deposit period."
+        },
+        {
+          "signature": "getAuctionParameters()",
+          "kind": "read",
+          "payable": false,
+          "description": "(daily OHM target, tick size, minimum price)."
+        },
+        {
+          "signature": "getDepositPeriods()",
+          "kind": "read",
+          "payable": false,
+          "description": "Enabled deposit periods in months."
+        },
+        {
+          "signature": "getMinimumBid()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum bid in deposit-asset units."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xEBDe552D851DD6Dfd3D360C596D3F4aF6e5F9678",
+      "name": "ConvertibleDepositFacility",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "convert(uint256[],uint256[],bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Convert receipt tokens to OHM at each position's locked price before position expiry. Args: positionIds, amounts (receipt tokens), wrappedReceipt (true if using the ERC20-wrapped receipt). Returns (receiptTokenIn, OHM out)."
+        },
+        {
+          "signature": "previewConvert(address,uint256[],uint256[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview (receiptTokenIn, OHM out) for an account."
+        },
+        {
+          "signature": "reclaim(address,uint8,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Early exit: burn receipt tokens and get the deposit asset back minus the reclaim discount. Args: depositToken (USDS), depositPeriod, amount. Approve the receipt token to the DepositManager first. No position needed."
+        },
+        {
+          "signature": "previewReclaim(address,uint8,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit asset returned by reclaim (after discount)."
+        },
+        {
+          "signature": "getAssetPeriodReclaimRate(address,uint8)",
+          "kind": "read",
+          "payable": false,
+          "description": "Reclaim rate for an asset/period (ONE_HUNDRED_PERCENT scale)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x20a3d8510f2e1176E8Db4CeA9883a8287a9029Db",
+      "name": "DepositRedemptionVault",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "startRedemption(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Start full redemption of a position's receipt tokens. Args: positionId, amount. Redeemable at the position's conversion expiry. Returns a redemptionId (uint16)."
+        },
+        {
+          "signature": "startRedemption(address,uint8,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Start redemption of receipt tokens without a position. Args: depositToken, depositPeriod (months), amount, facility (ConvertibleDepositFacility). Redeemable depositPeriod months after the call."
+        },
+        {
+          "signature": "finishRedemption(uint16)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim the full deposit amount once redeemableAt has passed (reverts RedemptionVault_TooEarly before)."
+        },
+        {
+          "signature": "cancelRedemption(uint16,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Cancel (part of) a redemption; receipt tokens are returned."
+        },
+        {
+          "signature": "getUserRedemptions(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "All redemptions of a user (deposit token, period, amount, redeemableAt, ...)."
+        },
+        {
+          "signature": "borrowAgainstRedemption(uint16)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow the maximum amount against an active redemption (preview with previewBorrowAgainstRedemption: principal, interest, dueDate). Unpaid loans default at the due date."
+        },
+        {
+          "signature": "repayLoan(uint16,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay a redemption loan. Args: redemptionId, amount, maxSlippage."
+        },
+        {
+          "signature": "extendLoan(uint16,uint8)",
+          "kind": "write",
+          "payable": false,
+          "description": "Extend a redemption loan's due date by N months, paying interest (preview with previewExtendLoan)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x271e35a8555a62F6bA76508E85dfD76D580B0692",
+      "name": "YieldRepurchaseFacility",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "getNextYield()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDS yield to be used for buybacks next week."
+        },
+        {
+          "signature": "getReserveBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "Reserves held for buybacks."
+        },
+        {
+          "signature": "backingPerToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Backing value per OHM used to swap purchased OHM for reserves."
+        },
+        {
+          "signature": "epoch()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current epoch (heart beats every 8 hours, 21 per week)."
+        },
+        {
+          "signature": "teller()",
+          "kind": "read",
+          "payable": false,
+          "description": "Bond Protocol teller used for the daily OHM buyback market (0x007F7735baF391e207E3aA380bb53c4Bd9a5Fed6)."
+        },
+        {
+          "signature": "auctioneer()",
+          "kind": "read",
+          "payable": false,
+          "description": "Bond Protocol auctioneer that holds the buyback markets (0x007F7A1cb838A872515c8ebd16bE4b14Ef43a222)."
+        },
+        {
+          "signature": "isShutdown()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the facility is shut down."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x007F7735baF391e207E3aA380bb53c4Bd9a5Fed6",
+      "name": "Bond Protocol BondTeller (dependency)",
+      "role": "exchange",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "purchase(address,address,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell OHM into a YRF buyback market (you pay OHM, the market pays out USDS). Args: recipient, referrer (zero address), market id, amount of OHM in, minAmountOut. Approve OHM to the teller. Returns (payout, expiry). Find the day's market id from the auctioneer's markets created by the YRF (MarketCreated events)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xFbf6383dC3F6010d403Ecdf12DDC1311701D143D",
+      "name": "CCIPCrossChainBridge",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "sendToEVM(uint64,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge OHM via Chainlink CCIP. Args: destination CCIP chain selector (Arbitrum 4949039107694359620, Optimism 3734403246176062136, Base 15971525489660198786, Berachain 1294465214383781161; verified via getTrustedRemoteEVM), recipient, amount (OHM 9 dec). Approve OHM to the bridge. msg.value must cover getFeeEVM; any excess is NOT refunded. No Olympus fee."
+        },
+        {
+          "signature": "getFeeEVM(uint64,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "CCIP fee in ETH for a transfer."
+        },
+        {
+          "signature": "sendToSVM(uint64,bytes32,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge OHM to Solana (recipient as bytes32). The recipient must already have an OHM associated token account."
+        },
+        {
+          "signature": "getTrustedRemoteEVM(uint64)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridge contract on the destination chain (zero = lane not configured)."
+        },
+        {
+          "signature": "isEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the bridge is enabled."
+        },
+        {
+          "signature": "retryFailedMessage(bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Retry delivery of a failed inbound message."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x2286d7f9639e8158FaD1169e76d1FbC38247f54b",
+      "name": "Kernel",
+      "role": "governance",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "isPolicyActive(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if a policy is installed and active; use it to confirm a contract is current before calling it."
+        },
+        {
+          "signature": "getModuleForKeycode(bytes5)",
+          "kind": "read",
+          "payable": false,
+          "description": "Module address for a keycode (e.g. 'TRSRY', 'MINTR', 'PRICE')."
+        },
+        {
+          "signature": "activePolicies(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Active policy at index i."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x0941233c964e7d7Efeb05D253176E5E634cEFfcD",
+      "name": "Governor Bravo (Delegator)",
+      "role": "governance",
+      "proxy": true,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "castVote(uint256,uint8)",
+          "kind": "write",
+          "payable": false,
+          "description": "Vote on a proposal: 0 = against, 1 = for, 2 = abstain. Needs delegated gOHM votes."
+        },
+        {
+          "signature": "castVoteWithReason(uint256,uint8,string)",
+          "kind": "write",
+          "payable": false,
+          "description": "Vote with a reason string."
+        },
+        {
+          "signature": "state(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Proposal state enum."
+        },
+        {
+          "signature": "proposalCount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of proposals."
+        },
+        {
+          "signature": "getReceipt(uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether/how an account voted."
+        },
+        {
+          "signature": "getQuorumVotes()",
+          "kind": "read",
+          "payable": false,
+          "description": "Votes needed for quorum."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xf0cb2dc0db5e6c66B9a70Ac27B06b878da017028",
+      "name": "OHM",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "OHM balance (9 decimals). Native OHM minted/burned by the CCIP token pool."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x8D9bA570D6cb60C7e3e0F31343Efe75AB8E65FB1",
+      "name": "gOHM (Arbitrum, bridged)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged gOHM balance. Cannot vote in Governor Bravo (Snapshot only)."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xb4f620c39F3BA4a1E7aD264fEd6239B0C618DB50",
+      "name": "CCIPCrossChainBridge",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "sendToEVM(uint64,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge OHM (burned here). Args: destination chain selector (Ethereum 5009297550715157269), recipient, amount. Approve OHM; pay getFeeEVM in ETH (excess not refunded)."
+        },
+        {
+          "signature": "getFeeEVM(uint64,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "CCIP fee in ETH."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x060cb087a9730E13aa191f31A6d86bFF8DfcdCC0",
+      "name": "OHM",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "OHM balance (9 decimals)."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xEBDe552D851DD6Dfd3D360C596D3F4aF6e5F9678",
+      "name": "CCIPCrossChainBridge",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "sendToEVM(uint64,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge OHM from Base. Args: destination chain selector, recipient, amount. Approve OHM; pay getFeeEVM in ETH."
+        },
+        {
+          "signature": "getFeeEVM(uint64,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "CCIP fee in ETH."
+        }
+      ]
+    },
+    {
+      "chain": "berachain",
+      "chainId": 80094,
+      "address": "0x18878Df23e2a36f81e820e4b47b4A40576D3159C",
+      "name": "OHM",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "OHM balance (9 decimals)."
+        }
+      ]
+    },
+    {
+      "chain": "berachain",
+      "chainId": 80094,
+      "address": "0xF35193DA8C10e44aF10853Ba5a3a1a6F7529E39a",
+      "name": "CCIPCrossChainBridge",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "sendToEVM(uint64,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge OHM from Berachain (lanes: Ethereum, Arbitrum, Base). Approve OHM; pay getFeeEVM in BERA."
+        },
+        {
+          "signature": "getFeeEVM(uint64,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "CCIP fee in BERA."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x060cb087a9730E13aa191f31A6d86bFF8DfcdCC0",
+      "name": "OHM",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0xcb4E21Eb404d80F3e1dB781aAd9AD6A1217fbbf2",
+      "name": "CCIPCrossChainBridge",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://docs.olympusdao.finance/main/contracts/addresses",
+      "keyFunctions": [
+        {
+          "signature": "sendToEVM(uint64,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge OHM from Optimism (lanes: Ethereum, Arbitrum, Base). Approve OHM; pay getFeeEVM in ETH."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Olympus MCP server",
+      "url": "https://mcp.olympusdao.finance/mcp",
+      "auth": "none",
+      "use": "Read-only MCP (Streamable HTTP) over Olympus on-chain state, protocol metrics, Cooler loans, supply, governance and docs.",
+      "source": "https://docs.olympusdao.finance/main/for-agents/mcp/introduction"
+    },
+    {
+      "name": "Protocol Visualizer Indexer (GraphQL)",
+      "url": "https://protocol-visualizer-indexer-production.up.railway.app/graphql",
+      "auth": "none",
+      "use": "List Kernel-installed contracts per chain (filter isEnabled: true). It returned 'Application not found' on 2026-11-25; fall back to Kernel.isPolicyActive.",
+      "source": "https://docs.olympusdao.finance/main/for-agents/contract-registry"
+    }
+  ],
+  "actions": [
+    {
+      "name": "stake OHM for gOHM",
+      "description": "Get gOHM (needed for Cooler collateral and governance).",
+      "how": "OHM.approve(Staking, amount); Staking.stake(to, amount, false, true)."
+    },
+    {
+      "name": "unstake gOHM to OHM",
+      "description": "Redeem gOHM for OHM at the index (no fee, no delay).",
+      "how": "Staking.unstake(to, gOhmAmount, false, false)."
+    },
+    {
+      "name": "borrow USDS against gOHM",
+      "description": "Open or increase a Cooler V2 loan.",
+      "how": "gOHM.approve(MonoCooler, amount); MonoCooler.addCollateral(amount, self, []); MonoCooler.borrow(usdsWad, self, self). Check accountPosition() first; min debt 1,000 USDS. Or use Composites.addCollateralAndBorrow in one tx."
+    },
+    {
+      "name": "repay and withdraw",
+      "description": "Repay Cooler debt and take back gOHM.",
+      "how": "USDS.approve(MonoCooler, amount); MonoCooler.repay(amount, self); MonoCooler.withdrawCollateral(type(uint128).max, self, self, [])."
+    },
+    {
+      "name": "bid in the convertible deposit auction",
+      "description": "Deposit USDS for an option to convert into OHM at the locked price.",
+      "how": "Check isAuctionActive() and previewBid(period, amount); USDS.approve(DepositManager 0xcb4E21Eb404d80F3e1dB781aAd9AD6A1217fbbf2, amount); Auctioneer.bid(period, amount, minOhmOut, false, false). Later: Facility.convert(...) before expiry, DepositRedemptionVault.startRedemption/finishRedemption for the full deposit, or Facility.reclaim(...) for an early exit at a discount."
+    },
+    {
+      "name": "sell OHM to the Yield Repurchase Facility",
+      "description": "The YRF buys OHM for USDS each day through a Bond Protocol market.",
+      "how": "Find the current market on the Bond auctioneer (created by the YRF), OHM.approve(BondTeller, amount), BondTeller.purchase(recipient, 0x0, marketId, amount, minOut)."
+    },
+    {
+      "name": "bridge OHM",
+      "description": "Move native OHM between Ethereum, Arbitrum, Optimism, Base and Berachain.",
+      "how": "OHM.approve(CCIPCrossChainBridge, amount); fee = getFeeEVM(selector, to, amount); sendToEVM(selector, to, amount) with value = fee. Track on the CCIP Explorer."
+    },
+    {
+      "name": "vote",
+      "description": "Vote on Olympus governance proposals.",
+      "how": "gOHM.delegate(self) (once, before the proposal snapshot); GovernorBravo.castVote(proposalId, 1)."
+    }
+  ],
+  "risks": [
+    "OHM is not pegged; it floats freely. Range Bound Stability (RBS) is disabled (the Operator is inactive); buybacks come from the YRF and supply growth from the EmissionManager / convertible deposit auctions.",
+    "Emissions: when OHM trades above the minimum premium to backing, the EmissionManager sells new OHM through convertible deposit auctions (with a Bond Protocol fallback), diluting holders.",
+    "Cooler V2 has no price-based liquidation, but a position becomes liquidatable when accrued interest pushes debt per gOHM above the liquidation LTV; governance sets LTVs and the interest rate and can change them.",
+    "Convertible deposits: early reclaim applies a discount; conversion is only possible before the position expiry; redemption takes the full deposit period; loans against redemptions default at their due date.",
+    "Admin powers: Olympus V3 is a Kernel of modules and policies; governance (Governor Bravo + multisigs, emergency multisig) can install, upgrade or deactivate policies, pause borrows and change parameters. Check Kernel.isPolicyActive before relying on a policy.",
+    "Bridged OHM depends on Chainlink CCIP and per-route rate limits; transfers to Ethereum fail if the Ethereum pool lacks OHM; excess CCIP fee sent is kept by the bridge contract.",
+    "Audits listed by Olympus: Cooler V2 (panprog, Electisec, Nethermind, 2025), Convertible Deposits (Guardian, Trust, 2025), CCIP bridge (Electisec 2025, Cyfrin 2026)."
+  ],
+  "notes": "All addresses are from the Olympus docs addresses page; each was checked for code on-chain and each Ethereum policy listed was confirmed active with isActive() on 2026-11-25. Left out: modules (TRSRY, MINTR, PRICE, RANGE, ROLES, DLGTE, DEPOS; internal state, not called by users), Heart/EmissionManager/RolesAdmin/TreasuryCustodian and other operator-only policies, the Operator (RBS disabled, active() false), Cooler V1 Clearinghouses and CoolerFactory (marked deprecated; V1 loans can only be repaid), the older YRF 0x30a967eb957e5b1ee053b75f1a57ea6bfb2e907e (isActive false), CCIP token pools (internal to CCIP), Robinhood Chain and Solana OHM (not in the requested chain set; listed on the docs page), and Olympus V1/V2 bond depositories and allocators. The docs list Governor Bravo Delegate 0xa6013bBFd70d6190FA1cc1afD0cB3859847711B4, but the Delegator's implementation() returned 0xdE3F82D378c3b4E3F3f848b8DF501914b3317E96 on 2026-11-25; use the Delegator address (vote selectors confirmed in the live implementation's bytecode). Cooler V2 loans are perpetual, so there is no 'extend' function; extendLoan exists only for convertible-deposit redemption loans. The Bond Teller is a Bond Protocol contract listed as a dependency on the docs page. The docs list gOHM only on Ethereum, Arbitrum and older chains (Avalanche, Polygon, Fantom, Optimism, Boba), not on Base or Berachain. Signatures come from Sourcify-verified sources; Governor and Staking selectors were checked in bytecode. DefiLlama tracks Olympus on Ethereum only.",
+  "sources": [
+    "https://api.llama.fi/protocol/olympus-dao",
+    "https://docs.olympusdao.finance/main/contracts/addresses",
+    "https://docs.olympusdao.finance/main/for-agents/start-here",
+    "https://docs.olympusdao.finance/main/for-agents/contract-registry",
+    "https://docs.olympusdao.finance/main/for-agents/fresh-state",
+    "https://docs.olympusdao.finance/main/for-agents/mcp/introduction",
+    "https://docs.olympusdao.finance/main/overview/tokens",
+    "https://docs.olympusdao.finance/main/overview/cooler-loans",
+    "https://docs.olympusdao.finance/main/overview/convertible-deposits",
+    "https://docs.olympusdao.finance/main/overview/yield-repurchase-facility",
+    "https://docs.olympusdao.finance/main/overview/emissions-manager",
+    "https://docs.olympusdao.finance/main/overview/range-bound",
+    "https://docs.olympusdao.finance/main/overview/cross-chain",
+    "https://docs.olympusdao.finance/main/legacy/staking",
+    "https://docs.olympusdao.finance/main/governance/governance",
+    "https://docs.olympusdao.finance/main/security/audits",
+    "https://sourcify.dev/server/v2/contract/1/0xdb591Ea2e5Db886dA872654D58f6cc584b68e7cC",
+    "https://sourcify.dev/server/v2/contract/1/0x6593768feBF9C95aC857Fb7Ef244D5738D1C57Fd",
+    "https://sourcify.dev/server/v2/contract/1/0xF35193DA8C10e44aF10853Ba5a3a1a6F7529E39a",
+    "https://sourcify.dev/server/v2/contract/1/0xEBDe552D851DD6Dfd3D360C596D3F4aF6e5F9678",
+    "https://sourcify.dev/server/v2/contract/1/0x20a3d8510f2e1176E8Db4CeA9883a8287a9029Db",
+    "https://sourcify.dev/server/v2/contract/1/0xcb4E21Eb404d80F3e1dB781aAd9AD6A1217fbbf2",
+    "https://sourcify.dev/server/v2/contract/1/0x271e35a8555a62F6bA76508E85dfD76D580B0692",
+    "https://sourcify.dev/server/v2/contract/1/0xB63cac384247597756545b500253ff8E607a8020",
+    "https://sourcify.dev/server/v2/contract/1/0x0ab87046fBb341D058F17CBC4c1133F25a20a52f",
+    "https://sourcify.dev/server/v2/contract/1/0xFbf6383dC3F6010d403Ecdf12DDC1311701D143D",
+    "https://sourcify.dev/server/v2/contract/1/0x2286d7f9639e8158FaD1169e76d1FbC38247f54b",
+    "https://sourcify.dev/server/v2/contract/1/0x007F7735baF391e207E3aA380bb53c4Bd9a5Fed6"
+  ],
+  "researchedAt": "2026-11-25"
+}

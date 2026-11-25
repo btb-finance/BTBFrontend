@@ -1,0 +1,259 @@
+{
+  "slug": "turbos",
+  "name": "Turbos Finance",
+  "category": "Dexs",
+  "description": "Concentrated-liquidity (Uniswap-v3-style CLMM) DEX on Sui. Agents can quote and execute swaps, open/adjust/close LP positions (NFTs), and collect fees and rewards through Move calls or the official TypeScript SDK (turbos-clmm-sdk).",
+  "website": "https://turbos.finance",
+  "docs": "https://turbos.gitbook.io/turbos",
+  "defillama": "https://defillama.com/protocol/turbos",
+  "chains": [
+    "sui"
+  ],
+  "vm": "mixed",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "sui",
+      "chainId": null,
+      "address": "0xa5a0c25c79e428eba04fb98b3fb2a34db45ab26d4c8faf0d7e39d66a63891e64",
+      "name": "Turbos CLMM package (latest, published-at)",
+      "role": "router",
+      "proxy": true,
+      "source": "https://turbos.gitbook.io/turbos/developer-docs/dev-overview",
+      "keyFunctions": [
+        {
+          "signature": "swap_router::swap_a_b<CoinTypeA,CoinTypeB,FeeType>(pool: &mut Pool<A,B,Fee>, coins_a: vector<Coin<A>>, amount: u64, amount_threshold: u64, sqrt_price_limit: u128, is_exact_in: bool, recipient: address, deadline: u64, clock: &Clock, versioned: &Versioned, ctx)",
+          "kind": "write",
+          "payable": false,
+          "description": "Entry. Swap coin A -> coin B in one pool. is_exact_in=true: amount = exact A in, amount_threshold = min B out; false: amount = exact B out, amount_threshold = max A in. sqrt_price_limit: use MIN_SQRT_PRICE 4295048016 for no limit. Output and leftover A are sent to recipient. Type args <CoinTypeA, CoinTypeB, FeeType> must equal the pool object's type (read it from the pool, e.g. Pool<SUI, USDC, 0x91bf…::fee3000bps::FEE3000BPS>). clock = 0x6, versioned = Versioned object 0xf1cf…5b6f. deadline is a unix timestamp in milliseconds."
+        },
+        {
+          "signature": "swap_router::swap_b_a<CoinTypeA,CoinTypeB,FeeType>(pool: &mut Pool<A,B,Fee>, coins_b: vector<Coin<B>>, amount: u64, amount_threshold: u64, sqrt_price_limit: u128, is_exact_in: bool, recipient: address, deadline: u64, clock: &Clock, versioned: &Versioned, ctx)",
+          "kind": "write",
+          "payable": false,
+          "description": "Entry. Swap coin B -> coin A. Same semantics as swap_a_b; no-limit sqrt_price_limit is MAX_SQRT_PRICE 79226673515401279992447579055."
+        },
+        {
+          "signature": "swap_router::swap_a_b_with_return_<A,B,Fee>(...same args as swap_a_b) -> (Coin<B>, Coin<A>)",
+          "kind": "write",
+          "payable": false,
+          "description": "Public (PTB-composable) version of swap_a_b: returns (output coin B, leftover coin A) instead of transferring. The Turbos SDK uses the *_with_return_ functions."
+        },
+        {
+          "signature": "swap_router::swap_b_a_with_return_<A,B,Fee>(...same args as swap_b_a) -> (Coin<A>, Coin<B>)",
+          "kind": "write",
+          "payable": false,
+          "description": "Public version of swap_b_a returning (output coin A, leftover coin B)."
+        },
+        {
+          "signature": "swap_router::swap_a_b_b_c<CoinTypeA,FeeTypeA,CoinTypeB,FeeTypeB,CoinTypeC>(pool_a: &mut Pool<A,B,FeeA>, pool_b: &mut Pool<B,C,FeeB>, coins_a: vector<Coin<A>>, amount: u64, amount_threshold: u64, sqrt_price_limit_a: u128, sqrt_price_limit_b: u128, is_exact_in: bool, recipient: address, deadline: u64, clock, versioned, ctx)",
+          "kind": "write",
+          "payable": false,
+          "description": "Entry. Two-hop swap A -> B -> C. Note the type-arg order (A, FeeA, B, FeeB, C). Variants swap_a_b_c_b, swap_b_a_b_c, swap_b_a_c_b cover the other pool orientations; each has a *_with_return_ form."
+        },
+        {
+          "signature": "pool_fetcher::compute_swap_result<A,B,Fee>(pool: &mut Pool<A,B,Fee>, a_to_b: bool, amount_specified: u128, amount_specified_is_input: bool, sqrt_price_limit: u128, clock: &Clock, versioned: &Versioned, ctx) -> ComputeSwapState",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a swap without executing it; call it through devInspect/dry-run (the SDK reads amount_a, amount_b, fee_amount, sqrt_price, tick_current_index from the result). The SDK's trade.computeSwapResultV2 wraps this."
+        },
+        {
+          "signature": "position_manager::mint<A,B,Fee>(pool: &mut Pool<A,B,Fee>, positions: &mut Positions, coins_a: vector<Coin<A>>, coins_b: vector<Coin<B>>, tick_lower_index: u32, tick_lower_index_is_neg: bool, tick_upper_index: u32, tick_upper_index_is_neg: bool, amount_a_desired: u64, amount_b_desired: u64, amount_a_min: u64, amount_b_min: u64, recipient: address, deadline: u64, clock: &Clock, versioned: &Versioned, ctx)",
+          "kind": "write",
+          "payable": false,
+          "description": "Entry. Open a concentrated-liquidity position; mints a TurbosPositionNFT to recipient. Ticks are passed as absolute value + is_neg flag and must be multiples of the pool tick spacing. Unused coins are returned. Positions = 0xf576…e52d. mint_with_return_ returns (NFT, Coin<A>, Coin<B>)."
+        },
+        {
+          "signature": "position_manager::increase_liquidity<A,B,Fee>(pool: &mut Pool<A,B,Fee>, positions: &mut Positions, coins_a: vector<Coin<A>>, coins_b: vector<Coin<B>>, nft: &mut TurbosPositionNFT, amount_a_desired: u64, amount_b_desired: u64, amount_a_min: u64, amount_b_min: u64, deadline: u64, clock: &Clock, versioned: &Versioned, ctx)",
+          "kind": "write",
+          "payable": false,
+          "description": "Entry. Add liquidity to an existing position (nft comes after the coin vectors on-chain; the docs page lists a different order)."
+        },
+        {
+          "signature": "position_manager::decrease_liquidity<A,B,Fee>(pool: &mut Pool<A,B,Fee>, positions: &mut Positions, nft: &mut TurbosPositionNFT, liquidity: u128, amount_a_min: u64, amount_b_min: u64, deadline: u64, clock: &Clock, versioned: &Versioned, ctx)",
+          "kind": "write",
+          "payable": false,
+          "description": "Entry. Remove `liquidity` units from a position. On-chain there is no recipient argument (the docs page shows one). decrease_liquidity_with_return_ returns (Coin<A>, Coin<B>)."
+        },
+        {
+          "signature": "position_manager::collect<A,B,Fee>(pool: &mut Pool<A,B,Fee>, positions: &mut Positions, nft: &mut TurbosPositionNFT, amount_a_max: u64, amount_b_max: u64, recipient: address, deadline: u64, clock: &Clock, versioned: &Versioned, ctx)",
+          "kind": "write",
+          "payable": false,
+          "description": "Entry. Collect trading fees owed to the position (use u64::MAX for all)."
+        },
+        {
+          "signature": "position_manager::collect_reward<A,B,Fee,RewardCoin>(pool: &mut Pool<A,B,Fee>, positions: &mut Positions, nft: &mut TurbosPositionNFT, vault: &mut PoolRewardVault<RewardCoin>, reward_index: u64, amount_max: u64, recipient: address, deadline: u64, clock: &Clock, versioned: &Versioned, ctx)",
+          "kind": "write",
+          "payable": false,
+          "description": "Entry. Claim liquidity-mining rewards for reward_index; the reward vault id is in the pool's reward_infos."
+        },
+        {
+          "signature": "position_manager::burn<A,B,Fee>(positions: &mut Positions, nft: TurbosPositionNFT, versioned: &Versioned, ctx)",
+          "kind": "write",
+          "payable": false,
+          "description": "Entry. Burn an empty position NFT (decrease all liquidity and collect fees/rewards first)."
+        },
+        {
+          "signature": "position_manager::get_position_info(positions: &Positions, nft_address: address) -> (I32, I32, u128)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tick lower, tick upper and liquidity of a position NFT."
+        },
+        {
+          "signature": "pool_factory::deploy_pool_and_mint<A,B,Fee>(pool_config: &mut PoolConfig, fee_type: &Fee<FeeType>, sqrt_price: u128, positions: &mut Positions, coins_a, coins_b, tick_lower_index: u32, tick_lower_index_is_neg: bool, tick_upper_index: u32, tick_upper_index_is_neg: bool, amount_a_desired: u64, amount_b_desired: u64, amount_a_min: u64, amount_b_min: u64, recipient: address, deadline: u64, clock, versioned, ctx)",
+          "kind": "write",
+          "payable": false,
+          "description": "Entry. Create a new pool for a pair/fee tier and add initial liquidity. fee_type is the Fee object of the tier (ids in contract.json \"fee\"). deploy_pool(...) creates a pool without liquidity."
+        },
+        {
+          "signature": "pool_factory::get_pool_id<A,B,Fee>(pool_config: &mut PoolConfig) -> Option<ID>",
+          "kind": "read",
+          "payable": false,
+          "description": "Find the pool id for a pair and fee type (via devInspect). Off-chain, the SDK pool.getPools() reads the PoolConfig pools table."
+        }
+      ]
+    },
+    {
+      "chain": "sui",
+      "chainId": null,
+      "address": "0x91bfbc386a41afcfd9b2533058d7e915a1d3829089cc268ff4333d54d6339ca1",
+      "name": "Turbos CLMM package (original id, used in type names)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://turbos.gitbook.io/turbos/developer-docs/dev-overview",
+      "keyFunctions": []
+    },
+    {
+      "chain": "sui",
+      "chainId": null,
+      "address": "0xc294552b2765353bcafa7c359cd28fd6bc237662e5db8f09877558d81669170c",
+      "name": "PoolConfig (shared object, pool registry)",
+      "role": "factory",
+      "proxy": null,
+      "source": "https://turbos.gitbook.io/turbos/developer-docs/dev-overview",
+      "keyFunctions": []
+    },
+    {
+      "chain": "sui",
+      "chainId": null,
+      "address": "0xf5762ae5ae19a2016bb233c72d9a4b2cba5a302237a82724af66292ae43ae52d",
+      "name": "Positions (shared object, position manager)",
+      "role": "other",
+      "proxy": null,
+      "source": "https://turbos.gitbook.io/turbos/developer-docs/dev-overview",
+      "keyFunctions": []
+    },
+    {
+      "chain": "sui",
+      "chainId": null,
+      "address": "0xf1cf0e81048df168ebeb1b8030fad24b3e0b53ae827c25053fff0779c1445b6f",
+      "name": "Versioned (shared object, passed to every call)",
+      "role": "other",
+      "proxy": null,
+      "source": "https://turbos.gitbook.io/turbos/developer-docs/dev-overview",
+      "keyFunctions": []
+    },
+    {
+      "chain": "sui",
+      "chainId": null,
+      "address": "0x0ca0dbe2da5ea7c7b0d0d0796e7918413f9328c4e4bf72e2f6bcd8bf3c993c45",
+      "name": "Turbos Automated Rebalance Vault package (latest)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://app.turbos.finance/sdk/contract.json",
+      "keyFunctions": []
+    },
+    {
+      "chain": "sui",
+      "chainId": null,
+      "address": "0x5d1f47ea69bb0de31c313d7acf89b890dbb8991ea8e03c6c355171f84bb1ba4a::turbos::TURBOS",
+      "name": "TURBOS token (coin type)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://turbos.gitbook.io/turbos/others/token-address",
+      "keyFunctions": []
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "turbos-clmm-sdk (npm)",
+      "url": "https://www.npmjs.com/package/turbos-clmm-sdk",
+      "auth": "none",
+      "use": "Official TypeScript SDK: sdk.pool.getPools/getPool, sdk.trade.computeSwapResultV2 (quote) and sdk.trade.swap (builds the swap Transaction), sdk.pool.addLiquidity/increaseLiquidity/decreaseLiquidity/removeLiquidity, collectFee/collectReward, vault helpers. Init: new TurbosSdk(Network.mainnet).",
+      "source": "https://turbos.gitbook.io/turbos/developer-docs/via-sdk/get-started"
+    },
+    {
+      "name": "Turbos contract config",
+      "url": "https://app.turbos.finance/sdk/contract.json",
+      "auth": "none",
+      "use": "Official JSON of current package ids, shared objects and fee-tier Fee object ids for mainnet/testnet; the SDK reads it (sdk.contract.getConfig()). Re-read it after upgrades instead of hard-coding the published-at id.",
+      "source": "https://turbos.gitbook.io/turbos/others/token-address"
+    },
+    {
+      "name": "Turbos Move interface",
+      "url": "https://github.com/turbos-finance/turbos-sui-move-interface",
+      "auth": "none",
+      "use": "Move stubs for calling Turbos CLMM from your own package (tag mainnet-v0.1.8).",
+      "source": "https://turbos.gitbook.io/turbos/developer-docs/dev-overview"
+    }
+  ],
+  "actions": [
+    {
+      "name": "swap",
+      "description": "Swap one coin for another.",
+      "how": "SDK: q = sdk.trade.computeSwapResultV2({pools:[{pool, a2b, amountSpecified}], address, amountSpecifiedIsInput:true}); tx = sdk.trade.swap({routes:[{pool, a2b, nextTickIndex: sdk.math.bitsToNumber(q[0].tick_current_index.bits)}], coinTypeA, coinTypeB, address, amountA, amountB: q[0].amount_b, amountSpecifiedIsInput:true, slippage:\"0.5\"}); sign and execute. Direct: moveCall <published-at>::swap_router::swap_a_b (or swap_b_a) with the pool type args."
+    },
+    {
+      "name": "add liquidity",
+      "description": "Open a CLMM position (NFT).",
+      "how": "position_manager::mint with pool, Positions 0xf576…e52d, coin vectors, tick range (abs + is_neg), desired/min amounts, recipient, deadline (ms), clock 0x6, Versioned 0xf1cf…5b6f; or sdk.pool.addLiquidity."
+    },
+    {
+      "name": "remove liquidity",
+      "description": "Withdraw from a position.",
+      "how": "position_manager::decrease_liquidity then collect (and collect_reward per reward index); burn the NFT when empty. SDK: removeLiquidity / decreaseLiquidity."
+    },
+    {
+      "name": "find a pool",
+      "description": "Locate the pool object for a pair/fee tier.",
+      "how": "sdk.pool.getPools() or read the PoolConfig (0xc294…170c) pools table; pool type is Pool<CoinA, CoinB, FeeType>."
+    }
+  ],
+  "risks": [
+    "Upgradeable Move package: the CLMM package has been upgraded many times (on-chain version 22 at research time). Always call the latest published-at id (from contract.json) and pass the Versioned object; old package ids revert on version checks.",
+    "Admin powers held via PoolFactoryAdminCap / AclConfig roles: pause/unpause pools (toggle_pool_status), set protocol fee share, add fee tiers, manage rewards, migrate positions, admin decrease_liquidity (decrease_liquidity_admin) and package upgrade.",
+    "After the May 2025 Cetus exploit (overflow bug in a shared math library), Verichains reported that the same flawed function existed in the Turbos codebase but was not used; Turbos stated it was not affected.",
+    "Concentrated liquidity: positions out of range earn no fees and suffer impermanent loss; set amount_min / slippage and deadlines.",
+    "The gitbook Contract Modules page lists some argument orders that differ from the deployed package (increase_liquidity, decrease_liquidity, collect, burn); the signatures here follow the on-chain package and the official Move interface."
+  ],
+  "notes": "Sui is not one of the registry VM types, so vm = \"mixed\"; the VM is the Sui Move VM and chainId is null. Ids are Sui object/package ids. Mainnet ids come from the official Dev Overview table and the official contract.json (both agree); all were checked on Sui mainnet via GraphQL on 2026-11-25 (PoolConfig, Positions, Versioned are shared objects of the expected 0x91bf… types; the package exposes the listed functions with the listed parameters). Fee-tier Fee objects (needed only to create pools): 10bps 0x49dcf28ac3b5480e65bee812ad2d6e60108ab8037d5a815c3c11bbe7bc47c270, 500bps 0xdfcd1043f54fef3aa649eccd4d0b2b09a3da6c87a8a62736467b686268869365, 3000bps 0x6bc433c8604f58272155d0c65327ae0b316f63869e5de3846f70aef4625d8c46, 10000bps 0xd30c41ec4b4d0eb9b30b0b898c53f81cd53a9eb0f75b5d3273584cd874b2d4c4; full list (100, 1000, 1500, 2000, 2500, 7500, 20000, 40000 bps) in contract.json. The SDK getConfig doc example shows an older PackageId (0x2476…16c8); use contract.json. Vault objects (VaultGlobalConfig 0x2994c75a2ab419adfe16e143bf45ad44c3a5ccfc07c8fe8e31f7c883c8d84c2b, VaultRewarderManager, VaultUserTierConfig) are in contract.json; vault Move functions are not documented beyond the SDK, so no keyFunctions are given (use the SDK vault methods). Not included: Turbos Fun (bonding-curve launchpad, parrot_fun::buy/sell) because its package and config ids are not on an official page; Turbos OMM page is empty; TURBOS on BNB Chain (0xA1E6410bF311C03429B37A76a80C8A5E61616e7F per the token page) is out of scope of the Sui DEX entry. Individual pool ids are not listed: discover them from PoolConfig or the SDK.",
+  "sources": [
+    "https://defillama.com/protocol/turbos",
+    "https://api.llama.fi/protocol/turbos",
+    "https://turbos.finance",
+    "https://app.turbos.finance/",
+    "https://turbos.gitbook.io/turbos/llms.txt",
+    "https://turbos.gitbook.io/turbos/developer-docs/dev-overview",
+    "https://app.turbos.finance/sdk/contract.json",
+    "https://turbos.gitbook.io/turbos/developer-docs/via-contract/get-started",
+    "https://turbos.gitbook.io/turbos/developer-docs/via-contract/contract-modules",
+    "https://turbos.gitbook.io/turbos/developer-docs/via-sdk/get-started",
+    "https://turbos.gitbook.io/turbos/developer-docs/via-sdk/initialize-sdk",
+    "https://turbos.gitbook.io/turbos/developer-docs/via-sdk/clmm/getconfig",
+    "https://turbos.gitbook.io/turbos/developer-docs/via-sdk/clmm/preswap",
+    "https://turbos.gitbook.io/turbos/developer-docs/via-sdk/clmm/swap",
+    "https://turbos.gitbook.io/turbos/products/concentrated-liquidity-amm/fee-tier-for-token-pairs",
+    "https://turbos.gitbook.io/turbos/others/token-address",
+    "https://turbos.gitbook.io/turbos/others/audits",
+    "https://turbos.gitbook.io/turbos/others/risks",
+    "https://turbos.gitbook.io/turbos/turbos-fun/buy",
+    "https://github.com/turbos-finance/turbos-sui-move-interface",
+    "https://github.com/turbos-finance/turbos-sui-move-interface/blob/main/clmm/sources/position_manager.move",
+    "https://github.com/turbos-finance/turbos-sui-move-interface/blob/main/clmm/sources/swap_router.move",
+    "https://github.com/turbos-finance/turbos-clmm-sdk",
+    "https://www.npmjs.com/package/turbos-clmm-sdk",
+    "https://graphql.mainnet.sui.io/graphql",
+    "https://blog.verichains.io/p/multiple-sui-projects-previously"
+  ],
+  "researchedAt": "2026-11-24"
+}

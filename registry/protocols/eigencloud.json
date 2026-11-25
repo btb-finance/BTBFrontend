@@ -1,0 +1,1087 @@
+{
+  "slug": "eigencloud",
+  "name": "EigenLayer (EigenCloud)",
+  "category": "Restaking",
+  "description": "EigenLayer restaking on Ethereum: deposit LSTs (stETH, rETH, cbETH, ...) or EIGEN into strategies via the StrategyManager, delegate to an operator through the DelegationManager, withdraw through a ~14-day queue, and claim AVS rewards with merkle proofs from the RewardsCoordinator. Native ETH restaking goes through EigenPods. Restaked assets are slashable.",
+  "website": "https://www.eigencloud.xyz",
+  "docs": "https://docs.eigencloud.xyz",
+  "defillama": "https://defillama.com/protocol/eigencloud",
+  "chains": [
+    "ethereum"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x858646372CC42E1A627fcE94aa7A7033e7CF075A",
+      "name": "StrategyManager",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "depositIntoStrategy(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit ERC-20 into a strategy: (strategy, token, amount in token base units). Approve the StrategyManager (not the strategy) for the token first. Credits deposit shares to msg.sender; if msg.sender is delegated, the shares are delegated to that operator too. Strategy must be whitelisted (strategyIsWhitelistedForDeposit). Returns depositShares."
+        },
+        {
+          "signature": "depositIntoStrategyWithSignature(address,address,uint256,address,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit on behalf of a staker with their EIP-712 signature: (strategy, token, amount, staker, expiry, signature). Caller pays the tokens."
+        },
+        {
+          "signature": "stakerDepositShares(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit shares of (staker, strategy). Deposit shares are not reduced by slashing; use DelegationManager.getWithdrawableShares for the withdrawable amount."
+        },
+        {
+          "signature": "getDeposits(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (address[] strategies, uint256[] depositShares) for a staker (ERC-20 strategies only; native ETH shares live in EigenPodManager)."
+        },
+        {
+          "signature": "stakerStrategyListLength(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of strategies a staker has deposits in (max 32)."
+        },
+        {
+          "signature": "strategyIsWhitelistedForDeposit(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if deposits into the strategy are allowed."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "Pause bitmap; non-zero bits mean some actions are paused (0 on 2026-11-25)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x39053D51B77DC0d36036Fc1fCc8Cb819df8Ef37A",
+      "name": "DelegationManager",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "delegateTo(address,(bytes,uint256),bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Delegate ALL of msg.sender's restaked assets to an operator: (operator, approverSignatureAndExpiry=(bytes signature, uint256 expiry), approverSalt). If delegationApprover(operator) is the zero address, pass an empty signature (\"0x\", 0) and salt 0x00..00; otherwise you need an EIP-712 signature from the approver (digest from calculateDelegationApprovalDigestHash) with an unused salt. Reverts if already delegated or the operator is not registered. A staker can be delegated to one operator only."
+        },
+        {
+          "signature": "undelegate(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Undelegate a staker (callable by the staker, or by the operator / its approver to force-undelegate). Queues withdrawals for ALL the staker's shares (one withdrawal per strategy) and returns their withdrawal roots; these must be completed after the delay like any withdrawal. Operators cannot undelegate."
+        },
+        {
+          "signature": "redelegate(address,(bytes,uint256),bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Undelegate (queuing withdrawals for all shares) and delegate to a new operator in one call. Queued shares can later be completed as shares (receiveAsTokens=false) to restake them with the new operator."
+        },
+        {
+          "signature": "queueWithdrawals((address[],uint256[],address)[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Queue withdrawals. Each QueuedWithdrawalParams = (address[] strategies, uint256[] depositShares, address __deprecated_withdrawer). depositShares are deposit shares (see StrategyManager.getDeposits / getDepositedShares), not tokens; the withdrawer field is ignored (only the staker can complete). Returns withdrawal roots. Shares stay slashable for MIN_WITHDRAWAL_DELAY_BLOCKS."
+        },
+        {
+          "signature": "completeQueuedWithdrawal((address,address,address,uint256,uint32,address[],uint256[]),address[],bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Complete one withdrawal after minWithdrawalDelayBlocks() (100800 blocks, ~14 days) have passed since startBlock: (Withdrawal = (address staker, address delegatedTo, address withdrawer, uint256 nonce, uint32 startBlock, address[] strategies, uint256[] scaledShares) exactly as queued, tokens[] = each strategy's underlyingToken() in the same order (any value for beacon-chain ETH), receiveAsTokens). receiveAsTokens=true sends tokens to the staker; false re-credits shares (delegated to the current operator). Amount received is reduced by any slashing up to the completion block. Only the staker can call. Get the struct from getQueuedWithdrawals(staker) or the SlashingWithdrawalQueued event."
+        },
+        {
+          "signature": "completeQueuedWithdrawals((address,address,address,uint256,uint32,address[],uint256[])[],address[][],bool[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Batch version of completeQueuedWithdrawal."
+        },
+        {
+          "signature": "getQueuedWithdrawals(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (Withdrawal[] withdrawals, uint256[][] shares) for a staker: the structs to pass to completeQueuedWithdrawal and the shares currently expected (after slashing)."
+        },
+        {
+          "signature": "getQueuedWithdrawal(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (Withdrawal, uint256[] shares) for a withdrawal root."
+        },
+        {
+          "signature": "getWithdrawableShares(address,address[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (withdrawableShares[], depositShares[]) for (staker, strategies): withdrawable reflects slashing; use it to size queueWithdrawals."
+        },
+        {
+          "signature": "getDepositedShares(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (strategies[], depositShares[]) across StrategyManager and EigenPodManager (includes beacon chain ETH strategy 0xbeaC0eeEeeeeEEeEeEEEEeeEEeEeeeEeeEEBEaC0)."
+        },
+        {
+          "signature": "delegatedTo(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Operator a staker is delegated to (zero address if none)."
+        },
+        {
+          "signature": "isDelegated(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the staker is delegated."
+        },
+        {
+          "signature": "isOperator(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is a registered operator."
+        },
+        {
+          "signature": "delegationApprover(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Operator's delegation approver; zero address means anyone can delegate with an empty signature."
+        },
+        {
+          "signature": "minWithdrawalDelayBlocks()",
+          "kind": "read",
+          "payable": false,
+          "description": "Withdrawal delay in blocks (100800 = ~14 days on mainnet, read 2026-11-25)."
+        },
+        {
+          "signature": "calculateWithdrawalRoot((address,address,address,uint256,uint32,address[],uint256[]))",
+          "kind": "read",
+          "payable": false,
+          "description": "Hash of a Withdrawal struct; pendingWithdrawals(root) tells if it is still queued."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x7750d328b314EfFa365A0402CcfD489B80B0adda",
+      "name": "RewardsCoordinator",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "processClaim((uint32,uint32,bytes,(address,bytes32),uint32[],bytes[],(address,uint256)[]),address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim rewards: (RewardsMerkleClaim claim, recipient). claim = (uint32 rootIndex, uint32 earnerIndex, bytes earnerTreeProof, (address earner, bytes32 earnerTokenRoot) earnerLeaf, uint32[] tokenIndices, bytes[] tokenTreeProofs, (address token, uint256 cumulativeEarnings)[] tokenLeaves). Proofs are generated off-chain from the posted distribution (EigenLayer app or the official eigenlayer CLI). Pays cumulativeEarnings minus cumulativeClaimed per token. Caller must be the earner or its claimerFor."
+        },
+        {
+          "signature": "processClaims((uint32,uint32,bytes,(address,bytes32),uint32[],bytes[],(address,uint256)[])[],address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Batch claim to one recipient."
+        },
+        {
+          "signature": "checkClaim((uint32,uint32,bytes,(address,bytes32),uint32[],bytes[],(address,uint256)[]))",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns true if the claim proofs are valid (reverts otherwise). Use before processClaim."
+        },
+        {
+          "signature": "setClaimerFor(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Let another address claim (and choose the recipient of) msg.sender's rewards."
+        },
+        {
+          "signature": "claimerFor(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimer set for an earner (zero = earner claims)."
+        },
+        {
+          "signature": "cumulativeClaimed(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Amount of a token already claimed by an earner (earner, token)."
+        },
+        {
+          "signature": "getCurrentClaimableDistributionRoot()",
+          "kind": "read",
+          "payable": false,
+          "description": "Latest active root: (bytes32 root, uint32 rewardsCalculationEndTimestamp, uint32 activatedAt, bool disabled). Roots become claimable activationDelay() after posting (604800 s = 7 days on 2026-11-25)."
+        },
+        {
+          "signature": "getDistributionRootsLength()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of posted roots; rootIndex in a claim refers to this array."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x948a420b8CC1d6BFd0B6087C2E7c344a2CD0bc39",
+      "name": "AllocationManager",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "getMaxMagnitude(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Operator's max magnitude for a strategy (operator, strategy), 1e18 = never slashed; lower values mean the operator has been slashed and delegated stakers' withdrawable shares drop proportionally."
+        },
+        {
+          "signature": "getAllocation(address,(address,uint32),address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allocation of an operator to an operator set (operator, (avs, id), strategy): (currentMagnitude, pendingDiff, effectBlock). Allocated stake is slashable by that AVS."
+        },
+        {
+          "signature": "getEncumberedMagnitude(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Magnitude an operator has allocated or pending for a strategy (operator, strategy)."
+        },
+        {
+          "signature": "isOperatorSlashable(address,(address,uint32))",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the operator can currently be slashed by the operator set."
+        },
+        {
+          "signature": "getAllocationDelay(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (isSet, delay in blocks) before an operator's new allocations take effect."
+        },
+        {
+          "signature": "DEALLOCATION_DELAY()",
+          "kind": "read",
+          "payable": false,
+          "description": "Blocks before deallocated magnitude stops being slashable (100800, ~14 days, read 2026-11-25)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x91E677b07F7AF907ec9a428aafA9fc14a0d3A338",
+      "name": "EigenPodManager",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "createPod()",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy an EigenPod for msg.sender (one per address). Native restaking: point validator withdrawal credentials to the pod, then verify credentials on the pod with beacon-chain proofs (needs proof tooling such as the official eigenpod-proofs-generation CLI)."
+        },
+        {
+          "signature": "getPod(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "EigenPod address for an owner (deterministic, also before it is deployed)."
+        },
+        {
+          "signature": "hasPod(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the owner has deployed a pod."
+        },
+        {
+          "signature": "podOwnerDepositShares(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Beacon chain ETH deposit shares (int256, wei; can be negative after penalties)."
+        },
+        {
+          "signature": "beaconChainSlashingFactor(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Factor (1e18 = none) applied to a pod owner's shares for beacon-chain slashing."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x93c4b944D05dfe6df7645A86cd2206016c51564D",
+      "name": "Strategy stETH (StrategyBaseTVLLimits)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "underlyingToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token this strategy accepts (stETH 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84 (Lido, rebasing))."
+        },
+        {
+          "signature": "sharesToUnderlyingView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+        },
+        {
+          "signature": "underlyingToSharesView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert an underlying token amount to strategy shares."
+        },
+        {
+          "signature": "userUnderlyingView(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+        },
+        {
+          "signature": "totalShares()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total shares issued by the strategy."
+        },
+        {
+          "signature": "getTVLLimits()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1BeE69b7dFFfA4E2d53C2a2Df135C388AD25dCD2",
+      "name": "Strategy rETH (StrategyBaseTVLLimits)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "underlyingToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token this strategy accepts (rETH 0xae78736Cd615f374D3085123A210448E74Fc6393 (Rocket Pool))."
+        },
+        {
+          "signature": "sharesToUnderlyingView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+        },
+        {
+          "signature": "underlyingToSharesView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert an underlying token amount to strategy shares."
+        },
+        {
+          "signature": "userUnderlyingView(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+        },
+        {
+          "signature": "totalShares()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total shares issued by the strategy."
+        },
+        {
+          "signature": "getTVLLimits()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x54945180dB7943c0ed0FEE7EdaB2Bd24620256bc",
+      "name": "Strategy cbETH (StrategyBaseTVLLimits)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "underlyingToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token this strategy accepts (cbETH 0xBe9895146f7AF43049ca1c1AE358B0541Ea49704 (Coinbase))."
+        },
+        {
+          "signature": "sharesToUnderlyingView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+        },
+        {
+          "signature": "underlyingToSharesView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert an underlying token amount to strategy shares."
+        },
+        {
+          "signature": "userUnderlyingView(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+        },
+        {
+          "signature": "totalShares()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total shares issued by the strategy."
+        },
+        {
+          "signature": "getTVLLimits()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x9d7eD45EE2E8FC5482fa2428f15C971e6369011d",
+      "name": "Strategy ETHx (StrategyBaseTVLLimits)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "underlyingToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token this strategy accepts (ETHx 0xA35b1B31Ce002FBF2058D22F30f95D405200A15b (Stader))."
+        },
+        {
+          "signature": "sharesToUnderlyingView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+        },
+        {
+          "signature": "underlyingToSharesView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert an underlying token amount to strategy shares."
+        },
+        {
+          "signature": "userUnderlyingView(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+        },
+        {
+          "signature": "totalShares()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total shares issued by the strategy."
+        },
+        {
+          "signature": "getTVLLimits()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x13760F50a9d7377e4F20CB8CF9e4c26586c658ff",
+      "name": "Strategy ankrETH (StrategyBaseTVLLimits)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "underlyingToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token this strategy accepts (ankrETH 0xE95A203B1a91a908F9B9CE46459d101078c2c3cb (Ankr))."
+        },
+        {
+          "signature": "sharesToUnderlyingView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+        },
+        {
+          "signature": "underlyingToSharesView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert an underlying token amount to strategy shares."
+        },
+        {
+          "signature": "userUnderlyingView(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+        },
+        {
+          "signature": "totalShares()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total shares issued by the strategy."
+        },
+        {
+          "signature": "getTVLLimits()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xa4C637e0F704745D182e4D38cAb7E7485321d059",
+      "name": "Strategy OETH (StrategyBaseTVLLimits)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "underlyingToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token this strategy accepts (OETH 0x856c4Efb76C1D1AE02e20CEB03A2A6a08b0b8dC3 (Origin, rebasing))."
+        },
+        {
+          "signature": "sharesToUnderlyingView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+        },
+        {
+          "signature": "underlyingToSharesView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert an underlying token amount to strategy shares."
+        },
+        {
+          "signature": "userUnderlyingView(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+        },
+        {
+          "signature": "totalShares()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total shares issued by the strategy."
+        },
+        {
+          "signature": "getTVLLimits()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x57ba429517c3473B6d34CA9aCd56c0e735b94c02",
+      "name": "Strategy osETH (StrategyBaseTVLLimits)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "underlyingToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token this strategy accepts (osETH 0xf1C9acDc66974dFB6dEcB12aA385b9cD01190E38 (StakeWise))."
+        },
+        {
+          "signature": "sharesToUnderlyingView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+        },
+        {
+          "signature": "underlyingToSharesView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert an underlying token amount to strategy shares."
+        },
+        {
+          "signature": "userUnderlyingView(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+        },
+        {
+          "signature": "totalShares()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total shares issued by the strategy."
+        },
+        {
+          "signature": "getTVLLimits()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x0Fe4F44beE93503346A3Ac9EE5A26b130a5796d6",
+      "name": "Strategy swETH (StrategyBaseTVLLimits)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "underlyingToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token this strategy accepts (swETH 0xf951E335afb289353dc249e82926178EaC7DEd78 (Swell))."
+        },
+        {
+          "signature": "sharesToUnderlyingView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+        },
+        {
+          "signature": "underlyingToSharesView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert an underlying token amount to strategy shares."
+        },
+        {
+          "signature": "userUnderlyingView(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+        },
+        {
+          "signature": "totalShares()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total shares issued by the strategy."
+        },
+        {
+          "signature": "getTVLLimits()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x7CA911E83dabf90C90dD3De5411a10F1A6112184",
+      "name": "Strategy wBETH (StrategyBaseTVLLimits)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "underlyingToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token this strategy accepts (wBETH 0xa2E3356610840701BDf5611a53974510Ae27E2e1 (Binance))."
+        },
+        {
+          "signature": "sharesToUnderlyingView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+        },
+        {
+          "signature": "underlyingToSharesView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert an underlying token amount to strategy shares."
+        },
+        {
+          "signature": "userUnderlyingView(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+        },
+        {
+          "signature": "totalShares()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total shares issued by the strategy."
+        },
+        {
+          "signature": "getTVLLimits()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x8CA7A5d6f3acd3A7A8bC468a8CD0FB14B6BD28b6",
+      "name": "Strategy sfrxETH (StrategyBaseTVLLimits)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "underlyingToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token this strategy accepts (sfrxETH 0xac3E018457B222d93114458476f3E3416Abbe38F (Frax))."
+        },
+        {
+          "signature": "sharesToUnderlyingView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+        },
+        {
+          "signature": "underlyingToSharesView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert an underlying token amount to strategy shares."
+        },
+        {
+          "signature": "userUnderlyingView(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+        },
+        {
+          "signature": "totalShares()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total shares issued by the strategy."
+        },
+        {
+          "signature": "getTVLLimits()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xAe60d8180437b5C34bB956822ac2710972584473",
+      "name": "Strategy lsETH (StrategyBaseTVLLimits)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "underlyingToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token this strategy accepts (LsETH 0x8c1BEd5b9a0928467c9B1341Da1D7BD5e10b6549 (Liquid Collective))."
+        },
+        {
+          "signature": "sharesToUnderlyingView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+        },
+        {
+          "signature": "underlyingToSharesView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert an underlying token amount to strategy shares."
+        },
+        {
+          "signature": "userUnderlyingView(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+        },
+        {
+          "signature": "totalShares()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total shares issued by the strategy."
+        },
+        {
+          "signature": "getTVLLimits()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x298aFB19A105D59E74658C4C334Ff360BadE6dd2",
+      "name": "Strategy mETH (StrategyBaseTVLLimits)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "underlyingToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token this strategy accepts (mETH 0xd5F7838F5C461fefF7FE49ea5ebaF7728bB0ADfa (Mantle))."
+        },
+        {
+          "signature": "sharesToUnderlyingView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+        },
+        {
+          "signature": "underlyingToSharesView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert an underlying token amount to strategy shares."
+        },
+        {
+          "signature": "userUnderlyingView(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+        },
+        {
+          "signature": "totalShares()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total shares issued by the strategy."
+        },
+        {
+          "signature": "getTVLLimits()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xaCB55C530Acdb2849e6d4f36992Cd8c9D50ED8F7",
+      "name": "EigenStrategy (EIGEN)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "underlyingToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "bEIGEN (0x83E9115d334D248Ce39a6f36144aEaB5b3456e75). The strategy also accepts EIGEN: depositIntoStrategy(EigenStrategy, EIGEN, amount) unwraps EIGEN 1:1 to bEIGEN; on completion pass EIGEN (or bEIGEN) as the token to receive."
+        },
+        {
+          "signature": "sharesToUnderlyingView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares to bEIGEN amount (1:1 on 2026-11-25)."
+        },
+        {
+          "signature": "underlyingToSharesView(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "bEIGEN/EIGEN amount to shares."
+        },
+        {
+          "signature": "userUnderlyingView(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying value of a staker's shares."
+        },
+        {
+          "signature": "totalShares()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total shares."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x5e4C39Ad7A3E881585e383dB9827EB4811f6F647",
+      "name": "StrategyFactory",
+      "role": "factory",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "deployedStrategies(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Strategy deployed by the factory for a token (zero if none). Use this to find the strategy for tokens other than the LSTs listed here; the LST strategies above were deployed before the factory and are not returned here."
+        },
+        {
+          "signature": "deployNewStrategy(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionlessly deploy and whitelist a StrategyBase for an ERC-20 (once per token; blacklisted tokens revert)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xec53bF9167f50cDEB3Ae105f56099aaaB9061F83",
+      "name": "EIGEN",
+      "role": "token",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "EIGEN balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender (e.g. StrategyManager before depositIntoStrategy into the EIGEN strategy)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer EIGEN."
+        },
+        {
+          "signature": "wrap(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Wrap bEIGEN into EIGEN 1:1 (approve EIGEN to pull bEIGEN first)."
+        },
+        {
+          "signature": "unwrap(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unwrap EIGEN into bEIGEN 1:1."
+        },
+        {
+          "signature": "delegate(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Delegate ERC20Votes voting power."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x83E9115d334D248Ce39a6f36144aEaB5b3456e75",
+      "name": "bEIGEN (Backing Eigen)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "bEIGEN balance (18 decimals). bEIGEN backs EIGEN 1:1 and is the underlying token of the EIGEN strategy; most users hold EIGEN instead."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "restake an LST",
+      "description": "Deposit e.g. stETH or rETH into its EigenLayer strategy.",
+      "how": "token.approve(StrategyManager, amount); StrategyManager.depositIntoStrategy(strategy, token, amount). Pick the strategy whose underlyingToken() is the token (list above, or StrategyFactory.deployedStrategies(token) for other ERC-20s). Check strategyIsWhitelistedForDeposit and getTVLLimits first. Deposits earn rewards only once delegated to an operator."
+    },
+    {
+      "name": "restake EIGEN",
+      "description": "Deposit EIGEN into the EIGEN strategy.",
+      "how": "EIGEN.approve(StrategyManager, amount); StrategyManager.depositIntoStrategy(0xaCB55C530Acdb2849e6d4f36992Cd8c9D50ED8F7, EIGEN, amount)."
+    },
+    {
+      "name": "delegate to an operator",
+      "description": "Delegate all restaked assets to one operator.",
+      "how": "Check DelegationManager.isOperator(op) and delegationApprover(op). If the approver is the zero address call delegateTo(op, (\"0x\", 0), 0x0000000000000000000000000000000000000000000000000000000000000000); otherwise obtain the approver's signature and salt from the operator."
+    },
+    {
+      "name": "withdraw (unstake)",
+      "description": "Queue then complete a withdrawal back to tokens.",
+      "how": "getWithdrawableShares/getDeposits to size it; DelegationManager.queueWithdrawals([{strategies, depositShares, __deprecated_withdrawer: staker}]); wait until block > startBlock + minWithdrawalDelayBlocks() (100800 blocks, ~14 days); read getQueuedWithdrawals(staker) and call completeQueuedWithdrawal(withdrawal, [underlyingToken per strategy], true)."
+    },
+    {
+      "name": "switch operator",
+      "description": "Move delegation to another operator.",
+      "how": "DelegationManager.redelegate(newOperator, sig, salt) (or undelegate then delegateTo). This queues withdrawals for all shares; after ~14 days complete them with receiveAsTokens=false to restake as shares with the new operator."
+    },
+    {
+      "name": "claim rewards",
+      "description": "Claim AVS/EIGEN rewards.",
+      "how": "Build the RewardsMerkleClaim with the EigenLayer app or the official eigenlayer CLI (rewards claim) against getCurrentClaimableDistributionRoot(); verify with RewardsCoordinator.checkClaim(claim); then processClaim(claim, recipient)."
+    }
+  ],
+  "risks": [
+    "Withdrawals take 100800 blocks (~14 days) from queueing (minWithdrawalDelayBlocks, read 2026-11-25); there is no instant exit except selling a liquid restaking token elsewhere.",
+    "Slashing is live: operators allocate stake to AVS operator sets in the AllocationManager and can be slashed; slashing reduces delegated stakers' withdrawable shares, including shares in the withdrawal queue until the delay ends. Slashed funds can be burned or, for redistributable operator sets, redistributed.",
+    "Delegation is all-or-nothing and undelegating (or being force-undelegated by the operator) queues withdrawals for all shares.",
+    "Strategy deposit caps: the LST strategies have per-deposit and total TVL limits (getTVLLimits); unlimited on 2026-11-25 but governance can set them, and deposits above a cap revert. Strategies can also be removed from the deposit whitelist.",
+    "Rebasing tokens (stETH, OETH) are held as shares; token amounts returned can differ slightly from deposits by rounding.",
+    "Rewards are only claimable via merkle proofs of an off-chain calculation; roots activate 7 days after posting (activationDelay, 2026-11-25).",
+    "Core contracts are upgradeable proxies controlled by EigenLayer governance multisigs/timelocks; the pauser multisig can pause deposits, delegation and withdrawals."
+  ],
+  "notes": "All addresses are from the Mainnet Ethereum deployment table in the official Layr-Labs/eigenlayer-contracts README (main branch, mainnet on v1.13.1 at research time); all have code on-chain and their implementations are Sourcify-verified (exact match). DefiLlama lists the protocol as \"EigenCloud\" with slug eigencloud. Function semantics come from the verified implementation sources and the official docs/core/*.md in the same repo. Left out: AVSDirectory, PermissionController, EmissionsController, ReleaseManager, TaskMailbox, multichain (CrossChainRegistry, KeyRegistrar, certificate verifiers, Base destination contracts), DurationVaultStrategy beacon, EigenPod beacon and multisigs (operator/AVS/governance infrastructure, not called by restakers); the beacon-chain ETH pseudo-strategy 0xbeaC0eeEeeeeEEeEeEEEEeeEEeEeeeEeeEEBEaC0 is not a contract (README). Strategies deployed through the StrategyFactory for other tokens are discoverable with deployedStrategies(token). No official public HTTP API for rewards proofs was confirmed (docs.eigencloud.xyz returned 403 to our fetches), so offchainApis is empty; rewards proofs come from the EigenLayer app or the official CLI. docs.eigencloud.xyz is listed as the docs site from DefiLlama/search results but could not be read directly.",
+  "sources": [
+    "https://api.llama.fi/protocol/eigencloud",
+    "https://api.llama.fi/protocols",
+    "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "https://raw.githubusercontent.com/Layr-Labs/eigenlayer-contracts/main/README.md",
+    "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/docs/core/DelegationManager.md",
+    "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/docs/core/StrategyManager.md",
+    "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/docs/core/RewardsCoordinator.md",
+    "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/docs/core/AllocationManager.md",
+    "https://sourcify.dev/server/v2/contract/1/0x6a8bed4062c895130e2d09ba442d3ecead5df6c2",
+    "https://sourcify.dev/server/v2/contract/1/0xa7536c85898dc424c6bfe8592f983661f830656a",
+    "https://sourcify.dev/server/v2/contract/1/0xd22dd829779adbf3869fb224f703452f7f95e9db",
+    "https://sourcify.dev/server/v2/contract/1/0xa0673c53980665a706352412d2538ba005403c26",
+    "https://sourcify.dev/server/v2/contract/1/0xda2a68d318a571dd550f2ecbcb09bf50497e97c4",
+    "https://sourcify.dev/server/v2/contract/1/0xb427e2eb4bb33ee3f1ee72dc9e347e8625a72230",
+    "https://sourcify.dev/server/v2/contract/1/0x509aadb99487182b21ff4e9e7eb362a9ea8e8f40",
+    "https://sourcify.dev/server/v2/contract/1/0xbbc4124c74c567396181fbfbae746b80619d2b76",
+    "https://sourcify.dev/server/v2/contract/1/0x2c4a81e257381f87f5a5c4bd525116466d972e50",
+    "https://sourcify.dev/server/v2/contract/1/0xf2b225815f70c9b327dc9db758a36c92a4279b17",
+    "https://docs.eigencloud.xyz/eigenlayer/concepts/rewards/rewards-claiming-faq",
+    "https://ethereum-rpc.publicnode.com"
+  ],
+  "researchedAt": "2026-11-25"
+}

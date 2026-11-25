@@ -1,0 +1,717 @@
+{
+  "slug": "inverse-finance",
+  "name": "Inverse Finance",
+  "category": "CDP",
+  "description": "DAO behind the DOLA stablecoin and FiRM, a fixed-rate CDP on Ethereum: deposit collateral into a per-collateral market, borrow DOLA, and pay interest by holding DBR (burned at 1 DBR per DOLA borrowed per year). Agents can also stake DOLA as sDOLA, INV as sINV, or provide first-loss cover with jrDOLA.",
+  "website": "https://www.inverse.finance",
+  "docs": "https://docs.inverse.finance",
+  "defillama": "https://defillama.com/protocol/inverse-finance",
+  "chains": [
+    "ethereum"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x865377367054516e17014CcdED1e7d814EDC9ce4",
+      "name": "DOLA (stablecoin)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "DOLA balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a FiRM market (to repay), sDOLA (to deposit) or another spender."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer DOLA."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xAD038Eb671c44b853887A7E32528FaB35dC5D710",
+      "name": "DBR (DOLA Borrowing Rights)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Spendable DBR (18 decimals) after subtracting what open FiRM debt has consumed (1 DBR per 1 DOLA of debt per year, accrued per second). Returns 0 when in deficit."
+        },
+        {
+          "signature": "deficitOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "DBR owed beyond the balance. If > 0 the user cannot borrow more or withdraw collateral, and anyone can forceReplenish them (adding DOLA debt at the replenishment price, ~54.75% APR per the docs)."
+        },
+        {
+          "signature": "signedBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance minus accrued burn as a signed int (negative = deficit)."
+        },
+        {
+          "signature": "debts(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "User's total DOLA debt across all FiRM markets (drives the DBR burn rate)."
+        },
+        {
+          "signature": "replenishmentPriceBps()",
+          "kind": "read",
+          "payable": false,
+          "description": "DOLA charged per DBR on forced replenishment, in bps of 1 DOLA."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer DBR (e.g. top up a borrower's wallet). DBR is bought on the DBR auction (inverse.finance/dbr/auction) or on DEXs such as the Curve triDBR pool."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xb45ad160634c528Cc3D2926d9807104FA3157305",
+      "name": "sDOLA (Staked DOLA, ERC-4626)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit DOLA (approve sDOLA first): (assets, receiver). Returns shares. DOLA is staked in the DOLA Savings Account."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint an exact number of shares: (shares, receiver)."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares for DOLA: (shares, receiver, owner). Instant, no queue. Reverts if it would leave fewer than MIN_SHARES (1e18) or less than 0.01 DOLA in the vault."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact DOLA amount: (assets, receiver, owner)."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "DOLA per given shares (exchange rate; rises as DBR revenue is sold for DOLA)."
+        },
+        {
+          "signature": "convertToShares(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares for a DOLA amount."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Exact DOLA a redeem would return now."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Max DOLA withdrawable by owner."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "DOLA backing the vault, excluding revenue not yet streamed (each week's revenue is released linearly over the following week)."
+        },
+        {
+          "signature": "buyDBR(uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Buy DBR from the vault's virtual xy=k auction: (exactDolaIn, exactDbrOut, to). The contract warns not to call this directly from a UI because the price moves every second; compute exact amounts with getDolaReserve()/getDbrReserve() in the same transaction or use a helper contract."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x08d23468A467d2bb86FaE0e32F247A26C7E2e994",
+      "name": "sINV (Staked INV, ERC-4626)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit INV (approve sINV first): (assets, receiver). Note: INV in sINV loses on-chain governance voting rights."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn sINV for INV: (shares, receiver, owner). No waiting period per the docs."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "INV per given sINV."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "INV backing the vault."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6f80a22a57C7F0257094eA8D426AF3F747defbC7",
+      "name": "jrDOLA v2 (Junior DOLA, first-loss ERC-4626 vault)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns sDOLA (0xb45a...7305): jrDOLA holds sDOLA, not DOLA. Check before depositing."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "sDOLA per given jrDOLA."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "sDOLA held by the vault."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "jrDOLA balance (18 decimals)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x41D5D79431A913C4aE7d69a668ecdfE5fF9DFB68",
+      "name": "INV (governance token)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "INV balance (18 decimals)."
+        },
+        {
+          "signature": "delegate(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Delegate INV voting power (Compound-style; votes count only once delegated)."
+        },
+        {
+          "signature": "getPriorVotes(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Votes of an account at a past block."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x63Df5e23Db45a2066508318f172bA45B9CD37035",
+      "name": "FiRM WETH Market",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit collateral (approve the market for the collateral token first; amount in the collateral's decimals). Collateral goes to your personal escrow contract, created on first deposit."
+        },
+        {
+          "signature": "deposit(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit collateral into another user's escrow: (user, amount). Tokens are pulled from msg.sender."
+        },
+        {
+          "signature": "depositAndBorrow(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit collateral and borrow DOLA in one call: (amountDeposit, amountBorrow in DOLA, 18 decimals). You must hold enough DBR first (see borrow)."
+        },
+        {
+          "signature": "borrow(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow DOLA (18 decimals) to msg.sender. Requires: no DBR deficit (DBR.deficitOf == 0), debt <= getCreditLimit, borrows not paused, market daily limit and minimum debt in BorrowController, fresh oracle price, and msg.sender == tx.origin unless the calling contract is allowlisted. While debt is open, DBR in your wallet is burned at 1 DBR per 1 DOLA of debt per year - that is the interest. Hold enough DBR for the planned loan duration."
+        },
+        {
+          "signature": "repay(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay DOLA debt for a user: (user, amount). Approve DOLA to the market first. Pass 2^256-1 to repay the full debt. Repaying stops further DBR burn on that amount."
+        },
+        {
+          "signature": "repayAndWithdraw(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay your own DOLA debt and withdraw collateral in one call: (repayAmount, withdrawAmount)."
+        },
+        {
+          "signature": "withdraw(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw collateral from your escrow to msg.sender. Fails if it exceeds getWithdrawalLimit or if you have a DBR deficit."
+        },
+        {
+          "signature": "withdrawMax()",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw the maximum allowed collateral. Only on newer markets (not present on the WETH, sUSDe, CRV and cvxCRV markets); dangerous with open debt."
+        },
+        {
+          "signature": "getCreditLimit(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Max DOLA a user can owe given collateral value x collateralFactorBps (uses the pessimistic view price)."
+        },
+        {
+          "signature": "getWithdrawalLimit(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral (token units) the user can withdraw without exceeding the credit limit."
+        },
+        {
+          "signature": "getCollateralValue(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "User's collateral value in DOLA (18 decimals)."
+        },
+        {
+          "signature": "debts(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "User's DOLA debt in this market."
+        },
+        {
+          "signature": "predictEscrow(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Deterministic escrow address of a user (do not send collateral there directly; use deposit)."
+        },
+        {
+          "signature": "borrowPaused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if new borrows are paused for this market (e.g. the INV market)."
+        },
+        {
+          "signature": "collateral()",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral token accepted by this market."
+        },
+        {
+          "signature": "collateralFactorBps()",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral factor in basis points (e.g. 8500 = 85%)."
+        },
+        {
+          "signature": "liquidate(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidate an underwater user: (user, repaidDebt in DOLA, approve DOLA first). Max repaid = debt x liquidationFactorBps; you receive collateral worth repaidDebt plus liquidationIncentiveBps."
+        },
+        {
+          "signature": "forceReplenish(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "For a user with a DBR deficit: (user, DBR amount <= deficit). Buys the missing DBR for them at the replenishment price, adding DOLA debt; caller earns replenishmentIncentiveBps. forceReplenishAll(address) does the full deficit."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x3FD3daBB9F9480621C8A111603D3Ba70F17550BC",
+      "name": "FiRM wstETH Market",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x48BA574Edf0bc4E2E40B529863aaA6a67c264E7C",
+      "name": "FiRM WBTC Market",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x2A256306D8ba899E33B01e495982656884Ac77FF",
+      "name": "FiRM cbBTC Market",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x79eF6d28C41e47A588E2F2ffB4140Eb6d952AEc4",
+      "name": "FiRM sUSDe Market",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xb427fC22561f3963B04202F9bb5BCEbd76c14A99",
+      "name": "FiRM Convex DOLA-sUSDe LP Market",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x4E264618dC015219CD83dbc53B31251D73c2db1a",
+      "name": "FiRM Yearn DOLA-sUSDe LP Market",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xD68d3a44d46dd50BFeBa8Cca544717B76e7C4b29",
+      "name": "FiRM Convex DOLA-sUSDS LP Market",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x4A33baFA8a31E4ec9649f65646022cAD1957808b",
+      "name": "FiRM Yearn DOLA-sUSDS LP Market",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xC45E9c231ab5D9Bd3F1131E7901B100D8D236C4d",
+      "name": "FiRM Stake DAO sDOLA-scrvUSD LP Market",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xf9287c29Cb888F4834B7D2757a833D509e7f9D9A",
+      "name": "FiRM Stake DAO reUSD-sDOLA LP Market",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1fD4985cdd57bDb1eD646B10B7952fCD58946916",
+      "name": "FiRM Yearn reUSD-sDOLA LP Market",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x3542b39DCedC01f82c6e7af0EEC424726d019EaA",
+      "name": "FiRM sinvUSD Market",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xa95605313EB4544f784e699dE93e9232DbFcf02d",
+      "name": "FiRM ysyBOLD Market",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xb516247596Ca36bf32876199FBdCaD6B3322330B",
+      "name": "FiRM INV (new borrows paused) Market",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x63fAd99705a255fE2D500e498dbb3A9aE5AA1Ee8",
+      "name": "FiRM CRV Market",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x3474ad0e3a9775c9F68B415A7a9880B0CAB9397a",
+      "name": "FiRM cvxCRV Market",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xdc2265cBD15beD67b5F2c0B82e23FcE4a07ddF6b",
+      "name": "FiRM Staked CVX Market",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x27b6c301Fd441f3345d61B7a4245E1F823c3F9c4",
+      "name": "FiRM st-yCRV Market",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x01ECA33e20a4c379Bd8A5361f896A7dd2bAE4ce8",
+      "name": "FiRM BorrowController v4",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "dailyLimits(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Max DOLA borrowable per UTC day from a market (0 = no limit)."
+        },
+        {
+          "signature": "dailyBorrows(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "DOLA already borrowed from a market on a day: (market, block.timestamp / 86400)."
+        },
+        {
+          "signature": "minDebts(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum debt a borrower must keep in a market."
+        },
+        {
+          "signature": "contractAllowlist(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if a smart contract may borrow; contracts not on the list are denied (EOAs always pass this check)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xaBe146CF570FD27ddD985895ce9B138a7110cce8",
+      "name": "FiRM Oracle (pessimistic price oracle)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "viewPrice(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(collateralToken, collateralFactorBps) -> DOLA price of 1 whole collateral token scaled by 10^(36 - tokenDecimals) (1e18 for an 18-decimal token). Pessimistic: if the lower of today's and yesterday's daily low implies less borrowing power than spot, it returns a dampened price below spot. Passing collateralFactorBps = 0 returns the plain Chainlink-based price."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xdcd2D918511Ba39F2872EB731BB88681AE184244",
+      "name": "DBR Distributor (DBR rewards for INV deposited in FiRM)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "claimable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "DBR claimable by an INV escrow (pass the user's INV-market escrow address from Market.escrows(user), not the wallet). The user claims by calling claimDBR() on their own escrow."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x2b34548b865ad66A2B046cb82e59eE43F75B90fd",
+      "name": "FiRM Fed (mints DOLA supply into FiRM)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xBeCCB6bb0aa4ab551966A7E4B97cec74bb359Bf6",
+      "name": "Governor Mills (DAO governor)",
+      "role": "governance",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x926dF14a23BE491164dCF93f4c468A50ef659D5B",
+      "name": "Inverse Treasury (timelock-controlled)",
+      "role": "governance",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x941c2699eC7E55a50Bde030d8E1e70649839259D",
+      "name": "Governance Guardian (Policy Committee)",
+      "role": "governance",
+      "proxy": false,
+      "source": "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts"
+    }
+  ],
+  "actions": [
+    {
+      "name": "borrow-dola",
+      "description": "Open a fixed-rate DOLA loan on FiRM",
+      "how": "1) Get DBR >= expected debt x years (DBR auction at inverse.finance/dbr/auction or Curve triDBR). 2) collateral.approve(market, amt). 3) market.depositAndBorrow(amt, dolaAmount) or deposit() then borrow(). Check market.getCreditLimit(you), market.borrowPaused(), BorrowController.dailyLimits/minDebts first. Must be sent by an EOA unless your contract is allowlisted."
+    },
+    {
+      "name": "repay-and-withdraw",
+      "description": "Close or reduce a FiRM loan",
+      "how": "DOLA.approve(market, amt); market.repay(you, amt) (2^256-1 = all) then market.withdraw(collateralAmt), or market.repayAndWithdraw(repay, withdraw). Make sure DBR.deficitOf(you) == 0 or withdraw reverts."
+    },
+    {
+      "name": "monitor-position",
+      "description": "Check a FiRM position",
+      "how": "market.debts(you), market.getCreditLimit(you), market.getWithdrawalLimit(you); DBR.balanceOf(you) / DBR.debts(you) = years of DBR left; DBR.deficitOf(you) must stay 0."
+    },
+    {
+      "name": "stake-dola",
+      "description": "Earn yield on DOLA with sDOLA",
+      "how": "DOLA.approve(sDOLA, amt); sDOLA.deposit(amt, receiver). Exit any time with sDOLA.redeem(shares, receiver, owner)."
+    },
+    {
+      "name": "stake-inv",
+      "description": "Stake INV into sINV",
+      "how": "INV.approve(sINV, amt); sINV.deposit(amt, receiver); exit with sINV.redeem(shares, receiver, owner). sINV holders do not vote on-chain."
+    },
+    {
+      "name": "liquidate-or-replenish",
+      "description": "Keeper actions",
+      "how": "If market.debts(u) > market.getCreditLimit(u): DOLA.approve(market) then market.liquidate(u, repaid). If DBR.deficitOf(u) > 0: market.forceReplenish(u, amount) (or forceReplenishAll(u)) to earn the replenishment incentive."
+    }
+  ],
+  "risks": [
+    "DBR is consumed continuously while debt is open; if it runs out, the position goes into deficit, cannot withdraw or borrow, and anyone can force-replenish it at a penalty rate (54.75% APR per docs) that is added to DOLA debt, which can lead to liquidation.",
+    "FiRM uses a pessimistic oracle (lowest recent ~48h price) so borrowing power lags price rises; borrows are also denied when the Chainlink feed is stale, when the market's daily borrow limit is hit, or below the minimum debt.",
+    "Smart contracts (including smart wallets) can only borrow if allowlisted in the BorrowController; EOAs are always allowed.",
+    "The INV market has new borrows paused (mill 389). Nine markets were sunset by mill 395 (2026-08-03): borrows paused and Fed ceiling zero; existing borrowers can still repay and withdraw (addresses on the docs page).",
+    "Governance (Governor Mills / INV holders) sets collateral factors, limits and oracles; guardian multisigs can pause markets and cancel proposals but not unpause.",
+    "DOLA peg risk: DOLA supply is managed by Feds (FiRM Fed, PSM Fed and others); sDOLA and jrDOLA values depend on DOLA holding $1.",
+    "jrDOLA is a first-loss tranche: deposits can be slashed to cover FiRM bad debt, withdrawals are time-delayed, and governance can pause withdrawals for up to 90 days (mill 390).",
+    "Cross-chain sDOLA (mill 396, 2026-08-11) and sINV (mill 393, 2026-07-21) CCIP lanes are shut down; L2 copies are historical and not bridge destinations.",
+    "Past incident (2 Apr 2022): oracle manipulation of the INV price on the legacy Anchor/Frontier money market let an attacker borrow ~$15.6M.",
+    "Past incident (16 Jun 2022): flash-loan manipulation of the yvCrv3Crypto LP price on Frontier caused ~$5.8M of bad debt (attacker profit ~$1.2M). Frontier borrowing is paused; FiRM replaced it with isolated escrows and the pessimistic oracle."
+  ],
+  "notes": "All addresses are from the official docs Smart Contracts page (active markets as of October 2026) and were confirmed on-chain on 2026-11-25: each market's collateral(), oracle(), borrowController() and dbr() match the docs, sDOLA.asset() = DOLA, sINV.asset() = INV, jrDOLA.asset() = sDOLA. Market keyFunctions are listed once on the WETH market and come from InverseFinance/FiRM src/Market.sol; all 19 active markets share that interface (selectors checked in bytecode), except withdrawMax() which only exists on newer markets. sDOLA functions come from InverseFinance/dola-savings src/sDola.sol. Left out: the nine sunset FiRM markets (repay/withdraw only, listed on the docs page), historical L2 sDOLA/sINV deployments (CCIP lanes closed), the PSM and PSM Fed (docs list them on the PSM page, but I did not review the PSM source for its function signatures), the DBR auction, ALE/helper contracts and the legacy Frontier contracts, whose addresses are not on the official contracts page. jrDOLA's queued-withdrawal functions are not listed because I could not find its verified source in the official GitHub; use the inverse.finance app or check the verified source before redeeming. DefiLlama tracks FiRM separately as inverse-finance-firm.",
+  "sources": [
+    "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts",
+    "https://docs.inverse.finance/inverse-finance/inverse-finance/technical/smart-contracts.md",
+    "https://docs.inverse.finance/inverse-finance/llms.txt",
+    "https://docs.inverse.finance/inverse-finance/inverse-finance/products/tokens/dbr.md",
+    "https://docs.inverse.finance/inverse-finance/inverse-finance/products/tokens/dola/sdola.md",
+    "https://docs.inverse.finance/inverse-finance/inverse-finance/products/tokens/dola/jrdola.md",
+    "https://docs.inverse.finance/inverse-finance/inverse-finance/products/tokens/inv/sinv.md",
+    "https://docs.inverse.finance/inverse-finance/inverse-finance/products/firm/firm-liquidations-and-replenishments.md",
+    "https://docs.inverse.finance/inverse-finance/inverse-finance/products/firm/firm-security-and-safety.md",
+    "https://docs.inverse.finance/inverse-finance/inverse-finance/products/peg-stability-module.md",
+    "https://docs.inverse.finance/inverse-finance/inverse-finance/legacy-products/frontier-anchor.md",
+    "https://github.com/InverseFinance/FiRM/blob/main/src/Market.sol",
+    "https://github.com/InverseFinance/FiRM/blob/main/src/DBR.sol",
+    "https://github.com/InverseFinance/FiRM/blob/main/src/BorrowController.sol",
+    "https://github.com/InverseFinance/FiRM/blob/main/src/DbrDistributor.sol",
+    "https://github.com/InverseFinance/FiRM/blob/main/src/escrows/INVEscrow.sol",
+    "https://github.com/InverseFinance/dola-savings/blob/main/src/sDola.sol",
+    "https://api.llama.fi/protocol/inverse-finance",
+    "https://defillama.com/protocol/inverse-finance",
+    "https://defillama.com/protocol/inverse-finance-firm",
+    "https://ethereum-rpc.publicnode.com"
+  ],
+  "researchedAt": "2026-11-25"
+}

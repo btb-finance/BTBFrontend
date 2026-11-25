@@ -1,0 +1,238 @@
+{
+  "slug": "stackingdao",
+  "name": "StackingDAO",
+  "category": "Liquid Staking",
+  "description": "Liquid staking on Stacks. Agents can deposit STX for stSTX (STX yield in the exchange rate) or stSTXbtc (1:1 with STX, yield paid in sBTC), deposit sBTC for stBTC, swap stSTX <> stSTXbtc fee-free, and exit through an instant (1% fee, idle liquidity) or cooldown withdrawal that mints a claim NFT.",
+  "website": "https://stackingdao.com",
+  "docs": "https://docs.stackingdao.com",
+  "defillama": "https://defillama.com/protocol/stackingdao",
+  "chains": ["stacks"],
+  "vm": "mixed",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.stacking-dao-core-stx-v2",
+      "name": "stSTX Core (stacking-dao-core-stx-v2)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://docs.stackingdao.com/stackingdao/core-contracts/ststx-stacking-dao-core",
+      "keyFunctions": [
+        { "signature": "deposit(stx-amount uint, min-shares-out uint)", "kind": "write", "payable": false, "description": "Stake STX for stSTX. stx-amount in micro-STX (1 STX = 1000000). Transfers STX from tx-sender (add an STX post-condition) and mints stSTX = stx-amount * 1e6 / get-stx-per-ststx-up. Reverts with err u26007 if fewer than min-shares-out micro-stSTX would be minted (0 = no slippage check). Returns (ok ststx-amount)." },
+        { "signature": "init-withdraw(ststx-amount uint)", "kind": "write", "payable": false, "description": "Start a standard withdrawal of ststx-amount micro-stSTX. Moves your stSTX to the core, locks STX at the current ratio and mints a withdrawal NFT (ststx-withdraw-nft-v4) to you. Returns (ok nft-id). Claimable after a fixed cooldown (currently 2,100 Bitcoin blocks, about two weeks; see withdraw-data-stx-v2.get-withdraw-unlock-burn-height)." },
+        { "signature": "withdraw(nft-id uint)", "kind": "write", "payable": false, "description": "Claim STX for a withdrawal NFT once burn-block-height >= its unlock-burn-height. tx-sender must own the NFT (err u26003 otherwise; err u26002 if still locked). Burns the NFT and the escrowed stSTX, sends STX. Returns (ok {stx-user, stx-fee})." },
+        { "signature": "withdraw-idle(ststx-amount uint)", "kind": "write", "payable": false, "description": "Instant unstake: burns ststx-amount micro-stSTX and pays STX from idle reserve liquidity right away, minus the idle fee (get-withdraw-idle-fee, 100 bps = 1% at research time). Reverts err u26006 if the reserve lacks idle STX. Returns (ok {stx-user, stx-fee})." },
+        { "signature": "get-shutdown-deposits()", "kind": "read", "payable": false, "description": "true if deposits are paused by governance. Also get-shutdown-init-withdraw(), get-shutdown-withdraw(), get-shutdown-withdraw-idle(). All false at research time." },
+        { "signature": "get-withdraw-idle-fee()", "kind": "read", "payable": false, "description": "Instant-unstake fee in basis points (u100 = 1%)." },
+        { "signature": "get-withdraw-fee()", "kind": "read", "payable": false, "description": "Fee on standard withdrawals in basis points (u0 at research time)." }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.data-stx-v2",
+      "name": "stSTX exchange-rate data (data-stx-v2)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.stackingdao.com/stackingdao/core-contracts/ststx-stacking-dao-core",
+      "keyFunctions": [
+        { "signature": "get-stx-per-ststx()", "kind": "read", "payable": false, "description": "micro-STX backing one stSTX, scaled by 1e6 (e.g. u1199681 = 1.199681 STX per stSTX at research time). Rounded down; use for redemption value and to size min-shares-out." },
+        { "signature": "get-stx-per-ststx-up()", "kind": "read", "payable": false, "description": "Same ratio rounded up; this is the value deposit() divides by." }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststx-token",
+      "name": "stSTX token",
+      "role": "token",
+      "proxy": false,
+      "source": "https://github.com/StackingDAO/stackingdao-smart-contracts/blob/main/mainnet/README.md",
+      "keyFunctions": [
+        { "signature": "get-balance(account principal)", "kind": "read", "payable": false, "description": "stSTX balance in micro-stSTX (6 decimals). Value-accruing (non-rebasing) token." },
+        { "signature": "get-total-supply()", "kind": "read", "payable": false, "description": "Total stSTX supply (6 decimals)." },
+        { "signature": "transfer(amount uint, sender principal, recipient principal, memo (optional (buff 34)))", "kind": "write", "payable": false, "description": "SIP-010 transfer; sender must be tx-sender." }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.stacking-dao-core-ststxbtc-v2",
+      "name": "stSTXbtc Core (stacking-dao-core-ststxbtc-v2)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://docs.stackingdao.com/stackingdao/core-contracts/ststxbtc-stacking-dao-core",
+      "keyFunctions": [
+        { "signature": "deposit(stx-amount uint, min-shares-out uint)", "kind": "write", "payable": false, "description": "Stake micro-STX and receive the same amount of stSTXbtc (minted 1:1). Yield is paid in sBTC via ststxbtc-tracking-v2, not through a ratio. Returns (ok stx-amount)." },
+        { "signature": "init-withdraw(ststxbtc-amount uint)", "kind": "write", "payable": false, "description": "Start a standard withdrawal (1 stSTXbtc = 1 STX). Mints a ststxbtc-withdraw-nft-v3 to you; returns (ok nft-id). Cooldown is currently 2,100 Bitcoin blocks (ststxbtc-data-v2.get-withdraw-cooldown-blocks)." },
+        { "signature": "withdraw(nft-id uint)", "kind": "write", "payable": false, "description": "Claim STX for an unlocked withdrawal NFT you own. Returns (ok {stx-user, stx-fee})." },
+        { "signature": "withdraw-idle(ststxbtc-amount uint)", "kind": "write", "payable": false, "description": "Instant unstake from idle STX minus the idle fee (1% at research time). Returns (ok {stx-user, stx-fee})." },
+        { "signature": "get-shutdown-deposits()", "kind": "read", "payable": false, "description": "Pause flag for deposits (also get-shutdown-init-withdraw / -withdraw / -withdraw-idle)." },
+        { "signature": "get-withdraw-idle-fee()", "kind": "read", "payable": false, "description": "Instant-unstake fee in basis points." }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststxbtc-token-v2",
+      "name": "stSTXbtc token",
+      "role": "token",
+      "proxy": false,
+      "source": "https://github.com/StackingDAO/stackingdao-smart-contracts/blob/main/mainnet/README.md",
+      "keyFunctions": [
+        { "signature": "get-balance(account principal)", "kind": "read", "payable": false, "description": "stSTXbtc balance (6 decimals, 1:1 with STX)." },
+        { "signature": "transfer(amount uint, sender principal, recipient principal, memo (optional (buff 34)))", "kind": "write", "payable": false, "description": "SIP-010 transfer. Transfers also refresh the holder's sBTC reward tracking." }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststxbtc-tracking-v2",
+      "name": "stSTXbtc sBTC reward tracker (ststxbtc-tracking-v2)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/StackingDAO/stackingdao-smart-contracts/blob/main/mainnet/README.md",
+      "keyFunctions": [
+        { "signature": "get-pending-rewards(holder principal, position principal)", "kind": "read", "payable": false, "description": "Unclaimed sBTC rewards (8 decimals) for a holder. For tokens held in the wallet itself pass position = holder; for stSTXbtc deposited in a supported DeFi position pass that position contract." },
+        { "signature": "claim-pending-rewards(holder principal, position principal)", "kind": "write", "payable": false, "description": "Sends pending sBTC rewards to holder (anyone can call for any holder). Returns (ok amount). Fails if claims are disabled (get-claims-enabled)." },
+        { "signature": "get-claims-enabled()", "kind": "read", "payable": false, "description": "Whether reward claims are currently enabled." }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.stacking-dao-core-stbtc-v1",
+      "name": "stBTC Core (stacking-dao-core-stbtc-v1)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://docs.stackingdao.com/stackingdao/core-contracts/stbtc-stacking-dao-core",
+      "keyFunctions": [
+        { "signature": "deposit(sbtc-amount uint, min-shares-out uint)", "kind": "write", "payable": false, "description": "Deposit sBTC (SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token, 8 decimals, 1 sBTC = 100000000) and mint stBTC = sbtc-amount * 1e8 / get-sbtc-per-stbtc-up. Reverts if fewer than min-shares-out. Returns (ok stbtc-amount)." },
+        { "signature": "init-withdraw(stbtc-amount uint)", "kind": "write", "payable": false, "description": "Start a standard withdrawal; mints a stbtc-withdraw-nft to you, returns (ok nft-id). Cooldown currently 4,200 Bitcoin blocks (about four weeks; withdraw-data-stbtc.get-withdraw-cooldown-blocks)." },
+        { "signature": "withdraw(nft-id uint)", "kind": "write", "payable": false, "description": "Claim sBTC for an unlocked withdrawal NFT you own." },
+        { "signature": "withdraw-idle(stbtc-amount uint)", "kind": "write", "payable": false, "description": "Instant withdrawal from idle sBTC, minus the idle fee (1% at research time), if liquidity is available." },
+        { "signature": "get-shutdown-deposits()", "kind": "read", "payable": false, "description": "Pause flag for deposits (also get-shutdown-init-withdraw / -withdraw / -withdraw-idle)." },
+        { "signature": "get-withdraw-idle-fee()", "kind": "read", "payable": false, "description": "Instant-withdrawal fee in basis points." }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.data-stbtc-v1",
+      "name": "stBTC exchange-rate data (data-stbtc-v1)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.stackingdao.com/stackingdao/core-contracts/stbtc-stacking-dao-core",
+      "keyFunctions": [
+        { "signature": "get-sbtc-per-stbtc()", "kind": "read", "payable": false, "description": "sBTC (sats) per one stBTC, scaled by 1e8 (e.g. u100489172 = 1.00489 sBTC per stBTC at research time). Rounded down." },
+        { "signature": "get-sbtc-per-stbtc-up()", "kind": "read", "payable": false, "description": "Same, rounded up; the value deposit() divides by." }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.stbtc-token",
+      "name": "stBTC token",
+      "role": "token",
+      "proxy": false,
+      "source": "https://github.com/StackingDAO/stackingdao-smart-contracts/blob/main/mainnet/README.md",
+      "keyFunctions": [
+        { "signature": "get-balance(account principal)", "kind": "read", "payable": false, "description": "stBTC balance (8 decimals). Value-accruing against sBTC." },
+        { "signature": "transfer(amount uint, sender principal, recipient principal, memo (optional (buff 34)))", "kind": "write", "payable": false, "description": "SIP-010 transfer." }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.swap-ststx-ststxbtc-v4",
+      "name": "stSTX <> stSTXbtc swap (swap-ststx-ststxbtc-v4)",
+      "role": "exchange",
+      "proxy": false,
+      "source": "https://docs.stackingdao.com/stackingdao/core-contracts/switch-ststx-less-than-greater-than-ststxbtc",
+      "keyFunctions": [
+        { "signature": "swap-ststx-for-ststxbtc(ststx-amount uint, min-out uint)", "kind": "write", "payable": false, "description": "Instant, fee-free switch of micro-stSTX into stSTXbtc at the data-stx-v2 ratio. Reverts if output < min-out or the reserve lacks liquidity in that direction." },
+        { "signature": "swap-ststxbtc-for-ststx(ststxbtc-amount uint, min-out uint)", "kind": "write", "payable": false, "description": "Reverse switch of stSTXbtc into stSTX; same slippage and liquidity rules." }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststx-withdraw-nft-v4",
+      "name": "stSTX withdrawal NFT (ststx-withdraw-nft-v4)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/StackingDAO/stackingdao-smart-contracts/blob/main/mainnet/README.md",
+      "keyFunctions": [
+        { "signature": "get-owner(token-id uint)", "kind": "read", "payable": false, "description": "Owner of a withdrawal NFT. Only the owner can call core withdraw(nft-id)." },
+        { "signature": "get-last-token-id()", "kind": "read", "payable": false, "description": "Last minted NFT id." }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.withdraw-data-stx-v2",
+      "name": "stSTX withdrawal records (withdraw-data-stx-v2)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/StackingDAO/stackingdao-smart-contracts/blob/main/mainnet/README.md",
+      "keyFunctions": [
+        { "signature": "get-withdrawals-by-nft(nft-id uint)", "kind": "read", "payable": false, "description": "Returns {unlock-burn-height, asset-amount (micro-STX), token-amount (micro-stSTX), withdraw-fee (bps)} for a withdrawal NFT; zeros if unknown or already claimed." },
+        { "signature": "get-withdraw-cooldown-blocks()", "kind": "read", "payable": false, "description": "Cooldown in Bitcoin blocks (u2100 at research time)." },
+        { "signature": "get-withdraw-unlock-burn-height()", "kind": "read", "payable": false, "description": "Unlock height a withdrawal started now would get (burn-block-height + cooldown)." }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.native-pool-v1",
+      "name": "Native STX staking pool (native-pool-v1)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://github.com/StackingDAO/stackingdao-smart-contracts/blob/main/mainnet/README.md",
+      "keyFunctions": [
+        { "signature": "delegate(signer-manager <signer-manager-trait>, amount-ustx uint, num-cycles uint)", "kind": "write", "payable": false, "description": "Non-custodial native stacking: stakes amount-ustx of your own STX via PoX-5 with StackingDAO's native-pool signer manager (pass SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.native-pool-signer-manager; any other reverts err u36002) for num-cycles. STX stays locked in your wallet; no liquid token. Rewards in BTC/sBTC; 5% fee per docs FAQ." },
+        { "signature": "delegate-update(signer-manager <signer-manager-trait>, old-signer-manager <signer-manager-trait>, cycles-to-extend uint, amount-increase uint, signer-calldata (optional (buff 500)))", "kind": "write", "payable": false, "description": "Extend or increase an existing native stake." },
+        { "signature": "undelegate(old-signer-manager <signer-manager-trait>)", "kind": "write", "payable": false, "description": "Unstake from the native pool via PoX-5 unstake (STX unlocks per PoX rules)." },
+        { "signature": "is-delegating(staker principal, sm principal)", "kind": "read", "payable": false, "description": "Transient flag used during delegate calls; not a reliable 'is staked' indicator." },
+        { "signature": "current-cycle()", "kind": "read", "payable": false, "description": "Current PoX reward cycle." }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    { "name": "stake STX for stSTX", "description": "Liquid-stake STX, yield compounds into the stSTX/STX ratio.", "how": "Read data-stx-v2.get-stx-per-ststx; min = stx-amount*1e6/ratio minus a small buffer; call stacking-dao-core-stx-v2.deposit(stx-amount, min) with an STX post-condition for stx-amount." },
+    { "name": "stake STX for stSTXbtc", "description": "Liquid-stake STX and earn sBTC rewards.", "how": "stacking-dao-core-ststxbtc-v2.deposit(stx-amount, stx-amount); later claim with ststxbtc-tracking-v2.claim-pending-rewards(you, you)." },
+    { "name": "stake sBTC for stBTC", "description": "Liquid-stake sBTC.", "how": "Read data-stbtc-v1.get-sbtc-per-stbtc; call stacking-dao-core-stbtc-v1.deposit(sbtc-amount, min) with an sBTC post-condition." },
+    { "name": "instant unstake", "description": "Exit immediately for a 1% fee if idle liquidity exists.", "how": "core.withdraw-idle(amount) on the matching core contract. Alternative: sell on a Stacks DEX (Bitflow), price may differ." },
+    { "name": "standard unstake", "description": "Exit at full ratio after the cooldown.", "how": "core.init-withdraw(amount) -> nft-id; wait until burn-block-height >= withdraw-data .get-withdrawals-by-nft(nft-id).unlock-burn-height (about 2 weeks for stSTX/stSTXbtc, about 4 weeks for stBTC); then core.withdraw(nft-id) from the NFT owner." },
+    { "name": "switch stSTX <> stSTXbtc", "description": "Change yield type without unstaking.", "how": "swap-ststx-ststxbtc-v4.swap-ststx-for-ststxbtc(amount, min-out) or swap-ststxbtc-for-ststx(amount, min-out)." }
+  ],
+  "risks": [
+    "Standard withdrawals take a fixed cooldown: 2,100 Bitcoin blocks (~2 weeks) for stSTX/stSTXbtc and 4,200 (~4 weeks) for stBTC at research time; governance can lengthen it (minimum 2,100 on mainnet). The withdrawal NFT must not be transferred/sold by mistake: only its owner can claim.",
+    "Instant unstake charges a 1% fee and only works while the reserve holds enough idle liquidity.",
+    "Governance (dao / dao-multisig / dao-executor) can pause deposits and each withdrawal path, change fees, and upgrade contracts by activating new versions; versioned contract names (e.g. core-stx-v2 replaced core-v6) mean integrations must follow the docs.",
+    "stBTC depends on the external sBTC token and peg (SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token), outside StackingDAO's control.",
+    "Secondary-market prices of stSTX/stSTXbtc on DEXs can deviate from the protocol ratio.",
+    "Audited by Clarity Alliance (PoX-5 contracts and earlier versions) and CoinFabrik; Immunefi bug bounty up to $100k. Residents of restricted countries are barred from the app."
+  ],
+  "notes": "Stacks is a Clarity-VM chain (non-EVM), so vm is 'mixed' and chainId is null; addresses are Clarity contract principals (deployer.contract-name), all deployed by SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG. Function signatures are in Clarity form (name(arg type, ...)); call them with a Stacks contract-call transaction and add post-conditions for STX/sBTC/token transfers. Core, data and swap addresses come from the docs' Core Contracts pages; tokens, NFTs, tracker, withdraw-data and native pool come from the official mainnet deployment list (61 contracts) in StackingDAO/stackingdao-smart-contracts. Each listed contract was confirmed to exist via the Hiro API and live parameters (pause flags all false, idle fee 1%, ratios, cooldowns) were read on 2026-11-24. Internal contracts (reserves, strategy, stakers, signer managers, rewards, governance) are left out; see the mainnet README for them. Older cores (stacking-dao-core-v6, stacking-dao-core-btc-v3, swap-ststx-ststxbtc-v2) are superseded and should not be used.",
+  "sources": [
+    "https://defillama.com/protocol/stackingdao",
+    "https://api.llama.fi/protocol/stackingdao",
+    "https://docs.stackingdao.com/stackingdao/llms.txt",
+    "https://docs.stackingdao.com/stackingdao/core-contracts/ststx-stacking-dao-core",
+    "https://docs.stackingdao.com/stackingdao/core-contracts/ststxbtc-stacking-dao-core",
+    "https://docs.stackingdao.com/stackingdao/core-contracts/stbtc-stacking-dao-core",
+    "https://docs.stackingdao.com/stackingdao/core-contracts/switch-ststx-less-than-greater-than-ststxbtc",
+    "https://docs.stackingdao.com/stackingdao/the-stacking-dao-app/ststx-liquid-stx-staking-with-stx-rewards/withdrawing-from-ststx",
+    "https://docs.stackingdao.com/stackingdao/the-stacking-dao-app/ststxbtc-liquid-stx-staking-with-btc-rewards/ststxbtc-basics",
+    "https://docs.stackingdao.com/stackingdao/the-stacking-dao-app/frequently-asked-questions",
+    "https://docs.stackingdao.com/stackingdao/audits-and-security",
+    "https://docs.stackingdao.com/stackingdao/miscellaneous/essential-links",
+    "https://github.com/StackingDAO/stackingdao-smart-contracts",
+    "https://github.com/StackingDAO/stackingdao-smart-contracts/blob/main/mainnet/README.md",
+    "https://api.hiro.so/extended/v1/contract/SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.stacking-dao-core-stx-v2"
+  ],
+  "researchedAt": "2026-11-24"
+}

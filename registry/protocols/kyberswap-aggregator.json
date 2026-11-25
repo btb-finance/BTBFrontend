@@ -1,0 +1,725 @@
+{
+  "slug": "kyberswap-aggregator",
+  "name": "KyberSwap Aggregator",
+  "category": "DEX Aggregator",
+  "description": "DEX aggregator that splits a swap across many on-chain liquidity sources (plus RFQ). An agent gets the best route from the Aggregator API (GET /routes), has the API encode it (POST /route/build), approves the returned routerAddress for the input token, and sends the encoded calldata to the MetaAggregationRouterV2 router, which is deployed at the same address on every supported chain.",
+  "website": "https://kyberswap.com",
+  "docs": "https://docs.kyberswap.com",
+  "defillama": "https://defillama.com/protocol/kyberswap-aggregator",
+  "chains": [
+    "ethereum",
+    "bsc",
+    "arbitrum",
+    "polygon",
+    "optimism",
+    "avalanche",
+    "base",
+    "linea",
+    "sonic",
+    "unichain",
+    "hyperevm"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+      "name": "MetaAggregationRouterV2",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.kyberswap.com/developer-guide/aggregator-api/contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "swap((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Main swap entry. One tuple: (address callTarget, address approveTarget, bytes targetData, SwapDescriptionV2 desc, bytes clientData), where desc = (address srcToken, address dstToken, address[] srcReceivers, uint256[] srcAmounts, address[] feeReceivers, uint256[] feeAmounts, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit). Returns (uint256 returnAmount, uint256 gasUsed). Do not encode by hand: send the `data` returned by POST /{chain}/api/v1/route/build as the tx calldata to this router, with value = `transactionValue` (non-zero only when selling the native token, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). Reverts if output < minReturnAmount (set from slippageTolerance)."
+        },
+        {
+          "signature": "swapSimpleMode(address,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Gas-optimised swap path the API may encode instead of swap(): (address caller, SwapDescriptionV2 desc, bytes executorData, bytes clientData). ERC-20 input only (not payable). Use the API calldata as-is; whichever function the API chose is already encoded in `data`."
+        },
+        {
+          "signature": "swapGeneric((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Generic-executor variant with the same tuple as swap(). Only used when the API encodes it."
+        },
+        {
+          "signature": "WETH()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped native token address used by the router on this chain."
+        },
+        {
+          "signature": "isWhitelist(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether an executor/target is whitelisted by the router owner (only whitelisted executors can be called)."
+        },
+        {
+          "signature": "owner()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router owner (KyberSwap admin) who controls the executor whitelist and rescueFunds."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+      "name": "MetaAggregationRouterV2",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.kyberswap.com/developer-guide/aggregator-api/contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "swap((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Main swap entry. One tuple: (address callTarget, address approveTarget, bytes targetData, SwapDescriptionV2 desc, bytes clientData), where desc = (address srcToken, address dstToken, address[] srcReceivers, uint256[] srcAmounts, address[] feeReceivers, uint256[] feeAmounts, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit). Returns (uint256 returnAmount, uint256 gasUsed). Do not encode by hand: send the `data` returned by POST /{chain}/api/v1/route/build as the tx calldata to this router, with value = `transactionValue` (non-zero only when selling the native token, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). Reverts if output < minReturnAmount (set from slippageTolerance)."
+        },
+        {
+          "signature": "swapSimpleMode(address,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Gas-optimised swap path the API may encode instead of swap(): (address caller, SwapDescriptionV2 desc, bytes executorData, bytes clientData). ERC-20 input only (not payable). Use the API calldata as-is; whichever function the API chose is already encoded in `data`."
+        },
+        {
+          "signature": "swapGeneric((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Generic-executor variant with the same tuple as swap(). Only used when the API encodes it."
+        },
+        {
+          "signature": "WETH()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped native token address used by the router on this chain."
+        },
+        {
+          "signature": "isWhitelist(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether an executor/target is whitelisted by the router owner (only whitelisted executors can be called)."
+        },
+        {
+          "signature": "owner()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router owner (KyberSwap admin) who controls the executor whitelist and rescueFunds."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+      "name": "MetaAggregationRouterV2",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.kyberswap.com/developer-guide/aggregator-api/contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "swap((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Main swap entry. One tuple: (address callTarget, address approveTarget, bytes targetData, SwapDescriptionV2 desc, bytes clientData), where desc = (address srcToken, address dstToken, address[] srcReceivers, uint256[] srcAmounts, address[] feeReceivers, uint256[] feeAmounts, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit). Returns (uint256 returnAmount, uint256 gasUsed). Do not encode by hand: send the `data` returned by POST /{chain}/api/v1/route/build as the tx calldata to this router, with value = `transactionValue` (non-zero only when selling the native token, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). Reverts if output < minReturnAmount (set from slippageTolerance)."
+        },
+        {
+          "signature": "swapSimpleMode(address,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Gas-optimised swap path the API may encode instead of swap(): (address caller, SwapDescriptionV2 desc, bytes executorData, bytes clientData). ERC-20 input only (not payable). Use the API calldata as-is; whichever function the API chose is already encoded in `data`."
+        },
+        {
+          "signature": "swapGeneric((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Generic-executor variant with the same tuple as swap(). Only used when the API encodes it."
+        },
+        {
+          "signature": "WETH()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped native token address used by the router on this chain."
+        },
+        {
+          "signature": "isWhitelist(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether an executor/target is whitelisted by the router owner (only whitelisted executors can be called)."
+        },
+        {
+          "signature": "owner()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router owner (KyberSwap admin) who controls the executor whitelist and rescueFunds."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+      "name": "MetaAggregationRouterV2",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.kyberswap.com/developer-guide/aggregator-api/contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "swap((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Main swap entry. One tuple: (address callTarget, address approveTarget, bytes targetData, SwapDescriptionV2 desc, bytes clientData), where desc = (address srcToken, address dstToken, address[] srcReceivers, uint256[] srcAmounts, address[] feeReceivers, uint256[] feeAmounts, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit). Returns (uint256 returnAmount, uint256 gasUsed). Do not encode by hand: send the `data` returned by POST /{chain}/api/v1/route/build as the tx calldata to this router, with value = `transactionValue` (non-zero only when selling the native token, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). Reverts if output < minReturnAmount (set from slippageTolerance)."
+        },
+        {
+          "signature": "swapSimpleMode(address,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Gas-optimised swap path the API may encode instead of swap(): (address caller, SwapDescriptionV2 desc, bytes executorData, bytes clientData). ERC-20 input only (not payable). Use the API calldata as-is; whichever function the API chose is already encoded in `data`."
+        },
+        {
+          "signature": "swapGeneric((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Generic-executor variant with the same tuple as swap(). Only used when the API encodes it."
+        },
+        {
+          "signature": "WETH()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped native token address used by the router on this chain."
+        },
+        {
+          "signature": "isWhitelist(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether an executor/target is whitelisted by the router owner (only whitelisted executors can be called)."
+        },
+        {
+          "signature": "owner()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router owner (KyberSwap admin) who controls the executor whitelist and rescueFunds."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+      "name": "MetaAggregationRouterV2",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.kyberswap.com/developer-guide/aggregator-api/contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "swap((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Main swap entry. One tuple: (address callTarget, address approveTarget, bytes targetData, SwapDescriptionV2 desc, bytes clientData), where desc = (address srcToken, address dstToken, address[] srcReceivers, uint256[] srcAmounts, address[] feeReceivers, uint256[] feeAmounts, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit). Returns (uint256 returnAmount, uint256 gasUsed). Do not encode by hand: send the `data` returned by POST /{chain}/api/v1/route/build as the tx calldata to this router, with value = `transactionValue` (non-zero only when selling the native token, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). Reverts if output < minReturnAmount (set from slippageTolerance)."
+        },
+        {
+          "signature": "swapSimpleMode(address,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Gas-optimised swap path the API may encode instead of swap(): (address caller, SwapDescriptionV2 desc, bytes executorData, bytes clientData). ERC-20 input only (not payable). Use the API calldata as-is; whichever function the API chose is already encoded in `data`."
+        },
+        {
+          "signature": "swapGeneric((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Generic-executor variant with the same tuple as swap(). Only used when the API encodes it."
+        },
+        {
+          "signature": "WETH()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped native token address used by the router on this chain."
+        },
+        {
+          "signature": "isWhitelist(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether an executor/target is whitelisted by the router owner (only whitelisted executors can be called)."
+        },
+        {
+          "signature": "owner()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router owner (KyberSwap admin) who controls the executor whitelist and rescueFunds."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+      "name": "MetaAggregationRouterV2",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.kyberswap.com/developer-guide/aggregator-api/contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "swap((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Main swap entry. One tuple: (address callTarget, address approveTarget, bytes targetData, SwapDescriptionV2 desc, bytes clientData), where desc = (address srcToken, address dstToken, address[] srcReceivers, uint256[] srcAmounts, address[] feeReceivers, uint256[] feeAmounts, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit). Returns (uint256 returnAmount, uint256 gasUsed). Do not encode by hand: send the `data` returned by POST /{chain}/api/v1/route/build as the tx calldata to this router, with value = `transactionValue` (non-zero only when selling the native token, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). Reverts if output < minReturnAmount (set from slippageTolerance)."
+        },
+        {
+          "signature": "swapSimpleMode(address,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Gas-optimised swap path the API may encode instead of swap(): (address caller, SwapDescriptionV2 desc, bytes executorData, bytes clientData). ERC-20 input only (not payable). Use the API calldata as-is; whichever function the API chose is already encoded in `data`."
+        },
+        {
+          "signature": "swapGeneric((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Generic-executor variant with the same tuple as swap(). Only used when the API encodes it."
+        },
+        {
+          "signature": "WETH()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped native token address used by the router on this chain."
+        },
+        {
+          "signature": "isWhitelist(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether an executor/target is whitelisted by the router owner (only whitelisted executors can be called)."
+        },
+        {
+          "signature": "owner()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router owner (KyberSwap admin) who controls the executor whitelist and rescueFunds."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+      "name": "MetaAggregationRouterV2",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.kyberswap.com/developer-guide/aggregator-api/contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "swap((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Main swap entry. One tuple: (address callTarget, address approveTarget, bytes targetData, SwapDescriptionV2 desc, bytes clientData), where desc = (address srcToken, address dstToken, address[] srcReceivers, uint256[] srcAmounts, address[] feeReceivers, uint256[] feeAmounts, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit). Returns (uint256 returnAmount, uint256 gasUsed). Do not encode by hand: send the `data` returned by POST /{chain}/api/v1/route/build as the tx calldata to this router, with value = `transactionValue` (non-zero only when selling the native token, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). Reverts if output < minReturnAmount (set from slippageTolerance)."
+        },
+        {
+          "signature": "swapSimpleMode(address,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Gas-optimised swap path the API may encode instead of swap(): (address caller, SwapDescriptionV2 desc, bytes executorData, bytes clientData). ERC-20 input only (not payable). Use the API calldata as-is; whichever function the API chose is already encoded in `data`."
+        },
+        {
+          "signature": "swapGeneric((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Generic-executor variant with the same tuple as swap(). Only used when the API encodes it."
+        },
+        {
+          "signature": "WETH()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped native token address used by the router on this chain."
+        },
+        {
+          "signature": "isWhitelist(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether an executor/target is whitelisted by the router owner (only whitelisted executors can be called)."
+        },
+        {
+          "signature": "owner()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router owner (KyberSwap admin) who controls the executor whitelist and rescueFunds."
+        }
+      ]
+    },
+    {
+      "chain": "linea",
+      "chainId": 59144,
+      "address": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+      "name": "MetaAggregationRouterV2",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.kyberswap.com/developer-guide/aggregator-api/contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "swap((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Main swap entry. One tuple: (address callTarget, address approveTarget, bytes targetData, SwapDescriptionV2 desc, bytes clientData), where desc = (address srcToken, address dstToken, address[] srcReceivers, uint256[] srcAmounts, address[] feeReceivers, uint256[] feeAmounts, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit). Returns (uint256 returnAmount, uint256 gasUsed). Do not encode by hand: send the `data` returned by POST /{chain}/api/v1/route/build as the tx calldata to this router, with value = `transactionValue` (non-zero only when selling the native token, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). Reverts if output < minReturnAmount (set from slippageTolerance)."
+        },
+        {
+          "signature": "swapSimpleMode(address,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Gas-optimised swap path the API may encode instead of swap(): (address caller, SwapDescriptionV2 desc, bytes executorData, bytes clientData). ERC-20 input only (not payable). Use the API calldata as-is; whichever function the API chose is already encoded in `data`."
+        },
+        {
+          "signature": "swapGeneric((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Generic-executor variant with the same tuple as swap(). Only used when the API encodes it."
+        },
+        {
+          "signature": "WETH()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped native token address used by the router on this chain."
+        },
+        {
+          "signature": "isWhitelist(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether an executor/target is whitelisted by the router owner (only whitelisted executors can be called)."
+        },
+        {
+          "signature": "owner()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router owner (KyberSwap admin) who controls the executor whitelist and rescueFunds."
+        }
+      ]
+    },
+    {
+      "chain": "sonic",
+      "chainId": 146,
+      "address": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+      "name": "MetaAggregationRouterV2",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.kyberswap.com/developer-guide/aggregator-api/contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "swap((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Main swap entry. One tuple: (address callTarget, address approveTarget, bytes targetData, SwapDescriptionV2 desc, bytes clientData), where desc = (address srcToken, address dstToken, address[] srcReceivers, uint256[] srcAmounts, address[] feeReceivers, uint256[] feeAmounts, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit). Returns (uint256 returnAmount, uint256 gasUsed). Do not encode by hand: send the `data` returned by POST /{chain}/api/v1/route/build as the tx calldata to this router, with value = `transactionValue` (non-zero only when selling the native token, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). Reverts if output < minReturnAmount (set from slippageTolerance)."
+        },
+        {
+          "signature": "swapSimpleMode(address,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Gas-optimised swap path the API may encode instead of swap(): (address caller, SwapDescriptionV2 desc, bytes executorData, bytes clientData). ERC-20 input only (not payable). Use the API calldata as-is; whichever function the API chose is already encoded in `data`."
+        },
+        {
+          "signature": "swapGeneric((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Generic-executor variant with the same tuple as swap(). Only used when the API encodes it."
+        },
+        {
+          "signature": "WETH()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped native token address used by the router on this chain."
+        },
+        {
+          "signature": "isWhitelist(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether an executor/target is whitelisted by the router owner (only whitelisted executors can be called)."
+        },
+        {
+          "signature": "owner()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router owner (KyberSwap admin) who controls the executor whitelist and rescueFunds."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+      "name": "MetaAggregationRouterV2",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.kyberswap.com/developer-guide/aggregator-api/contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "swap((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Main swap entry. One tuple: (address callTarget, address approveTarget, bytes targetData, SwapDescriptionV2 desc, bytes clientData), where desc = (address srcToken, address dstToken, address[] srcReceivers, uint256[] srcAmounts, address[] feeReceivers, uint256[] feeAmounts, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit). Returns (uint256 returnAmount, uint256 gasUsed). Do not encode by hand: send the `data` returned by POST /{chain}/api/v1/route/build as the tx calldata to this router, with value = `transactionValue` (non-zero only when selling the native token, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). Reverts if output < minReturnAmount (set from slippageTolerance)."
+        },
+        {
+          "signature": "swapSimpleMode(address,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Gas-optimised swap path the API may encode instead of swap(): (address caller, SwapDescriptionV2 desc, bytes executorData, bytes clientData). ERC-20 input only (not payable). Use the API calldata as-is; whichever function the API chose is already encoded in `data`."
+        },
+        {
+          "signature": "swapGeneric((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Generic-executor variant with the same tuple as swap(). Only used when the API encodes it."
+        },
+        {
+          "signature": "WETH()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped native token address used by the router on this chain."
+        },
+        {
+          "signature": "isWhitelist(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether an executor/target is whitelisted by the router owner (only whitelisted executors can be called)."
+        },
+        {
+          "signature": "owner()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router owner (KyberSwap admin) who controls the executor whitelist and rescueFunds."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+      "name": "MetaAggregationRouterV2",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.kyberswap.com/developer-guide/aggregator-api/contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "swap((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Main swap entry. One tuple: (address callTarget, address approveTarget, bytes targetData, SwapDescriptionV2 desc, bytes clientData), where desc = (address srcToken, address dstToken, address[] srcReceivers, uint256[] srcAmounts, address[] feeReceivers, uint256[] feeAmounts, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit). Returns (uint256 returnAmount, uint256 gasUsed). Do not encode by hand: send the `data` returned by POST /{chain}/api/v1/route/build as the tx calldata to this router, with value = `transactionValue` (non-zero only when selling the native token, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). Reverts if output < minReturnAmount (set from slippageTolerance)."
+        },
+        {
+          "signature": "swapSimpleMode(address,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Gas-optimised swap path the API may encode instead of swap(): (address caller, SwapDescriptionV2 desc, bytes executorData, bytes clientData). ERC-20 input only (not payable). Use the API calldata as-is; whichever function the API chose is already encoded in `data`."
+        },
+        {
+          "signature": "swapGeneric((address,address,bytes,(address,address,address[],uint256[],address[],uint256[],address,uint256,uint256,uint256,bytes),bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Generic-executor variant with the same tuple as swap(). Only used when the API encodes it."
+        },
+        {
+          "signature": "WETH()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped native token address used by the router on this chain."
+        },
+        {
+          "signature": "isWhitelist(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether an executor/target is whitelisted by the router owner (only whitelisted executors can be called)."
+        },
+        {
+          "signature": "owner()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router owner (KyberSwap admin) who controls the executor whitelist and rescueFunds."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6868D319c8c9A78F7d39DC3602C5c917315132D7",
+      "name": "KSAggregationRouterV3",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.kyberswap.com/developer-guide/aggregator-api/contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "swap((address[],uint256[],(bytes,address[],uint256[],address[],uint256[])[],address[],(uint256,address[],uint256[])[],bytes,address,bytes,address,uint256,bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Newer multi-input/multi-output swap. One tuple: (address[] inputTokens, uint256[] inputAmounts, (bytes permitData, address[] feeRecipients, uint256[] fees, address[] targets, uint256[] amounts)[] inputData, address[] outputTokens, (uint256 minAmount, address[] feeRecipients, uint256[] fees)[] outputData, bytes permit2Data, address executor, bytes executorData, address recipient, uint256 deadline, bytes clientData). Returns (uint256[] outputAmounts, uint256 gasUsed). Only send calldata produced by the Kyber API for this router (i.e. when the API's routerAddress is this contract)."
+        },
+        {
+          "signature": "PERMIT2()",
+          "kind": "read",
+          "payable": false,
+          "description": "Permit2 contract this router accepts signed allowances from."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the router is paused (swaps revert)."
+        },
+        {
+          "signature": "owner()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router owner."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x6868D319c8c9A78F7d39DC3602C5c917315132D7",
+      "name": "KSAggregationRouterV3",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.kyberswap.com/developer-guide/aggregator-api/contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "swap((address[],uint256[],(bytes,address[],uint256[],address[],uint256[])[],address[],(uint256,address[],uint256[])[],bytes,address,bytes,address,uint256,bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Newer multi-input/multi-output swap. One tuple: (address[] inputTokens, uint256[] inputAmounts, (bytes permitData, address[] feeRecipients, uint256[] fees, address[] targets, uint256[] amounts)[] inputData, address[] outputTokens, (uint256 minAmount, address[] feeRecipients, uint256[] fees)[] outputData, bytes permit2Data, address executor, bytes executorData, address recipient, uint256 deadline, bytes clientData). Returns (uint256[] outputAmounts, uint256 gasUsed). Only send calldata produced by the Kyber API for this router (i.e. when the API's routerAddress is this contract)."
+        },
+        {
+          "signature": "PERMIT2()",
+          "kind": "read",
+          "payable": false,
+          "description": "Permit2 contract this router accepts signed allowances from."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the router is paused (swaps revert)."
+        },
+        {
+          "signature": "owner()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router owner."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x6868D319c8c9A78F7d39DC3602C5c917315132D7",
+      "name": "KSAggregationRouterV3",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.kyberswap.com/developer-guide/aggregator-api/contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "swap((address[],uint256[],(bytes,address[],uint256[],address[],uint256[])[],address[],(uint256,address[],uint256[])[],bytes,address,bytes,address,uint256,bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Newer multi-input/multi-output swap. One tuple: (address[] inputTokens, uint256[] inputAmounts, (bytes permitData, address[] feeRecipients, uint256[] fees, address[] targets, uint256[] amounts)[] inputData, address[] outputTokens, (uint256 minAmount, address[] feeRecipients, uint256[] fees)[] outputData, bytes permit2Data, address executor, bytes executorData, address recipient, uint256 deadline, bytes clientData). Returns (uint256[] outputAmounts, uint256 gasUsed). Only send calldata produced by the Kyber API for this router (i.e. when the API's routerAddress is this contract)."
+        },
+        {
+          "signature": "PERMIT2()",
+          "kind": "read",
+          "payable": false,
+          "description": "Permit2 contract this router accepts signed allowances from."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the router is paused (swaps revert)."
+        },
+        {
+          "signature": "owner()",
+          "kind": "read",
+          "payable": false,
+          "description": "Router owner."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Aggregator API: [V1] Get Swap Route",
+      "url": "https://aggregator-api.kyberswap.com/{chain}/api/v1/routes",
+      "auth": "none",
+      "use": "GET with query tokenIn, tokenOut, amountIn (base units; native token = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). Optional: includedSources, excludedSources, gasInclude, origin (user wallet), feeAmount/chargeFeeBy/isInBps/feeReceiver for integrator fees. Send header `x-client-id: <your app name>` on every request (requests without it get stricter limits; public limit ~3 rps). Response: data.routeSummary (pass unchanged to /route/build) and data.routerAddress. {chain} is a slug: ethereum, bsc, arbitrum, polygon, optimism, avalanche, base, linea, mantle, sonic, berachain, ronin, unichain, hyperevm, plasma, etherlink, monad, megaeth, robinhood, arc. Do not cache routes for more than ~5-10 s.",
+      "source": "https://docs.kyberswap.com/developer-guide/aggregator-api/aggregator-api-specification/evm-swaps.md"
+    },
+    {
+      "name": "Aggregator API: [V1] Post Swap Route For Encoded Data",
+      "url": "https://aggregator-api.kyberswap.com/{chain}/api/v1/route/build",
+      "auth": "none",
+      "use": "POST JSON {routeSummary, sender, recipient, slippageTolerance (bps, 0-2000; 50 = 0.5%), deadline?, origin?, permit?, enableGasEstimation?, source?} with header `x-client-id`. Response data: data (calldata), routerAddress (tx `to`), transactionValue (tx value in wei, non-zero only for native-token input), amountOut, gas, gasUsd. Set enableGasEstimation=true to have the API eth_estimateGas and catch reverts before sending.",
+      "source": "https://docs.kyberswap.com/developer-guide/aggregator-api/aggregator-api-specification/evm-swaps.md"
+    },
+    {
+      "name": "Aggregator API gateway (keyed)",
+      "url": "https://api.kyberswap.com/swap/",
+      "auth": "api-key",
+      "use": "Same /routes and /route/build endpoints behind KyberSwap's API gateway, with an `X-Api-Key` header for higher rate limits. Key is issued by KyberSwap business development (business@kyber.network). The public base URL above stays available but is rate limited.",
+      "source": "https://docs.kyberswap.com/developer-guide/start-here/rate-limits-and-client-id.md"
+    }
+  ],
+  "actions": [
+    {
+      "name": "swap (ERC-20 input)",
+      "description": "Swap an exact amount of one token for another at the best aggregated rate",
+      "how": "1) GET https://aggregator-api.kyberswap.com/{chain}/api/v1/routes?tokenIn=..&tokenOut=..&amountIn=.. with header x-client-id. 2) POST .../{chain}/api/v1/route/build with {routeSummary, sender: wallet, recipient: wallet, slippageTolerance: 50} and the same header. 3) If allowance(wallet, routerAddress) < amountIn, send tokenIn.approve(routerAddress, amountIn). 4) Send a tx {to: routerAddress, data: data, value: 0} (use the API's gas estimate plus a margin). Check that routerAddress is one of the official router addresses in this file before approving or sending."
+    },
+    {
+      "name": "swap (native token input)",
+      "description": "Sell ETH/BNB/POL/etc. directly",
+      "how": "Use tokenIn=0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE in /routes. No approval needed. After /route/build send {to: routerAddress, data: data, value: transactionValue}."
+    },
+    {
+      "name": "swap without a separate approval (permit)",
+      "description": "For EIP-2612 tokens, skip the approve tx",
+      "how": "Sign an EIP-2612 permit with spender = routerAddress and pass the encoded permit in the `permit` field of POST /route/build; then send the returned calldata as usual."
+    },
+    {
+      "name": "quote only",
+      "description": "Get expected output, price impact and gas cost without trading",
+      "how": "GET /{chain}/api/v1/routes and read data.routeSummary.amountOut, amountOutUsd and gasUsd. There is no on-chain quoter; quotes come only from the API."
+    },
+    {
+      "name": "charge an integrator fee",
+      "description": "Take a fee on the swap for your app",
+      "how": "Add feeAmount, chargeFeeBy (currency_in or currency_out), isInBps=true and feeReceiver to GET /routes; the fee is carried in routeSummary.extraFee and enforced by the router."
+    }
+  ],
+  "risks": [
+    "KyberSwap Elastic (Kyber's concentrated-liquidity AMM, a separate product) was exploited on 22 Nov 2023 across several chains (press reported losses of roughly $47M or more) and Elastic was discontinued on 23 Nov 2023. The aggregator routers listed here were not the exploited contracts; Elastic pools are no longer a route source.",
+    "Approvals: the router pulls tokenIn with transferFrom, so you must approve routerAddress. Approve only the exact amount and only an address listed here; an unlimited approval to the router is exposed if the router or a whitelisted executor is ever compromised.",
+    "Calldata from the API is opaque and provided as-is (Kyber's own disclaimer). Before signing, check `to` is an official router, value equals transactionValue, and amountOut/minimum received match expectations; simulate with enableGasEstimation or eth_call.",
+    "Routes go stale within seconds; rebuild if the user waits. The tx reverts if output falls below the minimum set by slippageTolerance (max 2000 bps unless ignoreCappedSlippage).",
+    "Positive slippage above the quoted amountOut and unconsumed 'dust' accrue to KyberSwap, not the user; the user is only guaranteed the minimum received.",
+    "The router is owner-controlled (executor whitelist, rescueFunds); KSAggregationRouterV3 is also pausable.",
+    "Public API is rate limited (~3 rps) and some datacenter IPs/regions get HTTP 403/451; always send x-client-id."
+  ],
+  "notes": "Kyber's contracts page states all aggregator contracts share the same address on every supported chain. MetaAggregationRouterV2 (0x6131B5fae19EA4f9D964eAc0408E4408b66337b5) is listed for Ethereum, BSC, Arbitrum, Polygon, Optimism, Avalanche, Base, Linea, Sonic, Berachain, Ronin, Unichain, HyperEVM, Plasma, Etherlink, Monad, MegaETH, Robinhood Chain, Rise and Arc; this file covers the 11 major chains (bytecode spot-checked on each) and the full list is at https://docs.kyberswap.com/developer-guide/aggregator-api/contracts.md. KSAggregationRouterV3 (0x6868D319c8c9A78F7d39DC3602C5c917315132D7) is listed only for Ethereum, BSC, Base and Robinhood Chain; the API still returned MetaAggregationRouterV2 as routerAddress in a Nov 2026 spot check, so always use the routerAddress the API returns (and check it against this list). AggregationExecutorProxy (0x8F10B468b06c6FD214B65F87778827F7D113f996) and InputScalingHelperV2 (0x2f577A41BeC1BE1152AeEA12e73b7391d15f655D, used to rescale API calldata on-chain by at most +/-5%) are also on the official page but are left out as contracts because agents do not call them directly. Function signatures come from the source verified on Sourcify (chain 1). The API is EVM-only. The non-versioned GET /{chain}/route/encode endpoint is legacy; use the [V1] routes + route/build pair (or GET /{chain}/api/v1/swap for a single request).",
+  "sources": [
+    "https://defillama.com/protocol/kyberswap-aggregator",
+    "https://api.llama.fi/protocol/kyberswap-aggregator",
+    "https://docs.kyberswap.com/developer-guide/aggregator-api/contracts.md",
+    "https://docs.kyberswap.com/developer-guide/aggregator-api/aggregator-api-specification/evm-swaps.md",
+    "https://docs.kyberswap.com/developer-guide/aggregator-api/how-to-guides/execute-a-swap-with-the-aggregator-api.md",
+    "https://docs.kyberswap.com/developer-guide/start-here/rate-limits-and-client-id.md",
+    "https://docs.kyberswap.com/developer-guide/start-here.md",
+    "https://docs.kyberswap.com/developer-guide/aggregator-api/how-to-guides/permit.md",
+    "https://docs.kyberswap.com/developer-guide/aggregator-api/how-to-guides/scaling-swap-calldata-with-scalehelper.md",
+    "https://docs.kyberswap.com/reference/legacy/kyberswap-elastic.md",
+    "https://sourcify.dev/server/v2/contract/1/0x6131B5fae19EA4f9D964eAc0408E4408b66337b5?fields=abi",
+    "https://sourcify.dev/server/v2/contract/1/0x6868d319c8c9a78f7d39dc3602c5c917315132d7?fields=abi",
+    "https://github.com/KyberNetwork/ks-aggregator-api-demo",
+    "https://www.theblock.co/post/264432/dex-protocol-kyberswap-appears-to-lose-47-million-in-possible-exploit"
+  ],
+  "researchedAt": "2026-11-25"
+}

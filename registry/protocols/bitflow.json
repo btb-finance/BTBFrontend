@@ -1,0 +1,515 @@
+{
+  "slug": "bitflow",
+  "name": "Bitflow",
+  "category": "Dexs",
+  "description": "The main DEX on Stacks (Bitcoin L2). Agents can swap and LP through HODLMM (bin-based concentrated liquidity, DLMM), XYK constant-product pools and StableSwap pools, or get the best route across Bitflow and other Stacks DEXs from Bitflow's public Quote API, which returns ready-made contract-call parameters.",
+  "website": "https://www.bitflow.finance",
+  "docs": "https://docs.bitflow.finance/bitflow-documentation",
+  "defillama": "https://defillama.com/protocol/bitflow",
+  "chains": [
+    "stacks"
+  ],
+  "vm": "mixed",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SM1FKXGNZJWSTWDWXQZJNF7B5TV5ZB235JTCXYXKD.dlmm-swap-router-v-1-2",
+      "name": "HODLMM (DLMM) swap router v1.2",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.bitflow.finance/bitflow-documentation/developers/hodlmm-api-documentation",
+      "keyFunctions": [
+        {
+          "signature": "swap-x-for-y-simple-multi(pool-trait <dlmm-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, x-amount uint, min-dy uint, deadline-time (optional uint))",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap x-amount of the pool's X token for Y in one DLMM pool, walking up to 319 bins. Token traits must be the pool's x-token/y-token (read pool get-pool). Reverts err u2003 if output < min-dy, err u2012 if stacks-block-time (unix seconds) > deadline. Returns (ok {in, out}). Add post-conditions (Deny mode) for the tokens sent."
+        },
+        {
+          "signature": "swap-y-for-x-simple-multi(pool-trait <dlmm-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, y-amount uint, min-dx uint, deadline-time (optional uint))",
+          "kind": "write",
+          "payable": false,
+          "description": "Reverse direction: Y in, X out, same rules."
+        },
+        {
+          "signature": "swap-x-for-y-simple-range-multi(pool-trait <dlmm-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, x-amount uint, min-dy uint, max-steps uint, deadline-time (optional uint))",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as swap-x-for-y-simple-multi but caps the number of bins traversed at max-steps (1-319) to bound execution cost."
+        },
+        {
+          "signature": "swap-y-for-x-simple-range-multi(pool-trait <dlmm-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, y-amount uint, min-dx uint, max-steps uint, deadline-time (optional uint))",
+          "kind": "write",
+          "payable": false,
+          "description": "Y-for-X with a max-steps cap."
+        },
+        {
+          "signature": "swap-simple-multi(swaps (list 5 {pool-trait: <dlmm-pool-trait>, x-token-trait: <sip-010-trait>, y-token-trait: <sip-010-trait>, amount: uint, min-received: uint, x-for-y: bool, max-steps: uint}), deadline-time (optional uint))",
+          "kind": "write",
+          "payable": false,
+          "description": "Up to 5 single-pool swaps in one call (the form the Quote API returns as function_name swap-simple-multi; total max-steps should stay <= ~290 per docs). Each entry has its own min-received. Returns (ok {results: list of {in, out}})."
+        },
+        {
+          "signature": "swap-multi(swaps (list 319 {pool-trait: <dlmm-pool-trait>, x-token-trait: <sip-010-trait>, y-token-trait: <sip-010-trait>, expected-bin-id: int, amount: uint, min-received: uint, x-for-y: bool}), max-unfavorable-bins uint, deadline-time (optional uint))",
+          "kind": "write",
+          "payable": false,
+          "description": "Strict per-bin swap: each entry swaps in a specific expected-bin-id (signed, -500..500); fails with err u2002 if more than max-unfavorable-bins bins moved against you. Use the Quote API's 'full' parameters to build it."
+        }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SM1FKXGNZJWSTWDWXQZJNF7B5TV5ZB235JTCXYXKD.dlmm-liquidity-router-v-1-2",
+      "name": "HODLMM (DLMM) liquidity router v1.2",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.bitflow.finance/bitflow-documentation/developers/hodlmm-api-documentation",
+      "keyFunctions": [
+        {
+          "signature": "add-relative-liquidity-same-multi(positions (list 288 {active-bin-id-offset: int, x-amount: uint, y-amount: uint, min-dlp: uint, max-x-liquidity-fee: uint, max-y-liquidity-fee: uint}), pool-trait <dlmm-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, active-bin-tolerance (optional {expected-bin-id: int, max-deviation: uint}), deadline-time (optional uint))",
+          "kind": "write",
+          "payable": false,
+          "description": "'Simple mode' add: deposit into bins at offsets from the active bin at execution time. Only Y may go below the active bin, only X above it. min-dlp = minimum bin shares per position; max-*-liquidity-fee cap the fee charged for adding to the active bin. Optional tolerance reverts if the active bin moved more than max-deviation from expected-bin-id. Returns (ok {results, active-bin-id, active-bin-id-delta}). Broadcast in Allow mode per docs."
+        },
+        {
+          "signature": "add-liquidity-multi(positions (list 333 {pool-trait: <dlmm-pool-trait>, x-token-trait: <sip-010-trait>, y-token-trait: <sip-010-trait>, bin-id: int, x-amount: uint, y-amount: uint, min-dlp: uint, max-x-liquidity-fee: uint, max-y-liquidity-fee: uint}), deadline-time (optional uint))",
+          "kind": "write",
+          "payable": false,
+          "description": "'Strict mode' add to exact bins. bin-id is SIGNED (-500..500) here; the API's prepare helpers output unsigned ids (0..1000) and the official executing code converts back (signed = unsigned - 500). Reverts if state changed. Returns (ok list of shares minted)."
+        },
+        {
+          "signature": "withdraw-liquidity-same-multi(positions (list 326 {pool-trait: <dlmm-pool-trait>, bin-id: int, amount: uint, min-x-amount: uint, min-y-amount: uint}), x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, min-x-amount-total uint, min-y-amount-total uint, deadline-time (optional uint))",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn `amount` bin shares from each signed bin-id of one pool; totals are checked against min-x/y-amount-total. Size from the API's current-bins endpoint (userShares). Returns (ok {results, x-amount, y-amount})."
+        },
+        {
+          "signature": "withdraw-relative-liquidity-same-multi(positions (list 300 {pool-trait: <dlmm-pool-trait>, active-bin-id-offset: int, amount: uint, min-x-amount: uint, min-y-amount: uint}), x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, min-x-amount-total uint, min-y-amount-total uint, deadline-time (optional uint))",
+          "kind": "write",
+          "payable": false,
+          "description": "Simple-mode withdraw by offset from the active bin."
+        },
+        {
+          "signature": "withdraw-liquidity-multi(positions (list 326 {pool-trait: <dlmm-pool-trait>, x-token-trait: <sip-010-trait>, y-token-trait: <sip-010-trait>, bin-id: int, amount: uint, min-x-amount: uint, min-y-amount: uint}), deadline-time (optional uint))",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw across several pools/bins (per-position minimums)."
+        },
+        {
+          "signature": "move-liquidity-multi(positions (list 220 {pool-trait: <dlmm-pool-trait>, x-token-trait: <sip-010-trait>, y-token-trait: <sip-010-trait>, from-bin-id: int, to-bin-id: int, amount: uint, min-dlp: uint, max-x-liquidity-fee: uint, max-y-liquidity-fee: uint}), deadline-time (optional uint))",
+          "kind": "write",
+          "payable": false,
+          "description": "Move `amount` shares from one bin to another (rebalancing a range) without leaving the pool."
+        },
+        {
+          "signature": "move-relative-liquidity-multi(positions (list 208 {pool-trait: <dlmm-pool-trait>, x-token-trait: <sip-010-trait>, y-token-trait: <sip-010-trait>, from-bin-id: int, active-bin-id-offset: int, amount: uint, min-dlp: uint, max-x-liquidity-fee: uint, max-y-liquidity-fee: uint}), deadline-time (optional uint))",
+          "kind": "write",
+          "payable": false,
+          "description": "Move shares to a bin at an offset from the active bin."
+        }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SM1FKXGNZJWSTWDWXQZJNF7B5TV5ZB235JTCXYXKD.dlmm-pool-sbtc-usdcx-v-1-bps-10",
+      "name": "HODLMM pool sBTC/USDCx (bin step 10)",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.bitflow.finance/bitflow-documentation/developers/hodlmm-api-documentation-v2",
+      "keyFunctions": [
+        {
+          "signature": "get-pool()",
+          "kind": "read",
+          "payable": false,
+          "description": "Full pool state: x-token (sBTC), y-token (USDCx), bin-step, active-bin-id (signed), protocol/provider/variable fees per side, core-address, pool status data. Other HODLMM pools (list via GET /quotes/v2/pools) expose the same interface."
+        },
+        {
+          "signature": "get-active-bin-id()",
+          "kind": "read",
+          "payable": false,
+          "description": "Active bin, signed int (-500..500)."
+        },
+        {
+          "signature": "get-bin-balances(id uint)",
+          "kind": "read",
+          "payable": false,
+          "description": "{x-balance, y-balance, bin-shares} for a bin. NOTE: this map is keyed by UNSIGNED id (signed + 500)."
+        },
+        {
+          "signature": "get-user-bins(user principal)",
+          "kind": "read",
+          "payable": false,
+          "description": "List of (unsigned) bin ids where the user holds shares."
+        },
+        {
+          "signature": "get-balance(token-id uint, user principal)",
+          "kind": "read",
+          "payable": false,
+          "description": "SIP-013 share balance of a user in one bin (token-id = unsigned bin id)."
+        },
+        {
+          "signature": "get-overall-balance(user principal)",
+          "kind": "read",
+          "payable": false,
+          "description": "User's total shares across all bins."
+        }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR.xyk-core-v-1-2",
+      "name": "XYK core v1.2 (constant-product AMM)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://www.npmjs.com/package/@bitflowlabs/core-sdk",
+      "keyFunctions": [
+        {
+          "signature": "get-dy(pool-trait <xyk-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, x-amount uint)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote Y out for x-amount of X (fees included). Declared public (takes traits) but makes no writes, so call it read-only via the Hiro call-read endpoint. Returns err u1010 if the pool is disabled."
+        },
+        {
+          "signature": "get-dx(pool-trait <xyk-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, y-amount uint)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote X out for y-amount of Y."
+        },
+        {
+          "signature": "get-dlp(pool-trait <xyk-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, x-amount uint)",
+          "kind": "read",
+          "payable": false,
+          "description": "LP preview for adding x-amount: {dlp, y-amount required}."
+        },
+        {
+          "signature": "swap-x-for-y(pool-trait <xyk-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, x-amount uint, min-dy uint)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap X for Y in an XYK v1.2 pool (pool contracts named xyk-pool-*-v-1-2 etc. under SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR; get the list from get-pool-by-id or the Quote API). Token traits must equal the pool's x-token/y-token; STX pools use token-stx-v-1-2 as the STX trait. min-dy must be > 0 and output >= min-dy (err u1020). Returns (ok dy)."
+        },
+        {
+          "signature": "swap-y-for-x(pool-trait <xyk-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, y-amount uint, min-dx uint)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap Y for X; min-dx > 0."
+        },
+        {
+          "signature": "add-liquidity(pool-trait <xyk-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, x-amount uint, min-dlp uint)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add liquidity proportional to reserves: you supply x-amount and the contract pulls y-amount = x-amount * y-balance / x-balance. min-dlp (> 0) is the minimum LP tokens (the pool contract is the LP token). Returns (ok dlp)."
+        },
+        {
+          "signature": "withdraw-liquidity(pool-trait <xyk-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, amount uint, min-x-amount uint, min-y-amount uint)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn `amount` LP tokens for both tokens. Returns (ok {x-amount, y-amount})."
+        },
+        {
+          "signature": "get-pool-by-id(id uint)",
+          "kind": "read",
+          "payable": false,
+          "description": "{id, name, symbol, pool-contract} for pool id 1..get-last-pool-id() (45 at research time)."
+        },
+        {
+          "signature": "get-last-pool-id()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of XYK v1.2 pools created."
+        }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR.xyk-swap-helper-v-1-2",
+      "name": "XYK multi-hop swap helper v1.2",
+      "role": "router",
+      "proxy": false,
+      "source": "https://www.npmjs.com/package/@bitflowlabs/core-sdk",
+      "keyFunctions": [
+        {
+          "signature": "swap-helper-a(amount uint, min-received uint, xyk-tokens {a: <xyk-ft-trait>, b: <xyk-ft-trait>}, xyk-pools {a: <xyk-pool-trait>})",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap token a -> b through one XYK v1.2 pool, detecting the direction itself. Reverts if result < min-received. Returns (ok received)."
+        },
+        {
+          "signature": "swap-helper-b(amount uint, min-received uint, xyk-tokens {a: <xyk-ft-trait>, b: <xyk-ft-trait>, c: <xyk-ft-trait>, d: <xyk-ft-trait>}, xyk-pools {a: <xyk-pool-trait>, b: <xyk-pool-trait>})",
+          "kind": "write",
+          "payable": false,
+          "description": "Two hops: a->b in pool a, then c->d in pool b (normally b = c). swap-helper-c/-d/-e extend to 3/4/5 hops."
+        },
+        {
+          "signature": "get-quote-a(amount uint, xyk-tokens {a: <xyk-ft-trait>, b: <xyk-ft-trait>}, xyk-pools {a: <xyk-pool-trait>})",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote for swap-helper-a (public, no writes; call read-only). get-quote-b..e match the multi-hop helpers."
+        },
+        {
+          "signature": "get-swap-status()",
+          "kind": "read",
+          "payable": false,
+          "description": "false if admins disabled the helper."
+        }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR.token-stx-v-1-2",
+      "name": "STX SIP-010 wrapper for XYK v1.2 (token-stx-v-1-2)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://www.npmjs.com/package/@bitflowlabs/core-sdk",
+      "keyFunctions": [
+        {
+          "signature": "transfer(amount uint, sender principal, recipient principal, memo (optional (buff 34)))",
+          "kind": "write",
+          "payable": false,
+          "description": "Moves native STX (micro-STX, 6 decimals) behind a SIP-010 interface. Pass this contract as the STX token trait in XYK/stableswap v1.2 pools; you do not need to call it directly. Add an STX post-condition."
+        },
+        {
+          "signature": "get-balance(address principal)",
+          "kind": "read",
+          "payable": false,
+          "description": "Native STX balance of an address (micro-STX)."
+        }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR.stableswap-core-v-1-2",
+      "name": "StableSwap core v1.2 (Curve-style pools)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://www.npmjs.com/package/@bitflowlabs/core-sdk",
+      "keyFunctions": [
+        {
+          "signature": "get-dy(pool-trait <stableswap-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, x-amount uint)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote Y out for X in a stableswap v1.2 pool (public with no writes; call read-only)."
+        },
+        {
+          "signature": "get-dx(pool-trait <stableswap-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, y-amount uint)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote X out for Y."
+        },
+        {
+          "signature": "get-dlp(pool-trait <stableswap-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, x-amount uint, y-amount uint)",
+          "kind": "read",
+          "payable": false,
+          "description": "LP tokens for an (imbalanced) deposit."
+        },
+        {
+          "signature": "swap-x-for-y(pool-trait <stableswap-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, x-amount uint, min-dy uint)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap X for Y; reverts if output < min-dy. Returns (ok dy)."
+        },
+        {
+          "signature": "swap-y-for-x(pool-trait <stableswap-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, y-amount uint, min-dx uint)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap Y for X."
+        },
+        {
+          "signature": "add-liquidity(pool-trait <stableswap-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, x-amount uint, y-amount uint, min-dlp uint)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add any mix of X and Y (the pool applies its liquidity-fee to imbalanced adds). Returns (ok dlp)."
+        },
+        {
+          "signature": "withdraw-liquidity(pool-trait <stableswap-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, amount uint, min-x-amount uint, min-y-amount uint)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn LP for both tokens proportionally."
+        },
+        {
+          "signature": "get-pool-by-id(id uint)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool registry (2 pools at research time; see get-last-pool-id)."
+        }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SPQC38PW542EQJ5M11CR25P7BS1CA6QT4TBXGB3M.stableswap-stx-ststx-v-1-2",
+      "name": "StableSwap STX/stSTX v1.2 (legacy pair contract)",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://docs.bitflow.finance/bitflow-documentation/developers/deployed-contracts/stacks",
+      "keyFunctions": [
+        {
+          "signature": "get-dy(y-token <sip-010-trait>, lp-token <lp-trait>, x-amount uint)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote stSTX out for x-amount micro-STX. Use y-token = SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststx-token, lp-token = SPQC38PW542EQJ5M11CR25P7BS1CA6QT4TBXGB3M.stx-ststx-lp-token-v-1-2 (e.g. 1 STX -> 0.839722 stSTX at research time)."
+        },
+        {
+          "signature": "get-dx(y-token <sip-010-trait>, lp-token <lp-trait>, y-amount uint)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote STX out for y-amount micro-stSTX (sell direction carries extra fees)."
+        },
+        {
+          "signature": "swap-x-for-y(y-token <sip-010-trait>, lp-token <lp-trait>, x-amount uint, min-y-amount uint)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap native STX (x) for stSTX. Returns (ok dy); errors are string-ascii messages. Add an STX post-condition."
+        },
+        {
+          "signature": "swap-y-for-x(y-token <sip-010-trait>, lp-token <lp-trait>, y-amount uint, min-x-amount uint)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap stSTX for STX."
+        },
+        {
+          "signature": "add-liquidity(y-token <sip-010-trait>, lp-token <lp-trait>, x-amount-added uint, y-amount-added uint, min-lp-amount uint)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add STX and/or stSTX; mints stx-ststx-lp-token-v-1-2."
+        },
+        {
+          "signature": "withdraw-liquidity(y-token <sip-010-trait>, lp-token <lp-trait>, lp-amount uint, min-x-amount uint, min-y-amount uint)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn LP for STX and stSTX."
+        },
+        {
+          "signature": "get-pair-data(y-token <sip-010-trait>, lp-token <sip-010-trait>)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pair state: balances, amplification coefficient, total shares, approval, decimals."
+        }
+      ]
+    },
+    {
+      "chain": "stacks",
+      "chainId": null,
+      "address": "SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR.xyk-core-v-1-1",
+      "name": "XYK core v1.1 (legacy)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.bitflow.finance/bitflow-documentation/developers/deployed-contracts/stacks",
+      "keyFunctions": [
+        {
+          "signature": "swap-x-for-y(pool-trait <xyk-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, x-amount uint, min-dy uint)",
+          "kind": "write",
+          "payable": false,
+          "description": "Legacy v1.1 XYK swap (pools like xyk-pool-stx-aeusdc-v-1-1). Prefer v1.2; v1.1 pools may be disabled (last core call was set-pool-status)."
+        },
+        {
+          "signature": "withdraw-liquidity(pool-trait <xyk-pool-trait>, x-token-trait <sip-010-trait>, y-token-trait <sip-010-trait>, amount uint, min-x-amount uint, min-y-amount uint)",
+          "kind": "write",
+          "payable": false,
+          "description": "Remove liquidity from a legacy v1.1 pool."
+        },
+        {
+          "signature": "get-pool-by-id(id uint)",
+          "kind": "read",
+          "payable": false,
+          "description": "Legacy pool registry."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Bitflow Quote/App API v2 (HODLMM engine and aggregator)",
+      "url": "https://bff.bitflowapis.finance/api",
+      "auth": "none",
+      "use": "GET /quotes/v2/pools, /quotes/v2/tokens, /quotes/v2/bins/{pool_id}; POST /quotes/v2/quote (best route incl. other Stacks DEXs) then /quotes/v2/swap or /quotes/v2/agg/swap for contract_address, function_name, args and Deny-mode post-conditions; GET /app/v2/users/{user}/positions/{pool_id}/current-bins to size LP withdrawals. Check /quotes/v2/status tip_lag == 0 first. 100 req/s per IP without a key.",
+      "source": "https://docs.bitflow.finance/bitflow-documentation/developers/hodlmm-api-documentation-v2"
+    },
+    {
+      "name": "Bitflow public ticker",
+      "url": "https://bitflow-sdk-api-gateway-7owjsmt8.uc.gateway.dev/ticker",
+      "auth": "none",
+      "use": "24h prices, volumes and USD liquidity per pair.",
+      "source": "https://docs.bitflow.finance/bitflow-documentation/developers/public-api-documentation"
+    },
+    {
+      "name": "Bitflow SDK (@bitflowlabs/core-sdk)",
+      "url": "https://www.npmjs.com/package/@bitflowlabs/core-sdk",
+      "auth": "none",
+      "use": "TypeScript SDK for token lists, routes, quotes and swap execution; API keys optional (500 req/min per IP default).",
+      "source": "https://docs.bitflow.finance/bitflow-documentation/developers/bitflow-sdk"
+    }
+  ],
+  "actions": [
+    {
+      "name": "swap (best route)",
+      "description": "Swap any supported token pair at the best price across Bitflow and other Stacks venues.",
+      "how": "POST /quotes/v2/quote {input_token, output_token, amount_in (base units, string), slippage_tolerance}; take an executable route; POST /quotes/v2/swap (or /quotes/v2/agg/swap for agg_buildable routes); sign a Stacks contract-call with the returned contract, function, args and post-conditions (Deny mode)."
+    },
+    {
+      "name": "swap in one HODLMM pool",
+      "description": "Direct DLMM swap.",
+      "how": "Read pool get-pool for x-token/y-token; dlmm-swap-router-v-1-2.swap-x-for-y-simple-multi(pool, x-token, y-token, amount, min-out, (some deadline)) with post-conditions on the token sent."
+    },
+    {
+      "name": "swap in an XYK pool",
+      "description": "Constant-product swap.",
+      "how": "xyk-core-v-1-2.get-dy(pool, x, y, amount) read-only; then swap-x-for-y(pool, x, y, amount, quote*(1-slippage)). Use token-stx-v-1-2 for STX."
+    },
+    {
+      "name": "add HODLMM liquidity",
+      "description": "Provide liquidity in bins around the price.",
+      "how": "Get bins from /quotes/v2/bins/{pool}; build positions (Y below active bin, X above); dlmm-liquidity-router-v-1-2.add-relative-liquidity-same-multi(positions, pool, x, y, (some {expected-bin-id, max-deviation}), deadline)."
+    },
+    {
+      "name": "remove HODLMM liquidity",
+      "description": "Withdraw bin shares.",
+      "how": "GET /app/v2/users/{you}/positions/{pool}/current-bins (require clean, complete, tipLag 0); withdraw-liquidity-same-multi with signed bin ids (unsigned - 500) and per-bin share amounts."
+    }
+  ],
+  "risks": [
+    "Admin powers: XYK/StableSwap core admins (up to 5 principals) can disable pools (set-pool-status), change protocol/provider fees and fee addresses; the swap helper has an on/off switch; HODLMM pools have variable-fee managers and are administered via the DLMM core. A disabled pool makes swaps revert (e.g. legacy xyk-pool-stx-aeusdc-v-1-1/v-1-2 returned err u1010 POOL_DISABLED at research time).",
+    "Contracts are versioned, not upgradeable: new versions (v-1-1 -> v-1-2) replace old ones, so integrations must follow current addresses; old pools may be disabled or drained of liquidity.",
+    "Audits listed in docs: Clarity Alliance (XYK June 2024, StableSwap Sept 2024, StableSwap staking Sept 2024, StableSwap Midpoint Mar/Apr 2025), CoinFabrik (Dec 2023), StrataLabs (June 2023). No HODLMM/DLMM audit is listed on the docs audits page. Immunefi bug bounty is live.",
+    "HODLMM quotes and position data come from an off-chain engine that can lag the chain (check tip_lag); strict-mode transactions revert if the active bin moves, simple-mode ones execute at the then-current bin.",
+    "Stacks transactions should use Deny-mode post-conditions; without them a malicious token trait could move more funds than expected. Only pass token/pool traits that match the pool's own x-token/y-token.",
+    "Many listed tokens are bridged (sBTC, aeUSDC, USDCx, pBTC etc.) and carry their bridge's risk."
+  ],
+  "notes": "Stacks is a Clarity-VM chain, so vm is 'mixed', chainId is null and addresses are contract principals. Signatures are Clarity (name(arg type, ...)); trait arguments are passed as contract principals. Sources: the DLMM swap/liquidity routers are named in the official HODLMM API docs (v1 page), the sBTC/USDCx pool in the v2 docs, stableswap-stx-ststx-v-1-2 and xyk-core-v-1-1 on the docs 'Deployed Contracts > Stacks' page, and xyk-core-v-1-2, xyk-swap-helper-v-1-2, stableswap-core-v-1-2 and token-stx-v-1-2 in Bitflow's official npm SDK (@bitflowlabs/core-sdk 4.2.0, dist/src/keeper/types.js ALLOWED_CONTRACTS, and pool data) — the docs deployed-contracts page has not been updated for these v1.2 contracts, but they are the active ones (xyk-core-v-1-2 ~144k txs vs v1.1 ~10k). Every contract was confirmed via the Hiro API (interface/source) on 2026-11-25 and signatures were taken from the deployed Clarity source. Left out: dlmm-core-v-1-1 (the routers call SP1PFR4V08H1RAZXREBGFFQ59WB739XM8VVGTFSEA.dlmm-core-v-1-1, but that address is not listed on any official page I could find), Bitflow's agg-* aggregator routers (only agg-treasury-v-1-1 is named in docs; the Quote API returns the router to call), the other legacy StableSwap pairs/earn/LP-token contracts and the old cross-DEX routers/wrappers on the deployed-contracts page (still listed there; see that page), keeper contracts, and individual pool contracts beyond one HODLMM example (discover pools via GET /quotes/v2/pools or core get-pool-by-id).",
+  "sources": [
+    "https://defillama.com/protocol/bitflow",
+    "https://api.llama.fi/protocol/bitflow",
+    "https://docs.bitflow.finance/bitflow-documentation/llms.txt",
+    "https://docs.bitflow.finance/bitflow-documentation/developers/deployed-contracts/stacks",
+    "https://docs.bitflow.finance/bitflow-documentation/developers/hodlmm-api-documentation",
+    "https://docs.bitflow.finance/bitflow-documentation/developers/hodlmm-api-documentation-v2",
+    "https://docs.bitflow.finance/bitflow-documentation/developers/public-api-documentation",
+    "https://docs.bitflow.finance/bitflow-documentation/developers/bitflow-sdk",
+    "https://docs.bitflow.finance/bitflow-documentation/developers/public-repositories",
+    "https://docs.bitflow.finance/bitflow-documentation/resources/audits",
+    "https://docs.bitflow.finance/bitflow-documentation/resources/bug-bounty-program",
+    "https://www.npmjs.com/package/@bitflowlabs/core-sdk",
+    "https://registry.npmjs.org/@bitflowlabs/core-sdk/-/core-sdk-4.2.0.tgz",
+    "https://github.com/BitflowFinance/bitflow-dlmm",
+    "https://github.com/BitflowFinance/bitflow-stableswap",
+    "https://bff.bitflowapis.finance/api/quotes/v2/status",
+    "https://bff.bitflowapis.finance/api/quotes/v2/pools",
+    "https://api.hiro.so/v2/contracts/interface/SM1FKXGNZJWSTWDWXQZJNF7B5TV5ZB235JTCXYXKD/dlmm-swap-router-v-1-2",
+    "https://api.hiro.so/v2/contracts/source/SM1FKXGNZJWSTWDWXQZJNF7B5TV5ZB235JTCXYXKD/dlmm-liquidity-router-v-1-2",
+    "https://api.hiro.so/v2/contracts/source/SM1FKXGNZJWSTWDWXQZJNF7B5TV5ZB235JTCXYXKD/dlmm-pool-sbtc-usdcx-v-1-bps-10",
+    "https://api.hiro.so/v2/contracts/source/SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR/xyk-core-v-1-2",
+    "https://api.hiro.so/v2/contracts/source/SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR/xyk-swap-helper-v-1-2",
+    "https://api.hiro.so/v2/contracts/interface/SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR/stableswap-core-v-1-2",
+    "https://api.hiro.so/v2/contracts/source/SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR/token-stx-v-1-2",
+    "https://api.hiro.so/v2/contracts/source/SPQC38PW542EQJ5M11CR25P7BS1CA6QT4TBXGB3M/stableswap-stx-ststx-v-1-2",
+    "https://api.hiro.so/v2/contracts/interface/SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR/xyk-core-v-1-1"
+  ],
+  "researchedAt": "2026-11-25"
+}

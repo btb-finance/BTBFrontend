@@ -1,0 +1,1859 @@
+{
+  "slug": "ethena",
+  "name": "Ethena",
+  "category": "Basis Trading",
+  "description": "Ethena issues USDe, a synthetic dollar backed by crypto and stablecoin collateral hedged with short perpetual/futures positions, and sUSDe, an ERC-4626 vault that earns the protocol's rewards (funding, basis, staking and stablecoin yield) with an unstake cooldown. Agents can hold/transfer USDe, stake USDe into sUSDe and unstake via the cooldown, stake ENA into sENA, and bridge USDe/sUSDe/ENA as LayerZero OFTs; direct mint/redeem is only for whitelisted (KYB'd) users through Ethena's RFQ API.",
+  "website": "https://ethena.fi",
+  "docs": "https://docs.ethena.fi",
+  "defillama": "https://defillama.com/protocol/ethena",
+  "chains": [
+    "ethereum",
+    "arbitrum",
+    "base",
+    "bsc",
+    "optimism",
+    "mantle",
+    "linea",
+    "scroll",
+    "xlayer",
+    "fraxtal",
+    "mode",
+    "berachain",
+    "zksync"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3",
+      "name": "USDe (synthetic dollar)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDe balance (18 decimals)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDe supply on Ethereum (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve sUSDe 0x9D39A5DE30e57443BfF2A8307A4256c8797A3497 (to stake), the EthenaMinting contract (whitelisted redeemers) or a DEX."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 permit: (owner, spender, value, deadline, v, r, s)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer USDe. Holding/transferring is permissionless; only the minter contract can mint."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Standard ERC-20 transferFrom."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497",
+      "name": "sUSDe (StakedUSDeV2, ERC-4626 with cooldown)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake USDe for sUSDe (approve USDe to sUSDe first): (assets, receiver) -> shares. Not offered to EU/EEA residents (docs); reverts for blacklisted (fully restricted) addresses."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint an exact number of sUSDe shares: (shares, receiver) -> assets."
+        },
+        {
+          "signature": "cooldownShares(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Start unstaking an exact number of sUSDe shares: burns them now, moves the USDe value to the USDeSilo, returns assets. Claim with unstake(receiver) once cooldowns(owner).cooldownEnd has passed. A new cooldown adds to the pending amount and resets the timer."
+        },
+        {
+          "signature": "cooldownAssets(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Start unstaking an exact USDe amount (burns the needed shares, returns shares). Same claim flow as cooldownShares."
+        },
+        {
+          "signature": "unstake(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "After the cooldown ends, send all cooled-down USDe from the silo to receiver."
+        },
+        {
+          "signature": "cooldowns(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(cooldownEnd unix time, underlyingAmount USDe) pending for a user."
+        },
+        {
+          "signature": "cooldownDuration()",
+          "kind": "read",
+          "payable": false,
+          "description": "Unstake cooldown in seconds (86400 = 1 day on 2026-11-25; admin can set up to 90 days). If it is 0, redeem/withdraw work directly and the cooldown functions revert."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626 redeem (shares, receiver, owner). Only works when cooldownDuration() == 0; otherwise reverts (use cooldownShares + unstake)."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626 withdraw (assets, receiver, owner). Only when cooldownDuration() == 0."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDe value of shares; convertToAssets(1e18) is the sUSDe->USDe rate (about 1.260 on 2026-11-25). Rises as rewards (paid every 8 hours) vest linearly over 8 hours; never falls by design."
+        },
+        {
+          "signature": "previewDeposit(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "sUSDe shares a deposit of assets returns now."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Vested USDe in the vault (excludes unvested rewards, see getUnvestedAmount())."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 permit for sUSDe shares."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x57e114B691Db790C35207b2e685D4A43181e6061",
+      "name": "ENA (governance token)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "ENA balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve sENA 0x8bE3460A480c80728a8C4D7a5D5303c85ba7B3b9 (to stake) or a spender."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer ENA (governance token)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 permit."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x8bE3460A480c80728a8C4D7a5D5303c85ba7B3b9",
+      "name": "sENA (StakedENA, ERC-4626 with cooldown)",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake ENA for sENA (approve ENA to sENA first): (assets, receiver) -> shares."
+        },
+        {
+          "signature": "cooldownShares(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Start unstaking sENA shares; ENA goes to the silo; claim with unstake(receiver) after the cooldown."
+        },
+        {
+          "signature": "cooldownAssets(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Start unstaking an exact ENA amount."
+        },
+        {
+          "signature": "unstake(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "After the cooldown, send the cooled-down ENA to receiver."
+        },
+        {
+          "signature": "cooldowns(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(cooldownEnd, underlyingAmount) pending for a user."
+        },
+        {
+          "signature": "cooldownDuration()",
+          "kind": "read",
+          "payable": false,
+          "description": "Unstake cooldown in seconds (604800 = 7 days on 2026-11-25)."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "ENA per sENA shares; convertToAssets(1e18) was about 1.018 on 2026-11-25 (rewards vest over vestingPeriod())."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626 redeem; only usable when cooldownDuration() == 0, otherwise use the cooldown flow."
+        },
+        {
+          "signature": "previewDeposit(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "sENA shares for a given ENA deposit."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xe3490297a08d6fC8Da46Edb7B6142E4F461b62D3",
+      "name": "EthenaMinting V2 (mint and redeem, whitelisted)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.ethena.fi/api-documentation/overview",
+      "keyFunctions": [
+        {
+          "signature": "mint((string,uint8,uint120,uint128,address,address,address,uint128,uint128),(address[],uint128[]),(uint8,bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Called only by Ethena's MINTER role, not by users: executes a user's signed Order (order_id, order_type 0=MINT, expiry, nonce, benefactor, beneficiary, collateral_asset, collateral_amount, usde_amount), a custody Route (addresses[], ratios[]) and Signature (signature_type 0=EIP712 / 1=EIP1271, bytes). Whitelisted users request an RFQ and POST the signed order to the Ethena API."
+        },
+        {
+          "signature": "redeem((string,uint8,uint120,uint128,address,address,address,uint128,uint128),(uint8,bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Called only by Ethena's REDEEMER role to execute a signed redeem order (order_type 1)."
+        },
+        {
+          "signature": "hashOrder((string,uint8,uint120,uint128,address,address,address,uint128,uint128))",
+          "kind": "read",
+          "payable": false,
+          "description": "EIP-712 hash of an order, to check what you are signing."
+        },
+        {
+          "signature": "verifyOrder((string,uint8,uint120,uint128,address,address,address,uint128,uint128),(uint8,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Checks an order and signature; returns the order hash or reverts."
+        },
+        {
+          "signature": "isWhitelistedBenefactor(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is whitelisted (on-chain) to mint/redeem directly with Ethena."
+        },
+        {
+          "signature": "setApprovedBeneficiary(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "A whitelisted benefactor approves (or removes) another address to receive its minted USDe / redeemed collateral. Not needed when benefactor == beneficiary."
+        },
+        {
+          "signature": "isSupportedAsset(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if a collateral asset is accepted."
+        },
+        {
+          "signature": "verifyNonce(address,uint128)",
+          "kind": "read",
+          "payable": false,
+          "description": "(sender, nonce) -> checks the nonce is unused; reverts if used."
+        },
+        {
+          "signature": "setDelegatedSigner(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Benefactor (e.g. a smart wallet) nominates an EOA to sign orders for it; the delegate confirms with confirmDelegatedSigner(benefactor)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x73E35C5c35A274E34AdE6EB13cC7f62aEE323728",
+      "name": "USDtb PSM",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "getQuote(address,address,uint128,bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "(benefactor, collateral, amountIn, isSwapForAsset) -> (feeAmount, amountOut). Non-view in the ABI; call with eth_call."
+        },
+        {
+          "signature": "swap((bool,uint120,uint128,uint256,address,address,address,uint128,uint128))",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap collateral <-> USDtb for a registered benefactor: Order(isSwapForAsset, expiry, nonce, chainId, benefactor, beneficiary, collateral, amountIn, minAmountOut). Permissioned: the benefactor must be added and enabled by Ethena."
+        },
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "The PSM's asset token (USDtb)."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+      "name": "USDe (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+      "name": "sUSDe (LayerZero OFT, not a vault)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+      "name": "ENA (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+      "name": "USDe (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+      "name": "sUSDe (LayerZero OFT, not a vault)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+      "name": "ENA (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+      "name": "USDe (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+      "name": "sUSDe (LayerZero OFT, not a vault)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+      "name": "ENA (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+      "name": "USDe (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+      "name": "sUSDe (LayerZero OFT, not a vault)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+      "name": "ENA (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "mantle",
+      "chainId": 5000,
+      "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+      "name": "USDe (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "mantle",
+      "chainId": 5000,
+      "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+      "name": "sUSDe (LayerZero OFT, not a vault)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "mantle",
+      "chainId": 5000,
+      "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+      "name": "ENA (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "linea",
+      "chainId": 59144,
+      "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+      "name": "USDe (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "linea",
+      "chainId": 59144,
+      "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+      "name": "sUSDe (LayerZero OFT, not a vault)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "linea",
+      "chainId": 59144,
+      "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+      "name": "ENA (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "scroll",
+      "chainId": 534352,
+      "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+      "name": "USDe (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "scroll",
+      "chainId": 534352,
+      "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+      "name": "sUSDe (LayerZero OFT, not a vault)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "scroll",
+      "chainId": 534352,
+      "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+      "name": "ENA (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "xlayer",
+      "chainId": 196,
+      "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+      "name": "USDe (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "xlayer",
+      "chainId": 196,
+      "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+      "name": "sUSDe (LayerZero OFT, not a vault)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "xlayer",
+      "chainId": 196,
+      "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+      "name": "ENA (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "fraxtal",
+      "chainId": 252,
+      "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+      "name": "USDe (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "fraxtal",
+      "chainId": 252,
+      "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+      "name": "sUSDe (LayerZero OFT, not a vault)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "fraxtal",
+      "chainId": 252,
+      "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+      "name": "ENA (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "mode",
+      "chainId": 34443,
+      "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+      "name": "USDe (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "mode",
+      "chainId": 34443,
+      "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+      "name": "sUSDe (LayerZero OFT, not a vault)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "mode",
+      "chainId": 34443,
+      "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+      "name": "ENA (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "berachain",
+      "chainId": 80094,
+      "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+      "name": "USDe (LayerZero OFT)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "berachain",
+      "chainId": 80094,
+      "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+      "name": "sUSDe (LayerZero OFT, not a vault)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+        }
+      ]
+    },
+    {
+      "chain": "zksync",
+      "chainId": 324,
+      "address": "0x39Fe7a0DACcE31Bd90418e3e659fb0b5f0B3Db0d",
+      "name": "USDe (zkSync Era)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        }
+      ]
+    },
+    {
+      "chain": "zksync",
+      "chainId": 324,
+      "address": "0xAD17Da2f6Ac76746EF261E835C50b2651ce36DA8",
+      "name": "sUSDe (zkSync Era)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        }
+      ]
+    },
+    {
+      "chain": "zksync",
+      "chainId": 324,
+      "address": "0x686b311F82b407f0be842652a98e5619F64cC25F",
+      "name": "ENA (zkSync Era)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ethena.fi/technical-design/key-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Ethena Minting API (RFQ)",
+      "url": "https://public.api.ethena.fi",
+      "auth": "signature",
+      "use": "Whitelisted users only. GET /asset-availability (pairs that can be minted/redeemed, e.g. USDT/USDe, USDC/USDe), GET /rfq?pair=USDT%2FUSDe&side=MINT|REDEEM&size=<amount>&benefactor=<address> (quote valid 15 minutes; returns collateral_amount, usde_amount, minting_contract_address, rfq_id), then sign the EIP-712 Order (order_id = rfq_id) and POST /order?signature=<hex>[&signature_type=EIP1271]; Ethena submits mint/redeem on-chain. GET /fees?benefactor=<address> returns mint/redeem fee bps. Interactive docs at https://public.api.ethena.fi/docs/. Unwhitelisted wallets get error 10.",
+      "source": "https://docs.ethena.fi/api-documentation/overview"
+    },
+    {
+      "name": "Ethena minting client SDKs",
+      "url": "https://github.com/ethena-labs/ethena-minting-client",
+      "auth": "none",
+      "use": "Official Python and TypeScript clients for the RFQ/order flow (whitelisted users).",
+      "source": "https://docs.ethena.fi/api-documentation/overview"
+    }
+  ],
+  "actions": [
+    {
+      "name": "get USDe",
+      "description": "Most users and agents cannot mint directly.",
+      "how": "Buy USDe on a DEX (Curve, Uniswap) or CEX. Direct minting is only for whitelisted benefactors: approve the collateral (USDT/USDC) to EthenaMinting 0xe3490297a08d6fC8Da46Edb7B6142E4F461b62D3, GET /rfq from https://public.api.ethena.fi, sign the EIP-712 order and POST /order; Ethena's minter calls mint() on-chain."
+    },
+    {
+      "name": "stake USDe for sUSDe",
+      "description": "Earn Ethena's rewards (Ethereum only; not offered to EU/EEA residents).",
+      "how": "USDe.approve(0x9D39A5DE30e57443BfF2A8307A4256c8797A3497, amt); sUSDe.deposit(amt, receiver). Rate: sUSDe.convertToAssets(1e18)."
+    },
+    {
+      "name": "unstake sUSDe",
+      "description": "Two-step, with cooldown.",
+      "how": "Read cooldownDuration(). If > 0 (1 day on 2026-11-25): sUSDe.cooldownShares(shares) (or cooldownAssets(usdeAmount)); wait until cooldowns(you).cooldownEnd; then sUSDe.unstake(receiver). If 0: sUSDe.redeem(shares, receiver, owner). Alternative without waiting: sell sUSDe on a DEX (price may be below its USDe value)."
+    },
+    {
+      "name": "stake ENA for sENA",
+      "description": "Governance alignment and sENA rewards.",
+      "how": "ENA.approve(0x8bE3460A480c80728a8C4D7a5D5303c85ba7B3b9, amt); sENA.deposit(amt, receiver). Unstake: cooldownShares(shares), wait cooldownDuration() (7 days on 2026-11-25), unstake(receiver)."
+    },
+    {
+      "name": "bridge USDe / sUSDe / ENA",
+      "description": "LayerZero V2 OFTs on L2s.",
+      "how": "On an L2, token.quoteSend(SendParam(dstEid, bytes32(to), amountLD, minAmountLD, 0x, 0x, 0x), false) then token.send(SendParam, fee, refund) with msg.value = nativeFee. From Ethereum, use the official Ethena bridge in the app (the Ethereum-side OFT adapter addresses are not on the key-addresses page, see notes)."
+    }
+  ],
+  "risks": [
+    "Funding-rate risk: backing is hedged with short perps/futures; when funding is negative Ethena pays it. The Reserve Fund is meant to absorb negative-revenue periods (revenue share to it is 0% currently per docs), and backing is shifted toward liquid stablecoins when funding is low. sUSDe rewards can drop to zero but are never negative by design.",
+    "Custodial / exchange risk: backing assets sit with off-exchange settlement custodians (e.g. Copper Clearloop) and positions on centralized exchanges; custodian or exchange failure can disrupt mint/redeem and may impair backing.",
+    "USDe is not a fiat-backed stablecoin. Only whitelisted, KYB'd entities can mint/redeem directly (RFQ, per-block limits, a stable delta limit); everyone else relies on secondary-market liquidity, which can trade below $1 in stress.",
+    "sUSDe unstaking needs a cooldown (1 day on 2026-11-25; admin can raise it to 90 days). During the cooldown the USDe sits in the USDeSilo 0x7FC7c91D556B400AFa565013E3F32055a0713425 and earns nothing.",
+    "sUSDe has a blacklist: Ethena can fully restrict sanctioned/high-risk addresses and redistribute their sUSDe (limited to sUSDe). L2 OFTs also have blacklist functions.",
+    "Restricted users: Ethena's Terms bar Prohibited Persons, including US persons and residents of listed sanctioned jurisdictions (e.g. Russia, Iran, North Korea, Cuba, Syria), and sUSDe is not offered to EU/EEA residents.",
+    "Admin control: contracts are owned by a 5/11 Ethena dev multisig that sets parameters (cooldown, limits, roles); sENA is an upgradeable proxy.",
+    "L2 sUSDe is a bridged OFT, not a vault: staking/unstaking only happens on Ethereum. Bridging adds LayerZero risk."
+  ],
+  "notes": "Addresses are from Ethena's Key Addresses page (https://docs.ethena.fi/technical-design/key-addresses) and the Minting API page (EthenaMinting V2 0xe3490297...; V1 0x2cc440b721d2cafd6d64908d6d8c4acc57f8afc3 was replaced on 2024-07-08 and is left out). The staking contract and the sUSDe token are the same address. The key-addresses page says ENA, USDe and sUSDe use the same addresses on 'most L2s' except Solana, zkSync and Zircuit; I checked bytecode on each included chain on 2026-11-25. ENA has no code at 0x58538e6A46E07434d7E7375Bc268D3cb839C0133 on Berachain, so Berachain lists only USDe and sUSDe. Blast was left out because no public RPC answered; Manta, Metis, Kava, Morph, Swell, Zircuit and Tempo (USDe 0x20c0000000000000000000002F52D5CC21A3207B, sUSDe 0x20C000000000000000000000Bd95bFB69fBE6Ce3 with separate OFT contracts) were not checked and are left out; Solana, TON and Aptos addresses are on the same page but are non-EVM. The Ethereum-side LayerZero OFT adapters are not listed on any official page I found, so they are left out. rsENA 0xc65433845ecd16688eda196497fa9130d6c47bd8 (a Mellow restaking vault) is listed on the key-addresses page but not included since it is a Mellow/Symbiotic product. USDtb is now issued by Anchorage Digital Bank (docs.usdtb.money, which did not load); only the USDtb PSM appears on Ethena's address list, so the USDtb token itself is not listed (PSM.asset() returns it). The PSM swap is permissioned (benefactors added by Ethena). No USDe depeg event with dates is documented on the official docs pages read, so none is cited. DefiLlama tracks Ethena as a parent with sub-listings (Ethena USDe, USDtb, tsUSDe); slug 'ethena' is the parent page.",
+  "sources": [
+    "https://defillama.com/protocol/ethena",
+    "https://api.llama.fi/protocol/ethena",
+    "https://api.llama.fi/protocol/ethena-usde",
+    "https://docs.ethena.fi/llms.txt",
+    "https://docs.ethena.fi/technical-design/key-addresses",
+    "https://docs.ethena.fi/technical-design/key-addresses.md",
+    "https://docs.ethena.fi/api-documentation/overview",
+    "https://docs.ethena.fi/technical-design/staking-usde",
+    "https://docs.ethena.fi/technical-design/staking-usde/staking-key-functions",
+    "https://docs.ethena.fi/technical-design/staking-usde/user-security-measures",
+    "https://docs.ethena.fi/technical-design/minting-usde",
+    "https://docs.ethena.fi/technical-design/minting-usde/mint-and-redeem-key-functions",
+    "https://docs.ethena.fi/technical-design/minting-usde/mint-and-redeem-contract-v2",
+    "https://docs.ethena.fi/overview/ena",
+    "https://docs.ethena.fi/overview/usdtb",
+    "https://docs.ethena.fi/protocol-overview/risks",
+    "https://docs.ethena.fi/protocol-overview/risks/funding-risk",
+    "https://docs.ethena.fi/protocol-overview/risks/custodial-risk",
+    "https://docs.ethena.fi/protocol-overview/reserve-fund",
+    "https://docs.ethena.fi/protocol-overview/rewards-mechanism",
+    "https://docs.ethena.fi/resources/terms-of-service",
+    "https://docs.ethena.fi/resources/faq",
+    "https://sourcify.dev/server/v2/contract/1/0x4c9EDD5852cd905f086C759E8383e09bff1E68B3",
+    "https://sourcify.dev/server/v2/contract/1/0x9D39A5DE30e57443BfF2A8307A4256c8797A3497",
+    "https://sourcify.dev/server/v2/contract/1/0x57e114B691Db790C35207b2e685D4A43181e6061",
+    "https://sourcify.dev/server/v2/contract/1/0x8bE3460A480c80728a8C4D7a5D5303c85ba7B3b9",
+    "https://sourcify.dev/server/v2/contract/1/0x7fD57b46aE1a7b14f6940508381877Ee03e1018B",
+    "https://sourcify.dev/server/v2/contract/1/0xe3490297a08d6fC8Da46Edb7B6142E4F461b62D3",
+    "https://sourcify.dev/server/v2/contract/1/0x73E35C5c35A274E34AdE6EB13cC7f62aEE323728",
+    "https://sourcify.dev/server/v2/contract/42161/0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+    "https://sourcify.dev/server/v2/contract/42161/0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+    "https://sourcify.dev/server/v2/contract/42161/0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+    "https://eth.drpc.org",
+    "https://arb1.arbitrum.io/rpc",
+    "https://mainnet.base.org",
+    "https://bsc-dataseed.binance.org",
+    "https://mainnet.optimism.io",
+    "https://rpc.mantle.xyz",
+    "https://rpc.linea.build",
+    "https://rpc.scroll.io",
+    "https://rpc.xlayer.tech",
+    "https://rpc.frax.com",
+    "https://mainnet.mode.network",
+    "https://rpc.berachain.com",
+    "https://mainnet.era.zksync.io"
+  ],
+  "researchedAt": "2026-11-25"
+}

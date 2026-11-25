@@ -1,0 +1,654 @@
+{
+  "slug": "falcon-finance",
+  "name": "Falcon Finance",
+  "category": "Basis Trading",
+  "description": "Falcon issues USDf, an overcollateralized synthetic dollar minted off-chain by KYC'd users against stablecoins, BTC, ETH and altcoins, with yield from basis/funding-rate and other trading strategies. On-chain, agents can stake USDf into sUSDf (ERC-4626, no KYC), lock sUSDf for boosted yield in Falcon Position NFTs, stake the FF token into sFF, and use FF/partner staking vaults that pay USDf.",
+  "website": "https://falcon.finance",
+  "docs": "https://docs.falcon.finance",
+  "defillama": "https://defillama.com/protocol/falcon-finance",
+  "chains": [
+    "ethereum",
+    "bsc"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xFa2B947eEc368f42195f24F36d2aF29f7c24CeC2",
+      "name": "USDf (synthetic dollar)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.falcon.finance/resources/smart-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDf balance (18 decimals)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total USDf on Ethereum (18 decimals)."
+        },
+        {
+          "signature": "isRestricted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the admin has restricted the address (it cannot send or receive USDf)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve sUSDf (to stake) or another spender."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 permit: (owner, spender, value, deadline, v, r, s)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer USDf. Holding and transferring is permissionless; minting and burning are role-only (Falcon mints after an off-chain, KYC'd deposit in the app)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xc8CF6D7991f15525488b2A83Df53468D682Ba4B0",
+      "name": "sUSDf (staked USDf, ERC-4626)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://docs.falcon.finance/resources/smart-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake USDf (approve sUSDf first): (assets, receiver). Returns sUSDf shares (18 decimals). No KYC. Reverts for restricted addresses or if total supply would be below MIN_SHARES (1e18)."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint an exact number of shares: (shares, receiver)."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake shares for USDf immediately: (shares, receiver, owner). Only works while cooldownDuration() == 0 (true on 2026-11-25); if a cooldown is turned on, use cooldownShares then unstake."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact USDf amount: (assets, receiver, owner). Only while cooldownDuration() == 0."
+        },
+        {
+          "signature": "cooldownShares(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Only when cooldownDuration() > 0: start a cooldown for shares (shares, owner); USDf moves to the silo and is claimable with unstake after the cooldown."
+        },
+        {
+          "signature": "unstake(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "After a cooldown ends, send the cooled-down USDf to receiver."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDf per given shares; convertToAssets(1e18) is the sUSDf-to-USDf rate (about 1.143 on 2026-11-25). Rises as daily yield is added and vests over vestingPeriod() (1 day)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDf a redeem returns now."
+        },
+        {
+          "signature": "cooldownDuration()",
+          "kind": "read",
+          "payable": false,
+          "description": "Cooldown in seconds (0 = direct redeem/withdraw enabled)."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDf in the vault minus still-vesting rewards."
+        },
+        {
+          "signature": "maxRedeem(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Max shares the owner can redeem."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x8407e9864F42374Cb9DACfDEDe0e6962d634edCB",
+      "name": "Falcon Position NFT (sUSDf restaking / Boosted Yield)",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://docs.falcon.finance/resources/smart-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "mint(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Lock sUSDf for a fixed term and receive an ERC-721 position: (principal in sUSDf wei, duration in seconds). Approve sUSDf to this contract first. Durations enabled on 2026-11-25: 7776000 (90 days), 15552000 (180 days), 31536000 (365 days); check isMintEnabled. Maturity is rounded down to a whole UTC day. Returns tokenId."
+        },
+        {
+          "signature": "withdraw(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "After maturity, burn the NFT and receive principal plus boosted sUSDf rewards: (tokenId). Reverts before maturity; no early exit."
+        },
+        {
+          "signature": "getPosition(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position (principal, duration, startTime, maturityTime, feeGrowthInsideLastX128, tokensOwed)."
+        },
+        {
+          "signature": "unrealizedRewards(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Boosted sUSDf accrued to a position so far."
+        },
+        {
+          "signature": "isMintEnabled(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether new locks are open for a duration (seconds)."
+        },
+        {
+          "signature": "tokenOfOwnerByIndex(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Enumerate a wallet's position NFTs (use with balanceOf)."
+        },
+        {
+          "signature": "collect(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued rewards before maturity; only when yieldCollectionEnabled() is true (false on 2026-11-25)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xFA1C09fC8B491B6A4d3Ff53A10CAd29381b3F949",
+      "name": "FF (governance token)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.falcon.finance/resources/smart-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "FF balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve sFF, sFF-Prime or the FF Staking Vault."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 permit."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer FF."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1a0C3FfCbd101c6f2f6650DED9964c4A568C4D72",
+      "name": "sFF (staked FF, ERC-4626)",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://docs.falcon.finance/sff-token/",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake FF (approve sFF first): (assets, receiver). Returns sFF shares (18 decimals). Yield is paid in FF through the exchange rate; also boosts Falcon Miles."
+        },
+        {
+          "signature": "cooldownShares(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Start unstaking: (shares, owner). FF moves to the silo and stops earning; claimable after cooldownDuration() (259200 s = 3 days). Direct redeem/withdraw revert while a cooldown is set."
+        },
+        {
+          "signature": "cooldownAssets(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Start unstaking an exact FF amount: (assets, owner)."
+        },
+        {
+          "signature": "unstake(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "After the cooldown, send the cooled-down FF to receiver."
+        },
+        {
+          "signature": "cooldowns(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(cooldownEnd timestamp, underlyingAmount) for a user."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "FF per given sFF shares."
+        },
+        {
+          "signature": "cooldownDuration()",
+          "kind": "read",
+          "payable": false,
+          "description": "Unstake cooldown in seconds."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x41FF52DC7b12B18a65558962849187a2CC6ee6C0",
+      "name": "sFF-Prime (fixed-term FF lock NFT)",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://docs.falcon.finance/resources/smart-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "mint(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Lock FF for a fixed term and receive an ERC-721 position: (principal in FF wei, duration in seconds). The locked asset is FF (sFalconAsset() returns the FF token). Only 15552000 (180 days) was enabled on 2026-11-25; check isMintEnabled. Approve FF first. Not described beyond the address on the docs, so confirm terms in the app."
+        },
+        {
+          "signature": "withdraw(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "After maturity, burn the NFT and receive principal plus rewards: (tokenId)."
+        },
+        {
+          "signature": "getPosition(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position (principal, duration, startTime, maturityTime, feeGrowthInsideLastX128, tokensOwed)."
+        },
+        {
+          "signature": "unrealizedRewards(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Rewards accrued to a position so far."
+        },
+        {
+          "signature": "isMintEnabled(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether new locks are open for a duration."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1E7fFB2cc2B0D9672b3E615dD5669C06F8673CAe",
+      "name": "FF Staking Vault (stake FF, earn USDf)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://docs.falcon.finance/resources/smart-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "stake(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake FF (approve first). Rewards accrue in USDf at a fixed APR. Each stake resets the lockup clock for the whole balance (lockupDuration() = 15552000 s = 180 days). Subject to cap()."
+        },
+        {
+          "signature": "cooldown(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "After the lockup has elapsed, start unstaking an amount; it stops earning and is claimable after cooldownDuration() (259200 s = 3 days)."
+        },
+        {
+          "signature": "unstake()",
+          "kind": "write",
+          "payable": false,
+          "description": "After the cooldown, receive all cooled-down FF."
+        },
+        {
+          "signature": "getReward()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued USDf rewards."
+        },
+        {
+          "signature": "earned(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDf rewards claimable by an account (18 decimals)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Staked FF (excluding amounts in cooldown)."
+        },
+        {
+          "signature": "depositAt(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Timestamp of the user's last stake; lockup ends at depositAt + lockupDuration."
+        },
+        {
+          "signature": "cooldowns(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(cooldownEnd, underlyingAmount) for a user."
+        },
+        {
+          "signature": "rewardRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDf rewards per second across the vault."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xb177857a1799aA5F7fEb5799Fdf12CbE8fdF78B1",
+      "name": "USDf / USD Chainlink price feed",
+      "role": "other",
+      "proxy": true,
+      "source": "https://docs.falcon.finance/resources/smart-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Chainlink feed: answer is the USDf market price with 8 decimals (99498602 = $0.995 on 2026-11-25)."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "8."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xe471bc940AA9831a0AeA21E6F40C1A1236EB4BB3",
+      "name": "sUSDf / USDf exchange-rate Chainlink feed",
+      "role": "other",
+      "proxy": true,
+      "source": "https://docs.falcon.finance/resources/smart-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "latestRoundData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Chainlink feed of the sUSDf-to-USDf rate with 18 decimals (mirrors sUSDf.convertToAssets(1e18))."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "18."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xb3b02E4A9Fb2bD28CC2ff97B0aB3F6B3Ec1eE9D2",
+      "name": "USDf (BNB Chain, Chainlink CCIP)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.falcon.finance/resources/smart-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDf balance (18 decimals). Chainlink CCIP BurnMintERC20 bridged from Ethereum; staking into sUSDf is on Ethereum."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer USDf."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xAC23B90A79504865D52B49B327328411a23d4dB2",
+      "name": "FF (BNB Chain, Chainlink CCIP)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.falcon.finance/resources/smart-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "FF balance (18 decimals). CCIP BurnMintERC20; FF staking (sFF) is on Ethereum."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer FF."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x58895856A8996E1Db467F91850043e5b2A304356",
+      "name": "ESPORTS Staking Vault (stake ESPORTS, earn USDf)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://docs.falcon.finance/resources/smart-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "stake(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake the vault's stakingToken() (ESPORTS, 0xF39e4b21c84e737Df08e2C3b32541d856f508E48 per on-chain read); approve first. Earns USDf on BNB Chain. 180-day lockup that restarts on each stake, then a 3-day cooldown. No KYC."
+        },
+        {
+          "signature": "cooldown(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "After the lockup, start unstaking an amount (3-day cooldown)."
+        },
+        {
+          "signature": "unstake()",
+          "kind": "write",
+          "payable": false,
+          "description": "After the cooldown, receive the cooled-down tokens."
+        },
+        {
+          "signature": "getReward()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued USDf."
+        },
+        {
+          "signature": "earned(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimable USDf."
+        },
+        {
+          "signature": "stakingToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token accepted by the vault."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x2704B216a42b8ED40AE9f4AB4072151a8Eb257A7",
+      "name": "VELVET Staking Vault (stake VELVET, earn USDf)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://docs.falcon.finance/resources/smart-contracts/",
+      "keyFunctions": [
+        {
+          "signature": "stake(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake the vault's stakingToken() (VELVET, 0x8b194370825E37b33373e74A41009161808C1488 per on-chain read); approve first. Earns USDf on BNB Chain. 180-day lockup that restarts on each stake, then a 3-day cooldown. No KYC."
+        },
+        {
+          "signature": "cooldown(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "After the lockup, start unstaking an amount (3-day cooldown)."
+        },
+        {
+          "signature": "unstake()",
+          "kind": "write",
+          "payable": false,
+          "description": "After the cooldown, receive the cooled-down tokens."
+        },
+        {
+          "signature": "getReward()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued USDf."
+        },
+        {
+          "signature": "earned(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimable USDf."
+        },
+        {
+          "signature": "stakingToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token accepted by the vault."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "mint or redeem USDf",
+      "description": "Not possible on-chain: done in the Falcon app by KYC'd (non-US) users.",
+      "how": "Complete KYC/KYB at app.falcon.finance, deposit collateral to your Falcon account, mint (Classic Mint minimum $10,000; stablecoins 1:1, other assets with an overcollateralization ratio; Innovative Mint locks collateral for a term). Redeem (minimum $10,000 of USDf) has a 7-day cooldown before assets are credited to your Falcon account, then withdraw. Otherwise buy or sell USDf on DEXs."
+    },
+    {
+      "name": "stake USDf for sUSDf",
+      "description": "Earn Falcon's yield on USDf; no KYC.",
+      "how": "USDf.approve(sUSDf 0xc8CF6D7991f15525488b2A83Df53468D682Ba4B0, amt); sUSDf.deposit(amt, receiver). Unstake: sUSDf.redeem(shares, receiver, owner) (instant while cooldownDuration() == 0)."
+    },
+    {
+      "name": "restake sUSDf for boosted yield",
+      "description": "Lock sUSDf for 90/180/365 days in an ERC-721 position.",
+      "how": "sUSDf.approve(Position NFT 0x8407e9864F42374Cb9DACfDEDe0e6962d634edCB, amt); PositionNFT.mint(amt, 7776000 | 15552000 | 31536000). At maturity PositionNFT.withdraw(tokenId)."
+    },
+    {
+      "name": "stake FF for sFF",
+      "description": "Earn FF yield and Falcon Miles boosts.",
+      "how": "FF.approve(sFF 0x1a0C3FfCbd101c6f2f6650DED9964c4A568C4D72, amt); sFF.deposit(amt, receiver). To exit: sFF.cooldownShares(shares, owner), wait 3 days, sFF.unstake(receiver)."
+    },
+    {
+      "name": "stake FF for USDf rewards",
+      "description": "FF Staking Vault pays USDf, 180-day lockup.",
+      "how": "FF.approve(vault 0x1E7fFB2cc2B0D9672b3E615dD5669C06F8673CAe, amt); vault.stake(amt). Claim with getReward(). After 180 days: cooldown(amount), wait 3 days, unstake()."
+    }
+  ],
+  "risks": [
+    "USDf mint and redeem are off-chain and KYC-gated (individuals KYC, businesses KYB; US persons cannot mint or redeem). Redemptions have a 7-day cooldown and a $10,000 minimum. Holders who cannot redeem rely on DEX liquidity, so USDf can trade below $1 (the Chainlink USDf/USD feed read $0.995 on 2026-11-25).",
+    "Collateral sits with third-party custodians (Ceffu MirrorX, Fireblocks) and is deployed on centralized exchanges (Binance, Bybit) and on-chain venues; holders carry custodian, exchange and strategy (funding-rate, arbitrage, altcoin staking) risk. Falcon keeps an on-chain insurance fund to absorb negative-yield periods and may buy USDf on the market under stress.",
+    "Admin powers: USDf, sUSDf, sFF and the position NFTs are upgradeable proxies. The admin can restrict addresses on USDf, sUSDf and sFF, and on sUSDf/sFF can move a restricted address's balance (redistributeLockedAmount), turn on an unstake cooldown, and change the vesting period. Only Falcon's minter role mints USDf.",
+    "Lockups: Position NFTs cannot be exited before maturity; FF and partner staking vaults lock for 180 days (reset by every new stake) and then need a 3-day cooldown; sFF unstaking has a 3-day cooldown with no yield during it.",
+    "Daily yield is booked once a day; Falcon notes a lock window around 21:00-22:00 GMT+8 where staking/unstaking may be queued, and that redeeming before the daily update forfeits part of that day's yield.",
+    "Audits listed by Falcon: Zellic and Pashov (USDf and sUSDf), Zellic (FF); all reported no critical or high findings."
+  ],
+  "notes": "Addresses are from Falcon's official Smart Contracts page (sFF also on the sFF page); all were checked for code and their source is verified on Sourcify (signatures taken from there). On-chain values were read on 2026-11-25. Left out: USDf on Solana (9ksrtYx1vnRxr4X5YqmGxqRMRBhgsc6FfQwWjB1KZq2x on the docs page; the SPL mint had zero supply when checked, so it is not usable yet) and USDf on XDC (0x8210c0634AB8f273806e4b7866E9Db353773c44B on the docs page; the XDC RPC was unreachable so code could not be confirmed). Also left out: the sUSDf Staking Rewards Distributor (0x8AF2EFa47efB2095b80D82577c597186Ea2FFFea; only Falcon's role calls it), the Insurance Fund wallet (0x432CDcc4516B21302985b639Ef9a7853727A4e49, a wallet, nothing to call) and the Perryverse NFTs. No public API is documented; minting, redeeming and KYC are done in the app. Staking vaults showed periodFinish() = 0 on 2026-11-25, so check earned()/rewardRate() before relying on rewards.",
+  "sources": [
+    "https://docs.falcon.finance/resources/smart-contracts/",
+    "https://docs.falcon.finance/sff-token/",
+    "https://docs.falcon.finance/sff-token/staking-mechanics/",
+    "https://docs.falcon.finance/sff-token/how-to-stake-ff-for-sff/",
+    "https://docs.falcon.finance/earn/susdf-yield-bearing-token/",
+    "https://docs.falcon.finance/earn/susdf-yield-distribution/",
+    "https://docs.falcon.finance/earn/restaking-susdf/",
+    "https://docs.falcon.finance/earn/staking-vaults/",
+    "https://docs.falcon.finance/know-your-customer-kyc/",
+    "https://docs.falcon.finance/mechanism/redemptions/",
+    "https://docs.falcon.finance/mechanism/usdf-synthetic-dollar/usdf-minting-mechanisms/",
+    "https://docs.falcon.finance/mechanism/usdf-synthetic-dollar/usdf-minting-mechanisms/classic-mint/",
+    "https://docs.falcon.finance/mechanism/usdf-synthetic-dollar/usdf-peg-stability/",
+    "https://docs.falcon.finance/mechanism/user-deposit-process/",
+    "https://docs.falcon.finance/resources/quick-app-guide/navigating-the-swap-tab/redeem/",
+    "https://docs.falcon.finance/resources/frequently-asked-questions-faq/",
+    "https://docs.falcon.finance/resources/insurance-fund/",
+    "https://docs.falcon.finance/resources/audits/",
+    "https://sourcify.dev/server/v2/contract/1/0x3aDf34C09DAC24E4BAeFB1b1df4C2992edC2b789",
+    "https://sourcify.dev/server/v2/contract/1/0x0D132bEE412E6619a4863AEEdad97541BfDa3F34",
+    "https://sourcify.dev/server/v2/contract/1/0x76f9fD81c5d199011B503E33843E4cb592DDD18a",
+    "https://sourcify.dev/server/v2/contract/1/0xFA1C09fC8B491B6A4d3Ff53A10CAd29381b3F949",
+    "https://sourcify.dev/server/v2/contract/1/0x80216d0218d4cee3CBc65068Ab29c0e973cD896C",
+    "https://sourcify.dev/server/v2/contract/1/0x4bF80e78916e14B2c2154B5d7a754869a0646fa6",
+    "https://sourcify.dev/server/v2/contract/1/0x1E7fFB2cc2B0D9672b3E615dD5669C06F8673CAe",
+    "https://sourcify.dev/server/v2/contract/1/0xb177857a1799aA5F7fEb5799Fdf12CbE8fdF78B1",
+    "https://sourcify.dev/server/v2/contract/56/0xb3b02E4A9Fb2bD28CC2ff97B0aB3F6B3Ec1eE9D2",
+    "https://sourcify.dev/server/v2/contract/56/0xAC23B90A79504865D52B49B327328411a23d4dB2",
+    "https://sourcify.dev/server/v2/contract/56/0x58895856A8996E1Db467F91850043e5b2A304356",
+    "https://defillama.com/protocol/falcon-finance",
+    "https://api.llama.fi/protocol/falcon-finance",
+    "https://ethereum-rpc.publicnode.com",
+    "https://bsc-dataseed.binance.org",
+    "https://api.mainnet-beta.solana.com"
+  ],
+  "researchedAt": "2026-11-25"
+}

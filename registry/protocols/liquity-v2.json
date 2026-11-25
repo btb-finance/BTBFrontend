@@ -1,0 +1,1397 @@
+{
+  "slug": "liquity-v2",
+  "name": "Liquity V2",
+  "category": "CDP",
+  "description": "Immutable CDP protocol on Ethereum issuing the BOLD stablecoin. Agents can open Troves against WETH, wstETH or rETH at a self-chosen interest rate, adjust or close them, earn BOLD interest + liquidation gains in each branch's Stability Pool, and redeem BOLD for collateral at face value via the CollateralRegistry.",
+  "website": "https://www.liquity.org",
+  "docs": "https://docs.liquity.org",
+  "defillama": "https://defillama.com/protocol/liquity-v2",
+  "chains": [
+    "ethereum"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6440f144b7e50D6a8439336510312d2F54beB01D",
+      "name": "BOLD (stablecoin)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "BOLD balance (18 decimals)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total BOLD supply (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender (e.g. a zapper for repay/close, or a DEX). Not needed for BorrowerOperations.repayBold/closeTrove, StabilityPool.provideToSP or CollateralRegistry.redeemCollateral: those burn/move BOLD directly."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer BOLD."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 permit: (owner, spender, value, deadline, v, r, s)."
+        },
+        {
+          "signature": "collateralRegistryAddress()",
+          "kind": "read",
+          "payable": false,
+          "description": "CollateralRegistry address (should return 0xf949982B91C8c61e952B3bA942cbbfaef5386684)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xf949982B91C8c61e952B3bA942cbbfaef5386684",
+      "name": "CollateralRegistry (branch registry + redemptions)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "totalCollaterals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of collateral branches (3: index 0 WETH, 1 wstETH, 2 rETH)."
+        },
+        {
+          "signature": "getToken(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral token of branch index."
+        },
+        {
+          "signature": "getTroveManager(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "TroveManager of branch index (use to discover/verify branch contracts)."
+        },
+        {
+          "signature": "redeemCollateral(uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem BOLD for collateral at face value ($1 of collateral per BOLD, minus fee): (_boldAmount, _maxIterationsPerCollateral, _maxFeePercentage 1e18=100%). Split across branches in proportion to each branch's unbacked debt (debt not covered by its Stability Pool), hitting the lowest-interest-rate Troves first. BOLD is burned from msg.sender; no approve needed. Reverts if the fee exceeds _maxFeePercentage. Use RedemptionHelper if you need a minimum collateral out."
+        },
+        {
+          "signature": "getRedemptionRateWithDecay()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current redemption fee rate (1e18 = 100%), = decayed baseRate + 0.5% floor. Fee grows with redeemed volume and decays with a 6h half-life."
+        },
+        {
+          "signature": "getRedemptionRateForRedeemedAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee rate a redemption of the given BOLD amount would pay."
+        },
+        {
+          "signature": "getEffectiveRedemptionFeeInBold(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee in BOLD for redeeming the given amount now."
+        },
+        {
+          "signature": "baseRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "Stored base rate (1e18 = 100%)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xF0caE19C96E572234398d6665cC1147A16cBe657",
+      "name": "HintHelpers",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "getApproxHint(uint256,uint256,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(_collIndex, _interestRate, _numTrials, _inputRandomSeed) -> (hintId, diff, latestRandomSeed). Samples Troves for one close to where a Trove at _interestRate goes in the branch's SortedTroves. Use numTrials ~ 10-15 * sqrt(number of Troves); then pass hintId as both args to SortedTroves.findInsertPosition to get exact (upperHint, lowerHint)."
+        },
+        {
+          "signature": "predictOpenTroveUpfrontFee(uint256,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(_collIndex, _borrowedAmount, _interestRate) -> upfront fee in BOLD (7 days of the branch's average interest rate on the new debt). Use (plus a small margin) as _maxUpfrontFee in openTrove."
+        },
+        {
+          "signature": "predictAdjustTroveUpfrontFee(uint256,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(_collIndex, _troveId, _debtIncrease) -> upfront fee for borrowing more; use as _maxUpfrontFee for withdrawBold/adjustTrove."
+        },
+        {
+          "signature": "predictAdjustInterestRateUpfrontFee(uint256,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(_collIndex, _troveId, _newInterestRate) -> upfront fee for an interest-rate change (0 if the last change was 7+ days ago)."
+        },
+        {
+          "signature": "predictOpenTroveAndJoinBatchUpfrontFee(uint256,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(_collIndex, _borrowedAmount, _batchManager) -> upfront fee when opening into a delegated-rate batch."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xFA61dB085510C64B83056Db3A7Acf3b6f631D235",
+      "name": "MultiTroveGetter",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "getMultipleSortedTroves(uint256,int256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(_collIndex, _startIdx, _count) -> array of Trove data (id, debt, coll, stake, annualInterestRate, lastDebtUpdateTime, lastInterestRateAdjTime, interestBatchManager, ...). _startIdx >= 0 starts from the highest-rate end of SortedTroves; negative values start from the lowest-rate end (-1 = lowest rate, the next Trove to be redeemed)."
+        },
+        {
+          "signature": "getDebtPerInterestRateAscending(uint256,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(_collIndex, _startId (0 = start at the lowest-rate Trove), _maxIterations) -> per Trove (interestBatchManager, interestRate, debt) walking from the lowest rate upwards, plus the id to continue from. Summing debt below your rate shows how much must be redeemed before your Trove is hit."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xb366256d033aE7e4f7BDDEc822a5ADEC9DF07b80",
+      "name": "RedemptionHelper",
+      "role": "router",
+      "proxy": false,
+      "source": "https://github.com/liquity/bold/blob/main/contracts/addresses/1.json",
+      "keyFunctions": [
+        {
+          "signature": "simulateRedemption(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(_bold, _maxIterationsPerCollateral) -> per-branch redemption split. Non-view (nonpayable) in the ABI: call it with eth_call, do not send it."
+        },
+        {
+          "signature": "truncateRedemption(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(_bold, _maxIterationsPerCollateral) -> (truncatedBold, feePct, redeemed per branch): the largest amount that can actually be redeemed within the iteration limit. Use with eth_call."
+        },
+        {
+          "signature": "redeemCollateral(uint256,uint256,uint256,uint256[])",
+          "kind": "write",
+          "payable": false,
+          "description": "(_bold, _maxIterationsPerCollateral, _maxFeePct, _minCollRedeemed[3] per branch) redemption with slippage protection on collateral out. Approve BOLD to this helper first."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x372ABD1810eAF23Cb9D941BbE7596DFb2c46BC65",
+      "name": "BorrowerOperations (WETH branch)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "openTrove(address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Open a Trove: (_owner, _ownerIndex, _collAmount, _boldAmount, _upperHint, _lowerHint, _annualInterestRate, _maxUpfrontFee, _addManager, _removeManager, _receiver). First approve WETH to BorrowerOperations for collAmount + 0.0375 (collateral and the gas deposit are both WETH). Interest rate 1e18 = 100%, min 0.5% (5e15), max 250%. Debt incl. upfront fee must be >= 2,000 BOLD and ICR >= MCR 110% (and the branch TCR must stay >= CCR 150%). _maxUpfrontFee from HintHelpers.predictOpenTroveUpfrontFee. Hints from HintHelpers.getApproxHint + SortedTroves.findInsertPosition (0,0 works but costs more gas). Managers/receiver can be address(0). Returns troveId = uint256(keccak256(abi.encode(msg.sender, _owner, _ownerIndex))); an ERC-721 for it is minted to _owner and BOLD to msg.sender."
+        },
+        {
+          "signature": "adjustTrove(uint256,uint256,bool,uint256,bool,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _collChange, _isCollIncrease, _boldChange, _isDebtIncrease, _maxUpfrontFee): add/withdraw collateral and borrow/repay in one call. Borrowing more charges an upfront fee (7 days of branch average interest). Resulting ICR must stay >= MCR, debt >= 2,000 BOLD; below CCR (Critical mode) borrowing is only allowed if it lifts TCR above CCR."
+        },
+        {
+          "signature": "addColl(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _collAmount): add collateral (approve the collateral token first)."
+        },
+        {
+          "signature": "withdrawColl(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _collWithdrawal): withdraw collateral; ICR must stay >= MCR."
+        },
+        {
+          "signature": "withdrawBold(uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _boldAmount, _maxUpfrontFee): borrow more BOLD; upfront fee applies (predictAdjustTroveUpfrontFee)."
+        },
+        {
+          "signature": "repayBold(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _boldAmount): repay debt; cannot take debt below 2,000 BOLD (close the Trove instead). No approve needed."
+        },
+        {
+          "signature": "adjustTroveInterestRate(uint256,uint256,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _newAnnualInterestRate, _upperHint, _lowerHint, _maxUpfrontFee): set a new rate (1e18 = 100%). Free once per 7 days; a change within 7 days of the last one pays an upfront fee of 7 days' average interest. Lower rates are redeemed first. Not for Troves in a batch."
+        },
+        {
+          "signature": "closeTrove(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId): repay the entire debt (TroveManager.getLatestTroveData(id).entireDebt, incl. accrued interest) from msg.sender's BOLD and get all collateral plus the 0.0375 WETH gas deposit back. Caller must be owner or remove-manager. Reverts if it would push branch TCR below CCR (unless the branch is shut down)."
+        },
+        {
+          "signature": "adjustZombieTrove(uint256,uint256,bool,uint256,bool,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Adjust a 'zombie' Trove (debt < 2,000 BOLD after redemption): (_troveId, _collChange, _isCollIncrease, _boldChange, _isDebtIncrease, _upperHint, _lowerHint, _maxUpfrontFee). Result must have debt >= 2,000 and ICR >= MCR."
+        },
+        {
+          "signature": "claimCollateral()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim surplus collateral left after your Trove was liquidated or fully redeemed (held in CollSurplusPool)."
+        },
+        {
+          "signature": "setInterestBatchManager(uint256,address,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _newBatchManager, _upperHint, _lowerHint, _maxUpfrontFee): delegate rate management to a registered batch manager (pays its management fee; batched Troves need ICR >= MCR + 10%)."
+        },
+        {
+          "signature": "MCR()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum collateral ratio, 1e18 = 100% (110% on this branch)."
+        },
+        {
+          "signature": "CCR()",
+          "kind": "read",
+          "payable": false,
+          "description": "Critical collateral ratio for the branch TCR (150%)."
+        },
+        {
+          "signature": "hasBeenShutDown()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the branch is shut down (TCR fell below SCR 110% or oracle failure): only closing Troves and urgent redemptions then work."
+        },
+        {
+          "signature": "getEntireBranchDebt()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total branch debt in BOLD (18 decimals)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x7bcb64B2c9206a5B699eD43363f6F98D4776Cf5A",
+      "name": "TroveManager (WETH branch)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "getLatestTroveData(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Trove state incl. pending interest: (entireDebt, entireColl, redistBoldDebtGain, redistCollGain, accruedInterest, recordedDebt, annualInterestRate, weightedRecordedDebt, accruedBatchManagementFee, lastInterestRateAdjTime). entireDebt is what closeTrove needs."
+        },
+        {
+          "signature": "getTroveStatus(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "0 nonExistent, 1 active, 2 closedByOwner, 3 closedByLiquidation, 4 zombie (debt < 2,000 BOLD after redemption; unredeemable until topped up)."
+        },
+        {
+          "signature": "getCurrentICR(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(_troveId, _price) -> ICR (1e18 = 100%). Price from PriceFeed.lastGoodPrice(). Liquidatable when ICR < MCR (110%)."
+        },
+        {
+          "signature": "getTroveAnnualInterestRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Trove's annual rate (1e18 = 100%; batch rate if batched)."
+        },
+        {
+          "signature": "getTroveIdsCount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of Troves in the branch."
+        },
+        {
+          "signature": "getTroveFromTroveIdsArray(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Trove id at index (for enumeration)."
+        },
+        {
+          "signature": "batchLiquidateTroves(uint256[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless liquidation of Troves with ICR < MCR. Liquidator earns 0.5% of the collateral (capped at 2 units) plus the 0.0375 WETH gas deposit per Trove. Debt is offset by the branch Stability Pool (SP depositors get collateral at a 5% penalty discount) or, if the SP is empty, redistributed to other Troves (up to 10% penalty)."
+        },
+        {
+          "signature": "urgentRedemption(uint256,uint256[],uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Only after branch shutdown: (_boldAmount, _troveIds, _minCollateral) redeem BOLD from chosen Troves with a 2% collateral bonus and no fee."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x5721cbbd64fc7Ae3Ef44A0A3F9a790A9264Cf9BF",
+      "name": "StabilityPool (WETH branch)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "provideToSP(uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_topUp, _doClaim): deposit BOLD (no approve needed). Earns 75% of the branch's interest (in BOLD) plus WETH from liquidations. _doClaim=true pays out pending BOLD yield and WETH gains; false compounds the yield into the deposit and stashes the WETH."
+        },
+        {
+          "signature": "withdrawFromSP(uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_amount, _doClaim): withdraw BOLD (amount above your deposit withdraws all). Pool must keep >= 1 BOLD total. Withdraw with _doClaim=true to also receive gains."
+        },
+        {
+          "signature": "claimAllCollGains()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim stashed collateral gains; only when you have no deposit left."
+        },
+        {
+          "signature": "getCompoundedBoldDeposit(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current BOLD deposit after liquidation losses (18 decimals)."
+        },
+        {
+          "signature": "getDepositorYieldGainWithPending(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimable BOLD interest yield incl. not-yet-minted interest."
+        },
+        {
+          "signature": "getDepositorCollGain(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pending WETH gain from liquidations (excl. stashed; see stashedColl(address))."
+        },
+        {
+          "signature": "stashedColl(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral gains stashed by earlier _doClaim=false operations."
+        },
+        {
+          "signature": "getTotalBoldDeposits()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total BOLD in this pool."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xA25269E41BD072513849F2E64Ad221e84f3063F4",
+      "name": "SortedTroves (WETH branch)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "findInsertPosition(uint256,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(_annualInterestRate, _prevId, _nextId) -> (upperHint, lowerHint): exact hints for openTrove / adjustTroveInterestRate. Pass HintHelpers.getApproxHint result as both _prevId and _nextId."
+        },
+        {
+          "signature": "getLast()",
+          "kind": "read",
+          "payable": false,
+          "description": "Trove with the LOWEST interest rate (the next to be redeemed)."
+        },
+        {
+          "signature": "getFirst()",
+          "kind": "read",
+          "payable": false,
+          "description": "Trove with the highest interest rate."
+        },
+        {
+          "signature": "getNext(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Next Trove toward lower rates."
+        },
+        {
+          "signature": "getPrev(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Previous Trove toward higher rates."
+        },
+        {
+          "signature": "getSize()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of Troves in the list (zombie Troves are not in it)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x7022A4f4A2b9f0C30A5eB0B0073a8Bb4C8e70C1f",
+      "name": "WETHZapper (WETH branch, native ETH)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "openTroveWithRawETH((address,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,address,address,address))",
+          "kind": "write",
+          "payable": true,
+          "description": "Open a WETH-branch Trove paying in ETH. Struct: (owner, ownerIndex, collAmount (ignored: collateral = msg.value - 0.0375 ETH gas deposit), boldAmount, upperHint, lowerHint, annualInterestRate, batchManager (0x0 unless joining a batch; then rate must be 0), maxUpfrontFee, addManager, removeManager, receiver). msg.value must exceed 0.0375 ETH. The zapper opens the Trove, so troveId = uint256(keccak256(abi.encode(zapper, owner, uint256(keccak256(abi.encode(msg.sender, ownerIndex)))))); read it from the return value. BOLD goes to msg.sender, the Trove NFT to owner, and the zapper stays add/remove manager and receiver so later zapper calls work."
+        },
+        {
+          "signature": "addCollWithRawETH(uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "(_troveId): add ETH collateral (msg.value)."
+        },
+        {
+          "signature": "adjustTroveWithRawETH(uint256,uint256,bool,uint256,bool,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "(_troveId, _collChange, _isCollIncrease, _boldChange, _isDebtIncrease, _maxUpfrontFee); when adding collateral msg.value must equal _collChange. Approve BOLD to the zapper when repaying."
+        },
+        {
+          "signature": "withdrawCollToRawETH(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _amount): withdraw collateral as ETH."
+        },
+        {
+          "signature": "repayBold(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _boldAmount): repay via zapper (approve BOLD to zapper)."
+        },
+        {
+          "signature": "withdrawBold(uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _boldAmount, _maxUpfrontFee): borrow more via zapper."
+        },
+        {
+          "signature": "closeTroveToRawETH(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId): pulls entireDebt BOLD from msg.sender (approve first) and returns collateral + 0.0375 gas deposit as ETH. Only for Troves where the zapper is the receiver."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xCC5F8102eb670c89a4a3c567C13851260303c24F",
+      "name": "PriceFeed (WETH branch)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "lastGoodPrice()",
+          "kind": "read",
+          "payable": false,
+          "description": "Last valid WETH price in USD (18 decimals) used for ICR; pass to TroveManager.getCurrentICR."
+        },
+        {
+          "signature": "fetchPrice()",
+          "kind": "write",
+          "payable": false,
+          "description": "Refreshes and returns (price, oracleFailureDetected). Non-view; use eth_call to read a fresh price. An oracle failure shuts the branch down."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1A0FC0b843aFD9140267D25d4E575Cb37a838013",
+      "name": "TroveNFT (WETH branch)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "ownerOf(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Owner of a Trove (tokenId = troveId). The NFT owner controls the Trove; transferring it transfers the position."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of Troves owned on this branch."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer a Trove position."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xa741A32f9dcFe6aDBa088fD0f97e90742d7d5DA3",
+      "name": "BorrowerOperations (wstETH branch)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "openTrove(address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Open a Trove: (_owner, _ownerIndex, _collAmount, _boldAmount, _upperHint, _lowerHint, _annualInterestRate, _maxUpfrontFee, _addManager, _removeManager, _receiver). First approve wstETH (collAmount) and 0.0375 WETH (gas deposit) to BorrowerOperations. Interest rate 1e18 = 100%, min 0.5% (5e15), max 250%. Debt incl. upfront fee must be >= 2,000 BOLD and ICR >= MCR 120% (and the branch TCR must stay >= CCR 160%). _maxUpfrontFee from HintHelpers.predictOpenTroveUpfrontFee. Hints from HintHelpers.getApproxHint + SortedTroves.findInsertPosition (0,0 works but costs more gas). Managers/receiver can be address(0). Returns troveId = uint256(keccak256(abi.encode(msg.sender, _owner, _ownerIndex))); an ERC-721 for it is minted to _owner and BOLD to msg.sender."
+        },
+        {
+          "signature": "adjustTrove(uint256,uint256,bool,uint256,bool,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _collChange, _isCollIncrease, _boldChange, _isDebtIncrease, _maxUpfrontFee): add/withdraw collateral and borrow/repay in one call. Borrowing more charges an upfront fee (7 days of branch average interest). Resulting ICR must stay >= MCR, debt >= 2,000 BOLD; below CCR (Critical mode) borrowing is only allowed if it lifts TCR above CCR."
+        },
+        {
+          "signature": "addColl(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _collAmount): add collateral (approve the collateral token first)."
+        },
+        {
+          "signature": "withdrawColl(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _collWithdrawal): withdraw collateral; ICR must stay >= MCR."
+        },
+        {
+          "signature": "withdrawBold(uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _boldAmount, _maxUpfrontFee): borrow more BOLD; upfront fee applies (predictAdjustTroveUpfrontFee)."
+        },
+        {
+          "signature": "repayBold(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _boldAmount): repay debt; cannot take debt below 2,000 BOLD (close the Trove instead). No approve needed."
+        },
+        {
+          "signature": "adjustTroveInterestRate(uint256,uint256,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _newAnnualInterestRate, _upperHint, _lowerHint, _maxUpfrontFee): set a new rate (1e18 = 100%). Free once per 7 days; a change within 7 days of the last one pays an upfront fee of 7 days' average interest. Lower rates are redeemed first. Not for Troves in a batch."
+        },
+        {
+          "signature": "closeTrove(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId): repay the entire debt (TroveManager.getLatestTroveData(id).entireDebt, incl. accrued interest) from msg.sender's BOLD and get all collateral plus the 0.0375 WETH gas deposit back. Caller must be owner or remove-manager. Reverts if it would push branch TCR below CCR (unless the branch is shut down)."
+        },
+        {
+          "signature": "adjustZombieTrove(uint256,uint256,bool,uint256,bool,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Adjust a 'zombie' Trove (debt < 2,000 BOLD after redemption): (_troveId, _collChange, _isCollIncrease, _boldChange, _isDebtIncrease, _upperHint, _lowerHint, _maxUpfrontFee). Result must have debt >= 2,000 and ICR >= MCR."
+        },
+        {
+          "signature": "claimCollateral()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim surplus collateral left after your Trove was liquidated or fully redeemed (held in CollSurplusPool)."
+        },
+        {
+          "signature": "setInterestBatchManager(uint256,address,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _newBatchManager, _upperHint, _lowerHint, _maxUpfrontFee): delegate rate management to a registered batch manager (pays its management fee; batched Troves need ICR >= MCR + 10%)."
+        },
+        {
+          "signature": "MCR()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum collateral ratio, 1e18 = 100% (120% on this branch)."
+        },
+        {
+          "signature": "CCR()",
+          "kind": "read",
+          "payable": false,
+          "description": "Critical collateral ratio for the branch TCR (160%)."
+        },
+        {
+          "signature": "hasBeenShutDown()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the branch is shut down (TCR fell below SCR 120% or oracle failure): only closing Troves and urgent redemptions then work."
+        },
+        {
+          "signature": "getEntireBranchDebt()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total branch debt in BOLD (18 decimals)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xA2895d6A3bf110561Dfe4b71cA539d84e1928B22",
+      "name": "TroveManager (wstETH branch)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "getLatestTroveData(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Trove state incl. pending interest: (entireDebt, entireColl, redistBoldDebtGain, redistCollGain, accruedInterest, recordedDebt, annualInterestRate, weightedRecordedDebt, accruedBatchManagementFee, lastInterestRateAdjTime). entireDebt is what closeTrove needs."
+        },
+        {
+          "signature": "getTroveStatus(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "0 nonExistent, 1 active, 2 closedByOwner, 3 closedByLiquidation, 4 zombie (debt < 2,000 BOLD after redemption; unredeemable until topped up)."
+        },
+        {
+          "signature": "getCurrentICR(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(_troveId, _price) -> ICR (1e18 = 100%). Price from PriceFeed.lastGoodPrice(). Liquidatable when ICR < MCR (120%)."
+        },
+        {
+          "signature": "getTroveAnnualInterestRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Trove's annual rate (1e18 = 100%; batch rate if batched)."
+        },
+        {
+          "signature": "getTroveIdsCount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of Troves in the branch."
+        },
+        {
+          "signature": "getTroveFromTroveIdsArray(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Trove id at index (for enumeration)."
+        },
+        {
+          "signature": "batchLiquidateTroves(uint256[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless liquidation of Troves with ICR < MCR. Liquidator earns 0.5% of the collateral (capped at 2 units) plus the 0.0375 WETH gas deposit per Trove. Debt is offset by the branch Stability Pool (SP depositors get collateral at a 5% penalty discount) or, if the SP is empty, redistributed to other Troves (up to 20% penalty)."
+        },
+        {
+          "signature": "urgentRedemption(uint256,uint256[],uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Only after branch shutdown: (_boldAmount, _troveIds, _minCollateral) redeem BOLD from chosen Troves with a 2% collateral bonus and no fee."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x9502b7c397E9aa22FE9dB7EF7DAF21cD2AEBe56B",
+      "name": "StabilityPool (wstETH branch)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "provideToSP(uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_topUp, _doClaim): deposit BOLD (no approve needed). Earns 75% of the branch's interest (in BOLD) plus wstETH from liquidations. _doClaim=true pays out pending BOLD yield and wstETH gains; false compounds the yield into the deposit and stashes the wstETH."
+        },
+        {
+          "signature": "withdrawFromSP(uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_amount, _doClaim): withdraw BOLD (amount above your deposit withdraws all). Pool must keep >= 1 BOLD total. Withdraw with _doClaim=true to also receive gains."
+        },
+        {
+          "signature": "claimAllCollGains()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim stashed collateral gains; only when you have no deposit left."
+        },
+        {
+          "signature": "getCompoundedBoldDeposit(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current BOLD deposit after liquidation losses (18 decimals)."
+        },
+        {
+          "signature": "getDepositorYieldGainWithPending(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimable BOLD interest yield incl. not-yet-minted interest."
+        },
+        {
+          "signature": "getDepositorCollGain(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pending wstETH gain from liquidations (excl. stashed; see stashedColl(address))."
+        },
+        {
+          "signature": "stashedColl(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral gains stashed by earlier _doClaim=false operations."
+        },
+        {
+          "signature": "getTotalBoldDeposits()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total BOLD in this pool."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x84eb85a8C25049255614F0536Bea8F31682e86F1",
+      "name": "SortedTroves (wstETH branch)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "findInsertPosition(uint256,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(_annualInterestRate, _prevId, _nextId) -> (upperHint, lowerHint): exact hints for openTrove / adjustTroveInterestRate. Pass HintHelpers.getApproxHint result as both _prevId and _nextId."
+        },
+        {
+          "signature": "getLast()",
+          "kind": "read",
+          "payable": false,
+          "description": "Trove with the LOWEST interest rate (the next to be redeemed)."
+        },
+        {
+          "signature": "getFirst()",
+          "kind": "read",
+          "payable": false,
+          "description": "Trove with the highest interest rate."
+        },
+        {
+          "signature": "getNext(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Next Trove toward lower rates."
+        },
+        {
+          "signature": "getPrev(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Previous Trove toward higher rates."
+        },
+        {
+          "signature": "getSize()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of Troves in the list (zombie Troves are not in it)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xBD69D3e0eA967d146E925b7572B765c8E9C4127D",
+      "name": "GasCompZapper (wstETH branch, ETH gas deposit)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "openTroveWithRawETH((address,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,address,address,address))",
+          "kind": "write",
+          "payable": true,
+          "description": "Open a wstETH Trove sending exactly 0.0375 ETH (msg.value) as the gas deposit instead of WETH. Approve collAmount of wstETH to the zapper. Struct: (owner, ownerIndex, collAmount, boldAmount, upperHint, lowerHint, annualInterestRate, batchManager, maxUpfrontFee, addManager, removeManager, receiver). The zapper stays manager so later zapper calls work."
+        },
+        {
+          "signature": "addColl(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _amount): add wstETH via zapper (approve to zapper)."
+        },
+        {
+          "signature": "withdrawColl(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _amount): withdraw wstETH."
+        },
+        {
+          "signature": "adjustTrove(uint256,uint256,bool,uint256,bool,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _collChange, _isCollIncrease, _boldChange, _isDebtIncrease, _maxUpfrontFee) via zapper."
+        },
+        {
+          "signature": "repayBold(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _boldAmount): approve BOLD to the zapper first."
+        },
+        {
+          "signature": "withdrawBold(uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _boldAmount, _maxUpfrontFee)."
+        },
+        {
+          "signature": "closeTroveToRawETH(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId): pulls entireDebt BOLD from msg.sender (approve first), returns wstETH and the 0.0375 gas deposit as ETH."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xe7Aa2Ba9E086A379d3beb224098bC634a46e314E",
+      "name": "PriceFeed (wstETH branch)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "lastGoodPrice()",
+          "kind": "read",
+          "payable": false,
+          "description": "Last valid wstETH price in USD (18 decimals) used for ICR; pass to TroveManager.getCurrentICR."
+        },
+        {
+          "signature": "fetchPrice()",
+          "kind": "write",
+          "payable": false,
+          "description": "Refreshes and returns (price, oracleFailureDetected). Non-view; use eth_call to read a fresh price. An oracle failure shuts the branch down."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x857aECeBF75f1012DC18E15020C97096aeA31b04",
+      "name": "TroveNFT (wstETH branch)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "ownerOf(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Owner of a Trove (tokenId = troveId). The NFT owner controls the Trove; transferring it transfers the position."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of Troves owned on this branch."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer a Trove position."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xe8119fC02953B27a1b48D2573855738485A17329",
+      "name": "BorrowerOperations (rETH branch)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "openTrove(address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Open a Trove: (_owner, _ownerIndex, _collAmount, _boldAmount, _upperHint, _lowerHint, _annualInterestRate, _maxUpfrontFee, _addManager, _removeManager, _receiver). First approve rETH (collAmount) and 0.0375 WETH (gas deposit) to BorrowerOperations. Interest rate 1e18 = 100%, min 0.5% (5e15), max 250%. Debt incl. upfront fee must be >= 2,000 BOLD and ICR >= MCR 120% (and the branch TCR must stay >= CCR 160%). _maxUpfrontFee from HintHelpers.predictOpenTroveUpfrontFee. Hints from HintHelpers.getApproxHint + SortedTroves.findInsertPosition (0,0 works but costs more gas). Managers/receiver can be address(0). Returns troveId = uint256(keccak256(abi.encode(msg.sender, _owner, _ownerIndex))); an ERC-721 for it is minted to _owner and BOLD to msg.sender."
+        },
+        {
+          "signature": "adjustTrove(uint256,uint256,bool,uint256,bool,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _collChange, _isCollIncrease, _boldChange, _isDebtIncrease, _maxUpfrontFee): add/withdraw collateral and borrow/repay in one call. Borrowing more charges an upfront fee (7 days of branch average interest). Resulting ICR must stay >= MCR, debt >= 2,000 BOLD; below CCR (Critical mode) borrowing is only allowed if it lifts TCR above CCR."
+        },
+        {
+          "signature": "addColl(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _collAmount): add collateral (approve the collateral token first)."
+        },
+        {
+          "signature": "withdrawColl(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _collWithdrawal): withdraw collateral; ICR must stay >= MCR."
+        },
+        {
+          "signature": "withdrawBold(uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _boldAmount, _maxUpfrontFee): borrow more BOLD; upfront fee applies (predictAdjustTroveUpfrontFee)."
+        },
+        {
+          "signature": "repayBold(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _boldAmount): repay debt; cannot take debt below 2,000 BOLD (close the Trove instead). No approve needed."
+        },
+        {
+          "signature": "adjustTroveInterestRate(uint256,uint256,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _newAnnualInterestRate, _upperHint, _lowerHint, _maxUpfrontFee): set a new rate (1e18 = 100%). Free once per 7 days; a change within 7 days of the last one pays an upfront fee of 7 days' average interest. Lower rates are redeemed first. Not for Troves in a batch."
+        },
+        {
+          "signature": "closeTrove(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId): repay the entire debt (TroveManager.getLatestTroveData(id).entireDebt, incl. accrued interest) from msg.sender's BOLD and get all collateral plus the 0.0375 WETH gas deposit back. Caller must be owner or remove-manager. Reverts if it would push branch TCR below CCR (unless the branch is shut down)."
+        },
+        {
+          "signature": "adjustZombieTrove(uint256,uint256,bool,uint256,bool,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Adjust a 'zombie' Trove (debt < 2,000 BOLD after redemption): (_troveId, _collChange, _isCollIncrease, _boldChange, _isDebtIncrease, _upperHint, _lowerHint, _maxUpfrontFee). Result must have debt >= 2,000 and ICR >= MCR."
+        },
+        {
+          "signature": "claimCollateral()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim surplus collateral left after your Trove was liquidated or fully redeemed (held in CollSurplusPool)."
+        },
+        {
+          "signature": "setInterestBatchManager(uint256,address,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _newBatchManager, _upperHint, _lowerHint, _maxUpfrontFee): delegate rate management to a registered batch manager (pays its management fee; batched Troves need ICR >= MCR + 10%)."
+        },
+        {
+          "signature": "MCR()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum collateral ratio, 1e18 = 100% (120% on this branch)."
+        },
+        {
+          "signature": "CCR()",
+          "kind": "read",
+          "payable": false,
+          "description": "Critical collateral ratio for the branch TCR (160%)."
+        },
+        {
+          "signature": "hasBeenShutDown()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the branch is shut down (TCR fell below SCR 120% or oracle failure): only closing Troves and urgent redemptions then work."
+        },
+        {
+          "signature": "getEntireBranchDebt()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total branch debt in BOLD (18 decimals)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xb2B2ABEb5C357a234363FF5D180912D319e3e19e",
+      "name": "TroveManager (rETH branch)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "getLatestTroveData(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Trove state incl. pending interest: (entireDebt, entireColl, redistBoldDebtGain, redistCollGain, accruedInterest, recordedDebt, annualInterestRate, weightedRecordedDebt, accruedBatchManagementFee, lastInterestRateAdjTime). entireDebt is what closeTrove needs."
+        },
+        {
+          "signature": "getTroveStatus(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "0 nonExistent, 1 active, 2 closedByOwner, 3 closedByLiquidation, 4 zombie (debt < 2,000 BOLD after redemption; unredeemable until topped up)."
+        },
+        {
+          "signature": "getCurrentICR(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(_troveId, _price) -> ICR (1e18 = 100%). Price from PriceFeed.lastGoodPrice(). Liquidatable when ICR < MCR (120%)."
+        },
+        {
+          "signature": "getTroveAnnualInterestRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Trove's annual rate (1e18 = 100%; batch rate if batched)."
+        },
+        {
+          "signature": "getTroveIdsCount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of Troves in the branch."
+        },
+        {
+          "signature": "getTroveFromTroveIdsArray(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Trove id at index (for enumeration)."
+        },
+        {
+          "signature": "batchLiquidateTroves(uint256[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless liquidation of Troves with ICR < MCR. Liquidator earns 0.5% of the collateral (capped at 2 units) plus the 0.0375 WETH gas deposit per Trove. Debt is offset by the branch Stability Pool (SP depositors get collateral at a 5% penalty discount) or, if the SP is empty, redistributed to other Troves (up to 20% penalty)."
+        },
+        {
+          "signature": "urgentRedemption(uint256,uint256[],uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Only after branch shutdown: (_boldAmount, _troveIds, _minCollateral) redeem BOLD from chosen Troves with a 2% collateral bonus and no fee."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xd442E41019B7F5C4dD78F50dc03726C446148695",
+      "name": "StabilityPool (rETH branch)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "provideToSP(uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_topUp, _doClaim): deposit BOLD (no approve needed). Earns 75% of the branch's interest (in BOLD) plus rETH from liquidations. _doClaim=true pays out pending BOLD yield and rETH gains; false compounds the yield into the deposit and stashes the rETH."
+        },
+        {
+          "signature": "withdrawFromSP(uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_amount, _doClaim): withdraw BOLD (amount above your deposit withdraws all). Pool must keep >= 1 BOLD total. Withdraw with _doClaim=true to also receive gains."
+        },
+        {
+          "signature": "claimAllCollGains()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim stashed collateral gains; only when you have no deposit left."
+        },
+        {
+          "signature": "getCompoundedBoldDeposit(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current BOLD deposit after liquidation losses (18 decimals)."
+        },
+        {
+          "signature": "getDepositorYieldGainWithPending(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimable BOLD interest yield incl. not-yet-minted interest."
+        },
+        {
+          "signature": "getDepositorCollGain(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pending rETH gain from liquidations (excl. stashed; see stashedColl(address))."
+        },
+        {
+          "signature": "stashedColl(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral gains stashed by earlier _doClaim=false operations."
+        },
+        {
+          "signature": "getTotalBoldDeposits()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total BOLD in this pool."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x14d8d8011dF2b396Ed2bbC4959bb73250324F386",
+      "name": "SortedTroves (rETH branch)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "findInsertPosition(uint256,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(_annualInterestRate, _prevId, _nextId) -> (upperHint, lowerHint): exact hints for openTrove / adjustTroveInterestRate. Pass HintHelpers.getApproxHint result as both _prevId and _nextId."
+        },
+        {
+          "signature": "getLast()",
+          "kind": "read",
+          "payable": false,
+          "description": "Trove with the LOWEST interest rate (the next to be redeemed)."
+        },
+        {
+          "signature": "getFirst()",
+          "kind": "read",
+          "payable": false,
+          "description": "Trove with the highest interest rate."
+        },
+        {
+          "signature": "getNext(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Next Trove toward lower rates."
+        },
+        {
+          "signature": "getPrev(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Previous Trove toward higher rates."
+        },
+        {
+          "signature": "getSize()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of Troves in the list (zombie Troves are not in it)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xbE8B230dCd12E246F5eDc5c103CC98be68ab636F",
+      "name": "GasCompZapper (rETH branch, ETH gas deposit)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "openTroveWithRawETH((address,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,address,address,address))",
+          "kind": "write",
+          "payable": true,
+          "description": "Open a rETH Trove sending exactly 0.0375 ETH (msg.value) as the gas deposit instead of WETH. Approve collAmount of rETH to the zapper. Struct: (owner, ownerIndex, collAmount, boldAmount, upperHint, lowerHint, annualInterestRate, batchManager, maxUpfrontFee, addManager, removeManager, receiver). The zapper stays manager so later zapper calls work."
+        },
+        {
+          "signature": "addColl(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _amount): add rETH via zapper (approve to zapper)."
+        },
+        {
+          "signature": "withdrawColl(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _amount): withdraw rETH."
+        },
+        {
+          "signature": "adjustTrove(uint256,uint256,bool,uint256,bool,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _collChange, _isCollIncrease, _boldChange, _isDebtIncrease, _maxUpfrontFee) via zapper."
+        },
+        {
+          "signature": "repayBold(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _boldAmount): approve BOLD to the zapper first."
+        },
+        {
+          "signature": "withdrawBold(uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId, _boldAmount, _maxUpfrontFee)."
+        },
+        {
+          "signature": "closeTroveToRawETH(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(_troveId): pulls entireDebt BOLD from msg.sender (approve first), returns rETH and the 0.0375 gas deposit as ETH."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x34F1E9c7dcc279ec70d3c4488EB2D80FBa8B7b2B",
+      "name": "PriceFeed (rETH branch)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "lastGoodPrice()",
+          "kind": "read",
+          "payable": false,
+          "description": "Last valid rETH price in USD (18 decimals) used for ICR; pass to TroveManager.getCurrentICR."
+        },
+        {
+          "signature": "fetchPrice()",
+          "kind": "write",
+          "payable": false,
+          "description": "Refreshes and returns (price, oracleFailureDetected). Non-view; use eth_call to read a fresh price. An oracle failure shuts the branch down."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x7ae430E25b67f19B431e1D1Dc048a5BCF24C0873",
+      "name": "TroveNFT (rETH branch)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+      "keyFunctions": [
+        {
+          "signature": "ownerOf(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Owner of a Trove (tokenId = troveId). The NFT owner controls the Trove; transferring it transfers the position."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of Troves owned on this branch."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer a Trove position."
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "open-trove",
+      "description": "Borrow BOLD against WETH/wstETH/rETH",
+      "how": "1) Pick branch (0 WETH, 1 wstETH, 2 rETH) and rate (e.g. 5e16 = 5%). 2) fee = HintHelpers.predictOpenTroveUpfrontFee(idx, bold, rate). 3) (hint,,) = HintHelpers.getApproxHint(idx, rate, 15*sqrt(SortedTroves.getSize()), seed); (upper, lower) = SortedTroves.findInsertPosition(rate, hint, hint). 4) Approve collateral (+0.0375 WETH gas deposit) to BorrowerOperations. 5) BorrowerOperations.openTrove(owner, ownerIndex, coll, bold, upper, lower, rate, fee*1.01, 0x0, 0x0, 0x0). Keep ICR well above MCR (110% WETH, 120% LSTs) and debt >= 2,000 BOLD. Or use WETHZapper/GasCompZapper.openTroveWithRawETH to pay in ETH."
+    },
+    {
+      "name": "adjust-trove",
+      "description": "Add/remove collateral, borrow/repay",
+      "how": "BorrowerOperations.adjustTrove(troveId, collChange, isCollIncrease, boldChange, isDebtIncrease, maxUpfrontFee) (fee from HintHelpers.predictAdjustTroveUpfrontFee when borrowing), or addColl / withdrawColl / withdrawBold / repayBold."
+    },
+    {
+      "name": "set-interest-rate",
+      "description": "Change a Trove's interest rate",
+      "how": "Hints as in open-trove for the new rate; fee = HintHelpers.predictAdjustInterestRateUpfrontFee(idx, troveId, newRate) (0 if >= 7 days since last change); BorrowerOperations.adjustTroveInterestRate(troveId, newRate, upper, lower, fee)."
+    },
+    {
+      "name": "close-trove",
+      "description": "Repay all and withdraw collateral",
+      "how": "debt = TroveManager.getLatestTroveData(troveId).entireDebt; hold that much BOLD (plus a little for interest accrual); BorrowerOperations.closeTrove(troveId)."
+    },
+    {
+      "name": "earn-stability-pool",
+      "description": "Deposit BOLD in a branch Stability Pool",
+      "how": "StabilityPool.provideToSP(amount, true). Read getCompoundedBoldDeposit / getDepositorYieldGainWithPending / getDepositorCollGain. Exit with withdrawFromSP(amount, true)."
+    },
+    {
+      "name": "redeem",
+      "description": "Redeem BOLD for collateral at $1",
+      "how": "Check CollateralRegistry.getRedemptionRateForRedeemedAmount(amount); CollateralRegistry.redeemCollateral(amount, maxIterationsPerCollateral (e.g. 50), maxFee 1e18-scaled). For min-out protection use RedemptionHelper.truncateRedemption (eth_call) then redeemCollateral(bold, iters, maxFeePct, minCollPerBranch[3]) after approving BOLD to it."
+    },
+    {
+      "name": "liquidate",
+      "description": "Liquidate undercollateralized Troves",
+      "how": "Find Troves with TroveManager.getCurrentICR(id, PriceFeed.lastGoodPrice()) < MCR; TroveManager.batchLiquidateTroves([ids])."
+    }
+  ],
+  "risks": [
+    "Redemptions: anyone can redeem BOLD for collateral at $1 (minus a fee of at least 0.5%), starting from the Troves with the LOWEST interest rate in each branch. Redeemed borrowers lose collateral equal to the debt repaid (no net loss at the oracle price, but exposure is lost). Keep your rate competitive; MultiTroveGetter.getDebtPerInterestRateAscending shows the debt in front of you.",
+    "Zombie Troves: a redemption that leaves debt < 2,000 BOLD marks the Trove 'zombie' (status 4); it stays open but must be fixed with adjustZombieTrove.",
+    "Liquidation when ICR < MCR (110% WETH, 120% wstETH/rETH): the Trove loses its collateral (up to the penalty: 5% via the Stability Pool, up to 10% WETH / 20% LST via redistribution) and the 0.0375 WETH gas deposit. Branch TCR below CCR (150% / 160%) restricts borrowing and collateral withdrawals.",
+    "Upfront fee: every new borrow (and rate changes within 7 days of the last one) pays 7 days of the branch average interest rate, added to debt and non-refundable.",
+    "Branch shutdown: if a branch's TCR falls below SCR (110% WETH, 120% LSTs) or its oracle fails, that branch freezes (only closing and urgent redemptions at a 2% bonus); BOLD stays redeemable against it.",
+    "Stability Pool deposits absorb liquidated debt: the BOLD deposit can shrink and is replaced by collateral bought at a discount; that collateral can fall in value.",
+    "Incident and redeployment: on 2025-02-12 the team was told of a Stability Pool issue in the first V2 deployment (BOLD 0xb01dd87B29d187F3E3a4Bf6cdAebfb97F3D9aB98), confirmed 2025-02-13 ('could result in the loss of funds held in these contracts'); users were told to exit and that deployment became legacy. The patched V2 relaunched on Ethereum on 2025-05-19 with new addresses (BOLD 0x6440f144...B01D). Never use the legacy addresses still listed on docs.liquity.org/v2-documentation/technical-resources.",
+    "Immutable contracts with no admin keys (no upgrades or parameter changes); governance (LQTY staking) only directs part of the protocol revenue. Oracles: Chainlink-based PriceFeeds per branch.",
+    "Audits listed in the docs: ChainSecurity (Aug 2024 - May 2025), Dedaub (Aug and Nov 2024, Cantina-fixes review May 2025), Certora formal verification (Dec 2024), Coinspect (Dec 2024 core, Jan 2025 governance, Oct 2025 RedemptionHelper), Recon (Oct 2024), Cantina competition (Mar-Apr 2025)."
+  ],
+  "notes": "Addresses are the CURRENT (May 2025 redeployment) Ethereum mainnet deployment, as listed on the docs page docs.liquity.org/v2-documentation/technical-docs-and-audits and in the official GitHub manifest liquity/bold contracts/addresses/1.json (they match). Checked onchain on 2026-11-25: CollateralRegistry.totalCollaterals() = 3 with TroveManagers matching the list, BOLD.collateralRegistryAddress() matches, all branches hasBeenShutDown() = false, BOLD supply ~26.9M. The docs page technical-resources ('Legacy V2 and Testnet') lists the OLD deployment (BOLD 0xb01dd87B..., CollateralRegistry 0xd99de73b..., plus BOLD on Base/Arbitrum/Optimism/Scroll/Avalanche); those are deliberately left out. Not listed here (available in the manifest): ActivePool, DefaultPool, CollSurplusPool, GasPool, MetadataNFT, AddressesRegistry per branch, LeverageZappers (WETH 0xdCcBD7A365aeE086aa3b4EDe8afe895B20770AE3, wstETH 0xe85230dE04147C4Ea363B21cdb801c1C19DF0A56, rETH 0x75036b1D6DE5665c60F5C33BB4a64e8E123211A2: flash-loan leverage 'Multiply'), DebtInFrontHelper, ExchangeHelpers, and governance (Governance 0x807DEf5E7d057DF05C796F4bc75C3Fe82Bd6EeE1, LQTY, LUSD, V1 staking, Curve BOLD pools/initiatives). Interest rates, ICR/MCR/CCR and fee percentages use 1e18 = 100%. Contracts are not proxies; ABIs are verified on Sourcify. Branch index for HintHelpers/MultiTroveGetter: 0 WETH, 1 wstETH, 2 rETH.",
+  "sources": [
+    "https://docs.liquity.org/v2-documentation/technical-docs-and-audits",
+    "https://docs.liquity.org/v2-documentation/technical-resources",
+    "https://github.com/liquity/bold/blob/main/contracts/addresses/1.json",
+    "https://github.com/liquity/bold/blob/main/README.md",
+    "https://github.com/liquity/bold/blob/main/contracts/src/Dependencies/Constants.sol",
+    "https://github.com/liquity/bold/blob/main/contracts/src/BorrowerOperations.sol",
+    "https://github.com/liquity/bold/blob/main/contracts/src/StabilityPool.sol",
+    "https://github.com/liquity/bold/blob/main/contracts/src/Zappers/WETHZapper.sol",
+    "https://github.com/liquity/bold/blob/main/contracts/src/Zappers/GasCompZapper.sol",
+    "https://www.liquity.org/blog/liquity-v2-redeployment",
+    "https://liquity.org/blog/stability-pool-issue",
+    "https://sourcify.dev/server/files/any/1/0x372ABD1810eAF23Cb9D941BbE7596DFb2c46BC65",
+    "https://sourcify.dev/server/files/any/1/0x7bcb64B2c9206a5B699eD43363f6F98D4776Cf5A",
+    "https://sourcify.dev/server/files/any/1/0x5721cbbd64fc7Ae3Ef44A0A3F9a790A9264Cf9BF",
+    "https://sourcify.dev/server/files/any/1/0xf949982B91C8c61e952B3bA942cbbfaef5386684",
+    "https://api.llama.fi/protocol/liquity-v2",
+    "https://defillama.com/protocol/liquity-v2"
+  ],
+  "researchedAt": "2026-11-25"
+}
