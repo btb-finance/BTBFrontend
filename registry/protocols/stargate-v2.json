@@ -1,0 +1,1760 @@
+{
+  "slug": "stargate-v2",
+  "name": "Stargate V2",
+  "category": "Bridge",
+  "description": "Cross-chain liquidity bridge on LayerZero V2 for same-asset transfers (USDC, USDT, ETH and others): each asset has a StargatePool (native chains) or StargateOFT (Hydra chains) contract per chain implementing the LayerZero IOFT interface. An agent quotes with quoteOFT/quoteSend and bridges with send(), choosing taxi (immediate) or bus (batched, cheaper) mode.",
+  "website": "https://stargate.finance",
+  "docs": "https://docs.layerzero.network/v2/concepts/applications/stargate-finance",
+  "defillama": "https://defillama.com/protocol/stargate-v2",
+  "chains": [
+    "ethereum",
+    "bsc",
+    "avalanche",
+    "polygon",
+    "arbitrum",
+    "optimism",
+    "base",
+    "linea"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x77b2043768d28E9C9aB44E1aBfC95944bcE57931",
+      "name": "StargatePoolNative (ETH, LayerZero eid 30101)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge ETH: send(SendParam(uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd), MessagingFee(uint256 nativeFee, uint256 lzTokenFee), address refundAddress). dstEid = LayerZero V2 endpoint ID of the destination (30101 Ethereum, 30102 BSC, 30106 Avalanche, 30109 Polygon, 30110 Arbitrum, 30111 Optimism, 30184 Base, 30183 Linea). to = recipient left-padded to bytes32. oftCmd = 0x (empty) for taxi (immediate), 0x00 (bytes(1)) for bus (batched, cheaper). extraOptions/composeMsg = 0x unless composing. Set minAmountLD from quoteOFT receipt.amountReceivedLD (minus your slippage). msg.value = MessagingFee.nativeFee + amountLD (this pool's token() is address(0), so the ETH being bridged is sent as value; no approval). Returns (MessagingReceipt(bytes32 guid, uint64 nonce, MessagingFee fee), OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD))."
+        },
+        {
+          "signature": "sendToken((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same arguments and value as send(), but also returns the bus Ticket(uint72 ticketId, bytes passengerBytes) when riding the bus. Use it if you want to track or drive the bus yourself."
+        },
+        {
+          "signature": "quoteOFT((uint32,bytes32,uint256,uint256,bytes,bytes,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (OFTLimit(uint256 minAmountLD, uint256 maxAmountLD) limit, OFTFeeDetail(int256 feeAmountLD, string description)[] fees, OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD) receipt). maxAmountLD is capped by the pathway's credits; feeAmountLD > 0 is a fee, < 0 a reward. Use receipt.amountReceivedLD as minAmountLD."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns MessagingFee(uint256 nativeFee, uint256 lzTokenFee) for the given SendParam (second arg false = pay in native gas). Call right before send(): quotes go stale with gas prices. For bus mode this returns the bus fare."
+        },
+        {
+          "signature": "token()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token address; address(0) means native ETH."
+        },
+        {
+          "signature": "approvalRequired()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the caller must approve this contract before send() (ERC-20 pools)."
+        },
+        {
+          "signature": "sharedDecimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Shared decimals used on the wire (6). Amounts are truncated to this precision (dust below it is not sent)."
+        },
+        {
+          "signature": "deposit(address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity: deposit(receiver, amountLD) mints LP tokens (lpToken()) to receiver. For the native pool send amountLD as value."
+        },
+        {
+          "signature": "redeem(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw liquidity on this chain: redeem(amountLD, receiver) burns LP and returns the asset. Limited by redeemable(owner) and local credits."
+        },
+        {
+          "signature": "redeemable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "How much of an owner's LP can be redeemed locally right now (amountLD)."
+        },
+        {
+          "signature": "tvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value locked (LP-backed liquidity) in local decimals."
+        },
+        {
+          "signature": "poolBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance held by the pool in local decimals."
+        },
+        {
+          "signature": "lpToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token address for this pool."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xc026395860Db2d07ee33e05fE50ed7bD583189C7",
+      "name": "StargatePoolUSDC (USDC, LayerZero eid 30101)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge USDC: send(SendParam(uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd), MessagingFee(uint256 nativeFee, uint256 lzTokenFee), address refundAddress). dstEid = LayerZero V2 endpoint ID of the destination (30101 Ethereum, 30102 BSC, 30106 Avalanche, 30109 Polygon, 30110 Arbitrum, 30111 Optimism, 30184 Base, 30183 Linea). to = recipient left-padded to bytes32. oftCmd = 0x (empty) for taxi (immediate), 0x00 (bytes(1)) for bus (batched, cheaper). extraOptions/composeMsg = 0x unless composing. Set minAmountLD from quoteOFT receipt.amountReceivedLD (minus your slippage). msg.value = MessagingFee.nativeFee only; approve this pool for USDC first (amount in 6-decimal base units). Returns (MessagingReceipt(bytes32 guid, uint64 nonce, MessagingFee fee), OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD))."
+        },
+        {
+          "signature": "sendToken((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same arguments and value as send(), but also returns the bus Ticket(uint72 ticketId, bytes passengerBytes) when riding the bus. Use it if you want to track or drive the bus yourself."
+        },
+        {
+          "signature": "quoteOFT((uint32,bytes32,uint256,uint256,bytes,bytes,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (OFTLimit(uint256 minAmountLD, uint256 maxAmountLD) limit, OFTFeeDetail(int256 feeAmountLD, string description)[] fees, OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD) receipt). maxAmountLD is capped by the pathway's credits; feeAmountLD > 0 is a fee, < 0 a reward. Use receipt.amountReceivedLD as minAmountLD."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns MessagingFee(uint256 nativeFee, uint256 lzTokenFee) for the given SendParam (second arg false = pay in native gas). Call right before send(): quotes go stale with gas prices. For bus mode this returns the bus fare."
+        },
+        {
+          "signature": "token()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token address; address(0) means native ETH."
+        },
+        {
+          "signature": "approvalRequired()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the caller must approve this contract before send() (ERC-20 pools)."
+        },
+        {
+          "signature": "sharedDecimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Shared decimals used on the wire (6). Amounts are truncated to this precision (dust below it is not sent)."
+        },
+        {
+          "signature": "deposit(address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity: deposit(receiver, amountLD) mints LP tokens (lpToken()) to receiver. For the native pool send amountLD as value."
+        },
+        {
+          "signature": "redeem(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw liquidity on this chain: redeem(amountLD, receiver) burns LP and returns the asset. Limited by redeemable(owner) and local credits."
+        },
+        {
+          "signature": "redeemable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "How much of an owner's LP can be redeemed locally right now (amountLD)."
+        },
+        {
+          "signature": "tvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value locked (LP-backed liquidity) in local decimals."
+        },
+        {
+          "signature": "poolBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance held by the pool in local decimals."
+        },
+        {
+          "signature": "lpToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token address for this pool."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x933597a323Eb81cAe705C5bC29985172fd5A3973",
+      "name": "StargatePoolUSDT (USDT, LayerZero eid 30101)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge USDT: send(SendParam(uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd), MessagingFee(uint256 nativeFee, uint256 lzTokenFee), address refundAddress). dstEid = LayerZero V2 endpoint ID of the destination (30101 Ethereum, 30102 BSC, 30106 Avalanche, 30109 Polygon, 30110 Arbitrum, 30111 Optimism, 30184 Base, 30183 Linea). to = recipient left-padded to bytes32. oftCmd = 0x (empty) for taxi (immediate), 0x00 (bytes(1)) for bus (batched, cheaper). extraOptions/composeMsg = 0x unless composing. Set minAmountLD from quoteOFT receipt.amountReceivedLD (minus your slippage). msg.value = MessagingFee.nativeFee only; approve this pool for USDT first (amount in 6-decimal base units). Returns (MessagingReceipt(bytes32 guid, uint64 nonce, MessagingFee fee), OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD))."
+        },
+        {
+          "signature": "sendToken((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same arguments and value as send(), but also returns the bus Ticket(uint72 ticketId, bytes passengerBytes) when riding the bus. Use it if you want to track or drive the bus yourself."
+        },
+        {
+          "signature": "quoteOFT((uint32,bytes32,uint256,uint256,bytes,bytes,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (OFTLimit(uint256 minAmountLD, uint256 maxAmountLD) limit, OFTFeeDetail(int256 feeAmountLD, string description)[] fees, OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD) receipt). maxAmountLD is capped by the pathway's credits; feeAmountLD > 0 is a fee, < 0 a reward. Use receipt.amountReceivedLD as minAmountLD."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns MessagingFee(uint256 nativeFee, uint256 lzTokenFee) for the given SendParam (second arg false = pay in native gas). Call right before send(): quotes go stale with gas prices. For bus mode this returns the bus fare."
+        },
+        {
+          "signature": "token()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token address; address(0) means native ETH."
+        },
+        {
+          "signature": "approvalRequired()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the caller must approve this contract before send() (ERC-20 pools)."
+        },
+        {
+          "signature": "sharedDecimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Shared decimals used on the wire (6). Amounts are truncated to this precision (dust below it is not sent)."
+        },
+        {
+          "signature": "deposit(address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity: deposit(receiver, amountLD) mints LP tokens (lpToken()) to receiver. For the native pool send amountLD as value."
+        },
+        {
+          "signature": "redeem(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw liquidity on this chain: redeem(amountLD, receiver) burns LP and returns the asset. Limited by redeemable(owner) and local credits."
+        },
+        {
+          "signature": "redeemable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "How much of an owner's LP can be redeemed locally right now (amountLD)."
+        },
+        {
+          "signature": "tvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value locked (LP-backed liquidity) in local decimals."
+        },
+        {
+          "signature": "poolBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance held by the pool in local decimals."
+        },
+        {
+          "signature": "lpToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token address for this pool."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6d6620eFa72948C5f68A3C8646d58C00d3f4A980",
+      "name": "TokenMessaging (LayerZero eid 30101)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "quoteRideBus(uint32,bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bus fare to dstEid: quoteRideBus(dstEid, nativeDrop) returns MessagingFee(nativeFee, lzTokenFee). The pool's quoteSend already calls this for bus sends."
+        },
+        {
+          "signature": "quoteTaxi((address,uint32,bytes32,uint64,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Low-level taxi quote: TaxiParams(address sender, uint32 dstEid, bytes32 receiver, uint64 amountSD, bytes composeMsg, bytes extraOptions), payInLzToken. Prefer the pool's quoteSend."
+        },
+        {
+          "signature": "busQueues(uint32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bus state for dstEid: (uint8 maxNumPassengers, uint80 busFare, uint80 busAndNativeDropFare, uint16 qLength, uint72 nextTicketId). Your bus has left when nextTicketId > your ticketId."
+        },
+        {
+          "signature": "quoteDriveBus(uint32,bytes)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee to drive (dispatch) the bus to dstEid now for the given encoded passengers."
+        },
+        {
+          "signature": "driveBus(uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Dispatch the queued bus to dstEid immediately by paying the remaining fare (msg.value from quoteDriveBus). Optional: buses are also driven by the planner when full or on schedule."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x962Bd449E630b0d928f308Ce63f1A21F02576057",
+      "name": "StargatePoolUSDC (USDC, LayerZero eid 30102)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge USDC: send(SendParam(uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd), MessagingFee(uint256 nativeFee, uint256 lzTokenFee), address refundAddress). dstEid = LayerZero V2 endpoint ID of the destination (30101 Ethereum, 30102 BSC, 30106 Avalanche, 30109 Polygon, 30110 Arbitrum, 30111 Optimism, 30184 Base, 30183 Linea). to = recipient left-padded to bytes32. oftCmd = 0x (empty) for taxi (immediate), 0x00 (bytes(1)) for bus (batched, cheaper). extraOptions/composeMsg = 0x unless composing. Set minAmountLD from quoteOFT receipt.amountReceivedLD (minus your slippage). msg.value = MessagingFee.nativeFee only; approve this pool for USDC first (amount in 18-decimal base units). Returns (MessagingReceipt(bytes32 guid, uint64 nonce, MessagingFee fee), OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD))."
+        },
+        {
+          "signature": "sendToken((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same arguments and value as send(), but also returns the bus Ticket(uint72 ticketId, bytes passengerBytes) when riding the bus. Use it if you want to track or drive the bus yourself."
+        },
+        {
+          "signature": "quoteOFT((uint32,bytes32,uint256,uint256,bytes,bytes,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (OFTLimit(uint256 minAmountLD, uint256 maxAmountLD) limit, OFTFeeDetail(int256 feeAmountLD, string description)[] fees, OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD) receipt). maxAmountLD is capped by the pathway's credits; feeAmountLD > 0 is a fee, < 0 a reward. Use receipt.amountReceivedLD as minAmountLD."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns MessagingFee(uint256 nativeFee, uint256 lzTokenFee) for the given SendParam (second arg false = pay in native gas). Call right before send(): quotes go stale with gas prices. For bus mode this returns the bus fare."
+        },
+        {
+          "signature": "token()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token address; address(0) means native ETH."
+        },
+        {
+          "signature": "approvalRequired()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the caller must approve this contract before send() (ERC-20 pools)."
+        },
+        {
+          "signature": "sharedDecimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Shared decimals used on the wire (6). Amounts are truncated to this precision (dust below it is not sent)."
+        },
+        {
+          "signature": "deposit(address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity: deposit(receiver, amountLD) mints LP tokens (lpToken()) to receiver. For the native pool send amountLD as value."
+        },
+        {
+          "signature": "redeem(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw liquidity on this chain: redeem(amountLD, receiver) burns LP and returns the asset. Limited by redeemable(owner) and local credits."
+        },
+        {
+          "signature": "redeemable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "How much of an owner's LP can be redeemed locally right now (amountLD)."
+        },
+        {
+          "signature": "tvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value locked (LP-backed liquidity) in local decimals."
+        },
+        {
+          "signature": "poolBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance held by the pool in local decimals."
+        },
+        {
+          "signature": "lpToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token address for this pool."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x138EB30f73BC423c6455C53df6D89CB01d9eBc63",
+      "name": "StargatePoolUSDT (USDT, LayerZero eid 30102)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge USDT: send(SendParam(uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd), MessagingFee(uint256 nativeFee, uint256 lzTokenFee), address refundAddress). dstEid = LayerZero V2 endpoint ID of the destination (30101 Ethereum, 30102 BSC, 30106 Avalanche, 30109 Polygon, 30110 Arbitrum, 30111 Optimism, 30184 Base, 30183 Linea). to = recipient left-padded to bytes32. oftCmd = 0x (empty) for taxi (immediate), 0x00 (bytes(1)) for bus (batched, cheaper). extraOptions/composeMsg = 0x unless composing. Set minAmountLD from quoteOFT receipt.amountReceivedLD (minus your slippage). msg.value = MessagingFee.nativeFee only; approve this pool for USDT first (amount in 18-decimal base units). Returns (MessagingReceipt(bytes32 guid, uint64 nonce, MessagingFee fee), OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD))."
+        },
+        {
+          "signature": "sendToken((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same arguments and value as send(), but also returns the bus Ticket(uint72 ticketId, bytes passengerBytes) when riding the bus. Use it if you want to track or drive the bus yourself."
+        },
+        {
+          "signature": "quoteOFT((uint32,bytes32,uint256,uint256,bytes,bytes,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (OFTLimit(uint256 minAmountLD, uint256 maxAmountLD) limit, OFTFeeDetail(int256 feeAmountLD, string description)[] fees, OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD) receipt). maxAmountLD is capped by the pathway's credits; feeAmountLD > 0 is a fee, < 0 a reward. Use receipt.amountReceivedLD as minAmountLD."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns MessagingFee(uint256 nativeFee, uint256 lzTokenFee) for the given SendParam (second arg false = pay in native gas). Call right before send(): quotes go stale with gas prices. For bus mode this returns the bus fare."
+        },
+        {
+          "signature": "token()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token address; address(0) means native ETH."
+        },
+        {
+          "signature": "approvalRequired()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the caller must approve this contract before send() (ERC-20 pools)."
+        },
+        {
+          "signature": "sharedDecimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Shared decimals used on the wire (6). Amounts are truncated to this precision (dust below it is not sent)."
+        },
+        {
+          "signature": "deposit(address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity: deposit(receiver, amountLD) mints LP tokens (lpToken()) to receiver. For the native pool send amountLD as value."
+        },
+        {
+          "signature": "redeem(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw liquidity on this chain: redeem(amountLD, receiver) burns LP and returns the asset. Limited by redeemable(owner) and local credits."
+        },
+        {
+          "signature": "redeemable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "How much of an owner's LP can be redeemed locally right now (amountLD)."
+        },
+        {
+          "signature": "tvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value locked (LP-backed liquidity) in local decimals."
+        },
+        {
+          "signature": "poolBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance held by the pool in local decimals."
+        },
+        {
+          "signature": "lpToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token address for this pool."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x6E3d884C96d640526F273C61dfcF08915eBd7e2B",
+      "name": "TokenMessaging (LayerZero eid 30102)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "quoteRideBus(uint32,bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bus fare to dstEid: quoteRideBus(dstEid, nativeDrop) returns MessagingFee(nativeFee, lzTokenFee). The pool's quoteSend already calls this for bus sends."
+        },
+        {
+          "signature": "quoteTaxi((address,uint32,bytes32,uint64,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Low-level taxi quote: TaxiParams(address sender, uint32 dstEid, bytes32 receiver, uint64 amountSD, bytes composeMsg, bytes extraOptions), payInLzToken. Prefer the pool's quoteSend."
+        },
+        {
+          "signature": "busQueues(uint32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bus state for dstEid: (uint8 maxNumPassengers, uint80 busFare, uint80 busAndNativeDropFare, uint16 qLength, uint72 nextTicketId). Your bus has left when nextTicketId > your ticketId."
+        },
+        {
+          "signature": "quoteDriveBus(uint32,bytes)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee to drive (dispatch) the bus to dstEid now for the given encoded passengers."
+        },
+        {
+          "signature": "driveBus(uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Dispatch the queued bus to dstEid immediately by paying the remaining fare (msg.value from quoteDriveBus). Optional: buses are also driven by the planner when full or on schedule."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x5634c4a5FEd09819E3c46D86A965Dd9447d86e47",
+      "name": "StargatePoolUSDC (USDC, LayerZero eid 30106)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge USDC: send(SendParam(uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd), MessagingFee(uint256 nativeFee, uint256 lzTokenFee), address refundAddress). dstEid = LayerZero V2 endpoint ID of the destination (30101 Ethereum, 30102 BSC, 30106 Avalanche, 30109 Polygon, 30110 Arbitrum, 30111 Optimism, 30184 Base, 30183 Linea). to = recipient left-padded to bytes32. oftCmd = 0x (empty) for taxi (immediate), 0x00 (bytes(1)) for bus (batched, cheaper). extraOptions/composeMsg = 0x unless composing. Set minAmountLD from quoteOFT receipt.amountReceivedLD (minus your slippage). msg.value = MessagingFee.nativeFee only; approve this pool for USDC first (amount in 6-decimal base units). Returns (MessagingReceipt(bytes32 guid, uint64 nonce, MessagingFee fee), OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD))."
+        },
+        {
+          "signature": "sendToken((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same arguments and value as send(), but also returns the bus Ticket(uint72 ticketId, bytes passengerBytes) when riding the bus. Use it if you want to track or drive the bus yourself."
+        },
+        {
+          "signature": "quoteOFT((uint32,bytes32,uint256,uint256,bytes,bytes,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (OFTLimit(uint256 minAmountLD, uint256 maxAmountLD) limit, OFTFeeDetail(int256 feeAmountLD, string description)[] fees, OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD) receipt). maxAmountLD is capped by the pathway's credits; feeAmountLD > 0 is a fee, < 0 a reward. Use receipt.amountReceivedLD as minAmountLD."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns MessagingFee(uint256 nativeFee, uint256 lzTokenFee) for the given SendParam (second arg false = pay in native gas). Call right before send(): quotes go stale with gas prices. For bus mode this returns the bus fare."
+        },
+        {
+          "signature": "token()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token address; address(0) means native ETH."
+        },
+        {
+          "signature": "approvalRequired()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the caller must approve this contract before send() (ERC-20 pools)."
+        },
+        {
+          "signature": "sharedDecimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Shared decimals used on the wire (6). Amounts are truncated to this precision (dust below it is not sent)."
+        },
+        {
+          "signature": "deposit(address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity: deposit(receiver, amountLD) mints LP tokens (lpToken()) to receiver. For the native pool send amountLD as value."
+        },
+        {
+          "signature": "redeem(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw liquidity on this chain: redeem(amountLD, receiver) burns LP and returns the asset. Limited by redeemable(owner) and local credits."
+        },
+        {
+          "signature": "redeemable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "How much of an owner's LP can be redeemed locally right now (amountLD)."
+        },
+        {
+          "signature": "tvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value locked (LP-backed liquidity) in local decimals."
+        },
+        {
+          "signature": "poolBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance held by the pool in local decimals."
+        },
+        {
+          "signature": "lpToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token address for this pool."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x12dC9256Acc9895B076f6638D628382881e62CeE",
+      "name": "StargatePoolUSDT (USDT, LayerZero eid 30106)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge USDT: send(SendParam(uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd), MessagingFee(uint256 nativeFee, uint256 lzTokenFee), address refundAddress). dstEid = LayerZero V2 endpoint ID of the destination (30101 Ethereum, 30102 BSC, 30106 Avalanche, 30109 Polygon, 30110 Arbitrum, 30111 Optimism, 30184 Base, 30183 Linea). to = recipient left-padded to bytes32. oftCmd = 0x (empty) for taxi (immediate), 0x00 (bytes(1)) for bus (batched, cheaper). extraOptions/composeMsg = 0x unless composing. Set minAmountLD from quoteOFT receipt.amountReceivedLD (minus your slippage). msg.value = MessagingFee.nativeFee only; approve this pool for USDT first (amount in 6-decimal base units). Returns (MessagingReceipt(bytes32 guid, uint64 nonce, MessagingFee fee), OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD))."
+        },
+        {
+          "signature": "sendToken((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same arguments and value as send(), but also returns the bus Ticket(uint72 ticketId, bytes passengerBytes) when riding the bus. Use it if you want to track or drive the bus yourself."
+        },
+        {
+          "signature": "quoteOFT((uint32,bytes32,uint256,uint256,bytes,bytes,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (OFTLimit(uint256 minAmountLD, uint256 maxAmountLD) limit, OFTFeeDetail(int256 feeAmountLD, string description)[] fees, OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD) receipt). maxAmountLD is capped by the pathway's credits; feeAmountLD > 0 is a fee, < 0 a reward. Use receipt.amountReceivedLD as minAmountLD."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns MessagingFee(uint256 nativeFee, uint256 lzTokenFee) for the given SendParam (second arg false = pay in native gas). Call right before send(): quotes go stale with gas prices. For bus mode this returns the bus fare."
+        },
+        {
+          "signature": "token()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token address; address(0) means native ETH."
+        },
+        {
+          "signature": "approvalRequired()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the caller must approve this contract before send() (ERC-20 pools)."
+        },
+        {
+          "signature": "sharedDecimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Shared decimals used on the wire (6). Amounts are truncated to this precision (dust below it is not sent)."
+        },
+        {
+          "signature": "deposit(address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity: deposit(receiver, amountLD) mints LP tokens (lpToken()) to receiver. For the native pool send amountLD as value."
+        },
+        {
+          "signature": "redeem(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw liquidity on this chain: redeem(amountLD, receiver) burns LP and returns the asset. Limited by redeemable(owner) and local credits."
+        },
+        {
+          "signature": "redeemable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "How much of an owner's LP can be redeemed locally right now (amountLD)."
+        },
+        {
+          "signature": "tvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value locked (LP-backed liquidity) in local decimals."
+        },
+        {
+          "signature": "poolBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance held by the pool in local decimals."
+        },
+        {
+          "signature": "lpToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token address for this pool."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x17E450Be3Ba9557F2378E20d64AD417E59Ef9A34",
+      "name": "TokenMessaging (LayerZero eid 30106)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "quoteRideBus(uint32,bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bus fare to dstEid: quoteRideBus(dstEid, nativeDrop) returns MessagingFee(nativeFee, lzTokenFee). The pool's quoteSend already calls this for bus sends."
+        },
+        {
+          "signature": "quoteTaxi((address,uint32,bytes32,uint64,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Low-level taxi quote: TaxiParams(address sender, uint32 dstEid, bytes32 receiver, uint64 amountSD, bytes composeMsg, bytes extraOptions), payInLzToken. Prefer the pool's quoteSend."
+        },
+        {
+          "signature": "busQueues(uint32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bus state for dstEid: (uint8 maxNumPassengers, uint80 busFare, uint80 busAndNativeDropFare, uint16 qLength, uint72 nextTicketId). Your bus has left when nextTicketId > your ticketId."
+        },
+        {
+          "signature": "quoteDriveBus(uint32,bytes)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee to drive (dispatch) the bus to dstEid now for the given encoded passengers."
+        },
+        {
+          "signature": "driveBus(uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Dispatch the queued bus to dstEid immediately by paying the remaining fare (msg.value from quoteDriveBus). Optional: buses are also driven by the planner when full or on schedule."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x9Aa02D4Fae7F58b8E8f34c66E756cC734DAc7fe4",
+      "name": "StargatePoolUSDC (USDC, LayerZero eid 30109)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge USDC: send(SendParam(uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd), MessagingFee(uint256 nativeFee, uint256 lzTokenFee), address refundAddress). dstEid = LayerZero V2 endpoint ID of the destination (30101 Ethereum, 30102 BSC, 30106 Avalanche, 30109 Polygon, 30110 Arbitrum, 30111 Optimism, 30184 Base, 30183 Linea). to = recipient left-padded to bytes32. oftCmd = 0x (empty) for taxi (immediate), 0x00 (bytes(1)) for bus (batched, cheaper). extraOptions/composeMsg = 0x unless composing. Set minAmountLD from quoteOFT receipt.amountReceivedLD (minus your slippage). msg.value = MessagingFee.nativeFee only; approve this pool for USDC first (amount in 6-decimal base units). Returns (MessagingReceipt(bytes32 guid, uint64 nonce, MessagingFee fee), OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD))."
+        },
+        {
+          "signature": "sendToken((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same arguments and value as send(), but also returns the bus Ticket(uint72 ticketId, bytes passengerBytes) when riding the bus. Use it if you want to track or drive the bus yourself."
+        },
+        {
+          "signature": "quoteOFT((uint32,bytes32,uint256,uint256,bytes,bytes,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (OFTLimit(uint256 minAmountLD, uint256 maxAmountLD) limit, OFTFeeDetail(int256 feeAmountLD, string description)[] fees, OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD) receipt). maxAmountLD is capped by the pathway's credits; feeAmountLD > 0 is a fee, < 0 a reward. Use receipt.amountReceivedLD as minAmountLD."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns MessagingFee(uint256 nativeFee, uint256 lzTokenFee) for the given SendParam (second arg false = pay in native gas). Call right before send(): quotes go stale with gas prices. For bus mode this returns the bus fare."
+        },
+        {
+          "signature": "token()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token address; address(0) means native ETH."
+        },
+        {
+          "signature": "approvalRequired()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the caller must approve this contract before send() (ERC-20 pools)."
+        },
+        {
+          "signature": "sharedDecimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Shared decimals used on the wire (6). Amounts are truncated to this precision (dust below it is not sent)."
+        },
+        {
+          "signature": "deposit(address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity: deposit(receiver, amountLD) mints LP tokens (lpToken()) to receiver. For the native pool send amountLD as value."
+        },
+        {
+          "signature": "redeem(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw liquidity on this chain: redeem(amountLD, receiver) burns LP and returns the asset. Limited by redeemable(owner) and local credits."
+        },
+        {
+          "signature": "redeemable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "How much of an owner's LP can be redeemed locally right now (amountLD)."
+        },
+        {
+          "signature": "tvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value locked (LP-backed liquidity) in local decimals."
+        },
+        {
+          "signature": "poolBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance held by the pool in local decimals."
+        },
+        {
+          "signature": "lpToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token address for this pool."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x6CE9bf8CDaB780416AD1fd87b318A077D2f50EaC",
+      "name": "TokenMessaging (LayerZero eid 30109)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "quoteRideBus(uint32,bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bus fare to dstEid: quoteRideBus(dstEid, nativeDrop) returns MessagingFee(nativeFee, lzTokenFee). The pool's quoteSend already calls this for bus sends."
+        },
+        {
+          "signature": "quoteTaxi((address,uint32,bytes32,uint64,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Low-level taxi quote: TaxiParams(address sender, uint32 dstEid, bytes32 receiver, uint64 amountSD, bytes composeMsg, bytes extraOptions), payInLzToken. Prefer the pool's quoteSend."
+        },
+        {
+          "signature": "busQueues(uint32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bus state for dstEid: (uint8 maxNumPassengers, uint80 busFare, uint80 busAndNativeDropFare, uint16 qLength, uint72 nextTicketId). Your bus has left when nextTicketId > your ticketId."
+        },
+        {
+          "signature": "quoteDriveBus(uint32,bytes)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee to drive (dispatch) the bus to dstEid now for the given encoded passengers."
+        },
+        {
+          "signature": "driveBus(uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Dispatch the queued bus to dstEid immediately by paying the remaining fare (msg.value from quoteDriveBus). Optional: buses are also driven by the planner when full or on schedule."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xA45B5130f36CDcA45667738e2a258AB09f4A5f7F",
+      "name": "StargatePoolNative (ETH, LayerZero eid 30110)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge ETH: send(SendParam(uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd), MessagingFee(uint256 nativeFee, uint256 lzTokenFee), address refundAddress). dstEid = LayerZero V2 endpoint ID of the destination (30101 Ethereum, 30102 BSC, 30106 Avalanche, 30109 Polygon, 30110 Arbitrum, 30111 Optimism, 30184 Base, 30183 Linea). to = recipient left-padded to bytes32. oftCmd = 0x (empty) for taxi (immediate), 0x00 (bytes(1)) for bus (batched, cheaper). extraOptions/composeMsg = 0x unless composing. Set minAmountLD from quoteOFT receipt.amountReceivedLD (minus your slippage). msg.value = MessagingFee.nativeFee + amountLD (this pool's token() is address(0), so the ETH being bridged is sent as value; no approval). Returns (MessagingReceipt(bytes32 guid, uint64 nonce, MessagingFee fee), OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD))."
+        },
+        {
+          "signature": "sendToken((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same arguments and value as send(), but also returns the bus Ticket(uint72 ticketId, bytes passengerBytes) when riding the bus. Use it if you want to track or drive the bus yourself."
+        },
+        {
+          "signature": "quoteOFT((uint32,bytes32,uint256,uint256,bytes,bytes,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (OFTLimit(uint256 minAmountLD, uint256 maxAmountLD) limit, OFTFeeDetail(int256 feeAmountLD, string description)[] fees, OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD) receipt). maxAmountLD is capped by the pathway's credits; feeAmountLD > 0 is a fee, < 0 a reward. Use receipt.amountReceivedLD as minAmountLD."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns MessagingFee(uint256 nativeFee, uint256 lzTokenFee) for the given SendParam (second arg false = pay in native gas). Call right before send(): quotes go stale with gas prices. For bus mode this returns the bus fare."
+        },
+        {
+          "signature": "token()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token address; address(0) means native ETH."
+        },
+        {
+          "signature": "approvalRequired()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the caller must approve this contract before send() (ERC-20 pools)."
+        },
+        {
+          "signature": "sharedDecimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Shared decimals used on the wire (6). Amounts are truncated to this precision (dust below it is not sent)."
+        },
+        {
+          "signature": "deposit(address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity: deposit(receiver, amountLD) mints LP tokens (lpToken()) to receiver. For the native pool send amountLD as value."
+        },
+        {
+          "signature": "redeem(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw liquidity on this chain: redeem(amountLD, receiver) burns LP and returns the asset. Limited by redeemable(owner) and local credits."
+        },
+        {
+          "signature": "redeemable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "How much of an owner's LP can be redeemed locally right now (amountLD)."
+        },
+        {
+          "signature": "tvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value locked (LP-backed liquidity) in local decimals."
+        },
+        {
+          "signature": "poolBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance held by the pool in local decimals."
+        },
+        {
+          "signature": "lpToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token address for this pool."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xe8CDF27AcD73a434D661C84887215F7598e7d0d3",
+      "name": "StargatePoolUSDC (USDC, LayerZero eid 30110)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge USDC: send(SendParam(uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd), MessagingFee(uint256 nativeFee, uint256 lzTokenFee), address refundAddress). dstEid = LayerZero V2 endpoint ID of the destination (30101 Ethereum, 30102 BSC, 30106 Avalanche, 30109 Polygon, 30110 Arbitrum, 30111 Optimism, 30184 Base, 30183 Linea). to = recipient left-padded to bytes32. oftCmd = 0x (empty) for taxi (immediate), 0x00 (bytes(1)) for bus (batched, cheaper). extraOptions/composeMsg = 0x unless composing. Set minAmountLD from quoteOFT receipt.amountReceivedLD (minus your slippage). msg.value = MessagingFee.nativeFee only; approve this pool for USDC first (amount in 6-decimal base units). Returns (MessagingReceipt(bytes32 guid, uint64 nonce, MessagingFee fee), OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD))."
+        },
+        {
+          "signature": "sendToken((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same arguments and value as send(), but also returns the bus Ticket(uint72 ticketId, bytes passengerBytes) when riding the bus. Use it if you want to track or drive the bus yourself."
+        },
+        {
+          "signature": "quoteOFT((uint32,bytes32,uint256,uint256,bytes,bytes,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (OFTLimit(uint256 minAmountLD, uint256 maxAmountLD) limit, OFTFeeDetail(int256 feeAmountLD, string description)[] fees, OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD) receipt). maxAmountLD is capped by the pathway's credits; feeAmountLD > 0 is a fee, < 0 a reward. Use receipt.amountReceivedLD as minAmountLD."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns MessagingFee(uint256 nativeFee, uint256 lzTokenFee) for the given SendParam (second arg false = pay in native gas). Call right before send(): quotes go stale with gas prices. For bus mode this returns the bus fare."
+        },
+        {
+          "signature": "token()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token address; address(0) means native ETH."
+        },
+        {
+          "signature": "approvalRequired()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the caller must approve this contract before send() (ERC-20 pools)."
+        },
+        {
+          "signature": "sharedDecimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Shared decimals used on the wire (6). Amounts are truncated to this precision (dust below it is not sent)."
+        },
+        {
+          "signature": "deposit(address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity: deposit(receiver, amountLD) mints LP tokens (lpToken()) to receiver. For the native pool send amountLD as value."
+        },
+        {
+          "signature": "redeem(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw liquidity on this chain: redeem(amountLD, receiver) burns LP and returns the asset. Limited by redeemable(owner) and local credits."
+        },
+        {
+          "signature": "redeemable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "How much of an owner's LP can be redeemed locally right now (amountLD)."
+        },
+        {
+          "signature": "tvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value locked (LP-backed liquidity) in local decimals."
+        },
+        {
+          "signature": "poolBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance held by the pool in local decimals."
+        },
+        {
+          "signature": "lpToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token address for this pool."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x19cFCE47eD54a88614648DC3f19A5980097007dD",
+      "name": "TokenMessaging (LayerZero eid 30110)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "quoteRideBus(uint32,bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bus fare to dstEid: quoteRideBus(dstEid, nativeDrop) returns MessagingFee(nativeFee, lzTokenFee). The pool's quoteSend already calls this for bus sends."
+        },
+        {
+          "signature": "quoteTaxi((address,uint32,bytes32,uint64,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Low-level taxi quote: TaxiParams(address sender, uint32 dstEid, bytes32 receiver, uint64 amountSD, bytes composeMsg, bytes extraOptions), payInLzToken. Prefer the pool's quoteSend."
+        },
+        {
+          "signature": "busQueues(uint32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bus state for dstEid: (uint8 maxNumPassengers, uint80 busFare, uint80 busAndNativeDropFare, uint16 qLength, uint72 nextTicketId). Your bus has left when nextTicketId > your ticketId."
+        },
+        {
+          "signature": "quoteDriveBus(uint32,bytes)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee to drive (dispatch) the bus to dstEid now for the given encoded passengers."
+        },
+        {
+          "signature": "driveBus(uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Dispatch the queued bus to dstEid immediately by paying the remaining fare (msg.value from quoteDriveBus). Optional: buses are also driven by the planner when full or on schedule."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0xe8CDF27AcD73a434D661C84887215F7598e7d0d3",
+      "name": "StargatePoolNative (ETH, LayerZero eid 30111)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge ETH: send(SendParam(uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd), MessagingFee(uint256 nativeFee, uint256 lzTokenFee), address refundAddress). dstEid = LayerZero V2 endpoint ID of the destination (30101 Ethereum, 30102 BSC, 30106 Avalanche, 30109 Polygon, 30110 Arbitrum, 30111 Optimism, 30184 Base, 30183 Linea). to = recipient left-padded to bytes32. oftCmd = 0x (empty) for taxi (immediate), 0x00 (bytes(1)) for bus (batched, cheaper). extraOptions/composeMsg = 0x unless composing. Set minAmountLD from quoteOFT receipt.amountReceivedLD (minus your slippage). msg.value = MessagingFee.nativeFee + amountLD (this pool's token() is address(0), so the ETH being bridged is sent as value; no approval). Returns (MessagingReceipt(bytes32 guid, uint64 nonce, MessagingFee fee), OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD))."
+        },
+        {
+          "signature": "sendToken((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same arguments and value as send(), but also returns the bus Ticket(uint72 ticketId, bytes passengerBytes) when riding the bus. Use it if you want to track or drive the bus yourself."
+        },
+        {
+          "signature": "quoteOFT((uint32,bytes32,uint256,uint256,bytes,bytes,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (OFTLimit(uint256 minAmountLD, uint256 maxAmountLD) limit, OFTFeeDetail(int256 feeAmountLD, string description)[] fees, OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD) receipt). maxAmountLD is capped by the pathway's credits; feeAmountLD > 0 is a fee, < 0 a reward. Use receipt.amountReceivedLD as minAmountLD."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns MessagingFee(uint256 nativeFee, uint256 lzTokenFee) for the given SendParam (second arg false = pay in native gas). Call right before send(): quotes go stale with gas prices. For bus mode this returns the bus fare."
+        },
+        {
+          "signature": "token()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token address; address(0) means native ETH."
+        },
+        {
+          "signature": "approvalRequired()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the caller must approve this contract before send() (ERC-20 pools)."
+        },
+        {
+          "signature": "sharedDecimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Shared decimals used on the wire (6). Amounts are truncated to this precision (dust below it is not sent)."
+        },
+        {
+          "signature": "deposit(address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity: deposit(receiver, amountLD) mints LP tokens (lpToken()) to receiver. For the native pool send amountLD as value."
+        },
+        {
+          "signature": "redeem(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw liquidity on this chain: redeem(amountLD, receiver) burns LP and returns the asset. Limited by redeemable(owner) and local credits."
+        },
+        {
+          "signature": "redeemable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "How much of an owner's LP can be redeemed locally right now (amountLD)."
+        },
+        {
+          "signature": "tvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value locked (LP-backed liquidity) in local decimals."
+        },
+        {
+          "signature": "poolBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance held by the pool in local decimals."
+        },
+        {
+          "signature": "lpToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token address for this pool."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0xcE8CcA271Ebc0533920C83d39F417ED6A0abB7D0",
+      "name": "StargatePoolUSDC (USDC, LayerZero eid 30111)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge USDC: send(SendParam(uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd), MessagingFee(uint256 nativeFee, uint256 lzTokenFee), address refundAddress). dstEid = LayerZero V2 endpoint ID of the destination (30101 Ethereum, 30102 BSC, 30106 Avalanche, 30109 Polygon, 30110 Arbitrum, 30111 Optimism, 30184 Base, 30183 Linea). to = recipient left-padded to bytes32. oftCmd = 0x (empty) for taxi (immediate), 0x00 (bytes(1)) for bus (batched, cheaper). extraOptions/composeMsg = 0x unless composing. Set minAmountLD from quoteOFT receipt.amountReceivedLD (minus your slippage). msg.value = MessagingFee.nativeFee only; approve this pool for USDC first (amount in 6-decimal base units). Returns (MessagingReceipt(bytes32 guid, uint64 nonce, MessagingFee fee), OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD))."
+        },
+        {
+          "signature": "sendToken((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same arguments and value as send(), but also returns the bus Ticket(uint72 ticketId, bytes passengerBytes) when riding the bus. Use it if you want to track or drive the bus yourself."
+        },
+        {
+          "signature": "quoteOFT((uint32,bytes32,uint256,uint256,bytes,bytes,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (OFTLimit(uint256 minAmountLD, uint256 maxAmountLD) limit, OFTFeeDetail(int256 feeAmountLD, string description)[] fees, OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD) receipt). maxAmountLD is capped by the pathway's credits; feeAmountLD > 0 is a fee, < 0 a reward. Use receipt.amountReceivedLD as minAmountLD."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns MessagingFee(uint256 nativeFee, uint256 lzTokenFee) for the given SendParam (second arg false = pay in native gas). Call right before send(): quotes go stale with gas prices. For bus mode this returns the bus fare."
+        },
+        {
+          "signature": "token()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token address; address(0) means native ETH."
+        },
+        {
+          "signature": "approvalRequired()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the caller must approve this contract before send() (ERC-20 pools)."
+        },
+        {
+          "signature": "sharedDecimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Shared decimals used on the wire (6). Amounts are truncated to this precision (dust below it is not sent)."
+        },
+        {
+          "signature": "deposit(address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity: deposit(receiver, amountLD) mints LP tokens (lpToken()) to receiver. For the native pool send amountLD as value."
+        },
+        {
+          "signature": "redeem(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw liquidity on this chain: redeem(amountLD, receiver) burns LP and returns the asset. Limited by redeemable(owner) and local credits."
+        },
+        {
+          "signature": "redeemable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "How much of an owner's LP can be redeemed locally right now (amountLD)."
+        },
+        {
+          "signature": "tvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value locked (LP-backed liquidity) in local decimals."
+        },
+        {
+          "signature": "poolBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance held by the pool in local decimals."
+        },
+        {
+          "signature": "lpToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token address for this pool."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0xF1fCb4CBd57B67d683972A59B6a7b1e2E8Bf27E6",
+      "name": "TokenMessaging (LayerZero eid 30111)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "quoteRideBus(uint32,bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bus fare to dstEid: quoteRideBus(dstEid, nativeDrop) returns MessagingFee(nativeFee, lzTokenFee). The pool's quoteSend already calls this for bus sends."
+        },
+        {
+          "signature": "quoteTaxi((address,uint32,bytes32,uint64,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Low-level taxi quote: TaxiParams(address sender, uint32 dstEid, bytes32 receiver, uint64 amountSD, bytes composeMsg, bytes extraOptions), payInLzToken. Prefer the pool's quoteSend."
+        },
+        {
+          "signature": "busQueues(uint32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bus state for dstEid: (uint8 maxNumPassengers, uint80 busFare, uint80 busAndNativeDropFare, uint16 qLength, uint72 nextTicketId). Your bus has left when nextTicketId > your ticketId."
+        },
+        {
+          "signature": "quoteDriveBus(uint32,bytes)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee to drive (dispatch) the bus to dstEid now for the given encoded passengers."
+        },
+        {
+          "signature": "driveBus(uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Dispatch the queued bus to dstEid immediately by paying the remaining fare (msg.value from quoteDriveBus). Optional: buses are also driven by the planner when full or on schedule."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xdc181Bd607330aeeBEF6ea62e03e5e1Fb4B6F7C7",
+      "name": "StargatePoolNative (ETH, LayerZero eid 30184)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge ETH: send(SendParam(uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd), MessagingFee(uint256 nativeFee, uint256 lzTokenFee), address refundAddress). dstEid = LayerZero V2 endpoint ID of the destination (30101 Ethereum, 30102 BSC, 30106 Avalanche, 30109 Polygon, 30110 Arbitrum, 30111 Optimism, 30184 Base, 30183 Linea). to = recipient left-padded to bytes32. oftCmd = 0x (empty) for taxi (immediate), 0x00 (bytes(1)) for bus (batched, cheaper). extraOptions/composeMsg = 0x unless composing. Set minAmountLD from quoteOFT receipt.amountReceivedLD (minus your slippage). msg.value = MessagingFee.nativeFee + amountLD (this pool's token() is address(0), so the ETH being bridged is sent as value; no approval). Returns (MessagingReceipt(bytes32 guid, uint64 nonce, MessagingFee fee), OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD))."
+        },
+        {
+          "signature": "sendToken((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same arguments and value as send(), but also returns the bus Ticket(uint72 ticketId, bytes passengerBytes) when riding the bus. Use it if you want to track or drive the bus yourself."
+        },
+        {
+          "signature": "quoteOFT((uint32,bytes32,uint256,uint256,bytes,bytes,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (OFTLimit(uint256 minAmountLD, uint256 maxAmountLD) limit, OFTFeeDetail(int256 feeAmountLD, string description)[] fees, OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD) receipt). maxAmountLD is capped by the pathway's credits; feeAmountLD > 0 is a fee, < 0 a reward. Use receipt.amountReceivedLD as minAmountLD."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns MessagingFee(uint256 nativeFee, uint256 lzTokenFee) for the given SendParam (second arg false = pay in native gas). Call right before send(): quotes go stale with gas prices. For bus mode this returns the bus fare."
+        },
+        {
+          "signature": "token()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token address; address(0) means native ETH."
+        },
+        {
+          "signature": "approvalRequired()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the caller must approve this contract before send() (ERC-20 pools)."
+        },
+        {
+          "signature": "sharedDecimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Shared decimals used on the wire (6). Amounts are truncated to this precision (dust below it is not sent)."
+        },
+        {
+          "signature": "deposit(address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity: deposit(receiver, amountLD) mints LP tokens (lpToken()) to receiver. For the native pool send amountLD as value."
+        },
+        {
+          "signature": "redeem(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw liquidity on this chain: redeem(amountLD, receiver) burns LP and returns the asset. Limited by redeemable(owner) and local credits."
+        },
+        {
+          "signature": "redeemable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "How much of an owner's LP can be redeemed locally right now (amountLD)."
+        },
+        {
+          "signature": "tvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value locked (LP-backed liquidity) in local decimals."
+        },
+        {
+          "signature": "poolBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance held by the pool in local decimals."
+        },
+        {
+          "signature": "lpToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token address for this pool."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x27a16dc786820B16E5c9028b75B99F6f604b5d26",
+      "name": "StargatePoolUSDC (USDC, LayerZero eid 30184)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge USDC: send(SendParam(uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd), MessagingFee(uint256 nativeFee, uint256 lzTokenFee), address refundAddress). dstEid = LayerZero V2 endpoint ID of the destination (30101 Ethereum, 30102 BSC, 30106 Avalanche, 30109 Polygon, 30110 Arbitrum, 30111 Optimism, 30184 Base, 30183 Linea). to = recipient left-padded to bytes32. oftCmd = 0x (empty) for taxi (immediate), 0x00 (bytes(1)) for bus (batched, cheaper). extraOptions/composeMsg = 0x unless composing. Set minAmountLD from quoteOFT receipt.amountReceivedLD (minus your slippage). msg.value = MessagingFee.nativeFee only; approve this pool for USDC first (amount in 6-decimal base units). Returns (MessagingReceipt(bytes32 guid, uint64 nonce, MessagingFee fee), OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD))."
+        },
+        {
+          "signature": "sendToken((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same arguments and value as send(), but also returns the bus Ticket(uint72 ticketId, bytes passengerBytes) when riding the bus. Use it if you want to track or drive the bus yourself."
+        },
+        {
+          "signature": "quoteOFT((uint32,bytes32,uint256,uint256,bytes,bytes,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (OFTLimit(uint256 minAmountLD, uint256 maxAmountLD) limit, OFTFeeDetail(int256 feeAmountLD, string description)[] fees, OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD) receipt). maxAmountLD is capped by the pathway's credits; feeAmountLD > 0 is a fee, < 0 a reward. Use receipt.amountReceivedLD as minAmountLD."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns MessagingFee(uint256 nativeFee, uint256 lzTokenFee) for the given SendParam (second arg false = pay in native gas). Call right before send(): quotes go stale with gas prices. For bus mode this returns the bus fare."
+        },
+        {
+          "signature": "token()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token address; address(0) means native ETH."
+        },
+        {
+          "signature": "approvalRequired()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the caller must approve this contract before send() (ERC-20 pools)."
+        },
+        {
+          "signature": "sharedDecimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Shared decimals used on the wire (6). Amounts are truncated to this precision (dust below it is not sent)."
+        },
+        {
+          "signature": "deposit(address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity: deposit(receiver, amountLD) mints LP tokens (lpToken()) to receiver. For the native pool send amountLD as value."
+        },
+        {
+          "signature": "redeem(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw liquidity on this chain: redeem(amountLD, receiver) burns LP and returns the asset. Limited by redeemable(owner) and local credits."
+        },
+        {
+          "signature": "redeemable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "How much of an owner's LP can be redeemed locally right now (amountLD)."
+        },
+        {
+          "signature": "tvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value locked (LP-backed liquidity) in local decimals."
+        },
+        {
+          "signature": "poolBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance held by the pool in local decimals."
+        },
+        {
+          "signature": "lpToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token address for this pool."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x5634c4a5FEd09819E3c46D86A965Dd9447d86e47",
+      "name": "TokenMessaging (LayerZero eid 30184)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "quoteRideBus(uint32,bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bus fare to dstEid: quoteRideBus(dstEid, nativeDrop) returns MessagingFee(nativeFee, lzTokenFee). The pool's quoteSend already calls this for bus sends."
+        },
+        {
+          "signature": "quoteTaxi((address,uint32,bytes32,uint64,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Low-level taxi quote: TaxiParams(address sender, uint32 dstEid, bytes32 receiver, uint64 amountSD, bytes composeMsg, bytes extraOptions), payInLzToken. Prefer the pool's quoteSend."
+        },
+        {
+          "signature": "busQueues(uint32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bus state for dstEid: (uint8 maxNumPassengers, uint80 busFare, uint80 busAndNativeDropFare, uint16 qLength, uint72 nextTicketId). Your bus has left when nextTicketId > your ticketId."
+        },
+        {
+          "signature": "quoteDriveBus(uint32,bytes)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee to drive (dispatch) the bus to dstEid now for the given encoded passengers."
+        },
+        {
+          "signature": "driveBus(uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Dispatch the queued bus to dstEid immediately by paying the remaining fare (msg.value from quoteDriveBus). Optional: buses are also driven by the planner when full or on schedule."
+        }
+      ]
+    },
+    {
+      "chain": "linea",
+      "chainId": 59144,
+      "address": "0x81F6138153d473E8c5EcebD3DC8Cd4903506B075",
+      "name": "StargatePoolNative (ETH, LayerZero eid 30183)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge ETH: send(SendParam(uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd), MessagingFee(uint256 nativeFee, uint256 lzTokenFee), address refundAddress). dstEid = LayerZero V2 endpoint ID of the destination (30101 Ethereum, 30102 BSC, 30106 Avalanche, 30109 Polygon, 30110 Arbitrum, 30111 Optimism, 30184 Base, 30183 Linea). to = recipient left-padded to bytes32. oftCmd = 0x (empty) for taxi (immediate), 0x00 (bytes(1)) for bus (batched, cheaper). extraOptions/composeMsg = 0x unless composing. Set minAmountLD from quoteOFT receipt.amountReceivedLD (minus your slippage). msg.value = MessagingFee.nativeFee + amountLD (this pool's token() is address(0), so the ETH being bridged is sent as value; no approval). Returns (MessagingReceipt(bytes32 guid, uint64 nonce, MessagingFee fee), OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD))."
+        },
+        {
+          "signature": "sendToken((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same arguments and value as send(), but also returns the bus Ticket(uint72 ticketId, bytes passengerBytes) when riding the bus. Use it if you want to track or drive the bus yourself."
+        },
+        {
+          "signature": "quoteOFT((uint32,bytes32,uint256,uint256,bytes,bytes,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (OFTLimit(uint256 minAmountLD, uint256 maxAmountLD) limit, OFTFeeDetail(int256 feeAmountLD, string description)[] fees, OFTReceipt(uint256 amountSentLD, uint256 amountReceivedLD) receipt). maxAmountLD is capped by the pathway's credits; feeAmountLD > 0 is a fee, < 0 a reward. Use receipt.amountReceivedLD as minAmountLD."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns MessagingFee(uint256 nativeFee, uint256 lzTokenFee) for the given SendParam (second arg false = pay in native gas). Call right before send(): quotes go stale with gas prices. For bus mode this returns the bus fare."
+        },
+        {
+          "signature": "token()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token address; address(0) means native ETH."
+        },
+        {
+          "signature": "approvalRequired()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the caller must approve this contract before send() (ERC-20 pools)."
+        },
+        {
+          "signature": "sharedDecimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Shared decimals used on the wire (6). Amounts are truncated to this precision (dust below it is not sent)."
+        },
+        {
+          "signature": "deposit(address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity: deposit(receiver, amountLD) mints LP tokens (lpToken()) to receiver. For the native pool send amountLD as value."
+        },
+        {
+          "signature": "redeem(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw liquidity on this chain: redeem(amountLD, receiver) burns LP and returns the asset. Limited by redeemable(owner) and local credits."
+        },
+        {
+          "signature": "redeemable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "How much of an owner's LP can be redeemed locally right now (amountLD)."
+        },
+        {
+          "signature": "tvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value locked (LP-backed liquidity) in local decimals."
+        },
+        {
+          "signature": "poolBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance held by the pool in local decimals."
+        },
+        {
+          "signature": "lpToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "LP token address for this pool."
+        }
+      ]
+    },
+    {
+      "chain": "linea",
+      "chainId": 59144,
+      "address": "0x5f688F563Dc16590e570f97b542FA87931AF2feD",
+      "name": "TokenMessaging (LayerZero eid 30183)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+      "keyFunctions": [
+        {
+          "signature": "quoteRideBus(uint32,bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bus fare to dstEid: quoteRideBus(dstEid, nativeDrop) returns MessagingFee(nativeFee, lzTokenFee). The pool's quoteSend already calls this for bus sends."
+        },
+        {
+          "signature": "quoteTaxi((address,uint32,bytes32,uint64,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Low-level taxi quote: TaxiParams(address sender, uint32 dstEid, bytes32 receiver, uint64 amountSD, bytes composeMsg, bytes extraOptions), payInLzToken. Prefer the pool's quoteSend."
+        },
+        {
+          "signature": "busQueues(uint32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bus state for dstEid: (uint8 maxNumPassengers, uint80 busFare, uint80 busAndNativeDropFare, uint16 qLength, uint72 nextTicketId). Your bus has left when nextTicketId > your ticketId."
+        },
+        {
+          "signature": "quoteDriveBus(uint32,bytes)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee to drive (dispatch) the bus to dstEid now for the given encoded passengers."
+        },
+        {
+          "signature": "driveBus(uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Dispatch the queued bus to dstEid immediately by paying the remaining fare (msg.value from quoteDriveBus). Optional: buses are also driven by the planner when full or on schedule."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Stargate asset metadata",
+      "url": "https://mainnet.stargate-api.com/v1/metadata?version=v2",
+      "auth": "none",
+      "use": "Machine-readable list of every current Stargate V2 pool/OFT: chainKey, stargateType (POOL, NATIVE, OFT), contract address, underlying token (address, symbol, decimals), assetId, tokenMessaging address, sharedDecimals. Use it to find the Stargate contract for an asset on chains not listed here.",
+      "source": "https://docs.layerzero.network/v2/deployments/oft-ecosystem-stargate-assets.md"
+    },
+    {
+      "name": "LayerZero Value Transfer API",
+      "url": "https://transfer.layerzero-api.com/v1",
+      "auth": "api-key",
+      "use": "LayerZero's official quote-then-execute API that routes Stargate V2 (route types STARGATE_V2_TAXI and STARGATE_V2_BUS) plus OFT, CCTP and Aori: POST /quotes, POST /build-user-steps (returns the transactions to sign), GET /status/{quoteId}. x-api-key header required on those; GET /chains, /tokens and /metadata are open. Replaces the deprecated stargate.finance/api/v1 quotes API.",
+      "source": "https://docs.layerzero.network/v2/developers/value-transfer-api/api-reference/overview.md"
+    }
+  ],
+  "actions": [
+    {
+      "name": "bridge USDC/USDT (taxi, immediate)",
+      "description": "Move an ERC-20 stablecoin to the same asset on another chain",
+      "how": "1) Pick the source pool (e.g. StargatePoolUSDC on Arbitrum) and dstEid (e.g. 30184 Base). 2) sendParam = (dstEid, bytes32(recipient), amountLD, amountLD, 0x, 0x, 0x). 3) eth_call quoteOFT(sendParam); set minAmountLD = receipt.amountReceivedLD minus slippage; check amountLD <= limit.maxAmountLD. 4) fee = quoteSend(sendParam, false). 5) token.approve(pool, amountLD). 6) pool.send(sendParam, (fee.nativeFee, 0), refundAddress) with value = fee.nativeFee. 7) Track delivery by the tx hash on LayerZero Scan (layerzeroscan.com)."
+    },
+    {
+      "name": "bridge ETH",
+      "description": "Move native ETH between ETH-pool chains (Ethereum, Arbitrum, Optimism, Base, Linea, ...)",
+      "how": "Same as above on StargatePoolNative (token() = address(0)), no approval; value = fee.nativeFee + amountLD."
+    },
+    {
+      "name": "bridge by bus (cheaper, batched)",
+      "description": "Lower fee, delivery waits for the bus",
+      "how": "Use oftCmd = 0x00 (bytes(1)) in SendParam; quoteSend returns the bus fare. Funds are debited instantly on the source chain but are delivered when the bus to dstEid is driven (when full, on schedule, or when someone pays driveBus). Bus mode does not support composeMsg. Use sendToken() to get the ticketId and compare with TokenMessaging.busQueues(dstEid).nextTicketId."
+    },
+    {
+      "name": "bridge to a contract with a follow-up call (compose)",
+      "description": "Trigger logic on the destination",
+      "how": "Taxi mode only: set composeMsg and add an lzCompose executor option (gas) in extraOptions via LayerZero OptionsBuilder; the receiver must implement ILayerZeroComposer.lzCompose."
+    },
+    {
+      "name": "provide liquidity",
+      "description": "Earn fees as an LP",
+      "how": "approve pool, then pool.deposit(receiver, amountLD) (value = amountLD for native pool); withdraw with pool.redeem(amountLD, receiver), limited by redeemable(owner)."
+    }
+  ],
+  "risks": [
+    "Same-asset only: USDC bridges to USDC, ETH to ETH. Not every asset exists on every chain (e.g. no ETH pool on BSC or Polygon); check the metadata API or quoteOFT before sending.",
+    "Fees: a LayerZero messaging fee in native gas (quoteSend, paid as msg.value; overpaid value is refunded to refundAddress) plus a dynamic protocol fee or rebate on the amount, set per pathway by the AI Planning Module (see quoteOFT oftFeeDetails). Quotes go stale with gas prices; quote right before sending.",
+    "Delays: taxi is usually minutes (waits for source-chain finality and DVN verification); bus mode can take much longer because delivery waits for the bus to be driven. Source-chain debit is final immediately ('instant guaranteed finality').",
+    "Transfer size is capped by the pathway's credits (quoteOFT limit.maxAmountLD); larger sends revert. Amounts are truncated to 6 shared decimals.",
+    "Approvals: approve only the exact amount to the official pool address; pools pull tokens with transferFrom.",
+    "Wrong dstEid or a recipient that cannot receive on the destination (e.g. a contract without the right code or a non-EVM address format) can lose funds; to must be the bytes32-padded recipient.",
+    "Trust: relies on LayerZero V2 endpoints, the DVNs and executor configured by LayerZero Labs for Stargate, and the Stargate admin (pools can be paused, fees and credits are planner-controlled)."
+  ],
+  "notes": "Covers the main assets (ETH native pool, USDC, USDT) on Ethereum, BSC, Avalanche, Polygon, Arbitrum, Optimism, Base and Linea from Stargate's official V2 mainnet contracts page, each cross-checked against the official metadata API (mainnet.stargate-api.com) and spot-checked for bytecode. The full per-chain list (Mantle, Scroll, Kava, Metis, Aurora, Core, Sonic, Unichain, Gnosis, Soneium and Hydra OFT chains such as Kaia, Iota, Taiko, Sei, etc., plus mETH and EURC pools on Ethereum) lives at https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts and https://mainnet.stargate-api.com/v1/metadata?version=v2. Left out on purpose: (1) the USDT pools on Arbitrum (0xcE8CcA271Ebc0533920C83d39F417ED6A0abB7D0), Optimism (0x19cFCE47eD54a88614648DC3f19A5980097007dD) and Polygon (0xd47b03ee6d86Cf251ee7860FB2ACf9f91B9fD4d7): they are still on the docs page but are absent from the live metadata API and hold little liquidity, which suggests they are no longer the active USDT route (USDT on those chains appears to have moved to USDT0); confirm before using. (2) FeeLib, Treasurer, StargateStaking and StargateMultiRewarder contracts (not called by bridging agents). The docs show the bus Ticket.ticketId as uint56; the verified contract ABI returns uint72. Function signatures come from source verified on Sourcify (chain 1). Stargate developer docs are now hosted by LayerZero (docs.stargate.finance redirects to docs.layerzero.network); the legacy stargate.finance/api/v1 quotes API is deprecated in favour of the LayerZero Value Transfer API. Stargate V1 (the older Router.swap/pool-ID contracts) is a different deployment and is not covered here.",
+  "sources": [
+    "https://defillama.com/protocol/stargate-v2",
+    "https://api.llama.fi/protocol/stargate-v2",
+    "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/technical-reference/mainnet-contracts.md",
+    "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/integrate-with-stargate/how-to-swap.md",
+    "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/integrate-with-stargate/estimating-fees.md",
+    "https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/integrate-with-stargate/modes-of-transport-taxi-and-bus.md",
+    "https://stargateprotocol.gitbook.io/stargate/v2-user-docs/whats-new-in-stargate-v2/fees.md",
+    "https://stargateprotocol.gitbook.io/stargate/llms.txt",
+    "https://docs.layerzero.network/v2/concepts/applications/stargate-finance.md",
+    "https://docs.layerzero.network/v2/developers/evm/stargate/overview.md",
+    "https://docs.layerzero.network/v2/deployments/oft-ecosystem-stargate-assets.md",
+    "https://mainnet.stargate-api.com/v1/metadata?version=v2",
+    "https://docs.layerzero.network/v2/developers/value-transfer-api/overview.md",
+    "https://docs.layerzero.network/v2/developers/value-transfer-api/api-reference/overview.md",
+    "https://github.com/stargate-protocol/stargate-v2/blob/main/packages/stg-evm-v2/src/interfaces/IStargate.sol",
+    "https://sourcify.dev/server/v2/contract/1/0xc026395860Db2d07ee33e05fE50ed7bD583189C7?fields=abi",
+    "https://sourcify.dev/server/v2/contract/1/0x77b2043768d28E9C9aB44E1aBfC95944bcE57931?fields=abi",
+    "https://sourcify.dev/server/v2/contract/1/0x6d6620eFa72948C5f68A3C8646d58C00d3f4A980?fields=abi"
+  ],
+  "researchedAt": "2026-11-25"
+}
