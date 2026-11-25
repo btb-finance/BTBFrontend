@@ -1,0 +1,1162 @@
+{
+  "slug": "sky",
+  "name": "Sky (formerly MakerDAO)",
+  "category": "CDP",
+  "description": "Issuer of the USDS and DAI stablecoins. Agents can convert DAI<->USDS 1:1, swap USDC<->USDS/DAI 1:1 through the LitePSM, earn the Sky Savings Rate with sUSDS (ERC-4626) or the DSR with sDAI, upgrade MKR to SKY, stake USDS for token rewards, and use bridged USDS/sUSDS plus the Spark PSM3 on Base and Arbitrum.",
+  "website": "https://sky.money",
+  "docs": "https://developers.skyeco.com",
+  "defillama": "https://defillama.com/protocol/sky",
+  "chains": [
+    "ethereum",
+    "base",
+    "arbitrum"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xdC035D45d973E3EC169d2276DDab16f1e407384F",
+      "name": "USDS (Sky Dollar)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://chainlog.sky.money/api/mainnet/active.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDS balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender for USDS. Spenders: sUSDS 0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD for deposit, DaiUsds converter 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A for usdsToDai, LitePSM wrapper 0xA188EEC8F81263234dA3622A406892F3D630f98c for buyGem, USDS->SKY/SPK farms for stake."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer USDS (base units, 18 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current allowance (owner, spender)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total USDS supply on this chain."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval (owner, spender, value, deadline, v, r, s). Also supports EIP-1271 contract signatures."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD",
+      "name": "sUSDS (Savings USDS, ERC-4626)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://chainlog.sky.money/api/mainnet/active.json",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit USDS (assets, 18 decimals) and mint sUSDS shares to receiver. Approve USDS to sUSDS first. No fees."
+        },
+        {
+          "signature": "deposit(uint256,address,uint16)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as deposit with a uint16 referral code (emits a Referral event)."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint an exact number of sUSDS shares, pulling the needed USDS."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn sUSDS shares (shares, receiver, owner) and receive USDS. No lockup, no fee."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact USDS amount (assets, receiver, owner), burning the needed shares."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDS value of a share amount, computed in real time even if drip() has not been called recently."
+        },
+        {
+          "signature": "convertToShares(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares for a USDS amount."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Exact USDS out for redeeming shares."
+        },
+        {
+          "signature": "ssr()",
+          "kind": "read",
+          "payable": false,
+          "description": "Sky Savings Rate as a per-second factor in RAY (1e27). APY = (ssr/1e27)^31536000 - 1. At research time 1000000001182641576793209935 (about 3.8% APY)."
+        },
+        {
+          "signature": "chi()",
+          "kind": "read",
+          "payable": false,
+          "description": "Rate accumulator (RAY, uint192); chi/1e27 = USDS per sUSDS as of last drip (about 1.1175 at research time)."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total USDS backing all sUSDS."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "sUSDS share balance (18 decimals)."
+        },
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying asset: USDS 0xdC035D45d973E3EC169d2276DDab16f1e407384F."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+      "name": "DAI (MCD_DAI)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://chainlog.sky.money/api/mainnet/active.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "DAI balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender for DAI. Spenders: DaiUsds converter 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A for daiToUsds, LitePSM 0xf6e72Db5454dd049d0788e411b06CfAF16853042 for buyGem, sDAI 0x83F20F44975D03b1b09e64809B757c47f942BEeA for deposit."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer DAI (base units, 18 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current allowance (owner, spender)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total DAI supply on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A",
+      "name": "DaiUsds converter (DAI_USDS)",
+      "role": "exchange",
+      "proxy": false,
+      "source": "https://chainlog.sky.money/api/mainnet/active.json",
+      "keyFunctions": [
+        {
+          "signature": "daiToUsds(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Convert DAI to USDS 1:1 (usr = USDS recipient, wad = DAI amount, 18 decimals). Approve DAI to this contract first. No fee, no limit; fees cannot be enabled on this route."
+        },
+        {
+          "signature": "usdsToDai(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Convert USDS to DAI 1:1 (usr = DAI recipient, wad, 18 decimals). Approve USDS to this contract first."
+        },
+        {
+          "signature": "dai()",
+          "kind": "read",
+          "payable": false,
+          "description": "DAI address."
+        },
+        {
+          "signature": "usds()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDS address."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x56072C95FAA701256059aa122697B133aDEd9279",
+      "name": "SKY (governance token, MCD_GOV)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://chainlog.sky.money/api/mainnet/active.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "SKY balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender for SKY."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer SKY (base units, 18 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current allowance (owner, spender)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total SKY supply on this chain."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2",
+      "name": "MKR (legacy governance token)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://chainlog.sky.money/api/mainnet/active.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "MKR balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve MKR. Not needed for MkrSky.mkrToSky: the converter burns MKR directly from msg.sender (MKR burn permission)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer MKR."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xA1Ea1bA18E88C381C724a75F23a130420C403f9a",
+      "name": "MkrSky converter V2 (MKR_SKY, one-way)",
+      "role": "exchange",
+      "proxy": false,
+      "source": "https://developers.skyeco.com/guides/sky/token-governance-upgrade/key-info/",
+      "keyFunctions": [
+        {
+          "signature": "mkrToSky(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Convert MKR to SKY one-way (usr = SKY recipient, mkrAmt, 18 decimals). Gross SKY = mkrAmt * 24000; a fee (Delayed Upgrade Penalty) is deducted: net = gross - gross*fee/1e18. fee() was 5e16 (5%) at research time. Burns MKR from msg.sender and transfers SKY from the converter's pre-funded balance. There is no SKY->MKR route."
+        },
+        {
+          "signature": "rate()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fixed conversion rate: 24000 SKY per MKR."
+        },
+        {
+          "signature": "fee()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current penalty in WAD (1e18 = 100%); governance can change it via file('fee')."
+        },
+        {
+          "signature": "take()",
+          "kind": "read",
+          "payable": false,
+          "description": "Accumulated SKY fees held for governance."
+        },
+        {
+          "signature": "mkr()",
+          "kind": "read",
+          "payable": false,
+          "description": "MKR address."
+        },
+        {
+          "signature": "sky()",
+          "kind": "read",
+          "payable": false,
+          "description": "SKY address."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xf6e72Db5454dd049d0788e411b06CfAF16853042",
+      "name": "LitePSM USDC-A (LitePSM-DAI-USDC, MCD_LITE_PSM_USDC_A)",
+      "role": "exchange",
+      "proxy": false,
+      "source": "https://developers.skyeco.com/guides/psm/litepsm/",
+      "keyFunctions": [
+        {
+          "signature": "sellGem(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "USDC -> DAI. Args (usr = DAI recipient, gemAmt in USDC units, 6 decimals). Returns DAI out (18 decimals) = gemAmt*1e12 minus tin fee. Approve USDC to THIS LitePSM contract (it pulls USDC with transferFrom into its pocket); unlike the legacy PSM there is no separate GemJoin, and gemJoin() returns the LitePSM itself for backward compatibility. Limited by the DAI balance held by the LitePSM (see rush/fill)."
+        },
+        {
+          "signature": "buyGem(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "DAI -> USDC. Args (usr = USDC recipient, gemAmt in USDC units, 6 decimals). Pulls gemAmt*1e12 DAI plus tout fee from msg.sender: approve DAI to this contract. Limited by the USDC held in pocket()."
+        },
+        {
+          "signature": "tin()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee on sellGem in WAD (1e18 = 100%). 0 at research time. type(uint256).max (HALTED) means sellGem is halted."
+        },
+        {
+          "signature": "tout()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee on buyGem in WAD. 0 at research time. HALTED (uint256 max) means buyGem is halted."
+        },
+        {
+          "signature": "pocket()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address holding the USDC (0x37305B1cD40574E4C5Ce33f8e8306Be057fD7341 at research time). USDC.balanceOf(pocket) = max buyGem size."
+        },
+        {
+          "signature": "buf()",
+          "kind": "read",
+          "payable": false,
+          "description": "Target DAI buffer kept pre-minted in the LitePSM (8e26 = 800M DAI at research time)."
+        },
+        {
+          "signature": "rush()",
+          "kind": "read",
+          "payable": false,
+          "description": "DAI that fill() could add now; if > 0, call fill() to raise the DAI balance before a large sellGem."
+        },
+        {
+          "signature": "fill()",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless: mint DAI into the LitePSM up to buf. Can be batched between sellGem calls for large swaps."
+        },
+        {
+          "signature": "gem()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDC address."
+        },
+        {
+          "signature": "dai()",
+          "kind": "read",
+          "payable": false,
+          "description": "DAI address."
+        },
+        {
+          "signature": "to18ConversionFactor()",
+          "kind": "read",
+          "payable": false,
+          "description": "1e12 (USDC 6 decimals -> 18)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xA188EEC8F81263234dA3622A406892F3D630f98c",
+      "name": "LitePSMWrapper-USDS-USDC (UsdsPsmWrapper)",
+      "role": "exchange",
+      "proxy": false,
+      "source": "https://developers.skyeco.com/guides/psm/litepsm/",
+      "keyFunctions": [
+        {
+          "signature": "sellGem(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "USDC -> USDS 1:1 minus tin. Args (usr = USDS recipient, gemAmt in USDC units, 6 decimals). Approve USDC to this wrapper. Routes through the LitePSM by converting DAI to USDS internally; same liquidity limits as the LitePSM."
+        },
+        {
+          "signature": "buyGem(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "USDS -> USDC. Args (usr = USDC recipient, gemAmt in USDC units, 6 decimals). Pulls gemAmt*1e12 + tout fee in USDS from msg.sender: approve USDS to this wrapper."
+        },
+        {
+          "signature": "tin()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee on sellGem (WAD), read from the LitePSM. 0 at research time."
+        },
+        {
+          "signature": "tout()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee on buyGem (WAD), read from the LitePSM. 0 at research time."
+        },
+        {
+          "signature": "psm()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying LitePSM 0xf6e72Db5454dd049d0788e411b06CfAF16853042."
+        },
+        {
+          "signature": "pocket()",
+          "kind": "read",
+          "payable": false,
+          "description": "Where USDC liquidity sits (from the LitePSM)."
+        },
+        {
+          "signature": "gemJoin()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns the wrapper itself (backward compatibility: approve the wrapper)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x0650CAF159C5A49f711e8169D4336ECB9b950275",
+      "name": "USDS -> SKY Staking Rewards (REWARDS_USDS_SKY)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://chainlog.sky.money/api/mainnet/active.json",
+      "keyFunctions": [
+        {
+          "signature": "stake(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake USDS (18 decimals). Approve USDS to this farm first. Rewards accrue in SKY."
+        },
+        {
+          "signature": "stake(uint256,uint16)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake with a uint16 referral code."
+        },
+        {
+          "signature": "withdraw(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake USDS (no lockup)."
+        },
+        {
+          "signature": "getReward()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued SKY."
+        },
+        {
+          "signature": "exit()",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw all USDS and claim rewards."
+        },
+        {
+          "signature": "earned(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimable SKY (18 decimals)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Staked USDS of an account."
+        },
+        {
+          "signature": "rewardRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "SKY per second distributed across all stakers (18 decimals)."
+        },
+        {
+          "signature": "periodFinish()",
+          "kind": "read",
+          "payable": false,
+          "description": "Unix time when the current reward period ends; rewards stop if it is not refilled. At research time periodFinish was 1769436035 (26 Jan 2026), i.e. the USDS->SKY reward stream had ended and earned() no longer grows; check periodFinish/rewardRate before staking."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "If true, new stakes are blocked (withdraw still works)."
+        },
+        {
+          "signature": "rewardsToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "SKY address."
+        },
+        {
+          "signature": "stakingToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDS."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x173e314C7635B45322cd8Cb14f44b312e079F3af",
+      "name": "USDS -> SPK Staking Rewards (REWARDS_USDS_SPK)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://chainlog.sky.money/api/mainnet/active.json",
+      "keyFunctions": [
+        {
+          "signature": "stake(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake USDS (18 decimals). Approve USDS to this farm first. Rewards accrue in SPK (Spark token 0xc20059e0317DE91738d13af027DfC4a50781b066)."
+        },
+        {
+          "signature": "stake(uint256,uint16)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake with a uint16 referral code."
+        },
+        {
+          "signature": "withdraw(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake USDS (no lockup)."
+        },
+        {
+          "signature": "getReward()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued SPK (Spark token 0xc20059e0317DE91738d13af027DfC4a50781b066)."
+        },
+        {
+          "signature": "exit()",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw all USDS and claim rewards."
+        },
+        {
+          "signature": "earned(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Claimable SPK (Spark token 0xc20059e0317DE91738d13af027DfC4a50781b066) (18 decimals)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Staked USDS of an account."
+        },
+        {
+          "signature": "rewardRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "SPK (Spark token 0xc20059e0317DE91738d13af027DfC4a50781b066) per second distributed across all stakers (18 decimals)."
+        },
+        {
+          "signature": "periodFinish()",
+          "kind": "read",
+          "payable": false,
+          "description": "Unix time when the current reward period ends; rewards stop if it is not refilled. Weekly periods (rewardsDuration 604800); active at research time."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "If true, new stakes are blocked (withdraw still works)."
+        },
+        {
+          "signature": "rewardsToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "SPK (Spark token 0xc20059e0317DE91738d13af027DfC4a50781b066) address."
+        },
+        {
+          "signature": "stakingToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDS."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x197E90f9FAD81970bA7976f33CbD77088E5D7cf7",
+      "name": "Pot (MCD_POT, DAI Savings Rate)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://chainlog.sky.money/api/mainnet/active.json",
+      "keyFunctions": [
+        {
+          "signature": "dsr()",
+          "kind": "read",
+          "payable": false,
+          "description": "DAI Savings Rate per second in RAY (1e27). At research time 1000000000393915525145987602 (about 1.25% APY), much lower than the SSR."
+        },
+        {
+          "signature": "chi()",
+          "kind": "read",
+          "payable": false,
+          "description": "DSR accumulator (RAY)."
+        },
+        {
+          "signature": "drip()",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless: update chi to now."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x83F20F44975D03b1b09e64809B757c47f942BEeA",
+      "name": "sDAI (Savings Dai, ERC-4626, issued by Spark)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://docs.spark.fi/dev/savings/sdai-token",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit DAI (18 decimals) for sDAI shares; approve DAI to sDAI first. Earns the DSR via the Pot."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn sDAI shares (shares, receiver, owner) for DAI."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact DAI amount."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "DAI per share amount (about 1.1834 DAI per sDAI at research time)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "sDAI balance."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F",
+      "name": "Chainlog (CHANGELOG)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://chainlog.sky.money/api/mainnet/active.json",
+      "keyFunctions": [
+        {
+          "signature": "getAddress(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Official on-chain address registry: key as bytes32 (e.g. 'USDS', 'SUSDS', 'MCD_LITE_PSM_USDC_A'). Reverts if the key does not exist."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current chainlog version string."
+        },
+        {
+          "signature": "count()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of registered keys (506 at research time); iterate with get(uint256) -> (bytes32 key, address)."
+        },
+        {
+          "signature": "get(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Key and address at an index."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x820C137fa70C8691f0e44Dc420a5e53c168921Dc",
+      "name": "USDS (bridged, SkyLink)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://developers.skyeco.com/guides/skylink/base-eth-native-bridge/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the Spark PSM3 0x1601843c5E9bC251A3272907010AFa41Fa18347E before swapExactIn."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer (18 decimals)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged supply on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x5875eEE11Cf8398102FdAd704C9E96607675467a",
+      "name": "sUSDS (bridged, plain ERC-20, no ERC-4626)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://developers.skyeco.com/guides/skylink/base-eth-native-bridge/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the Spark PSM3 0x1601843c5E9bC251A3272907010AFa41Fa18347E before swapExactIn."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer (18 decimals)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged supply on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x1601843c5E9bC251A3272907010AFa41Fa18347E",
+      "name": "Spark PSM3 (USDC/USDS/sUSDS swaps)",
+      "role": "exchange",
+      "proxy": false,
+      "source": "https://docs.spark.fi/dev/savings/spark-psm",
+      "keyFunctions": [
+        {
+          "signature": "swapExactIn(address,address,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap (assetIn, assetOut, amountIn, minAmountOut, receiver, referralCode) between USDC 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 (6 decimals), USDS 0x820C137fa70C8691f0e44Dc420a5e53c168921Dc and sUSDS 0x5875eEE11Cf8398102FdAd704C9E96607675467a (18 decimals). Approve assetIn to the PSM3 first. No fee beyond gas; sUSDS priced by the cross-chain SSR rate provider."
+        },
+        {
+          "signature": "swapExactOut(address,address,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap for an exact amountOut (assetIn, assetOut, amountOut, maxAmountIn, receiver, referralCode)."
+        },
+        {
+          "signature": "previewSwapExactIn(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote amountOut for (assetIn, assetOut, amountIn)."
+        },
+        {
+          "signature": "previewSwapExactOut(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote amountIn for an exact amountOut."
+        },
+        {
+          "signature": "deposit(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "LP: deposit (asset, receiver, amount) for PSM shares."
+        },
+        {
+          "signature": "withdraw(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "LP: withdraw (asset, receiver, maxAssetsToWithdraw) by burning shares."
+        },
+        {
+          "signature": "pocket()",
+          "kind": "read",
+          "payable": false,
+          "description": "Holder of USDC liquidity (the PSM3 itself at research time); USDC.balanceOf(pocket) limits USDC out."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value in the PSM (USD, 18 decimals)."
+        },
+        {
+          "signature": "usdc()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDC address."
+        },
+        {
+          "signature": "usds()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDS address."
+        },
+        {
+          "signature": "susds()",
+          "kind": "read",
+          "payable": false,
+          "description": "sUSDS address."
+        },
+        {
+          "signature": "rateProvider()",
+          "kind": "read",
+          "payable": false,
+          "description": "sUSDS/USD rate oracle (RAY)."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x6491c05A82219b8D1479057361ff1654749b876b",
+      "name": "USDS (bridged, SkyLink)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.spark.fi/dev/savings/cross-chain-tokens",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the Spark PSM3 0x2B05F8e1cACC6974fD79A673a341Fe1f58d27266 before swapExactIn."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer (18 decimals)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged supply on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xdDb46999F8891663a8F2828d25298f70416d7610",
+      "name": "sUSDS (bridged, plain ERC-20, no ERC-4626)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.spark.fi/dev/savings/cross-chain-tokens",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the Spark PSM3 0x2B05F8e1cACC6974fD79A673a341Fe1f58d27266 before swapExactIn."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer (18 decimals)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged supply on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x2B05F8e1cACC6974fD79A673a341Fe1f58d27266",
+      "name": "Spark PSM3 (USDC/USDS/sUSDS swaps)",
+      "role": "exchange",
+      "proxy": false,
+      "source": "https://docs.spark.fi/dev/savings/spark-psm",
+      "keyFunctions": [
+        {
+          "signature": "swapExactIn(address,address,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap (assetIn, assetOut, amountIn, minAmountOut, receiver, referralCode) between USDC 0xaf88d065e77c8cC2239327C5EDb3A432268e5831 (6 decimals), USDS 0x6491c05A82219b8D1479057361ff1654749b876b and sUSDS 0xdDb46999F8891663a8F2828d25298f70416d7610 (18 decimals). Approve assetIn to the PSM3 first. No fee beyond gas; sUSDS priced by the cross-chain SSR rate provider."
+        },
+        {
+          "signature": "swapExactOut(address,address,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap for an exact amountOut (assetIn, assetOut, amountOut, maxAmountIn, receiver, referralCode)."
+        },
+        {
+          "signature": "previewSwapExactIn(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote amountOut for (assetIn, assetOut, amountIn)."
+        },
+        {
+          "signature": "previewSwapExactOut(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote amountIn for an exact amountOut."
+        },
+        {
+          "signature": "deposit(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "LP: deposit (asset, receiver, amount) for PSM shares."
+        },
+        {
+          "signature": "withdraw(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "LP: withdraw (asset, receiver, maxAssetsToWithdraw) by burning shares."
+        },
+        {
+          "signature": "pocket()",
+          "kind": "read",
+          "payable": false,
+          "description": "Holder of USDC liquidity (the PSM3 itself at research time); USDC.balanceOf(pocket) limits USDC out."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value in the PSM (USD, 18 decimals)."
+        },
+        {
+          "signature": "usdc()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDC address."
+        },
+        {
+          "signature": "usds()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDS address."
+        },
+        {
+          "signature": "susds()",
+          "kind": "read",
+          "payable": false,
+          "description": "sUSDS address."
+        },
+        {
+          "signature": "rateProvider()",
+          "kind": "read",
+          "payable": false,
+          "description": "sUSDS/USD rate oracle (RAY)."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Sky Chainlog API",
+      "url": "https://chainlog.sky.money/api/mainnet/active.json",
+      "auth": "none",
+      "use": "JSON map of every current official Ethereum contract key -> address (same data as the on-chain Chainlog 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F). Use it to resolve addresses not listed here (Vat, Jug, joins, LockstakeEngine, stUSDS, bridges).",
+      "source": "https://chainlog.sky.money/"
+    },
+    {
+      "name": "Sky Governance (vote data) API",
+      "url": "https://vote.sky.money/api",
+      "auth": "none",
+      "use": "Read-only polls, executive spells, delegates and voter data (Swagger at https://vote.sky.money/api-docs); data before 19 May 2025 is at https://vote.makerdao.com/api.",
+      "source": "https://developers.skyeco.com/guides/sky/token-governance-upgrade/vote-data-api/"
+    }
+  ],
+  "actions": [
+    {
+      "name": "DAI -> USDS",
+      "description": "Upgrade DAI to USDS 1:1, no fee.",
+      "how": "DAI.approve(0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A, wad); DaiUsds.daiToUsds(recipient, wad). Reverse: USDS.approve(converter) then usdsToDai(recipient, wad)."
+    },
+    {
+      "name": "USDC -> USDS",
+      "description": "Mint USDS with USDC at 1:1 minus tin (0 at research time).",
+      "how": "Check wrapper.tin() != uint256 max. USDC.approve(0xA188EEC8F81263234dA3622A406892F3D630f98c, amt6); wrapper.sellGem(recipient, amt6) where amt6 has 6 decimals. Receives amt6*1e12 USDS minus fee."
+    },
+    {
+      "name": "USDS -> USDC",
+      "description": "Redeem USDS for USDC 1:1 plus tout.",
+      "how": "Check USDC.balanceOf(LitePSM.pocket()) >= amt6 and tout. USDS.approve(wrapper, amt6*1e12 + fee); wrapper.buyGem(recipient, amt6)."
+    },
+    {
+      "name": "USDC <-> DAI",
+      "description": "Same as above with DAI.",
+      "how": "LitePSM 0xf6e72Db5454dd049d0788e411b06CfAF16853042: approve USDC to the LitePSM itself (not a GemJoin) then sellGem(usr, amt6); or approve DAI to the LitePSM then buyGem(usr, amt6). If sellGem fails for lack of DAI, call rush()/fill() first (permissionless)."
+    },
+    {
+      "name": "earn the Sky Savings Rate",
+      "description": "Deposit USDS into sUSDS on Ethereum.",
+      "how": "USDS.approve(sUSDS 0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD, amt); sUSDS.deposit(amt, receiver). Exit: sUSDS.redeem(shares, receiver, owner). Value: convertToAssets(shares). Rate: ssr()."
+    },
+    {
+      "name": "get sUSDS on Base/Arbitrum",
+      "description": "Swap USDC or USDS into sUSDS with the Spark PSM3.",
+      "how": "approve assetIn to PSM3 (Base 0x1601843c5E9bC251A3272907010AFa41Fa18347E, Arbitrum 0x2B05F8e1cACC6974fD79A673a341Fe1f58d27266); quote previewSwapExactIn(assetIn, sUSDS, amountIn); swapExactIn(assetIn, sUSDS, amountIn, minOut, receiver, 0). L2 sUSDS has no deposit/redeem; exit via PSM3."
+    },
+    {
+      "name": "MKR -> SKY",
+      "description": "Upgrade MKR to SKY at 1:24000 minus the Delayed Upgrade Penalty.",
+      "how": "Read MkrSky.fee(); call MkrSky 0xA1Ea1bA18E88C381C724a75F23a130420C403f9a .mkrToSky(recipient, mkrAmt). No approval needed. One-way."
+    },
+    {
+      "name": "stake USDS for rewards",
+      "description": "Stake USDS in a Sky token-rewards farm.",
+      "how": "Check farm.periodFinish() > now and rewardRate() > 0 (USDS->SPK 0x173e314C7635B45322cd8Cb14f44b312e079F3af was active at research time; USDS->SKY 0x0650CAF159C5A49f711e8169D4336ECB9b950275 had ended). USDS.approve(farm, amt); farm.stake(amt). Claim with getReward(); leave with exit()."
+    }
+  ],
+  "risks": [
+    "Governance control: Sky governance (SKY holders via executive spells) sets the SSR, DSR, PSM fees (tin/tout), farm rewards and the MKR->SKY penalty, and can halt LitePSM swaps by setting tin/tout to uint256 max. USDS, sUSDS and the bridged L2 tokens are UUPS-upgradeable proxies controlled by governance, so their logic can be changed.",
+    "LitePSM has no slippage protection: fees could change in the same block if a governance action executes first. Swaps are capped by the LitePSM DAI buffer (sellGem) and the USDC in its pocket (buyGem), and by the Spark PSM3's balances on L2.",
+    "MKR->SKY conversion is one-way and, at research time, charged a 5% Delayed Upgrade Penalty (fee() = 5e16) that governance said may increase over time; the older Sky docs token page describing a fee-free two-way converter is out of date.",
+    "USDS and DAI are backed by crypto collateral, real-world-asset vaults, USDC in the PSM and allocations to Sky 'Stars' such as Spark and Grove; a failure in collateral, USDC, or those allocations can affect the peg. Emergency shutdown is possible.",
+    "Savings rates (SSR for sUSDS, DSR for sDAI) are variable and set by governance; sDAI and sUSDS are not exchangeable 1:1 because they have different accumulated yield.",
+    "L2 USDS/sUSDS are bridged via SkyLink/canonical bridges; L2 sUSDS is a plain ERC-20 priced by a cross-chain rate oracle, and withdrawals to Ethereum through the native bridges take the rollup's challenge period (about 7 days on Arbitrum/OP Stack)."
+  ],
+  "notes": "Ethereum addresses come from the official Sky chainlog (chainlog.sky.money API, mirrored on-chain at 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F) and the Sky developer docs (LitePSM guide, token-governance-upgrade key info). Base USDS/sUSDS come from the Sky developer docs' SkyLink Base guide; Arbitrum USDS/sUSDS and both PSM3 contracts are only listed by Spark (a Sky 'Star' whose SubProxy is in the chainlog as SPARK_SUBPROXY), so Spark's docs are cited for them. sDAI is a Spark-issued wrapper of the Sky Pot (DSR) and is not in the Sky chainlog; Spark docs are cited. Every address was checked for code on its chain and wiring read on-chain (sUSDS.asset=USDS, DaiUsds dai/usds, MkrSky mkr/sky/rate=24000, LitePSM gem=USDC/dai=DAI/pocket, wrapper.psm=LitePSM, farms' staking/rewards tokens, PSM3 usdc/usds/susds on Base and Arbitrum). Signatures come from Sourcify-verified sources (DssLitePsm, UsdsPsmWrapper, DaiUsds, MkrSky, SUsds, StakingRewards, SavingsDai, PSM3). Mentioned but not listed: stUSDS (STUSDS 0x99CD4Ec3f88A45940936F469E4bB72A2A701EEB9, staked USDS with a variable rate funding SKY-backed borrowing; see developers.skyeco.com/protocol/tokens/stusds), LockstakeEngine (staking engine for SKY with borrowing and delegation; LOCKSTAKE_ENGINE in the chainlog), Vat/Jug/vault (CDP) contracts, SkyLink bridges (BASE_TOKEN_BRIDGE, ARBITRUM_TOKEN_BRIDGE, OPTIMISM_TOKEN_BRIDGE, UNICHAIN_TOKEN_BRIDGE in the chainlog), the legacy MKR->SKY converter V1, and USDS/sUSDS/PSM3 on Optimism and Unichain (listed on Spark's docs pages). Spark's own lending market (SparkLend) is a separate protocol, not part of this entry. The legacy PSM (MCD_PSM_USDC_A) with its separate GemJoin approval target is no longer in the chainlog; the LitePSM takes approvals on itself. MCD_GOV in the chainlog now points to SKY.",
+  "sources": [
+    "https://chainlog.sky.money/api/mainnet/active.json",
+    "https://chainlog.sky.money/",
+    "https://developers.skyeco.com/",
+    "https://developers.skyeco.com/guides/psm/litepsm/",
+    "https://developers.skyeco.com/guides/sky/token-governance-upgrade/key-info/",
+    "https://developers.skyeco.com/guides/sky/token-governance-upgrade/token-holders/",
+    "https://developers.skyeco.com/guides/skylink/base-eth-native-bridge/",
+    "https://developers.skyeco.com/protocol/tokens/usds/",
+    "https://developers.skyeco.com/protocol/tokens/susds/",
+    "https://developers.skyeco.com/protocol/tokens/sky/",
+    "https://developers.skyeco.com/quick-start/protocol-token-routes/",
+    "https://developers.skyeco.com/protocol/rewards/staking-rewards/",
+    "https://developers.skyeco.com/guides/sky/token-governance-upgrade/vote-data-api/",
+    "https://docs.spark.fi/dev/savings/cross-chain-tokens",
+    "https://docs.spark.fi/dev/savings/spark-psm",
+    "https://docs.spark.fi/dev/savings/sdai-token",
+    "https://docs.spark.fi/dev/savings/susds-token",
+    "https://github.com/sky-ecosystem/usds",
+    "https://github.com/sky-ecosystem/sdai/tree/susds",
+    "https://github.com/sky-ecosystem/sky",
+    "https://github.com/sky-ecosystem/endgame-toolkit/tree/master",
+    "https://github.com/sky-ecosystem/xchain-ssr-oracle",
+    "https://github.com/sky-ecosystem/arbitrum-token-bridge",
+    "https://sourcify.dev/server/v2/contract/1/0xf6e72Db5454dd049d0788e411b06CfAF16853042",
+    "https://sourcify.dev/server/v2/contract/1/0xA188EEC8F81263234dA3622A406892F3D630f98c",
+    "https://sourcify.dev/server/v2/contract/1/0xA1Ea1bA18E88C381C724a75F23a130420C403f9a",
+    "https://sourcify.dev/server/v2/contract/1/0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A",
+    "https://sourcify.dev/server/v2/contract/1/0x4e7991e5C547ce825BdEb665EE14a3274f9F61e0",
+    "https://sourcify.dev/server/v2/contract/1/0x0650CAF159C5A49f711e8169D4336ECB9b950275",
+    "https://sourcify.dev/server/v2/contract/1/0x83F20F44975D03b1b09e64809B757c47f942BEeA",
+    "https://sourcify.dev/server/v2/contract/8453/0x1601843c5E9bC251A3272907010AFa41Fa18347E",
+    "https://api.llama.fi/protocol/sky"
+  ],
+  "researchedAt": "2026-11-25"
+}

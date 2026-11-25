@@ -1,0 +1,2183 @@
+{
+  "slug": "pendle",
+  "name": "Pendle",
+  "category": "Yield",
+  "description": "Pendle splits yield-bearing assets (stETH, sUSDe, USDe, etc.) into PT (fixed yield, redeemable 1:1 for the accounting asset at maturity) and YT (all variable yield and points until maturity), traded in a PT/SY AMM. Agents can buy/sell PT and YT, add/remove liquidity, and mint/redeem through PendleRouter V4, ideally with calldata built by Pendle's Hosted SDK (Convert API); PENDLE can be staked into sPENDLE on Ethereum.",
+  "website": "https://pendle.finance",
+  "docs": "https://docs.pendle.finance",
+  "defillama": "https://defillama.com/protocol/pendle",
+  "chains": [
+    "ethereum",
+    "arbitrum",
+    "base",
+    "bsc",
+    "optimism",
+    "sonic",
+    "hyperevm",
+    "mantle",
+    "berachain",
+    "monad",
+    "plasma",
+    "xlayer",
+    "robinhood"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+      "name": "PendleRouter V4 (PendleRouterV4)",
+      "role": "router",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/1-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+        },
+        {
+          "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+        },
+        {
+          "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+        },
+        {
+          "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+        },
+        {
+          "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+        },
+        {
+          "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+        },
+        {
+          "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+        },
+        {
+          "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+        },
+        {
+          "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+        },
+        {
+          "signature": "swapExactTokenForPtSimple(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Simplified buy-PT without ApproxParams or limit orders: (receiver, market, minPtOut, TokenInput input). Uses more gas for the on-chain search; no limit-order fills."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x263833d47eA3fA4a30f269323aba6a107f9eB14C",
+      "name": "PendleRouterStatic (off-chain previews)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/1-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+        },
+        {
+          "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+        },
+        {
+          "signature": "swapExactTokenForYtStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview buying YT: (market, tokenIn, amountTokenIn) -> (netYtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...)."
+        },
+        {
+          "signature": "swapExactYtForTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview selling YT: (market, exactYtIn, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+        },
+        {
+          "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+        },
+        {
+          "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+        },
+        {
+          "signature": "redeemPyToTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview PT+YT (or post-expiry PT) redemption: (YT, netPYToRedeem, tokenOut) -> netTokenOut."
+        },
+        {
+          "signature": "getPtToAssetRate(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+        },
+        {
+          "signature": "getLpToAssetRate(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Spot LP price in the accounting asset (1e18 scale) for a market."
+        },
+        {
+          "signature": "getTokensInOut(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+        },
+        {
+          "signature": "getUserMarketInfo(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(market, user) -> the user's LP, PT, YT balances and claimable rewards in that market (non-view in ABI; call with eth_call)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6d247b1c044fA1E22e6B04fA9F71Baf99EB29A9f",
+      "name": "PendleMarketFactoryV6 (current market factory)",
+      "role": "factory",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/1-core.json",
+      "keyFunctions": [
+        {
+          "signature": "isValidMarket(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is a market created by this factory. Check this before trusting a market address you did not get from the Pendle API. Older markets belong to older factories (marketFactoryV3..V5, listed in the same deployments file)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x808507121B80c02388fAd14726482e061B8da827",
+      "name": "PENDLE token",
+      "role": "token",
+      "proxy": false,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/1-core.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "PENDLE balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve sPENDLE (to stake) or the router."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer PENDLE."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x999999999991E178D52Cd95AFd4b00d066664144",
+      "name": "sPENDLE (staked PENDLE, replaces vePENDLE)",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://docs.pendle.finance/pendle-v2-dev/Contracts/sPENDLE",
+      "keyFunctions": [
+        {
+          "signature": "stake(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake PENDLE 1:1 for sPENDLE (approve sPENDLE for PENDLE first). sPENDLE does not grow in value; it gives voting power and a pro-rata share of reward distributions if you meet the active-participation criteria."
+        },
+        {
+          "signature": "cooldown(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Start the fee-free unstake: puts amount of sPENDLE in cooldown (cooldownDuration(), 14 days on 2026-11-25)."
+        },
+        {
+          "signature": "finalizeCooldown()",
+          "kind": "write",
+          "payable": false,
+          "description": "After the cooldown ends, receive the PENDLE. Returns amount."
+        },
+        {
+          "signature": "cancelCooldown()",
+          "kind": "write",
+          "payable": false,
+          "description": "Cancel the cooldown and get the sPENDLE back."
+        },
+        {
+          "signature": "instantUnstake(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake immediately for a fee (instantUnstakeFeeRate(), 5% per docs): returns (amountAfterFee, fee)."
+        },
+        {
+          "signature": "cooldownDuration()",
+          "kind": "read",
+          "payable": false,
+          "description": "Cooldown in seconds (returned 1209600 = 14 days on 2026-11-25)."
+        },
+        {
+          "signature": "instantUnstakeFeeRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "Instant-unstake fee, 1e18 = 100% (5e16 = 5%)."
+        },
+        {
+          "signature": "userCooldown(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(cooldownStart, amount) of a user's pending cooldown."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "sPENDLE balance."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+      "name": "PendleRouter V4 (same address as Ethereum)",
+      "role": "router",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/42161-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+        },
+        {
+          "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+        },
+        {
+          "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+        },
+        {
+          "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+        },
+        {
+          "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+        },
+        {
+          "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+        },
+        {
+          "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+        },
+        {
+          "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+        },
+        {
+          "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+        },
+        {
+          "signature": "swapExactTokenForPtSimple(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Simplified buy-PT without ApproxParams or limit orders: (receiver, market, minPtOut, TokenInput input). Uses more gas for the on-chain search; no limit-order fills."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xAdB09F65bd90d19e3148D9ccb693F3161C6DB3E8",
+      "name": "PendleRouterStatic (off-chain previews)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/42161-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+        },
+        {
+          "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+        },
+        {
+          "signature": "swapExactTokenForYtStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview buying YT: (market, tokenIn, amountTokenIn) -> (netYtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...)."
+        },
+        {
+          "signature": "swapExactYtForTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview selling YT: (market, exactYtIn, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+        },
+        {
+          "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+        },
+        {
+          "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+        },
+        {
+          "signature": "redeemPyToTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview PT+YT (or post-expiry PT) redemption: (YT, netPYToRedeem, tokenOut) -> netTokenOut."
+        },
+        {
+          "signature": "getPtToAssetRate(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+        },
+        {
+          "signature": "getTokensInOut(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x49F2f7002669E0e4425Fa0203975625Ab4af3143",
+      "name": "PendleMarketFactoryV6 (current market factory)",
+      "role": "factory",
+      "proxy": null,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/42161-core.json",
+      "keyFunctions": [
+        {
+          "signature": "isValidMarket(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is a market created by this factory. Check this before trusting a market address you did not get from the Pendle API. Older markets belong to older factories (marketFactoryV3..V5, listed in the same deployments file)."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x0c880f6761F1af8d9Aa9C466984b80DAb9a8c9e8",
+      "name": "PENDLE token",
+      "role": "token",
+      "proxy": null,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/42161-core.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer PENDLE."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+      "name": "PendleRouter V4 (same address as Ethereum)",
+      "role": "router",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/8453-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+        },
+        {
+          "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+        },
+        {
+          "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+        },
+        {
+          "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+        },
+        {
+          "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+        },
+        {
+          "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+        },
+        {
+          "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+        },
+        {
+          "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+        },
+        {
+          "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+        },
+        {
+          "signature": "swapExactTokenForPtSimple(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Simplified buy-PT without ApproxParams or limit orders: (receiver, market, minPtOut, TokenInput input). Uses more gas for the on-chain search; no limit-order fills."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xB4205a645c7e920BD8504181B1D7f2c5C955C3e7",
+      "name": "PendleRouterStatic (off-chain previews)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/8453-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+        },
+        {
+          "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+        },
+        {
+          "signature": "swapExactTokenForYtStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview buying YT: (market, tokenIn, amountTokenIn) -> (netYtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...)."
+        },
+        {
+          "signature": "swapExactYtForTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview selling YT: (market, exactYtIn, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+        },
+        {
+          "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+        },
+        {
+          "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+        },
+        {
+          "signature": "redeemPyToTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview PT+YT (or post-expiry PT) redemption: (YT, netPYToRedeem, tokenOut) -> netTokenOut."
+        },
+        {
+          "signature": "getPtToAssetRate(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+        },
+        {
+          "signature": "getTokensInOut(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x81E80A50E56d10C501fF17B5Fe2F662bd9EA4590",
+      "name": "PendleMarketFactoryV6 (current market factory)",
+      "role": "factory",
+      "proxy": null,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/8453-core.json",
+      "keyFunctions": [
+        {
+          "signature": "isValidMarket(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is a market created by this factory. Check this before trusting a market address you did not get from the Pendle API. Older markets belong to older factories (marketFactoryV3..V5, listed in the same deployments file)."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xA99F6e6785Da0F5d6fB42495Fe424BCE029Eeb3E",
+      "name": "PENDLE token",
+      "role": "token",
+      "proxy": null,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/8453-core.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer PENDLE."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+      "name": "PendleRouter V4 (same address as Ethereum)",
+      "role": "router",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/56-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+        },
+        {
+          "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+        },
+        {
+          "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+        },
+        {
+          "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+        },
+        {
+          "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+        },
+        {
+          "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+        },
+        {
+          "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+        },
+        {
+          "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+        },
+        {
+          "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+        },
+        {
+          "signature": "swapExactTokenForPtSimple(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Simplified buy-PT without ApproxParams or limit orders: (receiver, market, minPtOut, TokenInput input). Uses more gas for the on-chain search; no limit-order fills."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x2700ADB035F82a11899ce1D3f1BF8451c296eABb",
+      "name": "PendleRouterStatic (off-chain previews)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/56-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+        },
+        {
+          "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+        },
+        {
+          "signature": "swapExactTokenForYtStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview buying YT: (market, tokenIn, amountTokenIn) -> (netYtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...)."
+        },
+        {
+          "signature": "swapExactYtForTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview selling YT: (market, exactYtIn, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+        },
+        {
+          "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+        },
+        {
+          "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+        },
+        {
+          "signature": "redeemPyToTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview PT+YT (or post-expiry PT) redemption: (YT, netPYToRedeem, tokenOut) -> netTokenOut."
+        },
+        {
+          "signature": "getPtToAssetRate(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+        },
+        {
+          "signature": "getTokensInOut(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x80cE46449DF1c977f6ba60495125ce282F83DdFB",
+      "name": "PendleMarketFactoryV6 (current market factory)",
+      "role": "factory",
+      "proxy": null,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/56-core.json",
+      "keyFunctions": [
+        {
+          "signature": "isValidMarket(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is a market created by this factory. Check this before trusting a market address you did not get from the Pendle API. Older markets belong to older factories (marketFactoryV3..V5, listed in the same deployments file)."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xb3Ed0A426155B79B898849803E3B36552f7ED507",
+      "name": "PENDLE token",
+      "role": "token",
+      "proxy": null,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/56-core.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer PENDLE."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+      "name": "PendleRouter V4 (same address as Ethereum)",
+      "role": "router",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/10-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+        },
+        {
+          "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+        },
+        {
+          "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+        },
+        {
+          "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+        },
+        {
+          "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+        },
+        {
+          "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+        },
+        {
+          "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+        },
+        {
+          "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+        },
+        {
+          "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x704478Dd72FD7F9B83d1F1e0fc18C14B54F034d0",
+      "name": "PendleRouterStatic (off-chain previews)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/10-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+        },
+        {
+          "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+        },
+        {
+          "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+        },
+        {
+          "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+        },
+        {
+          "signature": "getPtToAssetRate(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+        },
+        {
+          "signature": "getTokensInOut(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0xBC7B1Ff1c6989f006a1185318eD4E7b5796e66E1",
+      "name": "PENDLE token",
+      "role": "token",
+      "proxy": null,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/10-core.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer PENDLE."
+        }
+      ]
+    },
+    {
+      "chain": "sonic",
+      "chainId": 146,
+      "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+      "name": "PendleRouter V4 (same address as Ethereum)",
+      "role": "router",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/146-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+        },
+        {
+          "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+        },
+        {
+          "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+        },
+        {
+          "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+        },
+        {
+          "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+        },
+        {
+          "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+        },
+        {
+          "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+        },
+        {
+          "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+        },
+        {
+          "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+        }
+      ]
+    },
+    {
+      "chain": "sonic",
+      "chainId": 146,
+      "address": "0x0013ACc071f732fd6BF8210AB46A3794a7D8945e",
+      "name": "PendleRouterStatic (off-chain previews)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/146-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+        },
+        {
+          "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+        },
+        {
+          "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+        },
+        {
+          "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+        },
+        {
+          "signature": "getPtToAssetRate(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+        },
+        {
+          "signature": "getTokensInOut(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+        }
+      ]
+    },
+    {
+      "chain": "sonic",
+      "chainId": 146,
+      "address": "0xf1eF7d2D4C0c881cd634481e0586ed5d2871A74B",
+      "name": "PENDLE token",
+      "role": "token",
+      "proxy": null,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/146-core.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer PENDLE."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+      "name": "PendleRouter V4 (same address as Ethereum)",
+      "role": "router",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/999-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+        },
+        {
+          "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+        },
+        {
+          "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+        },
+        {
+          "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+        },
+        {
+          "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+        },
+        {
+          "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+        },
+        {
+          "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+        },
+        {
+          "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+        },
+        {
+          "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x6813d43782395A1F2AAb42f39aeEDE03ac655e09",
+      "name": "PendleRouterStatic (off-chain previews)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/999-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+        },
+        {
+          "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+        },
+        {
+          "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+        },
+        {
+          "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+        },
+        {
+          "signature": "getPtToAssetRate(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+        },
+        {
+          "signature": "getTokensInOut(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0xD6Eb81136884713E843936843E286FD2a85A205A",
+      "name": "PENDLE token",
+      "role": "token",
+      "proxy": null,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/999-core.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer PENDLE."
+        }
+      ]
+    },
+    {
+      "chain": "mantle",
+      "chainId": 5000,
+      "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+      "name": "PendleRouter V4 (same address as Ethereum)",
+      "role": "router",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/5000-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+        },
+        {
+          "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+        },
+        {
+          "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+        },
+        {
+          "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+        },
+        {
+          "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+        },
+        {
+          "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+        },
+        {
+          "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+        },
+        {
+          "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+        },
+        {
+          "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+        }
+      ]
+    },
+    {
+      "chain": "mantle",
+      "chainId": 5000,
+      "address": "0xCAd502Bb55d1A3F79952F969BFF3f011CF30a94a",
+      "name": "PendleRouterStatic (off-chain previews)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/5000-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+        },
+        {
+          "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+        },
+        {
+          "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+        },
+        {
+          "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+        },
+        {
+          "signature": "getPtToAssetRate(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+        },
+        {
+          "signature": "getTokensInOut(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+        }
+      ]
+    },
+    {
+      "chain": "mantle",
+      "chainId": 5000,
+      "address": "0xd27B18915e7acc8FD6Ac75DB6766a80f8D2f5729",
+      "name": "PENDLE token",
+      "role": "token",
+      "proxy": null,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/5000-core.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer PENDLE."
+        }
+      ]
+    },
+    {
+      "chain": "berachain",
+      "chainId": 80094,
+      "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+      "name": "PendleRouter V4 (same address as Ethereum)",
+      "role": "router",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/80094-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+        },
+        {
+          "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+        },
+        {
+          "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+        },
+        {
+          "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+        },
+        {
+          "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+        },
+        {
+          "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+        },
+        {
+          "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+        },
+        {
+          "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+        },
+        {
+          "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+        }
+      ]
+    },
+    {
+      "chain": "berachain",
+      "chainId": 80094,
+      "address": "0x6813d43782395A1F2AAb42f39aeEDE03ac655e09",
+      "name": "PendleRouterStatic (off-chain previews)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/80094-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+        },
+        {
+          "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+        },
+        {
+          "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+        },
+        {
+          "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+        },
+        {
+          "signature": "getPtToAssetRate(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+        },
+        {
+          "signature": "getTokensInOut(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+        }
+      ]
+    },
+    {
+      "chain": "berachain",
+      "chainId": 80094,
+      "address": "0xFf9c599D51C407A45D631c6e89cB047Efb88AeF6",
+      "name": "PENDLE token",
+      "role": "token",
+      "proxy": null,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/80094-core.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer PENDLE."
+        }
+      ]
+    },
+    {
+      "chain": "monad",
+      "chainId": 143,
+      "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+      "name": "PendleRouter V4 (same address as Ethereum)",
+      "role": "router",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/143-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+        },
+        {
+          "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+        },
+        {
+          "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+        },
+        {
+          "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+        },
+        {
+          "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+        },
+        {
+          "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+        },
+        {
+          "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+        },
+        {
+          "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+        },
+        {
+          "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+        }
+      ]
+    },
+    {
+      "chain": "monad",
+      "chainId": 143,
+      "address": "0x6813d43782395A1F2AAb42f39aeEDE03ac655e09",
+      "name": "PendleRouterStatic (off-chain previews)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/143-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+        },
+        {
+          "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+        },
+        {
+          "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+        },
+        {
+          "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+        },
+        {
+          "signature": "getPtToAssetRate(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+        },
+        {
+          "signature": "getTokensInOut(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+        }
+      ]
+    },
+    {
+      "chain": "monad",
+      "chainId": 143,
+      "address": "0x5E49E1f85813F2B65858860A3FA231b4186f2e0E",
+      "name": "PENDLE token",
+      "role": "token",
+      "proxy": null,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/143-core.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer PENDLE."
+        }
+      ]
+    },
+    {
+      "chain": "plasma",
+      "chainId": 9745,
+      "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+      "name": "PendleRouter V4 (same address as Ethereum)",
+      "role": "router",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/9745-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+        },
+        {
+          "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+        },
+        {
+          "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+        },
+        {
+          "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+        },
+        {
+          "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+        },
+        {
+          "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+        },
+        {
+          "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+        },
+        {
+          "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+        },
+        {
+          "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+        }
+      ]
+    },
+    {
+      "chain": "plasma",
+      "chainId": 9745,
+      "address": "0x6813d43782395A1F2AAb42f39aeEDE03ac655e09",
+      "name": "PendleRouterStatic (off-chain previews)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/9745-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+        },
+        {
+          "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+        },
+        {
+          "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+        },
+        {
+          "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+        },
+        {
+          "signature": "getPtToAssetRate(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+        },
+        {
+          "signature": "getTokensInOut(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+        }
+      ]
+    },
+    {
+      "chain": "plasma",
+      "chainId": 9745,
+      "address": "0x17Bac5F906c9A0282aC06a59958D85796c831f24",
+      "name": "PENDLE token",
+      "role": "token",
+      "proxy": null,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/9745-core.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer PENDLE."
+        }
+      ]
+    },
+    {
+      "chain": "xlayer",
+      "chainId": 196,
+      "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+      "name": "PendleRouter V4 (same address as Ethereum)",
+      "role": "router",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/196-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+        },
+        {
+          "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+        },
+        {
+          "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+        },
+        {
+          "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+        },
+        {
+          "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+        },
+        {
+          "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+        },
+        {
+          "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+        },
+        {
+          "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+        },
+        {
+          "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+        }
+      ]
+    },
+    {
+      "chain": "xlayer",
+      "chainId": 196,
+      "address": "0x6813d43782395A1F2AAb42f39aeEDE03ac655e09",
+      "name": "PendleRouterStatic (off-chain previews)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/196-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+        },
+        {
+          "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+        },
+        {
+          "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+        },
+        {
+          "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+        },
+        {
+          "signature": "getPtToAssetRate(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+        },
+        {
+          "signature": "getTokensInOut(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+        }
+      ]
+    },
+    {
+      "chain": "xlayer",
+      "chainId": 196,
+      "address": "0x5E49E1f85813F2B65858860A3FA231b4186f2e0E",
+      "name": "PENDLE token",
+      "role": "token",
+      "proxy": null,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/196-core.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer PENDLE."
+        }
+      ]
+    },
+    {
+      "chain": "robinhood",
+      "chainId": 4663,
+      "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+      "name": "PendleRouter V4 (same address as Ethereum)",
+      "role": "router",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/4663-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+        },
+        {
+          "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+        },
+        {
+          "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+        },
+        {
+          "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+        },
+        {
+          "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": true,
+          "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+        },
+        {
+          "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+        },
+        {
+          "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": true,
+          "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+        },
+        {
+          "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+        },
+        {
+          "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+        }
+      ]
+    },
+    {
+      "chain": "robinhood",
+      "chainId": 4663,
+      "address": "0x6813d43782395A1F2AAb42f39aeEDE03ac655e09",
+      "name": "PendleRouterStatic (off-chain previews)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/4663-core.json",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+        },
+        {
+          "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+        },
+        {
+          "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+        },
+        {
+          "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+        },
+        {
+          "signature": "getPtToAssetRate(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+        },
+        {
+          "signature": "getTokensInOut(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+        }
+      ]
+    },
+    {
+      "chain": "robinhood",
+      "chainId": 4663,
+      "address": "0x5E49E1f85813F2B65858860A3FA231b4186f2e0E",
+      "name": "PENDLE token",
+      "role": "token",
+      "proxy": null,
+      "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/4663-core.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer PENDLE."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Pendle Hosted SDK - Convert API (v3, recommended)",
+      "url": "https://api-v2.pendle.finance/core/v3/sdk/{chainId}/convert",
+      "auth": "none",
+      "use": "POST JSON {receiver, slippage (0-1, 0.01 = 1%), inputs:[{token, amount}], outputs:[address], enableAggregator?, aggregators?, additionalData?}. One endpoint for every action: token->PT/YT (swap), PT/YT->token, token->LP (add liquidity), LP->token, token->[PT,YT] (mint), [PT,YT] or PT after expiry->token (redeem), token<->SY, LP->LP (transfer liquidity), PT->PT (roll over). Response: action, requiredApprovals [{token, amount}] (approve these to tx.to first), routes[] sorted by output; routes[0].tx = {to (PendleRouter V4), data (ready calldata), from, value}, routes[0].outputs, routes[0].contractParamInfo (method + decoded params, including ApproxParams and limit-order fills), routes[0].data.priceImpact. Tested 2026-11-25: USDe->PT-USDe on chain 1 returned swapExactTokenForPt calldata to 0x888888888889758F76e7103c6CbF23ABbF58F946. Amounts in wei. Rate limit 200 computing units/minute and 200,000/week per IP; each aggregator adds CU.",
+      "source": "https://docs.pendle.finance/pendle-v2-dev/Backend/HostedSdk"
+    },
+    {
+      "name": "Pendle Hosted SDK - Convert API (v2 GET)",
+      "url": "https://api-v2.pendle.finance/core/v2/sdk/{chainId}/convert",
+      "auth": "none",
+      "use": "Same as v3 with query params tokensIn, amountsIn, tokensOut (comma-separated), receiver, slippage, enableAggregator, aggregators (kyberswap, okx, 0x), additionalData=impliedApy,effectiveApy. Marked deprecated in the API overview; use v3 for new code.",
+      "source": "https://docs.pendle.finance/pendle-v2-dev/Backend/ApiOverview"
+    },
+    {
+      "name": "Pendle markets API",
+      "url": "https://api-v2.pendle.finance/core/v2/markets/all",
+      "auth": "none",
+      "use": "Discover markets across all chains (paginate with skip, limit <= 100; filter e.g. chainId). Each market gives address (market/LP), pt, yt, sy (as '<chainId>-<address>'), expiry, underlyingAsset, inputTokens/outputTokens and details (impliedApy, liquidity, totalTvl, aggregatedApy, ptRoi). Also GET /v1/assets/all, GET /v1/prices/assets, GET /v3/{chainId}/markets/{address}/historical-data.",
+      "source": "https://docs.pendle.finance/pendle-v2-dev/Backend/ApiOverview"
+    },
+    {
+      "name": "sPENDLE API",
+      "url": "https://api-v2.pendle.finance/core/v1/spendle/data",
+      "auth": "none",
+      "use": "sPENDLE staking stats; GET /v1/spendle/{address} for per-user reward data.",
+      "source": "https://docs.pendle.finance/pendle-v2-dev/Backend/ApiOverview"
+    },
+    {
+      "name": "Pendle API reference (Swagger)",
+      "url": "https://api-v2.pendle.finance/core/docs",
+      "auth": "none",
+      "use": "Interactive reference with the CU cost of each endpoint and the list of supported aggregators.",
+      "source": "https://docs.pendle.finance/pendle-v2-dev/Backend/ApiOverview"
+    }
+  ],
+  "actions": [
+    {
+      "name": "find a market",
+      "description": "Get the market, PT, YT and SY addresses for an asset and expiry.",
+      "how": "GET https://api-v2.pendle.finance/core/v2/markets/all?chainId=<id>&limit=100 (page with skip). Strip the '<chainId>-' prefix from pt/yt/sy. On-chain, market.readTokens() returns (SY, PT, YT), market.expiry() the unix maturity and market.isExpired() whether it has matured; MarketFactoryV6.isValidMarket(market) confirms a V6 market. Pick a market whose expiry has not passed."
+    },
+    {
+      "name": "buy PT (lock a fixed yield) - recommended path",
+      "description": "Swap a token for PT via the Hosted SDK.",
+      "how": "POST https://api-v2.pendle.finance/core/v3/sdk/<chainId>/convert with {receiver, slippage: 0.005, inputs:[{token: tokenIn, amount: wei}], outputs:[PT]}; for any token not accepted by the SY add enableAggregator: true. Approve each requiredApprovals token to routes[0].tx.to (PendleRouter 0x888888888889758F76e7103c6CbF23ABbF58F946), then send routes[0].tx (to, data, value). The PT matures to 1 accounting-asset unit; hold to expiry for the quoted fixed APY (data.impliedApy with additionalData)."
+    },
+    {
+      "name": "buy PT on-chain without the API",
+      "description": "Build swapExactTokenForPt yourself.",
+      "how": "Preview with RouterStatic.swapExactTokenForPtStatic(market, tokenIn, amount) -> netPtOut. Approve the router, then router.swapExactTokenForPt(receiver, market, minPtOut = netPtOut*(1-slippage), ApproxParams(0, 2^256-1, 0, 256, 1e14), TokenInput(tokenIn, amount, tokenIn, 0x0, (0, 0x0, 0x, false)), LimitOrderData(0x0, 0, [], [], 0x)). tokenIn must be in SY.getTokensIn()."
+    },
+    {
+      "name": "sell PT / YT before maturity",
+      "description": "Exit a PT or YT position to a token.",
+      "how": "Convert API with inputs [{token: PT or YT, amount}] and outputs [tokenOut]; or router.swapExactPtForToken / swapExactYtForToken(receiver, market, amountIn, TokenOutput(tokenOut, minOut, tokenOut, 0x0, (0, 0x0, 0x, false)), empty LimitOrderData) after approving the PT/YT to the router."
+    },
+    {
+      "name": "redeem PT at maturity",
+      "description": "Turn matured PT into the underlying.",
+      "how": "After market.isExpired(): Convert API inputs [{token: PT, amount}] outputs [token]; or router.redeemPyToToken(receiver, YT, ptAmount, TokenOutput(...)) after approving PT. No protocol fee after maturity. Before maturity redemption needs equal PT and YT."
+    },
+    {
+      "name": "buy YT (long yield / points)",
+      "description": "Leveraged exposure to the underlying APY and points until maturity.",
+      "how": "Convert API with outputs [YT], or router.swapExactTokenForYt(receiver, market, minYtOut, default ApproxParams, TokenInput, empty LimitOrderData). Claim yield with router.redeemDueInterestAndRewards(user, [], [YT], []) or the YT's own redeemDueInterestAndRewards(user, true, true)."
+    },
+    {
+      "name": "provide liquidity",
+      "description": "Zap one token into a Pendle pool (LP earns swap fees, PT fixed yield, underlying yield and PENDLE incentives).",
+      "how": "Convert API outputs [market address] (outputs [market, YT] for zero-price-impact 'keep YT' mode); or router.addLiquiditySingleToken(receiver, market, minLpOut, default ApproxParams, TokenInput, empty LimitOrderData). Exit with inputs [market] outputs [token] or router.removeLiquiditySingleToken. Claim PENDLE with router.redeemDueInterestAndRewards(user, [], [], [market])."
+    },
+    {
+      "name": "stake PENDLE (sPENDLE)",
+      "description": "Ethereum only.",
+      "how": "PENDLE.approve(0x999999999991E178D52Cd95AFd4b00d066664144, amt); sPENDLE.stake(amt). Unstake: cooldown(amt), wait 14 days, finalizeCooldown(); or instantUnstake(amt) with a 5% fee."
+    }
+  ],
+  "risks": [
+    "PT is a zero-coupon claim: it redeems 1:1 for the accounting asset (the asset in brackets, e.g. PT-ezETH (ETH) redeems 1 ETH worth of ezETH, not 1 ezETH) only at maturity. Selling before maturity is at market price, which moves with the implied APY: if implied APY rises after you buy, the PT price falls and you show a loss until maturity.",
+    "YT value decays toward 0 and is exactly 0 at maturity. You profit only if the yield (and points) collected exceeds the implied APY paid; if the underlying yield drops or points disappoint, YT can lose most or all of its value.",
+    "Every market has an expiry. After expiry you cannot buy PT/YT in it; unredeemed matured PT and LP keep accruing, but that yield and those points are redirected to the Pendle treasury, so redeem promptly.",
+    "PT/YT inherit all risks of the underlying yield-bearing asset and its SY wrapper (depeg, hack, slashing, issuer freezes). Newer SY contracts are upgradable proxies controlled by Pendle governance.",
+    "Swap fees scale with time to maturity (Fee Tier / 365 x days to maturity); large trades have price impact. Set minPtOut / minTokenOut / slippage; the Convert API's slippage parameter does this.",
+    "Pendle charges 5% of all YT yield (including points).",
+    "PendleRouter V4 is an upgradeable diamond (EIP-2535) controlled by Pendle; block explorers do not show its full ABI (use IPAllActionV3).",
+    "RouterStatic results are previews for off-chain use; Pendle says not to use it for fund-sensitive on-chain logic.",
+    "sPENDLE: 14-day cooldown to unstake fee-free, or 5% fee for instant unstake; rewards require meeting active-participation criteria."
+  ],
+  "notes": "Markets (PT/YT/SY/LP) are created continuously and expire, so this file lists none: discover them with GET https://api-v2.pendle.finance/core/v2/markets/all or in the Pendle app (market page > contract addresses). Each market address is also its LP token. All core addresses come from the official deployments folder https://github.com/pendle-finance/pendle-core-v2-public/tree/main/deployments (files <chainId>-core.json, cited per contract), which the docs Deployments page points to. PendleRouter V4 0x888888888889758F76e7103c6CbF23ABbF58F946 is the same on every chain listed; older routers V1 0x41FAD93F225b5C1C95f2445A5d7fcB85bA46713f, V2 0x0000000001e4ef00d069e71d6ba041b0a16f7ea0 and V3 0x00000000005BBB0EF59571E58418F9a4357b68A0 still work but should not be used. Market factory: V6 is the current one (late 2025); earlier markets were created by marketFactory/V3/V4/V5 (addresses in the same file). The limit-order router is 0x000000000000c9B3E2C3Ec88B1B4c0cD853f4321 on Ethereum (field limitRouter). vePENDLE 0x4f30A9D41B80ecC5B94306AB4364951AE3170210 is listed under 'deprecated' in 1-core.json and was replaced by sPENDLE, so it is not included. Chains: the docs Deployments page lists Ethereum, Optimism, BNB, Sonic, HyperEVM, Mantle, Base, Arbitrum, Berachain, Monad, Katana and Ink; Katana (747474) and Ink (57073) files contain no router/market contracts (cross-chain PT infrastructure only), so they are left out. Plasma (9745), X Layer (196) and Robinhood Chain (4663) have full core files in the GitHub folder (and DefiLlama TVL) and are included. Unichain (130) and Tempo (4217) files have no RouterStatic/market factory and Avalanche (43114) has none of these, so they are left out. Market factories and RouterStatic are included only where listed above; for other chains the MarketFactoryV6 address is in that chain's file (key marketFactoryV6). For secondary chains PENDLE is the bridged token deployed by Pendle. Boros (Pendle's funding-rate trading venue on Arbitrum) is a separate product and not covered here. Bytecode was confirmed on every listed address via eth_getCode on 2026-11-25; router selectors were checked against the Ethereum facet bytecode.",
+  "sources": [
+    "https://defillama.com/protocol/pendle",
+    "https://api.llama.fi/protocol/pendle",
+    "https://docs.pendle.finance/llms.txt",
+    "https://docs.pendle.finance/llms-full.txt",
+    "https://docs.pendle.finance/pendle-v2-dev/Deployments",
+    "https://docs.pendle.finance/pendle-v2-dev/Backend/HostedSdk",
+    "https://docs.pendle.finance/pendle-v2-dev/Backend/ApiOverview",
+    "https://docs.pendle.finance/pendle-v2-dev/Backend/RouterStatic",
+    "https://docs.pendle.finance/pendle-v2-dev/Contracts/PendleRouter/PendleRouterOverview",
+    "https://docs.pendle.finance/pendle-v2-dev/Contracts/PendleRouter/ContractIntegrationGuide",
+    "https://docs.pendle.finance/pendle-v2-dev/Contracts/sPENDLE",
+    "https://docs.pendle.finance/pendle-v2/ProtocolMechanics/YieldTokenization/PT",
+    "https://docs.pendle.finance/pendle-v2/ProtocolMechanics/YieldTokenization/YT",
+    "https://docs.pendle.finance/pendle-v2/ProtocolMechanics/Mechanisms/Fees",
+    "https://github.com/pendle-finance/pendle-core-v2-public/tree/main/deployments",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/1-core.json",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/42161-core.json",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/8453-core.json",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/56-core.json",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/10-core.json",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/146-core.json",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/999-core.json",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/5000-core.json",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/80094-core.json",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/143-core.json",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/9745-core.json",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/196-core.json",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/4663-core.json",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/747474-core.json",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/57073-core.json",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/130-core.json",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/4217-core.json",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/interfaces/IPAllActionV3.sol",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/interfaces/IPAllActionTypeV3.sol",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/interfaces/IPRouterStatic.sol",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/interfaces/IPActionMarketCoreStatic.sol",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/interfaces/IPActionMarketAuxStatic.sol",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/interfaces/IPActionMintRedeemStatic.sol",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/interfaces/IPActionInfoStatic.sol",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/interfaces/IPMarket.sol",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/interfaces/IPLimitRouter.sol",
+    "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/router/swap-aggregator/IPSwapAggregator.sol",
+    "https://api-v2.pendle.finance/core/v2/markets/all",
+    "https://api-v2.pendle.finance/core/v3/sdk/1/convert",
+    "https://ethereum-rpc.publicnode.com",
+    "https://eth.drpc.org",
+    "https://arb1.arbitrum.io/rpc",
+    "https://mainnet.base.org",
+    "https://bsc-dataseed.binance.org",
+    "https://mainnet.optimism.io",
+    "https://rpc.soniclabs.com",
+    "https://rpc.hyperliquid.xyz/evm",
+    "https://rpc.mantle.xyz",
+    "https://rpc.berachain.com",
+    "https://rpc.monad.xyz",
+    "https://rpc.plasma.to",
+    "https://rpc.xlayer.tech",
+    "https://rpc.mainnet.chain.robinhood.com",
+    "https://chainid.network/chains_mini.json"
+  ],
+  "researchedAt": "2026-11-25"
+}
