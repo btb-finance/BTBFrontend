@@ -1,0 +1,652 @@
+{
+  "slug": "up",
+  "name": "up.",
+  "category": "Dexs",
+  "description": "Native ve(3,3) exchange on Robinhood Chain (chainId 4663): Velodrome-v2-style stable/volatile v2 pools plus Slipstream (Uniswap-v3-style, tickSpacing-keyed) concentrated-liquidity pools, with UP emissions, veUP locks and weekly gauge voting. Agents can quote and swap through the v2 Router or the v3 SwapRouter/QuoterV2, add/remove v2 liquidity, open and manage v3 position NFTs, lock UP into veUP and vote.",
+  "website": "https://up33.xyz",
+  "docs": "https://up33.xyz/docs",
+  "defillama": "https://defillama.com/protocol/up",
+  "chains": [
+    "robinhood"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "robinhood",
+      "chainId": 4663,
+      "address": "0xC062b870E813fcA720f1e002c234369Ab3aB9415",
+      "name": "v3 SwapRouter (Slipstream)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://up33.xyz/docs/security",
+      "keyFunctions": [
+        {
+          "signature": "exactInputSingle((address,address,int24,address,uint256,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Single-pool exact-input swap on a v3 (CL) pool. Tuple: (tokenIn, tokenOut, tickSpacing, recipient, deadline, amountIn, amountOutMinimum, sqrtPriceLimitX96). Pools are keyed by tickSpacing, not fee: enabled spacings are 1, 10, 50, 60, 100, 200, 2000 (read clFactory.tickSpacings()). sqrtPriceLimitX96 = 0 for no limit. Approve tokenIn to this router first. To pay in native ETH send msg.value with tokenIn = WETH 0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73. Returns amountOut."
+        },
+        {
+          "signature": "exactInput((bytes,address,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop exact-input swap. Tuple: (path, recipient, deadline, amountIn, amountOutMinimum). Path = tokenIn (20 bytes) + tickSpacing (int24, 3 bytes) + token (20 bytes) [+ tickSpacing + token ...]. Returns amountOut."
+        },
+        {
+          "signature": "exactOutputSingle((address,address,int24,address,uint256,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Single-pool exact-output swap. Tuple: (tokenIn, tokenOut, tickSpacing, recipient, deadline, amountOut, amountInMaximum, sqrtPriceLimitX96). Returns amountIn. When paying with native ETH, add refundETH() in the same multicall."
+        },
+        {
+          "signature": "exactOutput((bytes,address,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi-hop exact-output swap: (path in REVERSE order, recipient, deadline, amountOut, amountInMaximum). Returns amountIn."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch router calls, e.g. swap with recipient = router, then unwrapWETH9 to receive native ETH."
+        },
+        {
+          "signature": "unwrapWETH9(uint256,address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Unwrap the router's WETH balance to native ETH and send it to recipient. Args (amountMinimum, recipient). Use inside multicall after a swap whose recipient was the router."
+        },
+        {
+          "signature": "refundETH()",
+          "kind": "write",
+          "payable": true,
+          "description": "Return leftover native ETH held by the router to msg.sender (use after exact-output swaps paid in ETH)."
+        },
+        {
+          "signature": "factory()",
+          "kind": "read",
+          "payable": false,
+          "description": "CL factory this router uses (0x1ac9dB4a2608ba45D6127B1737949b51Bb54B7F3)."
+        }
+      ]
+    },
+    {
+      "chain": "robinhood",
+      "chainId": 4663,
+      "address": "0x03983AB2C057a2eac211ff01738a1e49ff325B49",
+      "name": "v3 QuoterV2 (Slipstream)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://up33.xyz/docs/security",
+      "keyFunctions": [
+        {
+          "signature": "quoteExactInputSingle((address,address,uint256,int24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote via eth_call (not a view function; it simulates and reverts internally). Tuple: (tokenIn, tokenOut, amountIn, tickSpacing, sqrtPriceLimitX96) - note amountIn comes before tickSpacing here. Returns (amountOut, sqrtPriceX96After, initializedTicksCrossed, gasEstimate)."
+        },
+        {
+          "signature": "quoteExactInput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Multi-hop quote via eth_call: (path, amountIn), same path encoding as SwapRouter.exactInput. Returns (amountOut, sqrtPriceX96AfterList[], initializedTicksCrossedList[], gasEstimate)."
+        },
+        {
+          "signature": "quoteExactOutputSingle((address,address,uint256,int24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Exact-output quote via eth_call. Tuple: (tokenIn, tokenOut, amount, tickSpacing, sqrtPriceLimitX96). Returns (amountIn, sqrtPriceX96After, initializedTicksCrossed, gasEstimate)."
+        },
+        {
+          "signature": "quoteExactOutput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Multi-hop exact-output quote via eth_call; path in reverse order."
+        }
+      ]
+    },
+    {
+      "chain": "robinhood",
+      "chainId": 4663,
+      "address": "0x07F44c47743A2f36414A82b9F558ECFCf0EEdCEf",
+      "name": "v3 NonfungiblePositionManager (Slipstream)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://up33.xyz/docs/security",
+      "keyFunctions": [
+        {
+          "signature": "mint((address,address,int24,int24,int24,uint256,uint256,uint256,uint256,address,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Open a concentrated-liquidity position NFT. Tuple: (token0, token1, tickSpacing, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline, sqrtPriceX96). token0 < token1 by address; ticks must be multiples of tickSpacing. sqrtPriceX96 = 0 for an existing pool (non-zero creates and initializes the pool if it does not exist). Approve both tokens to this contract first. Returns (tokenId, liquidity, amount0, amount1)."
+        },
+        {
+          "signature": "increaseLiquidity((uint256,uint256,uint256,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Add to a position: (tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline). Returns (liquidity, amount0, amount1)."
+        },
+        {
+          "signature": "decreaseLiquidity((uint256,uint128,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Remove liquidity: (tokenId, liquidity, amount0Min, amount1Min, deadline). Tokens are only credited to the position; call collect() to receive them. A position staked in a gauge must be withdrawn from the gauge first."
+        },
+        {
+          "signature": "collect((uint256,address,uint128,uint128))",
+          "kind": "write",
+          "payable": true,
+          "description": "Withdraw owed tokens and fees: (tokenId, recipient, amount0Max, amount1Max); use 2^128-1 for all. Returns (amount0, amount1)."
+        },
+        {
+          "signature": "burn(uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Burn an empty position NFT (liquidity and owed tokens must be 0)."
+        },
+        {
+          "signature": "positions(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position data: (nonce, operator, token0, token1, tickSpacing, tickLower, tickUpper, liquidity, feeGrowthInside0LastX128, feeGrowthInside1LastX128, tokensOwed0, tokensOwed1)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of position NFTs held (staked positions are held by the gauge, not the wallet)."
+        },
+        {
+          "signature": "tokenOfOwnerByIndex(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Enumerate an owner's position tokenIds."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a position NFT to a gauge before gauge.deposit(tokenId). Find the pool's gauge with Voter.gauges(pool)."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Batch calls (e.g. decreaseLiquidity + collect, or mint with native ETH + refundETH)."
+        }
+      ]
+    },
+    {
+      "chain": "robinhood",
+      "chainId": 4663,
+      "address": "0x1ac9dB4a2608ba45D6127B1737949b51Bb54B7F3",
+      "name": "v3 CLFactory (Slipstream)",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://up33.xyz/docs/security",
+      "keyFunctions": [
+        {
+          "signature": "getPool(address,address,int24)",
+          "kind": "read",
+          "payable": false,
+          "description": "CL pool for (tokenA, tokenB, tickSpacing), either token order; zero address if none."
+        },
+        {
+          "signature": "tickSpacings()",
+          "kind": "read",
+          "payable": false,
+          "description": "Enabled tick spacings. At research time: 1, 10, 50, 60, 100, 200, 2000."
+        },
+        {
+          "signature": "tickSpacingToFee(int24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Default fee in pips for a tick spacing (1e6 = 100%). At research time: 1->100 (0.01%), 10/50/100->500 (0.05%), 60/200->3000 (0.3%), 2000->10000 (1%)."
+        },
+        {
+          "signature": "getSwapFee(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current swap fee (pips) for a pool; may differ from the default because a dynamic-fee module can set it."
+        },
+        {
+          "signature": "getUnstakedFee(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Extra fee taken from unstaked liquidity's fees for a pool (pips)."
+        },
+        {
+          "signature": "allPoolsLength()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of CL pools."
+        },
+        {
+          "signature": "isPool(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether an address is a pool from this factory."
+        },
+        {
+          "signature": "createPool(address,address,int24,uint160)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create a CL pool: (tokenA, tokenB, tickSpacing, sqrtPriceX96). tickSpacing must be enabled. Usually done via NonfungiblePositionManager.mint with non-zero sqrtPriceX96 instead."
+        }
+      ]
+    },
+    {
+      "chain": "robinhood",
+      "chainId": 4663,
+      "address": "0xf5198743240fAC98db71868F34c70139b1eb0474",
+      "name": "v2 Router",
+      "role": "router",
+      "proxy": false,
+      "source": "https://up33.xyz/docs/security",
+      "keyFunctions": [
+        {
+          "signature": "getAmountsOut(uint256,(address,address,bool,address)[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a v2 route. Args (amountIn, routes); each Route = (from, to, stable, factory), factory = v2 PoolFactory 0xFA5429AEBa338BEa2BFcc1b9a889862Ee395bc28. Returns amounts[] (last = output)."
+        },
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,(address,address,bool,address)[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap on v2 pools: (amountIn, amountOutMin, routes, to, deadline). Approve the first token to the router first. Returns amounts[]."
+        },
+        {
+          "signature": "swapExactETHForTokens(uint256,(address,address,bool,address)[],address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap native ETH (msg.value) for tokens: (amountOutMin, routes, to, deadline). routes[0].from must be WETH 0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73."
+        },
+        {
+          "signature": "swapExactTokensForETH(uint256,uint256,(address,address,bool,address)[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap tokens for native ETH: (amountIn, amountOutMin, routes, to, deadline). Last route's `to` must be WETH."
+        },
+        {
+          "signature": "swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256,uint256,(address,address,bool,address)[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as swapExactTokensForTokens for fee-on-transfer tokens; returns nothing."
+        },
+        {
+          "signature": "quoteAddLiquidity(address,address,bool,address,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview addLiquidity: (tokenA, tokenB, stable, factory, amountADesired, amountBDesired) -> (amountA, amountB, liquidity)."
+        },
+        {
+          "signature": "addLiquidity(address,address,bool,uint256,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add v2 liquidity: (tokenA, tokenB, stable, amountADesired, amountBDesired, amountAMin, amountBMin, to, deadline). Creates the pool if it does not exist. Approve both tokens first. Returns (amountA, amountB, liquidity). LP tokens can then be staked in the pool's gauge (Voter.gauges(pool))."
+        },
+        {
+          "signature": "addLiquidityETH(address,bool,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Add token + native ETH liquidity: (token, stable, amountTokenDesired, amountTokenMin, amountETHMin, to, deadline) with ETH as msg.value."
+        },
+        {
+          "signature": "quoteRemoveLiquidity(address,address,bool,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview removeLiquidity: (tokenA, tokenB, stable, factory, liquidity) -> (amountA, amountB)."
+        },
+        {
+          "signature": "removeLiquidity(address,address,bool,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Remove v2 liquidity: (tokenA, tokenB, stable, liquidity, amountAMin, amountBMin, to, deadline). Approve the pool's LP token to the router first."
+        },
+        {
+          "signature": "removeLiquidityETH(address,bool,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Remove token/WETH liquidity and receive native ETH: (token, stable, liquidity, amountTokenMin, amountETHMin, to, deadline)."
+        },
+        {
+          "signature": "poolFor(address,address,bool,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Deterministic v2 pool address for (tokenA, tokenB, stable, factory); the pool may not be deployed yet (check PoolFactory.getPool)."
+        }
+      ]
+    },
+    {
+      "chain": "robinhood",
+      "chainId": 4663,
+      "address": "0xFA5429AEBa338BEa2BFcc1b9a889862Ee395bc28",
+      "name": "v2 PoolFactory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://up33.xyz/docs/security",
+      "keyFunctions": [
+        {
+          "signature": "getPool(address,address,bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "v2 pool for (tokenA, tokenB, stable); zero address if none. stable = true is the correlated-asset curve (x3y+y3x), false is constant product."
+        },
+        {
+          "signature": "getFee(address,bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee for a pool in basis points: (pool, stable). Defaults at research time: stable 5 (0.05%), volatile 30 (0.3%); custom per-pool fees possible."
+        },
+        {
+          "signature": "allPoolsLength()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of v2 pools."
+        },
+        {
+          "signature": "allPools(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address by index."
+        },
+        {
+          "signature": "isPool(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether an address is a v2 pool from this factory."
+        }
+      ]
+    },
+    {
+      "chain": "robinhood",
+      "chainId": 4663,
+      "address": "0x57C0E45cB534413D1C20A4240955d6bB250BB4F1",
+      "name": "UP token",
+      "role": "token",
+      "proxy": false,
+      "source": "https://up33.xyz/docs/security",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "UP balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve UP, e.g. to the VotingEscrow before createLock, or to a router before swapping."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 transfer."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total UP supply; grows weekly through Minter emissions."
+        }
+      ]
+    },
+    {
+      "chain": "robinhood",
+      "chainId": 4663,
+      "address": "0x5d321dE36F0bf98D92b291280514F3878582B7B6",
+      "name": "VotingEscrow (veUP)",
+      "role": "governance",
+      "proxy": false,
+      "source": "https://up33.xyz/docs/security",
+      "keyFunctions": [
+        {
+          "signature": "createLock(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Lock UP for a veUP NFT: (amount in wei, lockDuration in seconds; max 4 years = 126144000, rounded down to whole weeks). Approve UP to this contract first. Returns tokenId. Locked UP cannot be withdrawn before expiry."
+        },
+        {
+          "signature": "createLockFor(uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as createLock but mints the veUP NFT to another address: (amount, lockDuration, to)."
+        },
+        {
+          "signature": "increaseAmount(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add UP to an existing lock: (tokenId, amount)."
+        },
+        {
+          "signature": "increaseUnlockTime(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Extend a lock: (tokenId, newLockDuration in seconds from now, max 4 years)."
+        },
+        {
+          "signature": "withdraw(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw UP from an expired, non-permanent lock. Reset votes first (Voter.reset) if the NFT has voted."
+        },
+        {
+          "signature": "merge(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Merge lock `from` into lock `to`: (from, to)."
+        },
+        {
+          "signature": "lockPermanent(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Make a lock permanent (max voting power, no decay, cannot withdraw until unlockPermanent)."
+        },
+        {
+          "signature": "unlockPermanent(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Turn a permanent lock back into a 4-year decaying lock."
+        },
+        {
+          "signature": "balanceOfNFT(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current voting power of a veUP NFT (18 decimals)."
+        },
+        {
+          "signature": "locked(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Lock info: (amount int128, end timestamp, isPermanent)."
+        },
+        {
+          "signature": "voted(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether the NFT currently has votes cast."
+        }
+      ]
+    },
+    {
+      "chain": "robinhood",
+      "chainId": 4663,
+      "address": "0x7F749fDD351C1Ceed82d76d7699CB631Eb8332a7",
+      "name": "Voter",
+      "role": "governance",
+      "proxy": false,
+      "source": "https://up33.xyz/docs/security",
+      "keyFunctions": [
+        {
+          "signature": "vote(uint256,address[],uint256[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Vote a veUP NFT's weight across pools: (tokenId, pools[], relative weights[]). Once per 7-day epoch (reverts if already voted this epoch, or in the first hour after the epoch flip). Votes persist across epochs."
+        },
+        {
+          "signature": "reset(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Clear a veUP NFT's votes (needed before withdrawing or merging a voted lock). Same epoch restriction as vote."
+        },
+        {
+          "signature": "poke(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Re-apply existing votes with the NFT's current (decayed) voting power. Permissionless."
+        },
+        {
+          "signature": "claimBribes(address[],address[][],uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim voting incentives: (bribe reward contracts[], tokens[][] per contract, tokenId). Bribe contract per gauge = gaugeToBribe(gauge)."
+        },
+        {
+          "signature": "claimFees(address[],address[][],uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim trading-fee rewards for voters: (fee reward contracts[], tokens[][], tokenId). Fee contract per gauge = gaugeToFees(gauge)."
+        },
+        {
+          "signature": "claimRewards(address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim UP emissions from several gauges at once for msg.sender (v2 gauges; for CL gauges it claims every position msg.sender has staked in that gauge). A single CL position can also be claimed with gauge.getReward(tokenId)."
+        },
+        {
+          "signature": "gauges(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Gauge address for a pool (zero if none). v2 gauges take LP tokens via deposit(uint256); CL gauges take position NFTs via deposit(tokenId) after NonfungiblePositionManager.approve(gauge, tokenId)."
+        },
+        {
+          "signature": "isAlive(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Whether a gauge is active (killed gauges stop receiving emissions)."
+        },
+        {
+          "signature": "gaugeToFees(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee reward contract for a gauge."
+        },
+        {
+          "signature": "gaugeToBribe(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Incentive (bribe) reward contract for a gauge."
+        },
+        {
+          "signature": "weights(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current vote weight on a pool; divide by totalWeight() for its share of emissions."
+        },
+        {
+          "signature": "length()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of pools with gauges (enumerate with pools(uint256))."
+        }
+      ]
+    },
+    {
+      "chain": "robinhood",
+      "chainId": 4663,
+      "address": "0x912EC7A90e8C9829eE0e0f6a4Db5270776Fc3Da5",
+      "name": "Minter",
+      "role": "other",
+      "proxy": false,
+      "source": "https://up33.xyz/docs/security",
+      "keyFunctions": [
+        {
+          "signature": "updatePeriod()",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless: mint the new epoch's UP emissions once a week has passed. Returns the active period."
+        },
+        {
+          "signature": "activePeriod()",
+          "kind": "read",
+          "payable": false,
+          "description": "Start timestamp of the current emission epoch."
+        },
+        {
+          "signature": "weekly()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current weekly emission amount (UP, 18 decimals)."
+        },
+        {
+          "signature": "epochCount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of epochs minted so far."
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quote a v3 swap",
+      "description": "Price a swap through a concentrated-liquidity pool.",
+      "how": "eth_call QuoterV2.quoteExactInputSingle((tokenIn, tokenOut, amountIn, tickSpacing, 0)). Find which tickSpacing has a pool with CLFactory.getPool(tokenA, tokenB, tickSpacing) for each value in CLFactory.tickSpacings()."
+    },
+    {
+      "name": "swap (v3)",
+      "description": "Swap through a CL pool.",
+      "how": "approve tokenIn to SwapRouter 0xC062b870E813fcA720f1e002c234369Ab3aB9415, then SwapRouter.exactInputSingle((tokenIn, tokenOut, tickSpacing, recipient, deadline, amountIn, amountOutMinimum, 0)). Set amountOutMinimum from the quote minus slippage; Robinhood Chain pools can be thin."
+    },
+    {
+      "name": "swap (v2)",
+      "description": "Swap through stable/volatile v2 pools.",
+      "how": "Router.getAmountsOut(amountIn, [(from, to, stable, 0xFA5429AEBa338BEa2BFcc1b9a889862Ee395bc28)]) to quote, approve tokenIn to Router 0xf5198743240fAC98db71868F34c70139b1eb0474, then Router.swapExactTokensForTokens(amountIn, amountOutMin, routes, to, deadline)."
+    },
+    {
+      "name": "add v2 liquidity",
+      "description": "Provide liquidity to a v2 pool.",
+      "how": "Router.quoteAddLiquidity(...) to size, approve both tokens to the Router, then Router.addLiquidity(tokenA, tokenB, stable, amountADesired, amountBDesired, amountAMin, amountBMin, to, deadline). Optionally stake the LP token in Voter.gauges(pool) via gauge.deposit(amount) to earn UP instead of fees."
+    },
+    {
+      "name": "open a v3 position",
+      "description": "Provide concentrated liquidity.",
+      "how": "approve token0 and token1 to NonfungiblePositionManager 0x07F44c47743A2f36414A82b9F558ECFCf0EEdCEf, then mint((token0, token1, tickSpacing, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline, 0)). To farm UP: NonfungiblePositionManager.approve(gauge, tokenId) then gauge.deposit(tokenId) where gauge = Voter.gauges(pool); claim with gauge.getReward(tokenId), exit with gauge.withdraw(tokenId)."
+    },
+    {
+      "name": "remove a v3 position",
+      "description": "Withdraw liquidity and fees.",
+      "how": "If staked, gauge.withdraw(tokenId) first. Then NonfungiblePositionManager.multicall([decreaseLiquidity((tokenId, liquidity, amount0Min, amount1Min, deadline)), collect((tokenId, recipient, 2^128-1, 2^128-1))])."
+    },
+    {
+      "name": "lock and vote",
+      "description": "Lock UP for veUP and direct emissions.",
+      "how": "approve UP to VotingEscrow 0x5d321dE36F0bf98D92b291280514F3878582B7B6, createLock(amount, duration<=126144000), then Voter.vote(tokenId, pools[], weights[]) once per epoch; after the epoch flips claim with Voter.claimFees / claimBribes."
+    }
+  ],
+  "risks": [
+    "Forked code: the ve(3,3) core descends from Velodrome v2 and the CL engine from Slipstream (Uniswap v3 design), per the official security page. The public GitHub repos are described by the team as a sanitized source snapshot that is not guaranteed to match deployed bytecode byte-for-byte.",
+    "One audit listed by the team: Shieldify, July 2026 (up-contracts and up-slipstream), 0 critical, 0 high, 3 medium, 3 low, 4 informational findings; per the team's table all mediums and lows were acknowledged rather than fixed (e.g. permissionless poke() can zero a decayed lock's current-epoch rewards; gauge-cap enforcement can be bypassed via updateFor; fail-open uncapped emission release).",
+    "Governance-controlled modules: the CL factory owner is the protocol governance address 0x0eEA30aBa3f07abFA20E4b544F55e0f917d9DFd8 (read on-chain); fee modules (dynamic fees) and gauge emission caps are replaceable modules beside the core, so swap fees can change per pool.",
+    "veUP locks cannot be exited early (up to 4 years); the UP token is inflationary via weekly emissions.",
+    "Robinhood Chain is a new Arbitrum Orbit L2 and many pools are thin: use generous slippage checks (minimum-out) and quote right before swapping.",
+    "Staked LP positions earn UP emissions instead of swap fees; unstaked positions keep fees."
+  ],
+  "notes": "Addresses come from the 'Contract addresses' table on https://up33.xyz/docs/security, which the site generates from its own deployment configuration (the page is client-rendered; the same config is in the site's JS bundle). All 10 were confirmed on-chain on Robinhood Chain (4663): code present, SwapRouter/PositionManager/Quoter.factory() = CLFactory, Router.defaultFactory() = PoolFactory, VotingEscrow.token() = UP, Voter.ve() = VotingEscrow, UP.minter() = Minter; every listed function selector exists in the deployed bytecode. None use an EIP-1967 proxy. WETH on Robinhood Chain (listed by UP as canonical wrapped ETH) is 0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73. Left out: RewardsDistributor, compounder vault, emission deposit router, lockers, governance and airdrop contracts - they appear in the site's app config but not in the docs' canonical table, so they are not listed here. Individual gauges and reward contracts are per-pool: read them from Voter.gauges(pool), gaugeToFees(gauge), gaugeToBribe(gauge). Subgraphs (Goldsky) are used by the app but not documented as a public API, so none are listed.",
+  "sources": [
+    "https://up33.xyz/",
+    "https://up33.xyz/docs",
+    "https://up33.xyz/docs/security",
+    "https://github.com/up-exchange",
+    "https://github.com/up-exchange/up-contracts",
+    "https://github.com/up-exchange/up-slipstream",
+    "https://defillama.com/protocol/up",
+    "https://api.llama.fi/protocol/up",
+    "https://rpc.mainnet.chain.robinhood.com"
+  ],
+  "researchedAt": "2026-11-25"
+}

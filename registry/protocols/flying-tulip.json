@@ -1,0 +1,1254 @@
+{
+  "slug": "flying-tulip",
+  "name": "Flying Tulip",
+  "category": "Basis Trading",
+  "description": "Onchain financial system (ftUSD, lending, trading, Perpetual PUT). Live pieces an agent can use: the FT token (LayerZero OFT), the ftUSD stablecoin minted 1:1-ish against stablecoins through MintAndRedeem, staking ftUSD into sftUSD (FT rewards) or ssftUSD (auto-compounding, Ethereum only), and, on Ethereum, managing Perpetual PUT (ftPUT) positions from the capital allocation (exit at par or withdraw FT).",
+  "website": "https://flyingtulip.com",
+  "docs": "https://docs.flyingtulip.com",
+  "defillama": "https://defillama.com/protocol/flying-tulip",
+  "chains": [
+    "ethereum",
+    "sonic",
+    "bsc"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x5DD1A7A369e8273371d2DBf9d83356057088082c",
+      "name": "FT token",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.flyingtulip.com/product-suite/ft-token/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "FT balance (18 decimals)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "FT supply on this chain (18 decimals). FT is a LayerZero OFT: total supply is split across chains and shrinks with burns."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Standard ERC-20 transfer (amount in wei-style 18-decimal units). Reverts while the owner has paused the token (paused())."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Standard ERC-20 approval."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "true if the token owner has paused transfers (setPaused)."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero OFT fee quote for a cross-chain send. SendParam = (dstEid, to as bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd); second arg payInLzToken (false). Returns (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge FT to another chain via LayerZero OFT. Args: SendParam (see quoteSend), MessagingFee (nativeFee, lzTokenFee) from quoteSend, refundAddress. Send nativeFee as msg.value. Only send to chains where peers(dstEid) is set."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xF7D85EC4E7710f71992752eac2111312e73E9C9C",
+      "name": "ftUSD (Flying Tulip USD)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "ftUSD balance (6 decimals). ftUSD itself earns no yield; stake it in sftUSD/ssftUSD for yield."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "ftUSD supply on this chain (6 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 transfer (6 decimals). Reverts if paused or if sender/recipient is blacklisted."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 approval; approve MintAndRedeem before redeem, or the sftUSD/ssftUSD vault before staking."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 permit (owner, spender, value, deadline, v, r, s)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "true if the address is blacklisted (cannot transfer; the owner can wipe its balance with wipeBlacklistedAddress)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "true if the pauser has halted transfers."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xAa48EcBC843cF7E9A29155D112b8Cb27902bD23C",
+      "name": "MintAndRedeem (ftUSD mint/redeem engine)",
+      "role": "exchange",
+      "proxy": true,
+      "source": "https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json",
+      "keyFunctions": [
+        {
+          "signature": "previewMint(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote: ftUSD out (6 decimals, after mint fee) for collateralAmount of collateralToken (collateral's own decimals). E.g. 1 USDC (1000000) -> 999144 ftUSD on Ethereum at research time."
+        },
+        {
+          "signature": "previewRedeem(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote: collateral out (collateral decimals, after redeem fee) for ftUSDAmount (6 decimals) redeemed into collateralToken."
+        },
+        {
+          "signature": "previewMintExact(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral needed (collateral decimals) to mint exactly ftUSDAmount."
+        },
+        {
+          "signature": "previewRedeemExact(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "ftUSD needed to receive exactly collateralAmount of collateralToken."
+        },
+        {
+          "signature": "mint(address,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint ftUSD with collateral, sent to msg.sender. Args: collateralToken, collateralAmount (collateral decimals), txDeadline (unix seconds, 0 = none), minFtUSDOut (slippage floor, 6 decimals). Approve this contract for collateralAmount of the collateral first. Reverts if paused, collateral disabled, cap reached or output < minFtUSDOut. Returns ftUSDAmount."
+        },
+        {
+          "signature": "mintTo(address,address,uint256,bytes32,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as mint but to a recipient. Args: collateralToken, to, collateralAmount, ref (bytes32 tag, 0x0 if none), txDeadline, minFtUSDOut."
+        },
+        {
+          "signature": "redeem(address,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn ftUSD for collateral sent to msg.sender. Args: collateralToken, ftUSDAmount (6 decimals), txDeadline (0 = none), minCollateralOut. Approve this contract for ftUSDAmount of ftUSD first. Returns (collateralAmount, queueId): queueId 0 = paid now; non-zero = queued in CircuitBreakerV2 (about 6 h, then executeQueued(queueId)). Blocked while paused."
+        },
+        {
+          "signature": "redeemTo(address,address,uint256,bytes32,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem to a recipient. Args: collateralToken, to, ftUSDAmount, ref, txDeadline, minCollateralOut. Returns (collateralAmount, queueId)."
+        },
+        {
+          "signature": "collateralCount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of configured collaterals; list them with collateralAt(uint256) (returns token address)."
+        },
+        {
+          "signature": "collateralInfo(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Per-collateral config: (yieldWrapper, decimals, enabled, mintFeeBps, redeemFeeBps, maxValueFtUSD cap, mintPriceHardcapWad, totalIn, totalOut, totalFtUSDBurned, totalFtUSDMinted). Check enabled before minting."
+        },
+        {
+          "signature": "accountedCollateralTvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral TVL in ftUSD units (6 decimals); with minTVLForMint() gives the tvl argument for CircuitBreakerV2 views: tvl = max(accountedCollateralTvl, minTVLForMint)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "true if mint and redeem are paused."
+        },
+        {
+          "signature": "collateralAt(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral token at index. Enabled at research time on ethereum: USDC, USDT, USDe, crvUSD, USDG."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xeb48218a4c35C814C7678cBcae88C6Ee037F7625",
+      "name": "sftUSD (staked ftUSD, EpochRewardsVault)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake ftUSD (6 decimals) and mint sftUSD 1:1 to receiver. Approve this vault for the ftUSD first. Reverts while paused. Returns shares."
+        },
+        {
+          "signature": "previewClaimable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "FT (18 decimals) claimable by a user from settled epochs (the open epoch is excluded)."
+        },
+        {
+          "signature": "claim(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send the caller's settled FT rewards to `to`. Returns FT paid (may be less than accrued if the vault is short of FT)."
+        },
+        {
+          "signature": "withdrawWithQueueId(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake: burn sftUSD for `assets` ftUSD (args: assets, receiver, owner). Returns (shares, queueId); queueId 0 = ftUSD sent now, non-zero = queued in CircuitBreakerV2 for about 6 h. Works even when paused."
+        },
+        {
+          "signature": "redeemWithQueueId(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake by share amount (shares, receiver, owner). Returns (assets, queueId)."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626 withdraw (assets, receiver, owner); same as withdrawWithQueueId but without returning the queue id."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "sftUSD balance (6 decimals, 1 sftUSD = 1 ftUSD)."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Max ftUSD an owner can withdraw now."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total ftUSD staked (6 decimals)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "true if deposits are paused (withdrawals still allowed)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x232128844e5aF56fD4B3f8BF97e08aB477282Ab5",
+      "name": "ssftUSD (auto-compounding staked ftUSD, StableEpochRewardsVault)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake ftUSD (6 decimals) for ssftUSD shares (18 decimals) to receiver. Approve the vault for ftUSD first. Reverts while paused. Returns shares."
+        },
+        {
+          "signature": "previewDeposit(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "ssftUSD shares (18 decimals) minted for an ftUSD amount."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "ftUSD (6 decimals) per share amount; pass 1e18 for the price of one ssftUSD. Rises as ftUSD rewards vest in."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares (shares, receiver, owner) for ftUSD. Returns assets. Payout goes through the yield wrapper and can be rate-limited by the circuit breaker."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact ftUSD amount (assets, receiver, owner). Returns shares burned."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Max ftUSD an owner can withdraw now."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "ssftUSD shares (18 decimals)."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total ftUSD backing the vault (6 decimals); excludes still-vesting rewards (getUnvestedAmount())."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "true if the vault is paused."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xbA49d0AC42f4fBA4e24A8677a22218a4dF75ebaA",
+      "name": "PutManager (Perpetual PUT / capital allocation)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json",
+      "keyFunctions": [
+        {
+          "signature": "divest(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit at par: return amount_ft (18 decimals) of FT from ftPUT position `id` and receive the original collateral pro rata (e.g. 10,000 FT -> 1,000 USDC). Caller must own the ftPUT NFT. Collateral is pulled from the yield wrapper, whose circuit breaker (CBv1) can make large exits revert until capacity refills."
+        },
+        {
+          "signature": "divestUnderlying(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as divest but the wrapper pays out via withdrawUnderlying (the strategy's underlying asset)."
+        },
+        {
+          "signature": "withdrawFT(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw `amount` FT from position `id` to your wallet, permanently invalidating the PUT on that part (backing collateral goes to buyback-and-burn). Requires transferable() = true and withdrawFTBlocked(id) = false. Irreversible."
+        },
+        {
+          "signature": "canDivest(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(id, ftAmount) -> (divestable, amount): whether that much can be exited at par right now (checks wrapper liquidity)."
+        },
+        {
+          "signature": "maxDivestable(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(id, ftAmount) -> (divestable, amount): largest FT amount up to ftAmount that can be exited now."
+        },
+        {
+          "signature": "withdrawFTBlocked(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "true if withdrawFT is blocked for a position."
+        },
+        {
+          "signature": "transferable()",
+          "kind": "read",
+          "payable": false,
+          "description": "true once FT withdrawals from PUTs are enabled (true on Ethereum at research time)."
+        },
+        {
+          "signature": "saleEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "true while the capital allocation sale accepts invest() (false at research time; invest also needs a whitelist Merkle proof)."
+        },
+        {
+          "signature": "collateralFromFT(uint256,uint256,uint8,uint64)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pure helper: collateral amount for (ftAmount, strike, tokenDecimals, ftPerUSD); read strike/ftPerUSD from ftPUT.puts(id)."
+        },
+        {
+          "signature": "getCollateral(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Accepted collateral by index (Ethereum: USDC, WETH, USDT, USDS, USDtb, USDe)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xa4215Daaf3745E14E96E169E0E7706c479Ce04F2",
+      "name": "ftPUT NFT (pFT, Perpetual PUT positions)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of ftPUT NFTs held."
+        },
+        {
+          "signature": "tokenOfOwnerByIndex(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Enumerate a holder's position ids."
+        },
+        {
+          "signature": "puts(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position data: (token collateral, amount collateral, ft, ft_bought, withdrawn, burned, strike (1e8 USD price), amountRemaining, ftPerUSD (1e8))."
+        },
+        {
+          "signature": "divestable(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "(ft, strike, token, ftPerUSD): FT still covered by the PUT and its exit terms."
+        },
+        {
+          "signature": "ownerOf(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Owner of a position; only the owner can divest/withdrawFT."
+        },
+        {
+          "signature": "safeTransferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer a position (PUT right included); positions can also be sold on the ftPUT Marketplace."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xCB210509F5AE2b3843B7Fb8Bb90bAFF9cE4f7355",
+      "name": "CircuitBreakerV2 (ftUSD outflow rate limiter)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json",
+      "keyFunctions": [
+        {
+          "signature": "checkOutflow(address,address,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pre-check a withdrawal: (contract, asset, amount, tvl) -> (wouldBeImmediate, availableCapacity). contract = the protected contract (MintAndRedeem or the yield wrapper), asset = limiter asset, tvl from that contract (MintAndRedeem: max(accountedCollateralTvl, minTVLForMint)). Always use these 3/4-arg forms (scoped limiters)."
+        },
+        {
+          "signature": "withdrawalCapacity(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Max amount that would leave instantly: (contract, asset, tvl)."
+        },
+        {
+          "signature": "getQueuedByRecipient(address,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "List a user's queued outflows: (recipient, offset, limit) -> QueuedOutflow[]."
+        },
+        {
+          "signature": "isSettled(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "true once a queued outflow can be executed."
+        },
+        {
+          "signature": "timeUntilSettled(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Seconds until a queue entry is claimable (0 if ready)."
+        },
+        {
+          "signature": "executeQueued(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Release a settled queued outflow to its recipient. Permissionless: anyone can call after the delay. Reverts if not yet settled, paused, or invalidated by an emergency recovery."
+        },
+        {
+          "signature": "executeQueuedBatch(uint256[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Execute several settled queue entries in one transaction."
+        },
+        {
+          "signature": "settlementDelay()",
+          "kind": "read",
+          "payable": false,
+          "description": "Queue delay in seconds (21600 = 6 h on all three chains at research time; configurable 5 min to 7 days)."
+        }
+      ]
+    },
+    {
+      "chain": "sonic",
+      "chainId": 146,
+      "address": "0x5DD1A7A369e8273371d2DBf9d83356057088082c",
+      "name": "FT token",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.flyingtulip.com/product-suite/ft-token/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "FT balance (18 decimals)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "FT supply on this chain (18 decimals). FT is a LayerZero OFT: total supply is split across chains and shrinks with burns."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Standard ERC-20 transfer (amount in wei-style 18-decimal units). Reverts while the owner has paused the token (paused())."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Standard ERC-20 approval."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "true if the token owner has paused transfers (setPaused)."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero OFT fee quote for a cross-chain send. SendParam = (dstEid, to as bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd); second arg payInLzToken (false). Returns (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge FT to another chain via LayerZero OFT. Args: SendParam (see quoteSend), MessagingFee (nativeFee, lzTokenFee) from quoteSend, refundAddress. Send nativeFee as msg.value. Only send to chains where peers(dstEid) is set."
+        }
+      ]
+    },
+    {
+      "chain": "sonic",
+      "chainId": 146,
+      "address": "0xF7D85EC4E7710f71992752eac2111312e73E9C9C",
+      "name": "ftUSD (Flying Tulip USD)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "ftUSD balance (6 decimals). ftUSD itself earns no yield; stake it in sftUSD/ssftUSD for yield."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "ftUSD supply on this chain (6 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 transfer (6 decimals). Reverts if paused or if sender/recipient is blacklisted."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 approval; approve MintAndRedeem before redeem, or the sftUSD/ssftUSD vault before staking."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 permit (owner, spender, value, deadline, v, r, s)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "true if the address is blacklisted (cannot transfer; the owner can wipe its balance with wipeBlacklistedAddress)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "true if the pauser has halted transfers."
+        }
+      ]
+    },
+    {
+      "chain": "sonic",
+      "chainId": 146,
+      "address": "0x0C6f8eC81c3eA5BFf06F6CD0791780f9f050eE31",
+      "name": "MintAndRedeem (ftUSD mint/redeem engine)",
+      "role": "exchange",
+      "proxy": true,
+      "source": "https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json",
+      "keyFunctions": [
+        {
+          "signature": "previewMint(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote: ftUSD out (6 decimals, after mint fee) for collateralAmount of collateralToken (collateral's own decimals). E.g. 1 USDC (1000000) -> 999144 ftUSD on Ethereum at research time."
+        },
+        {
+          "signature": "previewRedeem(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote: collateral out (collateral decimals, after redeem fee) for ftUSDAmount (6 decimals) redeemed into collateralToken."
+        },
+        {
+          "signature": "previewMintExact(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral needed (collateral decimals) to mint exactly ftUSDAmount."
+        },
+        {
+          "signature": "previewRedeemExact(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "ftUSD needed to receive exactly collateralAmount of collateralToken."
+        },
+        {
+          "signature": "mint(address,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint ftUSD with collateral, sent to msg.sender. Args: collateralToken, collateralAmount (collateral decimals), txDeadline (unix seconds, 0 = none), minFtUSDOut (slippage floor, 6 decimals). Approve this contract for collateralAmount of the collateral first. Reverts if paused, collateral disabled, cap reached or output < minFtUSDOut. Returns ftUSDAmount."
+        },
+        {
+          "signature": "mintTo(address,address,uint256,bytes32,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as mint but to a recipient. Args: collateralToken, to, collateralAmount, ref (bytes32 tag, 0x0 if none), txDeadline, minFtUSDOut."
+        },
+        {
+          "signature": "redeem(address,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn ftUSD for collateral sent to msg.sender. Args: collateralToken, ftUSDAmount (6 decimals), txDeadline (0 = none), minCollateralOut. Approve this contract for ftUSDAmount of ftUSD first. Returns (collateralAmount, queueId): queueId 0 = paid now; non-zero = queued in CircuitBreakerV2 (about 6 h, then executeQueued(queueId)). Blocked while paused."
+        },
+        {
+          "signature": "redeemTo(address,address,uint256,bytes32,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem to a recipient. Args: collateralToken, to, ftUSDAmount, ref, txDeadline, minCollateralOut. Returns (collateralAmount, queueId)."
+        },
+        {
+          "signature": "collateralCount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of configured collaterals; list them with collateralAt(uint256) (returns token address)."
+        },
+        {
+          "signature": "collateralInfo(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Per-collateral config: (yieldWrapper, decimals, enabled, mintFeeBps, redeemFeeBps, maxValueFtUSD cap, mintPriceHardcapWad, totalIn, totalOut, totalFtUSDBurned, totalFtUSDMinted). Check enabled before minting."
+        },
+        {
+          "signature": "accountedCollateralTvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral TVL in ftUSD units (6 decimals); with minTVLForMint() gives the tvl argument for CircuitBreakerV2 views: tvl = max(accountedCollateralTvl, minTVLForMint)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "true if mint and redeem are paused."
+        },
+        {
+          "signature": "collateralAt(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral token at index. Enabled at research time on sonic: USDC (0x29219dd400f2Bf60E5a23d13Be72B486D4038894) and USSD (0x000000000eCcFf26B795F73fb0A70d48da657fEf)."
+        }
+      ]
+    },
+    {
+      "chain": "sonic",
+      "chainId": 146,
+      "address": "0xD1E5A86f1005F6356Bd022C587dE0f430CD2aeb1",
+      "name": "sftUSD (staked ftUSD, EpochRewardsVault)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake ftUSD (6 decimals) and mint sftUSD 1:1 to receiver. Approve this vault for the ftUSD first. Reverts while paused. Returns shares."
+        },
+        {
+          "signature": "previewClaimable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "FT (18 decimals) claimable by a user from settled epochs (the open epoch is excluded)."
+        },
+        {
+          "signature": "claim(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send the caller's settled FT rewards to `to`. Returns FT paid (may be less than accrued if the vault is short of FT)."
+        },
+        {
+          "signature": "withdrawWithQueueId(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake: burn sftUSD for `assets` ftUSD (args: assets, receiver, owner). Returns (shares, queueId); queueId 0 = ftUSD sent now, non-zero = queued in CircuitBreakerV2 for about 6 h. Works even when paused."
+        },
+        {
+          "signature": "redeemWithQueueId(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake by share amount (shares, receiver, owner). Returns (assets, queueId)."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626 withdraw (assets, receiver, owner); same as withdrawWithQueueId but without returning the queue id."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "sftUSD balance (6 decimals, 1 sftUSD = 1 ftUSD)."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Max ftUSD an owner can withdraw now."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total ftUSD staked (6 decimals)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "true if deposits are paused (withdrawals still allowed)."
+        }
+      ]
+    },
+    {
+      "chain": "sonic",
+      "chainId": 146,
+      "address": "0xCB2C0168Bf3440f5f342eD685dFdFd06a4607Edc",
+      "name": "CircuitBreakerV2 (ftUSD outflow rate limiter)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json",
+      "keyFunctions": [
+        {
+          "signature": "checkOutflow(address,address,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pre-check a withdrawal: (contract, asset, amount, tvl) -> (wouldBeImmediate, availableCapacity). contract = the protected contract (MintAndRedeem or the yield wrapper), asset = limiter asset, tvl from that contract (MintAndRedeem: max(accountedCollateralTvl, minTVLForMint)). Always use these 3/4-arg forms (scoped limiters)."
+        },
+        {
+          "signature": "withdrawalCapacity(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Max amount that would leave instantly: (contract, asset, tvl)."
+        },
+        {
+          "signature": "getQueuedByRecipient(address,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "List a user's queued outflows: (recipient, offset, limit) -> QueuedOutflow[]."
+        },
+        {
+          "signature": "isSettled(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "true once a queued outflow can be executed."
+        },
+        {
+          "signature": "timeUntilSettled(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Seconds until a queue entry is claimable (0 if ready)."
+        },
+        {
+          "signature": "executeQueued(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Release a settled queued outflow to its recipient. Permissionless: anyone can call after the delay. Reverts if not yet settled, paused, or invalidated by an emergency recovery."
+        },
+        {
+          "signature": "executeQueuedBatch(uint256[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Execute several settled queue entries in one transaction."
+        },
+        {
+          "signature": "settlementDelay()",
+          "kind": "read",
+          "payable": false,
+          "description": "Queue delay in seconds (21600 = 6 h on all three chains at research time; configurable 5 min to 7 days)."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x5DD1A7A369e8273371d2DBf9d83356057088082c",
+      "name": "FT token",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.flyingtulip.com/product-suite/ft-token/",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "FT balance (18 decimals)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "FT supply on this chain (18 decimals). FT is a LayerZero OFT: total supply is split across chains and shrinks with burns."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Standard ERC-20 transfer (amount in wei-style 18-decimal units). Reverts while the owner has paused the token (paused())."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Standard ERC-20 approval."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "true if the token owner has paused transfers (setPaused)."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "LayerZero OFT fee quote for a cross-chain send. SendParam = (dstEid, to as bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd); second arg payInLzToken (false). Returns (nativeFee, lzTokenFee)."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge FT to another chain via LayerZero OFT. Args: SendParam (see quoteSend), MessagingFee (nativeFee, lzTokenFee) from quoteSend, refundAddress. Send nativeFee as msg.value. Only send to chains where peers(dstEid) is set."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xF7D85EC4E7710f71992752eac2111312e73E9C9C",
+      "name": "ftUSD (Flying Tulip USD)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "ftUSD balance (6 decimals). ftUSD itself earns no yield; stake it in sftUSD/ssftUSD for yield."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "ftUSD supply on this chain (6 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 transfer (6 decimals). Reverts if paused or if sender/recipient is blacklisted."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 approval; approve MintAndRedeem before redeem, or the sftUSD/ssftUSD vault before staking."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 permit (owner, spender, value, deadline, v, r, s)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "true if the address is blacklisted (cannot transfer; the owner can wipe its balance with wipeBlacklistedAddress)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "true if the pauser has halted transfers."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x7d73863178A3eCb9767F0BE1bf50F55305A52743",
+      "name": "MintAndRedeem (ftUSD mint/redeem engine)",
+      "role": "exchange",
+      "proxy": true,
+      "source": "https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json",
+      "keyFunctions": [
+        {
+          "signature": "previewMint(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote: ftUSD out (6 decimals, after mint fee) for collateralAmount of collateralToken (collateral's own decimals). E.g. 1 USDC (1000000) -> 999144 ftUSD on Ethereum at research time."
+        },
+        {
+          "signature": "previewRedeem(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote: collateral out (collateral decimals, after redeem fee) for ftUSDAmount (6 decimals) redeemed into collateralToken."
+        },
+        {
+          "signature": "previewMintExact(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral needed (collateral decimals) to mint exactly ftUSDAmount."
+        },
+        {
+          "signature": "previewRedeemExact(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "ftUSD needed to receive exactly collateralAmount of collateralToken."
+        },
+        {
+          "signature": "mint(address,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint ftUSD with collateral, sent to msg.sender. Args: collateralToken, collateralAmount (collateral decimals), txDeadline (unix seconds, 0 = none), minFtUSDOut (slippage floor, 6 decimals). Approve this contract for collateralAmount of the collateral first. Reverts if paused, collateral disabled, cap reached or output < minFtUSDOut. Returns ftUSDAmount."
+        },
+        {
+          "signature": "mintTo(address,address,uint256,bytes32,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as mint but to a recipient. Args: collateralToken, to, collateralAmount, ref (bytes32 tag, 0x0 if none), txDeadline, minFtUSDOut."
+        },
+        {
+          "signature": "redeem(address,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn ftUSD for collateral sent to msg.sender. Args: collateralToken, ftUSDAmount (6 decimals), txDeadline (0 = none), minCollateralOut. Approve this contract for ftUSDAmount of ftUSD first. Returns (collateralAmount, queueId): queueId 0 = paid now; non-zero = queued in CircuitBreakerV2 (about 6 h, then executeQueued(queueId)). Blocked while paused."
+        },
+        {
+          "signature": "redeemTo(address,address,uint256,bytes32,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem to a recipient. Args: collateralToken, to, ftUSDAmount, ref, txDeadline, minCollateralOut. Returns (collateralAmount, queueId)."
+        },
+        {
+          "signature": "collateralCount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of configured collaterals; list them with collateralAt(uint256) (returns token address)."
+        },
+        {
+          "signature": "collateralInfo(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Per-collateral config: (yieldWrapper, decimals, enabled, mintFeeBps, redeemFeeBps, maxValueFtUSD cap, mintPriceHardcapWad, totalIn, totalOut, totalFtUSDBurned, totalFtUSDMinted). Check enabled before minting."
+        },
+        {
+          "signature": "accountedCollateralTvl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral TVL in ftUSD units (6 decimals); with minTVLForMint() gives the tvl argument for CircuitBreakerV2 views: tvl = max(accountedCollateralTvl, minTVLForMint)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "true if mint and redeem are paused."
+        },
+        {
+          "signature": "collateralAt(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral token at index. Enabled at research time on bsc: USDC (0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d), USDT (0x55d398326f99059fF775485246999027B3197955), FDUSD (0xc5f0f7b66764F6ec8C8Dff7BA683102295E16409)."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xe1716796d6Bf37e4049bdb6e1150Cb713800FeEe",
+      "name": "sftUSD (staked ftUSD, EpochRewardsVault)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake ftUSD (6 decimals) and mint sftUSD 1:1 to receiver. Approve this vault for the ftUSD first. Reverts while paused. Returns shares."
+        },
+        {
+          "signature": "previewClaimable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "FT (18 decimals) claimable by a user from settled epochs (the open epoch is excluded)."
+        },
+        {
+          "signature": "claim(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send the caller's settled FT rewards to `to`. Returns FT paid (may be less than accrued if the vault is short of FT)."
+        },
+        {
+          "signature": "withdrawWithQueueId(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake: burn sftUSD for `assets` ftUSD (args: assets, receiver, owner). Returns (shares, queueId); queueId 0 = ftUSD sent now, non-zero = queued in CircuitBreakerV2 for about 6 h. Works even when paused."
+        },
+        {
+          "signature": "redeemWithQueueId(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unstake by share amount (shares, receiver, owner). Returns (assets, queueId)."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626 withdraw (assets, receiver, owner); same as withdrawWithQueueId but without returning the queue id."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "sftUSD balance (6 decimals, 1 sftUSD = 1 ftUSD)."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Max ftUSD an owner can withdraw now."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total ftUSD staked (6 decimals)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "true if deposits are paused (withdrawals still allowed)."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xCB2C0168Bf3440f5f342eD685dFdFd06a4607Edc",
+      "name": "CircuitBreakerV2 (ftUSD outflow rate limiter)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json",
+      "keyFunctions": [
+        {
+          "signature": "checkOutflow(address,address,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pre-check a withdrawal: (contract, asset, amount, tvl) -> (wouldBeImmediate, availableCapacity). contract = the protected contract (MintAndRedeem or the yield wrapper), asset = limiter asset, tvl from that contract (MintAndRedeem: max(accountedCollateralTvl, minTVLForMint)). Always use these 3/4-arg forms (scoped limiters)."
+        },
+        {
+          "signature": "withdrawalCapacity(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Max amount that would leave instantly: (contract, asset, tvl)."
+        },
+        {
+          "signature": "getQueuedByRecipient(address,uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "List a user's queued outflows: (recipient, offset, limit) -> QueuedOutflow[]."
+        },
+        {
+          "signature": "isSettled(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "true once a queued outflow can be executed."
+        },
+        {
+          "signature": "timeUntilSettled(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Seconds until a queue entry is claimable (0 if ready)."
+        },
+        {
+          "signature": "executeQueued(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Release a settled queued outflow to its recipient. Permissionless: anyone can call after the delay. Reverts if not yet settled, paused, or invalidated by an emergency recovery."
+        },
+        {
+          "signature": "executeQueuedBatch(uint256[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Execute several settled queue entries in one transaction."
+        },
+        {
+          "signature": "settlementDelay()",
+          "kind": "read",
+          "payable": false,
+          "description": "Queue delay in seconds (21600 = 6 h on all three chains at research time; configurable 5 min to 7 days)."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "mint ftUSD",
+      "description": "Turn a supported stablecoin into ftUSD.",
+      "how": "Pick an enabled collateral (MintAndRedeem.collateralAt / collateralInfo.enabled). q = previewMint(collateral, amount); approve MintAndRedeem for amount; MintAndRedeem.mint(collateral, amount, deadline, q * 0.995)."
+    },
+    {
+      "name": "redeem ftUSD",
+      "description": "Turn ftUSD back into a stablecoin.",
+      "how": "q = previewRedeem(collateral, ftUSDAmount); approve MintAndRedeem for ftUSD; MintAndRedeem.redeem(collateral, ftUSDAmount, deadline, q * 0.995). If the returned queueId != 0, wait for CircuitBreakerV2.isSettled(queueId) (~6 h) and call executeQueued(queueId)."
+    },
+    {
+      "name": "stake ftUSD for FT rewards (sftUSD)",
+      "description": "Earn FT on staked ftUSD.",
+      "how": "approve sftUSD vault for ftUSD; sftUSD.deposit(amount, you). Read previewClaimable(you) and claim(you) to collect FT. Exit with withdrawWithQueueId(amount, you, you)."
+    },
+    {
+      "name": "stake ftUSD auto-compounding (ssftUSD, Ethereum)",
+      "description": "Earn ftUSD-denominated yield that compounds into the share price.",
+      "how": "approve ssftUSD vault; ssftUSD.deposit(amount, you); exit with redeem(shares, you, you)."
+    },
+    {
+      "name": "exit a Perpetual PUT at par (Ethereum)",
+      "description": "Return FT from an ftPUT position for the original collateral.",
+      "how": "Find ids via ftPUT.tokenOfOwnerByIndex; check PutManager.maxDivestable(id, ftAmount); PutManager.divest(id, ftAmount)."
+    },
+    {
+      "name": "withdraw FT from a PUT (Ethereum)",
+      "description": "Take FT out of the PUT (gives up the par exit right on that amount).",
+      "how": "PutManager.withdrawFT(id, ftAmount) from the NFT owner. Irreversible."
+    },
+    {
+      "name": "track a queued withdrawal",
+      "description": "Large outflows above the circuit-breaker buffer are queued, not rejected.",
+      "how": "CircuitBreakerV2.getQueuedByRecipient(you, 0, 50); timeUntilSettled(id); executeQueued(id) once settled (anyone can call)."
+    }
+  ],
+  "risks": [
+    "ftUSD, MintAndRedeem, sftUSD, ssftUSD and CircuitBreakerV2 are upgradeable UUPS proxies owned directly (no timelock) by the Flying Tulip 3-of-5 Safe 0x1118e1c057211306a40A4d7006C040dbfE1370Cb, whose signers are all team members (docs/risks/multisigs); it can upgrade logic, change fees and caps, and pause mint/redeem and staking deposits. The FT token owner is the same Safe. PutManager (and its upgrades/pause) is controlled by the Timelock 0x3518DB98Cb1fcB19e0c430B3E7f7F74B2A354707 with a 3-day minimum delay (getMinDelay = 259200 s at research time).",
+    "ftUSD has a blacklister and pauser: blacklisted addresses cannot transfer and the owner can wipe (wipeBlacklistedAddress) their balance; the same wipe power exists on the sftUSD/ssftUSD vaults. The FT token owner can pause FT transfers (setPaused).",
+    "Circuit breakers rate-limit outflows: ftUSD redemptions and vault exits above the buffer (per the CBv2 guide: main buffer capped at maxDrawRate x TVL, 5% replenished over 24 h in the documented defaults, plus a decaying deposit buffer) are queued for ~6 hours (CBv2). PUT exits use CBv1, where an over-capacity exit reverts and must be retried later.",
+    "ftUSD is at launch a USDC/USDT/stablecoin-to-Aave/Spark wrapper (Stage 0 per docs), so it carries Aave/Spark and stablecoin depeg risk; mint/redeem use oracle-capped price factors and small fees (e.g. ~0.07% each way for USDC on Ethereum at research time). Redemptions are blocked while MintAndRedeem is paused.",
+    "Audit status per docs/risks/audits-and-responsible-disclosure: firms 'TBA' and bug bounty 'planned'; the CBv2 guide refers to a ChainSecurity audit (CS-FTMPR). No published audit reports found on the docs.",
+    "Only primary capital-allocation FT carries the PUT; FT bought on the market has no par exit. On Sonic and BSC the PutManager is deployed but holds no positions (ftPUT supply 0) and transferable() is false.",
+    "FT is a LayerZero OFT; bridging depends on LayerZero and the configured peers/DVNs."
+  ],
+  "notes": "All addresses come from Flying Tulip's official address book (https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json, linked from https://docs.flyingtulip.com/contract-addresses/); the FT address is also printed on the docs FT page. The address book lists proxy/implementation pairs under the same name; the entries here are the proxies (checked via the EIP-1967 slot), and every one was confirmed on-chain on 2026-11-25 (name/symbol/linked addresses read via public RPCs). Function signatures come from Sourcify-verified implementation sources (MintAndRedeem.sol, EpochRewardsVault.sol, StableEpochRewardsVault.sol, ftUSD.sol, PutManager.sol, pFT.sol, FT.sol, CircuitBreakerV2.sol). Decimals: FT 18, ftUSD 6, sftUSD 6, ssftUSD 18. ftUSD, MintAndRedeem collateral sets, sftUSD and CBv2 differ per chain (the ftUSD and FT addresses are the same on all three). FT and other contracts also exist on Base, Avalanche, Monad (143) and Arbitrum per the address book and docs, but DefiLlama tracks Ethereum, Sonic and BSC, so only those are listed. Left out on purpose: Flying Tulip Lend/Trade/leverage contracts (PositionsManager, LendingLens, MetaActions, RfqEngine, LeverageRfqEngine, wallet settlers, SwapAndDepositZap) because there is no official integration documentation and they are session/relayer-driven; yield wrappers and strategies (internal); Timelock/ACL/oracles; the ftPUT Marketplace; and the ftUSD/USDC CLMM pools (address not in the official address book). The Perpetual PUT invest() path is omitted from actions because the sale is closed (saleEnabled false) and requires whitelist proofs. No official public HTTP API is documented.",
+  "sources": [
+    "https://defillama.com/protocol/flying-tulip",
+    "https://api.llama.fi/protocol/flying-tulip",
+    "https://api.llama.fi/protocol/flying-tulip-ftusd",
+    "https://api.llama.fi/protocol/flying-tulip-lend",
+    "https://api.llama.fi/protocol/flying-tulip-yield",
+    "https://docs.flyingtulip.com/llms.txt",
+    "https://docs.flyingtulip.com/contract-addresses/",
+    "https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json",
+    "https://docs.flyingtulip.com/product-suite/ft-token/",
+    "https://docs.flyingtulip.com/product-suite/ft-usd/",
+    "https://docs.flyingtulip.com/capital-allocation/technical-appendix/",
+    "https://docs.flyingtulip.com/guides/circuit-breaker-v2/",
+    "https://docs.flyingtulip.com/risks/",
+    "https://docs.flyingtulip.com/risks/circuit-breaker/",
+    "https://docs.flyingtulip.com/risks/multisigs/",
+    "https://docs.flyingtulip.com/risks/audits-and-responsible-disclosure/",
+    "https://sourcify.dev/server/v2/contract/1/0x8852B132B72613a16f1E3960978a3d45c0A7c3C6",
+    "https://sourcify.dev/server/v2/contract/1/0xEa95e4636BaDc00881f8f73A0623B0fe8627B6da",
+    "https://sourcify.dev/server/v2/contract/1/0xD940d531b983557884B31fD915A1Df97bebe6e09",
+    "https://sourcify.dev/server/v2/contract/1/0xf47bb65Fb0886Be183dB541AfCE555345e3e1885",
+    "https://sourcify.dev/server/v2/contract/1/0x1e4e741e5f0f4f258def137e1968716eddae4bf5",
+    "https://sourcify.dev/server/v2/contract/1/0xc55253Ea84050700E1EfA8878D4A5053b6Bf7c5E",
+    "https://sourcify.dev/server/v2/contract/1/0x5DD1A7A369e8273371d2DBf9d83356057088082c",
+    "https://sourcify.dev/server/v2/contract/1/0x70312a3E8B94A8023B2e0aFe193B1939978cdE3d",
+    "https://ethereum-rpc.publicnode.com",
+    "https://rpc.soniclabs.com",
+    "https://bsc-rpc.publicnode.com"
+  ],
+  "researchedAt": "2026-11-25"
+}
