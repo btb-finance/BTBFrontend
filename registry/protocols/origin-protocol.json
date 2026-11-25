@@ -1,0 +1,1402 @@
+{
+  "slug": "origin-protocol",
+  "name": "Origin Protocol",
+  "category": "Liquid Staking",
+  "description": "Yield-bearing rebasing tokens backed 1:1 by a vault: OETH (ETH, Ethereum), OUSD (USDC, Ethereum) and Super OETH (superOETHb, Base), each with an ERC-4626 wrapper (wOETH, wOUSD, wsuperOETHb). Agents mint by depositing WETH/USDC (or ETH via the Zapper), redeem through a two-step withdrawal queue, wrap/unwrap, swap stETH<->WETH on the ARM, and stake OGN for xOGN.",
+  "website": "https://www.originprotocol.com",
+  "docs": "https://docs.originprotocol.com",
+  "defillama": "https://defillama.com/protocol/origin-protocol",
+  "chains": [
+    "ethereum",
+    "base",
+    "sonic",
+    "plume",
+    "arbitrum"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x856c4Efb76C1D1AE02e20CEB03A2A6a08b0b8dC3",
+      "name": "OETH (Origin Ether)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/registry/contracts/oeth-registry",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "OETH balance (18 decimals). For EOAs and opted-in contracts it grows with each rebase; contracts that have not called rebaseOptIn() keep a fixed balance."
+        },
+        {
+          "signature": "rebaseOptIn()",
+          "kind": "write",
+          "payable": false,
+          "description": "Called BY a smart contract / multisig holding OETH to start earning rebasing yield. Contracts are non-rebasing by default; EOAs rebase automatically. Cannot be called from a constructor."
+        },
+        {
+          "signature": "rebaseOptOut()",
+          "kind": "write",
+          "payable": false,
+          "description": "Stop receiving rebasing yield for msg.sender (balance then stays fixed)."
+        },
+        {
+          "signature": "rebaseState(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Rebase status enum: 0 NotSet (EOA earns, contract does not), 1 StdNonRebasing, 2 StdRebasing, 3 YieldDelegationSource, 4 YieldDelegationTarget."
+        },
+        {
+          "signature": "creditsBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (credits, creditsPerToken) for an account; internal accounting behind the rebasing balance."
+        },
+        {
+          "signature": "rebasingCreditsPerTokenHighres()",
+          "kind": "read",
+          "payable": false,
+          "description": "Global credits-per-token (1e27 precision); falls as yield is distributed."
+        },
+        {
+          "signature": "nonRebasingSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply held by non-rebasing accounts."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 transfer. Because of rebasing, a full-balance transfer can leave a 1-2 wei remainder."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 approve (e.g. approve the wrapped ERC-4626 token before deposit). Note: burning OETH via the OETH Vault needs no approval."
+        },
+        {
+          "signature": "vaultAddress()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the OETH Vault that mints/burns this token."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xDcEe70654261AF21C44c093C300eD3Bb97b78192",
+      "name": "wOETH (Wrapped OETH, ERC-4626)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/registry/contracts/oeth-registry",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626 wrap: deposit OETH (assets, 18 decimals; approve OETH to this contract first), mint wOETH shares to receiver. Returns shares."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626: mint an exact number of wOETH shares, pulling the needed OETH. Returns assets used."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626 unwrap: burn shares from owner, send OETH to receiver. Args (shares, receiver, owner). Returns assets."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626: withdraw an exact OETH amount, burning the needed shares. Args (assets, receiver, owner)."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "OETH value of a wOETH share amount (exchange rate; rises as yield accrues). Use this, not an AMM price, for valuation."
+        },
+        {
+          "signature": "convertToShares(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "wOETH shares for a OETH amount."
+        },
+        {
+          "signature": "previewDeposit(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares minted for a deposit of assets."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Assets returned for redeeming shares."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "OETH held by the wrapper."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "wOETH share balance (does not rebase)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x39254033945AA2E4809Cc2977E7087BEE48bd7Ab",
+      "name": "OETH Vault",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/registry/contracts/oeth-registry",
+      "keyFunctions": [
+        {
+          "signature": "mint(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit WETH (amount in WETH units, 18 decimals; approve WETH to the vault first) and mint OETH 1:1 (scaled to 18 decimals) to msg.sender. Reverts if capitalPaused()."
+        },
+        {
+          "signature": "mint(address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deprecated legacy form (asset, amount, minimumOut); first and last args are ignored and it behaves like mint(uint256). Prefer mint(uint256)."
+        },
+        {
+          "signature": "requestWithdrawal(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Step 1 of a redemption: burns OETH (18 decimals) from msg.sender and queues WETH 1:1. Returns (requestId, queued). The requestId is also in the WithdrawalRequested event."
+        },
+        {
+          "signature": "claimWithdrawal(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Step 2: claim a request by id; must be sent from the same address that requested. Reverts \"Claim delay not met\" before withdrawalClaimDelay (currently 600 s) and \"Queue pending liquidity\" until the vault has WETH for it. Returns WETH amount."
+        },
+        {
+          "signature": "claimWithdrawals(uint256[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim several requests at once; reverts if any one is not claimable. Returns (amounts[], totalAmount)."
+        },
+        {
+          "signature": "withdrawalRequests(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Request info: (withdrawer, claimed, timestamp, amount [OETH, 18 dec], queued [cumulative, WETH decimals]). Claimable when queued <= withdrawalQueueMetadata().claimable and the delay has passed."
+        },
+        {
+          "signature": "withdrawalQueueMetadata()",
+          "kind": "read",
+          "payable": false,
+          "description": "Queue totals in WETH decimals: (queued, claimable, claimed, nextWithdrawalIndex)."
+        },
+        {
+          "signature": "addWithdrawalQueueLiquidity()",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless: move idle vault assets into the withdrawal queue so pending requests become claimable."
+        },
+        {
+          "signature": "withdrawalClaimDelay()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum seconds between request and claim (600 at time of research)."
+        },
+        {
+          "signature": "totalValue()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value of vault assets incl. strategies (18 decimals)."
+        },
+        {
+          "signature": "capitalPaused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if mint/requestWithdrawal are paused."
+        },
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "The backing asset (WETH)."
+        },
+        {
+          "signature": "oToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "The OETH token address."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xDA0485c1E74A7ef690E99D8286C243942eDAa07B",
+      "name": "OETH Zapper",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.originprotocol.com/registry/contracts/oeth-registry",
+      "keyFunctions": [
+        {
+          "signature": "deposit()",
+          "kind": "write",
+          "payable": true,
+          "description": "Send native ETH as msg.value; wraps to WETH and mints OETH 1:1 to msg.sender. Returns OETH minted. Plain ETH transfers to the zapper do the same."
+        },
+        {
+          "signature": "depositETHForWrappedTokens(uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Send ETH as msg.value; mints OETH and wraps it into wOETH for msg.sender. Arg: minReceived (wOETH); reverts \"Zapper: not enough minted\" below it."
+        },
+        {
+          "signature": "depositWETHForWrappedTokens(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Args (wethAmount, minReceived): pulls WETH (approve first), mints OETH, wraps to wOETH for msg.sender."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x2A8e1E676Ec238d8A992307B495b45B3fEAa5e86",
+      "name": "OUSD (Origin Dollar)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/registry/contracts/ousd-registry",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "OUSD balance (18 decimals). For EOAs and opted-in contracts it grows with each rebase; contracts that have not called rebaseOptIn() keep a fixed balance."
+        },
+        {
+          "signature": "rebaseOptIn()",
+          "kind": "write",
+          "payable": false,
+          "description": "Called BY a smart contract / multisig holding OUSD to start earning rebasing yield. Contracts are non-rebasing by default; EOAs rebase automatically. Cannot be called from a constructor."
+        },
+        {
+          "signature": "rebaseOptOut()",
+          "kind": "write",
+          "payable": false,
+          "description": "Stop receiving rebasing yield for msg.sender (balance then stays fixed)."
+        },
+        {
+          "signature": "rebaseState(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Rebase status enum: 0 NotSet (EOA earns, contract does not), 1 StdNonRebasing, 2 StdRebasing, 3 YieldDelegationSource, 4 YieldDelegationTarget."
+        },
+        {
+          "signature": "creditsBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (credits, creditsPerToken) for an account; internal accounting behind the rebasing balance."
+        },
+        {
+          "signature": "rebasingCreditsPerTokenHighres()",
+          "kind": "read",
+          "payable": false,
+          "description": "Global credits-per-token (1e27 precision); falls as yield is distributed."
+        },
+        {
+          "signature": "nonRebasingSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply held by non-rebasing accounts."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 transfer. Because of rebasing, a full-balance transfer can leave a 1-2 wei remainder."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 approve (e.g. approve the wrapped ERC-4626 token before deposit). Note: burning OUSD via the OUSD Vault needs no approval."
+        },
+        {
+          "signature": "vaultAddress()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the OUSD Vault that mints/burns this token."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xD2af830E8CBdFed6CC11Bab697bB25496ed6FA62",
+      "name": "wOUSD (Wrapped OUSD, ERC-4626)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/registry/contracts/ousd-registry",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626 wrap: deposit OUSD (assets, 18 decimals; approve OUSD to this contract first), mint wOUSD shares to receiver. Returns shares."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626: mint an exact number of wOUSD shares, pulling the needed OUSD. Returns assets used."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626 unwrap: burn shares from owner, send OUSD to receiver. Args (shares, receiver, owner). Returns assets."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626: withdraw an exact OUSD amount, burning the needed shares. Args (assets, receiver, owner)."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "OUSD value of a wOUSD share amount (exchange rate; rises as yield accrues). Use this, not an AMM price, for valuation."
+        },
+        {
+          "signature": "convertToShares(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "wOUSD shares for a OUSD amount."
+        },
+        {
+          "signature": "previewDeposit(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares minted for a deposit of assets."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Assets returned for redeeming shares."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "OUSD held by the wrapper."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "wOUSD share balance (does not rebase)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xE75D77B1865Ae93c7eaa3040B038D7aA7BC02F70",
+      "name": "OUSD Vault",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/registry/contracts/ousd-registry",
+      "keyFunctions": [
+        {
+          "signature": "mint(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit USDC (amount in USDC units, 6 decimals; approve USDC to the vault first) and mint OUSD 1:1 (scaled to 18 decimals) to msg.sender. Reverts if capitalPaused()."
+        },
+        {
+          "signature": "mint(address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deprecated legacy form (asset, amount, minimumOut); first and last args are ignored and it behaves like mint(uint256). Prefer mint(uint256)."
+        },
+        {
+          "signature": "requestWithdrawal(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Step 1 of a redemption: burns OUSD (18 decimals) from msg.sender and queues USDC 1:1. Returns (requestId, queued). The requestId is also in the WithdrawalRequested event."
+        },
+        {
+          "signature": "claimWithdrawal(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Step 2: claim a request by id; must be sent from the same address that requested. Reverts \"Claim delay not met\" before withdrawalClaimDelay (currently 600 s) and \"Queue pending liquidity\" until the vault has USDC for it. Returns USDC amount."
+        },
+        {
+          "signature": "claimWithdrawals(uint256[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim several requests at once; reverts if any one is not claimable. Returns (amounts[], totalAmount)."
+        },
+        {
+          "signature": "withdrawalRequests(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Request info: (withdrawer, claimed, timestamp, amount [OUSD, 18 dec], queued [cumulative, USDC decimals]). Claimable when queued <= withdrawalQueueMetadata().claimable and the delay has passed."
+        },
+        {
+          "signature": "withdrawalQueueMetadata()",
+          "kind": "read",
+          "payable": false,
+          "description": "Queue totals in USDC decimals: (queued, claimable, claimed, nextWithdrawalIndex)."
+        },
+        {
+          "signature": "addWithdrawalQueueLiquidity()",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless: move idle vault assets into the withdrawal queue so pending requests become claimable."
+        },
+        {
+          "signature": "withdrawalClaimDelay()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum seconds between request and claim (600 at time of research)."
+        },
+        {
+          "signature": "totalValue()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value of vault assets incl. strategies (18 decimals)."
+        },
+        {
+          "signature": "capitalPaused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if mint/requestWithdrawal are paused."
+        },
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "The backing asset (USDC)."
+        },
+        {
+          "signature": "oToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "The OUSD token address."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x85B78AcA6Deae198fBF201c82DAF6Ca21942acc6",
+      "name": "stETH ARM (Lido ARM, ARM-WETH-stETH)",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/registry/contracts/arm-registry/lido-steth-weth",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokensForTokens(address,address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap at the ARM's posted price. Args (inToken, outToken, amountIn, amountOutMin, to). Tokens are WETH and stETH; approve inToken first. Returns uint256[] amounts (in, out)."
+        },
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Uniswap-V2-router-compatible form: (amountIn, amountOutMin, path[2], to, deadline)."
+        },
+        {
+          "signature": "swapTokensForExactTokens(address,address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Exact-output swap: (inToken, outToken, amountOut, amountInMax, to)."
+        },
+        {
+          "signature": "traderate0()",
+          "kind": "read",
+          "payable": false,
+          "description": "Price (scaled 1e36) used when selling token0 (WETH) for token1 (stETH); i.e. token1 out per token0 in = amount * traderate0 / 1e36."
+        },
+        {
+          "signature": "traderate1()",
+          "kind": "read",
+          "payable": false,
+          "description": "Price (scaled 1e36) used when selling token1 (stETH) for token0 (WETH); token0 out = amount * traderate1 / 1e36 (e.g. 0.9998e36 = 2 bp discount)."
+        },
+        {
+          "signature": "token0()",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidity asset (WETH)."
+        },
+        {
+          "signature": "token1()",
+          "kind": "read",
+          "payable": false,
+          "description": "Base asset (stETH)."
+        },
+        {
+          "signature": "deposit(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "LP: deposit WETH (approve first) for ARM LP shares. Subject to the optional CapManager limits; reverts \"ARM: insolvent\" if outstanding withdrawals cannot be met."
+        },
+        {
+          "signature": "requestRedeem(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "LP exit step 1: burn shares, returns (requestId, assets). Value is set at request time but can be reduced if NAV falls before claim."
+        },
+        {
+          "signature": "claimRedeem(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "LP exit step 2 (after claimDelay, currently 600 s, and once liquidity is available): returns WETH paid out. Reverts until claimable."
+        },
+        {
+          "signature": "claimDelay()",
+          "kind": "read",
+          "payable": false,
+          "description": "Seconds between requestRedeem and claimRedeem."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Canonical share -> asset value (use this, not AMM prices, to value ARM LP shares)."
+        },
+        {
+          "signature": "previewDeposit(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares for a deposit."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Assets for redeeming shares (estimate)."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total ARM assets in liquidity-asset terms."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x8207c1FfC5B6804F6024322CcF34F29c3541Ae26",
+      "name": "OGN (Origin Token)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.originprotocol.com/registry/contracts",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "OGN balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve OGN, e.g. to xOGN staking before stake()."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 transfer."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x63898b3b6Ef3d39332082178656E9862bee45C57",
+      "name": "xOGN (OGN Staking)",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/registry/contracts",
+      "keyFunctions": [
+        {
+          "signature": "stake(uint256,uint256,address,bool,int256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Lock OGN for xOGN voting points. Args (amountIn, durationSeconds, to, stakeRewards, lockupId); lockupId -1 creates a new lockup, otherwise extends/adds to an existing one. Approve OGN first. Duration must be >= minStakeDuration()."
+        },
+        {
+          "signature": "unstake(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw OGN from a lockup by id after (or, with a penalty per previewWithdraw, before) its end; also pays rewards."
+        },
+        {
+          "signature": "collectRewards()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued OGN staking rewards."
+        },
+        {
+          "signature": "previewPoints(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "xOGN points for (amount, duration); returns (points, end)."
+        },
+        {
+          "signature": "previewRewards(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pending OGN rewards for a user."
+        },
+        {
+          "signature": "previewWithdraw(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "OGN returned for unstaking (amount, end) now, incl. early-exit penalty."
+        },
+        {
+          "signature": "lockups(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Lockup info (amount, end, points) by user and index."
+        },
+        {
+          "signature": "lockupsCount(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of lockups for a user."
+        },
+        {
+          "signature": "delegate(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Delegate governance votes."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xDBFeFD2e8460a6Ee4955A68582F85708BAEA60A3",
+      "name": "superOETHb (Super OETH)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/registry/contracts/super-oeth-registry",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "superOETHb balance (18 decimals). For EOAs and opted-in contracts it grows with each rebase; contracts that have not called rebaseOptIn() keep a fixed balance."
+        },
+        {
+          "signature": "rebaseOptIn()",
+          "kind": "write",
+          "payable": false,
+          "description": "Called BY a smart contract / multisig holding superOETHb to start earning rebasing yield. Contracts are non-rebasing by default; EOAs rebase automatically. Cannot be called from a constructor."
+        },
+        {
+          "signature": "rebaseOptOut()",
+          "kind": "write",
+          "payable": false,
+          "description": "Stop receiving rebasing yield for msg.sender (balance then stays fixed)."
+        },
+        {
+          "signature": "rebaseState(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Rebase status enum: 0 NotSet (EOA earns, contract does not), 1 StdNonRebasing, 2 StdRebasing, 3 YieldDelegationSource, 4 YieldDelegationTarget."
+        },
+        {
+          "signature": "creditsBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (credits, creditsPerToken) for an account; internal accounting behind the rebasing balance."
+        },
+        {
+          "signature": "rebasingCreditsPerTokenHighres()",
+          "kind": "read",
+          "payable": false,
+          "description": "Global credits-per-token (1e27 precision); falls as yield is distributed."
+        },
+        {
+          "signature": "nonRebasingSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply held by non-rebasing accounts."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 transfer. Because of rebasing, a full-balance transfer can leave a 1-2 wei remainder."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 approve (e.g. approve the wrapped ERC-4626 token before deposit). Note: burning superOETHb via the Super OETH Vault needs no approval."
+        },
+        {
+          "signature": "vaultAddress()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the Super OETH Vault that mints/burns this token."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x7FcD174E80f264448ebeE8c88a7C4476AAF58Ea6",
+      "name": "wsuperOETHb (Wrapped Super OETH, ERC-4626)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/registry/contracts/super-oeth-registry",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626 wrap: deposit superOETHb (assets, 18 decimals; approve superOETHb to this contract first), mint wsuperOETHb shares to receiver. Returns shares."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626: mint an exact number of wsuperOETHb shares, pulling the needed superOETHb. Returns assets used."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626 unwrap: burn shares from owner, send superOETHb to receiver. Args (shares, receiver, owner). Returns assets."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626: withdraw an exact superOETHb amount, burning the needed shares. Args (assets, receiver, owner)."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "superOETHb value of a wsuperOETHb share amount (exchange rate; rises as yield accrues). Use this, not an AMM price, for valuation."
+        },
+        {
+          "signature": "convertToShares(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "wsuperOETHb shares for a superOETHb amount."
+        },
+        {
+          "signature": "previewDeposit(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares minted for a deposit of assets."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Assets returned for redeeming shares."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "superOETHb held by the wrapper."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "wsuperOETHb share balance (does not rebase)."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x98a0CbeF61bD2D21435f433bE4CD42B56B38CC93",
+      "name": "Super OETH Vault",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/registry/contracts/super-oeth-registry",
+      "keyFunctions": [
+        {
+          "signature": "mint(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit WETH (amount in WETH units, 18 decimals; approve WETH to the vault first) and mint superOETHb 1:1 (scaled to 18 decimals) to msg.sender. Reverts if capitalPaused()."
+        },
+        {
+          "signature": "mint(address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deprecated legacy form (asset, amount, minimumOut); first and last args are ignored and it behaves like mint(uint256). Prefer mint(uint256)."
+        },
+        {
+          "signature": "requestWithdrawal(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Step 1 of a redemption: burns superOETHb (18 decimals) from msg.sender and queues WETH 1:1. Returns (requestId, queued). The requestId is also in the WithdrawalRequested event."
+        },
+        {
+          "signature": "claimWithdrawal(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Step 2: claim a request by id; must be sent from the same address that requested. Reverts \"Claim delay not met\" before withdrawalClaimDelay (currently 600 s) and \"Queue pending liquidity\" until the vault has WETH for it. Returns WETH amount."
+        },
+        {
+          "signature": "claimWithdrawals(uint256[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim several requests at once; reverts if any one is not claimable. Returns (amounts[], totalAmount)."
+        },
+        {
+          "signature": "withdrawalRequests(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Request info: (withdrawer, claimed, timestamp, amount [superOETHb, 18 dec], queued [cumulative, WETH decimals]). Claimable when queued <= withdrawalQueueMetadata().claimable and the delay has passed."
+        },
+        {
+          "signature": "withdrawalQueueMetadata()",
+          "kind": "read",
+          "payable": false,
+          "description": "Queue totals in WETH decimals: (queued, claimable, claimed, nextWithdrawalIndex)."
+        },
+        {
+          "signature": "addWithdrawalQueueLiquidity()",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless: move idle vault assets into the withdrawal queue so pending requests become claimable."
+        },
+        {
+          "signature": "withdrawalClaimDelay()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum seconds between request and claim (600 at time of research)."
+        },
+        {
+          "signature": "totalValue()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value of vault assets incl. strategies (18 decimals)."
+        },
+        {
+          "signature": "capitalPaused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if mint/requestWithdrawal are paused."
+        },
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "The backing asset (WETH)."
+        },
+        {
+          "signature": "oToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "The superOETHb token address."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x3b56c09543D3068f8488ED34e6F383c3854d2bC1",
+      "name": "Super OETH Zapper",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.originprotocol.com/registry/contracts/super-oeth-registry",
+      "keyFunctions": [
+        {
+          "signature": "deposit()",
+          "kind": "write",
+          "payable": true,
+          "description": "Send native ETH as msg.value; wraps to WETH and mints superOETHb 1:1 to msg.sender. Returns superOETHb minted. Plain ETH transfers to the zapper do the same."
+        },
+        {
+          "signature": "depositETHForWrappedTokens(uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Send ETH as msg.value; mints superOETHb and wraps it into wsuperOETHb for msg.sender. Arg: minReceived (wsuperOETHb); reverts \"Zapper: not enough minted\" below it."
+        },
+        {
+          "signature": "depositWETHForWrappedTokens(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Args (wethAmount, minReceived): pulls WETH (approve first), mints superOETHb, wraps to wsuperOETHb for msg.sender."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xD8724322f44E5c58D7A815F542036fb17DbbF839",
+      "name": "wOETH (bridged)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/registry/contracts/oeth-registry",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged wOETH balance (18 decimals). Non-rebasing; value = wOETH.convertToAssets on Ethereum (or the Chainlink OETH/wOETH exchange-rate feed listed in the docs)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 approve."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged supply on Base."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x7002458B1DF59EccB57387bC79fFc7C29E22e6f7",
+      "name": "OGN (Base)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.originprotocol.com/registry/contracts",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "OGN balance on Base (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 transfer."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xD8724322f44E5c58D7A815F542036fb17DbbF839",
+      "name": "wOETH (bridged)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/registry/contracts/oeth-registry",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged wOETH balance (18 decimals). Non-rebasing."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 transfer."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 approve."
+        }
+      ]
+    },
+    {
+      "chain": "sonic",
+      "chainId": 146,
+      "address": "0xb1e25689D55734FD3ffFc939c4C3Eb52DFf8A794",
+      "name": "OS (Origin Sonic) - winding down",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/resources/guides/withdrawing-from-os-and-the-os-arm",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "OS balance (18 decimals). OS no longer earns yield (wind-down)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 approve."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-20 transfer."
+        }
+      ]
+    },
+    {
+      "chain": "sonic",
+      "chainId": 146,
+      "address": "0x9F0dF7799f6FDAd409300080cfF680f5A23df4b1",
+      "name": "wOS (Wrapped OS, ERC-4626) - winding down",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/resources/guides/withdrawing-from-os-and-the-os-arm",
+      "keyFunctions": [
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unwrap: (shares, receiver, owner) -> OS. Official exit step before withdrawing OS."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "wOS share balance."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "OS per wOS shares."
+        }
+      ]
+    },
+    {
+      "chain": "sonic",
+      "chainId": 146,
+      "address": "0xa3c0eCA00D2B76b4d1F170b0AB3FdeA16C180186",
+      "name": "OS Vault - winding down",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/resources/guides/withdrawing-from-os-and-the-os-arm",
+      "keyFunctions": [
+        {
+          "signature": "requestWithdrawal(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Step 1 of a redemption: burns OS (18 decimals) from msg.sender and queues wS 1:1. Returns (requestId, queued). The requestId is also in the WithdrawalRequested event."
+        },
+        {
+          "signature": "claimWithdrawal(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Step 2: claim a request by id; must be sent from the same address that requested. Reverts \"Claim delay not met\" before withdrawalClaimDelay (currently 600 s) and \"Queue pending liquidity\" until the vault has wS for it. Returns wS amount."
+        },
+        {
+          "signature": "claimWithdrawals(uint256[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim several requests at once; reverts if any one is not claimable. Returns (amounts[], totalAmount)."
+        },
+        {
+          "signature": "withdrawalRequests(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Request info: (withdrawer, claimed, timestamp, amount [OS, 18 dec], queued [cumulative, wS decimals]). Claimable when queued <= withdrawalQueueMetadata().claimable and the delay has passed."
+        },
+        {
+          "signature": "withdrawalQueueMetadata()",
+          "kind": "read",
+          "payable": false,
+          "description": "Queue totals in wS decimals: (queued, claimable, claimed, nextWithdrawalIndex)."
+        },
+        {
+          "signature": "addWithdrawalQueueLiquidity()",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless: move idle vault assets into the withdrawal queue so pending requests become claimable."
+        },
+        {
+          "signature": "withdrawalClaimDelay()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum seconds between request and claim (600 at time of research)."
+        },
+        {
+          "signature": "totalValue()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total value of vault assets incl. strategies (18 decimals)."
+        },
+        {
+          "signature": "capitalPaused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if mint/requestWithdrawal are paused."
+        },
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "The backing asset (wS)."
+        },
+        {
+          "signature": "oToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "The OS token address."
+        }
+      ]
+    },
+    {
+      "chain": "sonic",
+      "chainId": 146,
+      "address": "0x2F872623d1E1Af5835b08b0E49aAd2d81d649D30",
+      "name": "OS ARM (ARM-WS-OS) - winding down",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/resources/guides/withdrawing-from-os-and-the-os-arm",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "ARM-WS-OS LP share balance."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "wS paid for redeeming shares."
+        },
+        {
+          "signature": "requestRedeem(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit step 1: (shares) -> (requestId, assets). requestId also in the RedeemRequested event."
+        },
+        {
+          "signature": "claimRedeem(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Exit step 2, >= 10 minutes later, from the same wallet: pays wS."
+        }
+      ]
+    },
+    {
+      "chain": "plume",
+      "chainId": 98866,
+      "address": "0xFCbe50DbE43bF7E5C88C6F6Fb9ef432D4165406E",
+      "name": "superOETHp (Super OETH on Plume) - deprecated",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/resources/guides/redeeming-superoethp",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "superOETHp balance (18 decimals). No longer earns yield."
+        }
+      ]
+    },
+    {
+      "chain": "plume",
+      "chainId": 98866,
+      "address": "0x2dE8A403f7A5c6C5161D4a129918Ec9f0b653918",
+      "name": "wsuperOETHp (Wrapped Super OETH on Plume) - deprecated",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/resources/guides/redeeming-superoethp",
+      "keyFunctions": [
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unwrap (shares, receiver, owner) -> superOETHp."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Share balance."
+        }
+      ]
+    },
+    {
+      "chain": "plume",
+      "chainId": 98866,
+      "address": "0xc8c8F8bEA5631A8AF26440AF32a55002138cB76a",
+      "name": "Plume Vault - deprecated",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://docs.originprotocol.com/resources/guides/redeeming-superoethp",
+      "keyFunctions": [
+        {
+          "signature": "requestWithdrawal(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn superOETHp (18 decimals) and queue a 1:1 withdrawal; requestId in the event logs."
+        },
+        {
+          "signature": "claimWithdrawal(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim by requestId after the 10-minute delay, from the requesting wallet."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Origin analytics API",
+      "url": "https://api.originprotocol.com/api/v2/{token}/stats/{stat}?chainId={chainId}",
+      "auth": "none",
+      "use": "Read APY/APR (apy7, apy30...), totalSupply, rebasing vs non-rebasing supply and prices for ousd, oeth, superoethb, os. Also /api/v2/{token}/apr/trailing/{days} and /api/v2/{symbol}/ratios. Origin says not to rely on it for mission-critical data.",
+      "source": "https://docs.originprotocol.com/registry/api"
+    }
+  ],
+  "actions": [
+    {
+      "name": "mint-oeth",
+      "description": "Get OETH for ETH/WETH at 1:1",
+      "how": "ETH: OETHZapper.deposit() with ETH value (or depositETHForWrappedTokens(minWOETH) to receive wOETH). WETH: WETH.approve(OETH Vault, amt) then Vault.mint(amt). Origin recommends also comparing the Curve OETH/ETH price, which can be better."
+    },
+    {
+      "name": "mint-ousd",
+      "description": "Get OUSD for USDC at 1:1",
+      "how": "USDC.approve(OUSD Vault, amt) then OUSDVault.mint(amt) (amt in 6-decimal USDC units)."
+    },
+    {
+      "name": "mint-superoethb",
+      "description": "Get superOETHb on Base",
+      "how": "Base Zapper.deposit() with ETH, or WETH.approve(Super OETH Vault) then Vault.mint(amt)."
+    },
+    {
+      "name": "redeem",
+      "description": "Redeem OETH/OUSD/superOETHb 1:1 for WETH/USDC",
+      "how": "Vault.requestWithdrawal(amount) -> requestId (event WithdrawalRequested); wait >= withdrawalClaimDelay (600 s) and until withdrawalRequests(id).queued <= withdrawalQueueMetadata().claimable; then Vault.claimWithdrawal(id) from the same address. For an instant exit, swap on Curve/Aerodrome or (stETH) the ARM instead."
+    },
+    {
+      "name": "wrap",
+      "description": "Convert rebasing token to non-rebasing ERC-4626",
+      "how": "OToken.approve(wrapper, amt) then wrapper.deposit(amt, receiver); unwrap with wrapper.redeem(shares, receiver, owner)."
+    },
+    {
+      "name": "enable-yield-for-contract",
+      "description": "Let a smart-contract wallet earn rebases",
+      "how": "From the contract/multisig: OToken.rebaseOptIn(); check with rebaseState(addr) == 2."
+    },
+    {
+      "name": "swap-steth",
+      "description": "Sell stETH for WETH (or buy) on the Lido ARM",
+      "how": "stETH.approve(ARM, amt); ARM.swapExactTokensForTokens(stETH, WETH, amt, minOut, to). Expected out = amt * traderate1 / 1e36."
+    },
+    {
+      "name": "stake-ogn",
+      "description": "Stake OGN for xOGN",
+      "how": "OGN.approve(xOGN, amt); xOGN.stake(amt, durationSeconds, to, false, -1)."
+    },
+    {
+      "name": "exit-os",
+      "description": "Exit Origin Sonic (wind-down)",
+      "how": "wOS.redeem(shares, me, me) -> OS; OSVault.requestWithdrawal(amount); after 10 min OSVault.claimWithdrawal(id) -> wS. ARM LPs: OSARM.requestRedeem(shares) then claimRedeem(id)."
+    }
+  ],
+  "risks": [
+    "OETH, OUSD and superOETHb are rebasing: EOA balances rise automatically, but smart contracts (incl. multisigs, AMM pools, vaults) do NOT earn yield unless they call rebaseOptIn(). Use the wrapped ERC-4626 tokens where balances must not change.",
+    "Redemptions are asynchronous: requestWithdrawal burns tokens immediately, the claim opens after withdrawalClaimDelay (600 s) and only when the queue has liquidity. Origin docs say OUSD redemptions can take up to ~24 h when funds must be pulled from strategies; OETH liquidity can depend on validator withdrawals.",
+    "All core contracts (tokens, vaults, wrappers, ARM, xOGN) are upgradeable proxies controlled by Origin governance (Timelock 0x35918cDE7233F2dD33fA41ae3Cb6aE0e42E0e69F on Ethereum, 5-of-8 Safe admins, and a Guardian Safe that can pause capital). rebase() itself is restricted to the operator/strategist/governor; rebases also happen during user actions and by keeper.",
+    "Yield comes from strategies: OETH from ETH staking (Origin native/compounding staking) and Curve AMO; OUSD from Morpho vaults on Ethereum/Base/HyperEVM (bridged via CCTP) and a Curve AMO; superOETHb from bridged wOETH plus Aerodrome/Curve AMOs. Strategy or bridge failure can impair backing; mint reverts if the vault is paused.",
+    "Past incident: OUSD was exploited in November 2020 (about $7M lost through a reentrancy bug); OUSD relaunched in January 2021 with upgraded contracts and a compensation plan (the deprecated \"OUSD Compensation\" contract is listed in the OUSD registry).",
+    "Audits: OpenZeppelin, Trail of Bits, Sigma Prime, Certora (formal verification), Nethermind, Narya, Perimeter and others; see the docs Audits page (github.com/OriginProtocol/security).",
+    "Origin Sonic (OS, wOS, OS ARM) is being wound down by governance vote: no yield, public minting is disabled (mint is restricted to strategist/governor), only withdrawals remain and dapp support is ending.",
+    "Super OETH on Plume (superOETHp) was deprecated on 12 Nov 2025 and no longer earns yield; redemptions only via the Plume explorer since 21 Jan 2026.",
+    "ARM LP shares: redemption value is fixed at request but reduced if NAV falls before claim; claims may stay pending until liquidity returns (e.g. via the Lido withdrawal queue). Deposits may be capped by a CapManager. Swaps happen at operator-set prices (traderate0/1), not an AMM curve."
+  ],
+  "notes": "Addresses are from Origin's docs registry (Contracts, OETH, Super OETH, OUSD, OS and ARM registry pages) and the official OS-withdrawal and superOETHp-redemption guides; each was checked on-chain with eth_getCode (Ethereum, Base, Arbitrum, Sonic, Plume). Function signatures come from Sourcify-verified sources/ABIs of the current implementations (OETH/OUSD Vault impls on Ethereum, OETHBaseVault, OSVault, OETHZapper, WOETH, LidoARM, ExponentialStaking) and from selector checks of the deployed bytecode. The docs' contracts index lists the OS contracts under \"Deprecated\"; they are kept here only for exits. Other ARMs on Ethereum (WETH ARM 0x68025A4615407993A680102b08a23A61D11C657C, eETH ARM 0xfB0A3CF9B019BFd8827443d131b235B3E0FC58d2, sUSDe ARM 0xCEDa2d856238aA0D12f6329de20B9115f07C366d, USDC ARM 0x9E3A7026E5767F2d7Ff5e83b0ed011005f45a170) are on the ARM registry page; DefiLlama tracks them as the separate \"Origin ARM\" protocol, so only the stETH ARM is detailed here. Strategies, oracles, harvesters, bridge adapters, governance Safes and Pool Boosters are omitted (not user-callable). OUSD exists only on Ethereum (its Base/HyperEVM strategies are internal). Arbitrum holds only bridged wOETH (DefiLlama does not list Arbitrum for this protocol). Plume superOETHp and Sonic OS are listed only for exits.",
+  "sources": [
+    "https://defillama.com/protocol/origin-protocol",
+    "https://api.llama.fi/protocol/origin-protocol",
+    "https://docs.originprotocol.com/llms.txt",
+    "https://docs.originprotocol.com/registry/contracts",
+    "https://docs.originprotocol.com/registry/contracts/oeth-registry",
+    "https://docs.originprotocol.com/registry/contracts/super-oeth-registry",
+    "https://docs.originprotocol.com/registry/contracts/ousd-registry",
+    "https://docs.originprotocol.com/registry/contracts/os-registry",
+    "https://docs.originprotocol.com/registry/contracts/arm-registry",
+    "https://docs.originprotocol.com/registry/contracts/arm-registry/lido-steth-weth",
+    "https://docs.originprotocol.com/registry/contracts/arm-registry/weth-arm",
+    "https://docs.originprotocol.com/resources/guides/withdrawing-from-os-and-the-os-arm",
+    "https://docs.originprotocol.com/resources/guides/redeeming-superoethp",
+    "https://docs.originprotocol.com/registry/api",
+    "https://docs.originprotocol.com/resources/guides/yield-bearing-token-integrations",
+    "https://docs.originprotocol.com/resources/guides/arm-integrations",
+    "https://docs.originprotocol.com/yield-bearing-tokens/core-concepts/rebasing-and-smart-contracts",
+    "https://docs.originprotocol.com/yield-bearing-tokens/origin-dollar-ousd",
+    "https://docs.originprotocol.com/security-and-risk/audits",
+    "https://www.originprotocol.com/blog/what-weve-changed-since-the-ousd-attack",
+    "https://github.com/OriginProtocol/origin-dollar/blob/master/contracts/contracts/vault/VaultCore.sol",
+    "https://sourcify.dev/server/v2/contract/1/0x0E979edF516f88119fa2843fA3f08A9643F8e575",
+    "https://sourcify.dev/server/v2/contract/8453/0xfdBE6A80e1D22ff652Cbff44FEaD2E52287393E8",
+    "https://sourcify.dev/server/v2/contract/146/0x41DF78939406BF3f189c304C72f01fAd7acAfce7",
+    "https://sourcify.dev/server/v2/contract/1/0x850da2E21F1F71479E2A307EDab114777D9F6217",
+    "https://sourcify.dev/server/v2/contract/1/0x97711c7a5D64A064a95d10e37f786d2bD8b1F3c8",
+    "https://sourcify.dev/server/v2/contract/1/0xDA0485c1E74A7ef690E99D8286C243942eDAa07B"
+  ],
+  "researchedAt": "2026-11-24"
+}

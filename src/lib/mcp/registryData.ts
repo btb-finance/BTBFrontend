@@ -4197,6 +4197,432 @@ export const PROTOCOLS: ProtocolEntry[] = [
   "researchedAt": "2026-11-24"
  },
  {
+  "slug": "gaib",
+  "name": "GAIB",
+  "category": "RWA",
+  "description": "GAIB tokenizes AI-infrastructure (GPU/compute) financing. Agents can mint AID (an 18-decimal synthetic dollar) 1:1 from USDC through the minter contracts on Ethereum, Base and Arbitrum, redeem AID for USDC on Ethereum (0.1% fee), and stake AID into sAID, an ERC-4626 vault whose share price rises with portfolio yield. Unstaking goes through a FIFO queue with a 30-day cooldown.",
+  "website": "https://gaib.ai",
+  "docs": "https://docs.gaib.ai",
+  "defillama": "https://defillama.com/protocol/gaib",
+  "chains": [
+   "ethereum",
+   "arbitrum",
+   "base",
+   "bsc"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x18F52B3fb465118731d9e0d276d4Eb3599D57596",
+    "name": "AID (AI Dollar) token",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "AID balance, 18 decimals (1 AID = 1e18)."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns 18."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "AID supply on this chain."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve the sAID vault (to stake) or the StablecoinRedeemer (to redeem). The redeemer burns your AID by spending this allowance."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 transfer. Reverts if the sender is on the AID deny list or the token is paused."
+     },
+     {
+      "signature": "paused()",
+      "kind": "read",
+      "payable": false,
+      "description": "true if the admin has paused AID (blocks mint/burn/transfers)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xE2E1424687EB676b3807693CBb439362b8eA908E",
+    "name": "AID StablecoinMinter (USDC, Ethereum)",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+    "keyFunctions": [
+     {
+      "signature": "mint(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit USDC (6 decimals; approve this contract on USDC 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 first) and receive AID 1:1 to msg.sender (amount * 1e12 in AID units). Returns the AID amount. The verified contract has no allowlist check; AID.paused() blocks it."
+     },
+     {
+      "signature": "stablecoin()",
+      "kind": "read",
+      "payable": false,
+      "description": "Accepted stablecoin (USDC on Ethereum)."
+     },
+     {
+      "signature": "aid()",
+      "kind": "read",
+      "payable": false,
+      "description": "AID token address."
+     },
+     {
+      "signature": "DECIMAL_ADJUSTMENT()",
+      "kind": "read",
+      "payable": false,
+      "description": "Multiplier from stablecoin units to AID units (1e12 for USDC)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x52323f33551188F170D8de14fE8d8423a839629d",
+    "name": "AID StablecoinRedeemer (USDC, Ethereum)",
+    "role": "router",
+    "proxy": true,
+    "source": "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+    "keyFunctions": [
+     {
+      "signature": "redeem(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn aidAmount AID (18 decimals) from msg.sender (approve this contract on AID first) and receive USDC = aidAmount / 1e12 minus redemptionFeeBps (10 bps = 0.1% at research time). Reverts InsufficientLiquidity if the redeemer holds too little USDC, or DailyLimitExceeded. Returns USDC received (6 decimals)."
+     },
+     {
+      "signature": "redemptionFeeBps()",
+      "kind": "read",
+      "payable": false,
+      "description": "Redemption fee in basis points (10 at research time)."
+     },
+     {
+      "signature": "redeemLimitPerDay()",
+      "kind": "read",
+      "payable": false,
+      "description": "Max AID redeemable per UTC day across all users (18 decimals)."
+     },
+     {
+      "signature": "dailyRedeemed(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "AID already redeemed on a given day index (block.timestamp / 86400)."
+     },
+     {
+      "signature": "stablecoin()",
+      "kind": "read",
+      "payable": false,
+      "description": "Payout stablecoin (USDC). Check USDC.balanceOf(redeemer) for available liquidity before redeeming."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xB3B3c527BA57cd61648e2EC2F5e006A0B390A9F8",
+    "name": "sAID (Staked AI Dollar) ERC-4626 vault",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake AID: args assets (AID, 18 decimals), receiver. Approve the vault on AID first. Returns sAID shares minted at the staking rate (ignores unrealized losses). Reverts if paused or the caller is deny-listed."
+     },
+     {
+      "signature": "unstake(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "The exit path: burns `shares` sAID, fixes the AID owed at convertToAssetsWithLoss (no yield accrues afterwards) and queues it FIFO. Paid after getCooldownPeriod() (2,592,000 s = 30 days at research time) and only when processUnstakeQueue runs with enough liquidity. One active request per address. ERC-4626 withdraw/redeem revert (InstantWithdrawalDisabled) while the cooldown is non-zero."
+     },
+     {
+      "signature": "processUnstakeQueue(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Anyone can call; pays up to maxIterations queue items in FIFO order whose cooldown has passed, from availableForUnstake(). AID is sent straight to each user (partial fills possible)."
+     },
+     {
+      "signature": "cancelUnstakeRequest()",
+      "kind": "write",
+      "payable": false,
+      "description": "Cancel your pending request; the queued AID is converted back to sAID at the current rate (share count may differ)."
+     },
+     {
+      "signature": "getUnstakeRequest(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (requestTime, pendingAssets) for a user's pending request; (0,0) if none."
+     },
+     {
+      "signature": "getCooldownPeriod()",
+      "kind": "read",
+      "payable": false,
+      "description": "Unstake cooldown in seconds."
+     },
+     {
+      "signature": "availableForUnstake()",
+      "kind": "read",
+      "payable": false,
+      "description": "AID the operator has made available to pay the queue."
+     },
+     {
+      "signature": "totalQueuedAmount()",
+      "kind": "read",
+      "payable": false,
+      "description": "AID currently queued for unstaking."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Staking NAV: AID per shares (pass 1e18 for one sAID; about 1.101 at research time)."
+     },
+     {
+      "signature": "convertToAssetsWithLoss(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Unstaking NAV: AID per shares net of unrealized losses. This is what unstake() locks in."
+     },
+     {
+      "signature": "previewDeposit(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "sAID shares for a given AID deposit."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "sAID balance (18 decimals)."
+     },
+     {
+      "signature": "totalAssets()",
+      "kind": "read",
+      "payable": false,
+      "description": "Vault AID (tracked assets minus still-vesting rewards)."
+     },
+     {
+      "signature": "paused()",
+      "kind": "read",
+      "payable": false,
+      "description": "true if deposits, unstaking and transfers are paused."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x18F52B3fb465118731d9e0d276d4Eb3599D57596",
+    "name": "AID (AI Dollar) token on Base",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "AID balance, 18 decimals."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 approve."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 transfer."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x81c1FBa2C7Df54aC76de5Ebe373e89bCad3b8632",
+    "name": "AID StablecoinMinter (USDC, Base)",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+    "keyFunctions": [
+     {
+      "signature": "mint(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit Base USDC (0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, 6 decimals; approve first) and receive AID 1:1 on Base."
+     },
+     {
+      "signature": "stablecoin()",
+      "kind": "read",
+      "payable": false,
+      "description": "Accepted stablecoin (USDC)."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x18F52B3fb465118731d9e0d276d4Eb3599D57596",
+    "name": "AID (AI Dollar) token on Arbitrum",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "AID balance, 18 decimals."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 approve."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 transfer."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x04DfA27c7D1Ade09dDfccfA233FB3c8490CA2b18",
+    "name": "AID StablecoinMinter (USDC, Arbitrum)",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+    "keyFunctions": [
+     {
+      "signature": "mint(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit Arbitrum native USDC (0xaf88d065e77c8cC2239327C5EDb3A432268e5831, 6 decimals; approve first) and receive AID 1:1 on Arbitrum."
+     },
+     {
+      "signature": "stablecoin()",
+      "kind": "read",
+      "payable": false,
+      "description": "Accepted stablecoin (USDC)."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x18F52B3fb465118731d9e0d276d4Eb3599D57596",
+    "name": "AID (AI Dollar) token on BNB Chain",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "AID balance, 18 decimals."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 approve."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 transfer."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [
+   {
+    "name": "Protocol Public API",
+    "url": "https://pre-vault-api.gaib.ai/api/protocol-public",
+    "auth": "none",
+    "use": "TVL (live and 30-day average), GAIB token price, daily sAID NAV history since 2025-12-01, and cumulative stake/unstake counters. Cache about 60 s.",
+    "source": "https://docs.gaib.ai/products/gaib-products/protocol-public-api"
+   }
+  ],
+  "actions": [
+   {
+    "name": "mint AID",
+    "description": "Turn USDC into AID 1:1.",
+    "how": "USDC.approve(minter, amount); minter.mint(amount) on Ethereum, Base or Arbitrum (USDC 6-decimal units)."
+   },
+   {
+    "name": "redeem AID",
+    "description": "Turn AID back into USDC (Ethereum only, 0.1% fee).",
+    "how": "AID.approve(redeemer, aidAmount); redeemer 0x52323f33551188F170D8de14fE8d8423a839629d.redeem(aidAmount). Check USDC.balanceOf(redeemer) first; AID on other chains must be bridged to Ethereum or sold on a DEX."
+   },
+   {
+    "name": "stake AID",
+    "description": "Earn AI-infrastructure yield via sAID.",
+    "how": "AID.approve(sAID, amount); sAID.deposit(amount, receiver) on Ethereum."
+   },
+   {
+    "name": "unstake sAID",
+    "description": "Exit sAID back to AID.",
+    "how": "sAID.unstake(shares); after 30 days and once liquidity is available, call (or wait for) sAID.processUnstakeQueue(n); AID arrives in your wallet. Check getUnstakeRequest(you). Alternatively sell sAID on a DEX."
+   }
+  ],
+  "risks": [
+   "sAID exits take at least the 30-day cooldown (docs: monthly cohorts, funds available on the 1st of the second month after the request) and depend on operator-supplied liquidity; requests can roll over and are paid FIFO, with partial fills possible.",
+   "sAID is not pegged to $1. NAV is updated monthly. The unstaking rate subtracts operator-set unrealized losses, so a credit event in the GPU/AI-infrastructure financings lowers what unstakers get. The vault is operated by Spiceflow Company Corp. (off-chain asset manager).",
+   "Admin powers: AID and sAID are UUPS-upgradeable proxies (the redeemer is a beacon proxy) and can be paused. AID has a deny list: denied addresses cannot transfer, stake or cancel unstakes. Admin roles can adminMint/adminBurn AID, execute arbitrary calls from the AID contract, set the sAID cooldown and loss values, and cancel queued unstakes.",
+   "AID redemption to USDC is only on Ethereum, is limited by the USDC the redeemer holds and by a daily limit, and costs 10 bps. AID on Base/Arbitrum/BNB is bridged (burn/mint via GAIB's LayerZero-based bridge).",
+   "Docs say direct mint/redeem is for whitelisted users and partners, but the verified minter and redeemer contracts have no allowlist check (only the AID deny list and pause). This may change by upgrade or role changes.",
+   "Audits: the docs Audits page links AID/sAID and AIDa audit PDFs without naming the auditor."
+  ],
+  "notes": "All addresses are from the official docs page 'AID and sAID Contracts'. Each was confirmed to have code on its chain, and function signatures come from the Sourcify-verified sources (AID impl 0x2db74834f556e1f19ed397e5f935a983e4c2f38b, sAID impl 0xe2986b3e5b3e77896ae0509f6740d1106273374d, StablecoinMinter, StablecoinRedeemer impl 0xb835004007296f5278fbf85f090af7195361e946 behind beacon 0xc787e7f060acab38d30aceb539355b328024e8b8). Live values read 2026-11-24: minters hold AID MINTER_ROLE on all three chains, sAID cooldown 30 days, sAID about 1.101 AID, redeemer fee 10 bps. DefiLlama lists Ethereum, Arbitrum and Base; the docs also list AID on BNB Chain (bsc), which is included as a token only. sAID is listed only on Ethereum. Left out: GAIB governance token, the legacy AIDa vault and GAIB Select (no official addresses found on the docs pages read), the bridge/OFT adapter contracts (not listed in the docs), and the address DefiLlama shows (0xc19d…8e50), because it is not on an official GAIB page that was found.",
+  "sources": [
+   "https://defillama.com/protocol/gaib",
+   "https://api.llama.fi/protocol/gaib",
+   "https://docs.gaib.ai/llms.txt",
+   "https://docs.gaib.ai/products/gaib-products/aid-and-said-contracts",
+   "https://docs.gaib.ai/products/gaib-products/how-to-get-aid-said",
+   "https://docs.gaib.ai/products/gaib-products/ai-dollar-aid",
+   "https://docs.gaib.ai/products/gaib-products/staked-ai-dollar-said",
+   "https://docs.gaib.ai/products/gaib-products/protocol-public-api",
+   "https://docs.gaib.ai/products/gaib-products/audit",
+   "https://sourcify.dev/server/v2/contract/1/0xe2986b3e5b3e77896ae0509f6740d1106273374d",
+   "https://sourcify.dev/server/v2/contract/1/0x2db74834f556e1f19ed397e5f935a983e4c2f38b",
+   "https://sourcify.dev/server/v2/contract/1/0xE2E1424687EB676b3807693CBb439362b8eA908E",
+   "https://sourcify.dev/server/v2/contract/1/0xb835004007296f5278fbf85f090af7195361e946"
+  ],
+  "researchedAt": "2026-11-24"
+ },
+ {
   "slug": "hyperliquid",
   "name": "Hyperliquid",
   "category": "Derivatives",
@@ -4410,6 +4836,1514 @@ export const PROTOCOLS: ProtocolEntry[] = [
    "https://raw.githubusercontent.com/hyperliquid-dex/contracts/master/Bridge2.sol",
    "https://raw.githubusercontent.com/hyperliquid-dex/contracts/master/Signature.sol",
    "https://github.com/circlefin/hyperevm-circle-contracts"
+  ],
+  "researchedAt": "2026-11-24"
+ },
+ {
+  "slug": "hyperswap",
+  "name": "HyperSwap",
+  "category": "Dexs",
+  "description": "The first native AMM DEX on HyperEVM (chainId 999): Uniswap-V2-style constant-product pools (Camelot-style router with a referrer argument) and Uniswap-V3-style concentrated liquidity. An agent can quote and swap (V2 Router, SwapRouter02, QuoterV2), add/remove V2 liquidity, manage V3 position NFTs, and zap single-asset liquidity.",
+  "website": "https://hyperswap.exchange",
+  "docs": "https://docs.hyperswap.exchange/docs/amm",
+  "defillama": "https://defillama.com/protocol/hyperswap",
+  "chains": [
+   "hyperevm"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0xb4a9C4e6Ea8E2191d2FA5B380452a634Fb21240A",
+    "name": "HyperSwap V2 Router",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/v2",
+    "keyFunctions": [
+     {
+      "signature": "getAmountsOut(uint256,address[])",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote a V2 swap: amounts out along path for an exact amountIn (base units). Returns uint256[] with one entry per path element; last = expected output before slippage."
+     },
+     {
+      "signature": "swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256,uint256,address[],address,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Swap exact ERC-20 for ERC-20. Args: amountIn, amountOutMin, path, to, referrer (zero address if none), deadline (unix seconds). Approve the router for amountIn first. No return value: read the balance change. This router has NO plain swapExactTokensForTokens / swapTokensForExactTokens / getAmountsIn (Camelot-style router with a referrer argument)."
+     },
+     {
+      "signature": "swapExactETHForTokensSupportingFeeOnTransferTokens(uint256,address[],address,address,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Swap exact native HYPE (msg.value) for tokens. Args: amountOutMin, path (must start with WETH() = WHYPE), to, referrer, deadline."
+     },
+     {
+      "signature": "swapExactTokensForETHSupportingFeeOnTransferTokens(uint256,uint256,address[],address,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Swap exact tokens for native HYPE. Args: amountIn, amountOutMin, path (must end with WHYPE), to, referrer, deadline."
+     },
+     {
+      "signature": "addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Add liquidity to a token/token V2 pair (creates the pair if missing). Args: tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin, to, deadline. Returns (amountA, amountB, liquidity LP minted). Approve both tokens first."
+     },
+     {
+      "signature": "addLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Add liquidity to a token/HYPE pair; send HYPE as msg.value. Args: token, amountTokenDesired, amountTokenMin, amountETHMin, to, deadline. Returns (amountToken, amountETH, liquidity)."
+     },
+     {
+      "signature": "removeLiquidity(address,address,uint256,uint256,uint256,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn LP tokens for both tokens. Args: tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline. Approve the pair (LP token) to the router first. Returns (amountA, amountB)."
+     },
+     {
+      "signature": "removeLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn LP of a token/WHYPE pair and receive token + native HYPE. Args: token, liquidity, amountTokenMin, amountETHMin, to, deadline."
+     },
+     {
+      "signature": "removeLiquidityWithPermit(address,address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "removeLiquidity using an EIP-2612 permit signature on the LP token instead of a separate approve. Extra args: approveMax, v, r, s."
+     },
+     {
+      "signature": "getPair(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "V2 pair address for two tokens (zero address if none)."
+     },
+     {
+      "signature": "quote(uint256,uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pure helper: amountB = amountA * reserveB / reserveA (no fee). Use for proportional liquidity amounts, not swap quotes."
+     },
+     {
+      "signature": "WETH()",
+      "kind": "read",
+      "payable": false,
+      "description": "Wrapped native token used by the router (WHYPE 0x5555555555555555555555555555555555555555)."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0x724412C00059bf7d6ee7d4a1d0D5cd4de3ea1C48",
+    "name": "HyperSwap V2 Factory",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/v2",
+    "keyFunctions": [
+     {
+      "signature": "getPair(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pair (LP token) address for a token pair; zero address if none."
+     },
+     {
+      "signature": "allPairsLength()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of V2 pairs."
+     },
+     {
+      "signature": "allPairs(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pair address by index."
+     },
+     {
+      "signature": "createPair(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deploy a new V2 pair (permissionless). Returns the pair address."
+     },
+     {
+      "signature": "feeInfo()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (ownerFeeShare, feeTo): protocol share of swap fees and its recipient."
+     },
+     {
+      "signature": "INIT_CODE_PAIR_HASH()",
+      "kind": "read",
+      "payable": false,
+      "description": "Pair init code hash (docs: 0xc83d9df19c8c8a0a1229bd3122cbb86fd8ff56f79cc6781c15999d39425466e9) for computing pair addresses offline."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0xB1c0fa0B789320044A6F623cFe5eBda9562602E3",
+    "name": "HyperSwap V3 Factory",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/v3",
+    "keyFunctions": [
+     {
+      "signature": "getPool(address,address,uint24)",
+      "kind": "read",
+      "payable": false,
+      "description": "V3 pool for (tokenA, tokenB, fee). Fee in hundredths of a bip; enabled tiers on-chain: 100 (0.01%, tick spacing 1), 500 (0.05%, 10), 3000 (0.3%, 60), 10000 (1%, 200). Zero address if none."
+     },
+     {
+      "signature": "feeAmountTickSpacing(uint24)",
+      "kind": "read",
+      "payable": false,
+      "description": "Tick spacing for a fee tier; 0 means the tier is not enabled."
+     },
+     {
+      "signature": "createPool(address,address,uint24)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deploy a new V3 pool for an enabled fee tier (must then be initialized with a price, e.g. via the position manager)."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0x6D99e7f6747AF2cDbB5164b6DD50e40D4fDe1e77",
+    "name": "HyperSwap SwapRouter02 (V3 + V2)",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/v3",
+    "keyFunctions": [
+     {
+      "signature": "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+      "kind": "write",
+      "payable": true,
+      "description": "Swap an exact amount through one V3 pool. Params tuple: (tokenIn, tokenOut, fee, recipient, amountIn, amountOutMinimum, sqrtPriceLimitX96=0). No deadline inside the struct: wrap in multicall(uint256 deadline, bytes[]) to enforce one. Returns amountOut. Approve tokenIn to this router; for native HYPE in, send msg.value with tokenIn = WHYPE."
+     },
+     {
+      "signature": "exactInput((bytes,address,uint256,uint256))",
+      "kind": "write",
+      "payable": true,
+      "description": "Multi-hop V3 exact-input swap. Params: (path = abi.encodePacked(token0, fee, token1, fee, token2...), recipient, amountIn, amountOutMinimum). Returns amountOut."
+     },
+     {
+      "signature": "exactOutputSingle((address,address,uint24,address,uint256,uint256,uint160))",
+      "kind": "write",
+      "payable": true,
+      "description": "Swap for an exact output through one V3 pool. Params: (tokenIn, tokenOut, fee, recipient, amountOut, amountInMaximum, sqrtPriceLimitX96). Returns amountIn. Call refundETH in the same multicall if paying with HYPE."
+     },
+     {
+      "signature": "exactOutput((bytes,address,uint256,uint256))",
+      "kind": "write",
+      "payable": true,
+      "description": "Multi-hop exact-output swap; path is encoded in REVERSE (tokenOut first). Params: (path, recipient, amountOut, amountInMaximum)."
+     },
+     {
+      "signature": "swapExactTokensForTokens(uint256,uint256,address[],address)",
+      "kind": "write",
+      "payable": true,
+      "description": "V2-pool swap through this router (uses the V2 factory). Args: amountIn, amountOutMin, path, to. Returns amountOut."
+     },
+     {
+      "signature": "multicall(uint256,bytes[])",
+      "kind": "write",
+      "payable": true,
+      "description": "Batch several router calls with a deadline (unix seconds); reverts if expired. Typical: [exactInputSingle(recipient=router), unwrapWETH9(min, user)] to receive native HYPE."
+     },
+     {
+      "signature": "unwrapWETH9(uint256,address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Unwrap the router's WHYPE balance and send native HYPE to recipient (use inside multicall after a swap with recipient = router address)."
+     },
+     {
+      "signature": "refundETH()",
+      "kind": "write",
+      "payable": true,
+      "description": "Return leftover native HYPE held by the router to msg.sender (after exact-output swaps paid in HYPE)."
+     },
+     {
+      "signature": "sweepToken(address,uint256,address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Send the router's balance of a token to recipient (min amount check)."
+     },
+     {
+      "signature": "referralFee()",
+      "kind": "read",
+      "payable": false,
+      "description": "Referral fee parameter of this router (read 1000 on 2026-11-25; units not documented)."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0x03A918028f22D9E1473B7959C927AD7425A45C7C",
+    "name": "HyperSwap QuoterV2",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/v3",
+    "keyFunctions": [
+     {
+      "signature": "quoteExactInputSingle((address,address,uint256,uint24,uint160))",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote a single-pool V3 swap. Params: (tokenIn, tokenOut, amountIn, fee, sqrtPriceLimitX96=0). Returns (amountOut, sqrtPriceX96After, initializedTicksCrossed, gasEstimate). Not a view function: call with eth_call only."
+     },
+     {
+      "signature": "quoteExactInput(bytes,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote a multi-hop V3 exact-input swap. Args: packed path, amountIn. Returns (amountOut, sqrtPriceX96AfterList, initializedTicksCrossedList, gasEstimate). eth_call only."
+     },
+     {
+      "signature": "quoteExactOutputSingle((address,address,uint256,uint24,uint160))",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote input needed for an exact output. Params: (tokenIn, tokenOut, amountOut, fee, sqrtPriceLimitX96). Returns (amountIn, ...). eth_call only."
+     },
+     {
+      "signature": "quoteExactOutput(bytes,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Multi-hop exact-output quote (path reversed). eth_call only."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0x6eDA206207c09e5428F281761DdC0D300851fBC8",
+    "name": "HyperSwap NonfungiblePositionManager (V3)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/v3",
+    "keyFunctions": [
+     {
+      "signature": "mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))",
+      "kind": "write",
+      "payable": true,
+      "description": "Open a V3 position NFT. Params: (token0, token1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline). token0 < token1 by address; ticks multiples of tick spacing. Approve both tokens first. Returns (tokenId, liquidity, amount0, amount1)."
+     },
+     {
+      "signature": "increaseLiquidity((uint256,uint256,uint256,uint256,uint256,uint256))",
+      "kind": "write",
+      "payable": true,
+      "description": "Add to a position. Params: (tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline). Returns (liquidity, amount0, amount1)."
+     },
+     {
+      "signature": "decreaseLiquidity((uint256,uint128,uint256,uint256,uint256))",
+      "kind": "write",
+      "payable": true,
+      "description": "Remove liquidity. Params: (tokenId, liquidity, amount0Min, amount1Min, deadline). Tokens become owed; call collect to receive them."
+     },
+     {
+      "signature": "collect((uint256,address,uint128,uint128))",
+      "kind": "write",
+      "payable": true,
+      "description": "Withdraw owed tokens and fees. Params: (tokenId, recipient, amount0Max, amount1Max); use 2^128-1 for all. Returns (amount0, amount1)."
+     },
+     {
+      "signature": "positions(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Position data: nonce, operator, token0, token1, fee, tickLower, tickUpper, liquidity, feeGrowthInside0/1LastX128, tokensOwed0, tokensOwed1."
+     },
+     {
+      "signature": "burn(uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Burn an empty position NFT (zero liquidity, nothing owed)."
+     },
+     {
+      "signature": "createAndInitializePoolIfNecessary(address,address,uint24,uint160)",
+      "kind": "write",
+      "payable": true,
+      "description": "Create and initialize a pool at sqrtPriceX96 if it does not exist. Returns pool address."
+     },
+     {
+      "signature": "multicall(bytes[])",
+      "kind": "write",
+      "payable": true,
+      "description": "Batch calls, e.g. decreaseLiquidity + collect, or mint + refundETH."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of position NFTs owned."
+     },
+     {
+      "signature": "tokenOfOwnerByIndex(address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Enumerate an owner's position tokenIds."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0x093dE46C90bEA4A730b1914748cC43d909b53661",
+    "name": "HyperSwap Single Asset Zap",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/tools",
+    "keyFunctions": [
+     {
+      "signature": "provideLiquidityV2((address,address,uint256,uint256))",
+      "kind": "write",
+      "payable": true,
+      "description": "Add V2 liquidity with one token. Params: (tokenA = token you provide, tokenB, amountA, slippage in bps, 100 = 1%). The contract swaps part of tokenA and adds liquidity. Returns (liquidity, amount0Used, amount1Used). Approve tokenA to the zap first. Pool must exist with enough liquidity."
+     },
+     {
+      "signature": "provideLiquidityV3((address,address,uint256,uint24,uint256))",
+      "kind": "write",
+      "payable": true,
+      "description": "Add FULL-RANGE V3 liquidity with one token. Params: (tokenA, tokenB, amountA, fee tier, slippage bps). Returns (tokenId, liquidity, amount0Used, amount1Used)."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0xefAbEB7A19bB848b359e5dd5a63b1a634AAfD229",
+    "name": "HyperSwap Universal Router",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/tools",
+    "keyFunctions": [
+     {
+      "signature": "execute(bytes,bytes[],uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Run encoded commands (V2/V3 swaps, wrap/unwrap, Permit2 transfers) with a deadline. Inputs follow Uniswap UniversalRouter command encoding; tokens are pulled via Permit2. Prefer SwapRouter02 for simple swaps."
+     },
+     {
+      "signature": "execute(bytes,bytes[])",
+      "kind": "write",
+      "payable": true,
+      "description": "Same as above without a deadline (not recommended)."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+    "name": "Permit2",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/tools",
+    "keyFunctions": [
+     {
+      "signature": "approve(address,address,uint160,uint48)",
+      "kind": "write",
+      "payable": false,
+      "description": "Allow a spender (e.g. the Universal Router) to pull token via Permit2: (token, spender, amount, expiration). Requires an ERC-20 approve of the token to Permit2 first."
+     },
+     {
+      "signature": "allowance(address,address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(amount, expiration, nonce) for (owner, token, spender)."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0x5555555555555555555555555555555555555555",
+    "name": "WHYPE (wrapped HYPE)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm",
+    "keyFunctions": [
+     {
+      "signature": "deposit()",
+      "kind": "write",
+      "payable": true,
+      "description": "Wrap native HYPE (msg.value) into WHYPE 1:1."
+     },
+     {
+      "signature": "withdraw(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Unwrap WHYPE to native HYPE."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a router or position manager."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "WHYPE balance (18 decimals)."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0x03832767BDf9A8EF007449942125Ad605aCfADb8",
+    "name": "SWAP token",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.hyperswap.exchange/docs/amm/tokens/usdswap",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "SWAP balance."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer SWAP."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0xF535D7406BaF7322171142BB165643821cAb01Fe",
+    "name": "xSWAP (escrowed SWAP)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.hyperswap.exchange/docs/amm/tokens/usdxswap",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "xSWAP balance. xSWAP is the liquidity-mining reward token; converting to SWAP vests over a user-chosen period (6 months full; early exit within 15 days at 50% penalty per docs). Use the app for conversion."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [
+   {
+    "name": "HyperSwap V3 subgraph",
+    "url": "https://api.subgraph.ormilabs.com/api/public/33c67399-d625-4929-b239-5709cd66e422/subgraphs/hyperswap-v3/v0.1.2/gn",
+    "auth": "none",
+    "use": "GraphQL: V3 pools, ticks, positions, swaps, TVL/volume history.",
+    "source": "https://docs.hyperswap.exchange/docs/amm/for-developers/subgraphs"
+   },
+   {
+    "name": "HyperSwap V2 subgraph",
+    "url": "https://api.subgraph.ormilabs.com/api/public/33c67399-d625-4929-b239-5709cd66e422/subgraphs/hyperswap-v2/v1.0.0/gn",
+    "auth": "none",
+    "use": "GraphQL: V2 pairs, reserves, swaps and liquidity events.",
+    "source": "https://docs.hyperswap.exchange/docs/amm/for-developers/subgraphs"
+   }
+  ],
+  "actions": [
+   {
+    "name": "quote (V2)",
+    "description": "Expected output of a V2 swap",
+    "how": "eth_call V2Router.getAmountsOut(amountIn, [tokenIn, ..., tokenOut]); last element is the output."
+   },
+   {
+    "name": "quote (V3)",
+    "description": "Expected output of a V3 swap",
+    "how": "eth_call QuoterV2.quoteExactInputSingle((tokenIn, tokenOut, amountIn, fee, 0)); try fee tiers 100/500/3000/10000 (check V3Factory.getPool != 0)."
+   },
+   {
+    "name": "swap (V2)",
+    "description": "Swap through a V2 pool",
+    "how": "ERC-20 approve(V2Router, amountIn); V2Router.swapExactTokensForTokensSupportingFeeOnTransferTokens(amountIn, amountOutMin, path, to, 0x0000000000000000000000000000000000000000, deadline). For native HYPE use the ...ETH... variants with WHYPE at the path end/start."
+   },
+   {
+    "name": "swap (V3)",
+    "description": "Swap through a V3 pool",
+    "how": "approve(SwapRouter02, amountIn); SwapRouter02.multicall(deadline, [exactInputSingle((tokenIn, tokenOut, fee, recipient, amountIn, amountOutMinimum, 0))]). To receive native HYPE set recipient = router and append unwrapWETH9(amountOutMinimum, user)."
+   },
+   {
+    "name": "add / remove liquidity (V2)",
+    "description": "Classic LP",
+    "how": "approve both tokens to V2Router, addLiquidity(...) or addLiquidityETH(...); to exit approve the pair LP token to V2Router and removeLiquidity(...)."
+   },
+   {
+    "name": "add / remove liquidity (V3)",
+    "description": "Concentrated liquidity position",
+    "how": "approve tokens to NonfungiblePositionManager; mint((token0, token1, fee, tickLower, tickUpper, a0, a1, a0Min, a1Min, recipient, deadline)). Exit: multicall([decreaseLiquidity((tokenId, liquidity, min0, min1, deadline)), collect((tokenId, recipient, 2^128-1, 2^128-1))])."
+   },
+   {
+    "name": "single-asset zap",
+    "description": "LP with one token",
+    "how": "approve tokenA to Zap; Zap.provideLiquidityV2((tokenA, tokenB, amountA, slippageBps)) or provideLiquidityV3((tokenA, tokenB, amountA, fee, slippageBps)) (V3 = full range)."
+   }
+  ],
+  "risks": [
+   "The V2 router is NOT the stock Uniswap V2 router: only the ...SupportingFeeOnTransferTokens swap functions exist and they take an extra referrer address; there is no getAmountsIn or exact-output V2 swap. Calls built for Uniswap V2 router ABIs will revert.",
+   "V2 pairs use per-token fee fields (token0FeePercent/token1FeePercent; read 300 = 0.3% on WHYPE/SWAP on 2026-11-25, Camelot-style denominator 100000) that the factory owner can configure; fees can differ by pair.",
+   "SwapRouter02 exactInput/exactOutput structs have no deadline; always wrap them in multicall(deadline, ...) and set amountOutMinimum, or the swap can be sandwiched.",
+   "QuoterV2 functions are not view: call them only via eth_call, never as a transaction.",
+   "V3 positions earn fees only in range and suffer impermanent loss. The Zap's V3 path always mints a full-range position.",
+   "Admin keys: on 2026-11-25 the V3 factory owner() was an externally owned account (0xBC7e493fd3ed834eD563f9597AAAED94e446bBc7) and the V2 factory owner was the ProxyAdmin contract listed in the docs (0x56dEE154EA6CD473Ed76353f4045e92A5D44Bb15). Owners can set protocol fee shares and enable fee tiers.",
+   "Audited by PeckShield (V2, V3 and the DelegatedPositionVault \"Burn & Earn\"); reports linked from the docs audits page. Audits do not cover every deployment detail.",
+   "Single-chain: HyperEVM only. Tokens bridged from HyperCore or other chains carry their own bridge/issuer risk."
+  ],
+  "notes": "All addresses come from the HyperSwap docs Contracts pages (docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/*) and were confirmed as deployed contracts on HyperEVM (chainId 999) with eth_getCode; function selectors were checked against bytecode and against the official ABIs in github.com/HyperSwapX/abis. Also listed in the docs but omitted here: SwapRouter01 0x4E2960a8cd19B467b82d26D83fAcb0fAE26b094D (legacy router whose exactInputSingle has a deadline field), QuoterV1, Mixed Route QuoterV1, TickLens, V3 Migrator, Position Modifier (edit CL position), Multicall contracts, Launcher, HyperCore precompile, LMBooster Staking and the Burn & Delegate Fees vault (DelegatedPositionVault 0x744C89B7b7F8Cb1E955B1Dcd842A5378d75c96Dc). HyperSwap X (gasless intent swaps), limit orders and DCA (OpenOcean) are app features with no public documented API; the docs say API access is granted on request via Discord. The testnet deployment (chainId 998) has different addresses. Init code hashes: V2 0xc83d9df19c8c8a0a1229bd3122cbb86fd8ff56f79cc6781c15999d39425466e9, V3 0xe3572921be1688dba92df30c6781b8770499ff274d20ae9b325f4242634774fb. DefiLlama lists the chain as \"Hyperliquid L1\"; the contracts are on HyperEVM.",
+  "sources": [
+   "https://defillama.com/protocol/hyperswap",
+   "https://api.llama.fi/protocol/hyperswap",
+   "https://docs.hyperswap.exchange/llms.txt",
+   "https://docs.hyperswap.exchange/llms-full.txt",
+   "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm",
+   "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/v2",
+   "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/v3",
+   "https://docs.hyperswap.exchange/docs/amm/contracts/hyper-evm/tools",
+   "https://docs.hyperswap.exchange/docs/amm/tokens/usdswap",
+   "https://docs.hyperswap.exchange/docs/amm/tokens/usdxswap",
+   "https://docs.hyperswap.exchange/docs/amm/for-developers/integrations/quick-start/v2/functions",
+   "https://docs.hyperswap.exchange/docs/amm/for-developers/integrations/quick-start/single-asset-zap/functions",
+   "https://docs.hyperswap.exchange/docs/amm/for-developers/subgraphs",
+   "https://docs.hyperswap.exchange/docs/amm/for-developers/api",
+   "https://docs.hyperswap.exchange/docs/amm/references/audits",
+   "https://docs.hyperswap.exchange/docs/amm/token-design/protocol-earnings",
+   "https://docs.hyperswap.exchange/docs/amm/token-design/revenues-sharing-model",
+   "https://docs.hyperswap.exchange/docs/amm/protocol-concepts/hyperswap-x",
+   "https://docs.hyperswap.exchange/docs/amm/official-links",
+   "https://github.com/HyperSwapX/abis/blob/main/AMM/hyperswap_router_V2.json",
+   "https://github.com/HyperSwapX/abis/blob/main/AMM/hyperswap_factory_V2.json",
+   "https://github.com/HyperSwapX/abis/blob/main/CL/HyperswapV3Factory.json",
+   "https://github.com/HyperSwapX/abis/blob/main/CL/QuoterV2.json",
+   "https://github.com/HyperSwapX/abis/blob/main/CL/SwapRouter02.json",
+   "https://github.com/HyperSwapX/abis/blob/main/CL/NonfungiblePositionManager.json",
+   "https://github.com/HyperSwapX/abis/blob/main/Tools/UniversalRouter.json",
+   "https://github.com/HyperSwapX/abis/blob/main/Tools/SingleAssetZap.json",
+   "https://rpc.hyperliquid.xyz/evm"
+  ],
+  "researchedAt": "2026-11-24"
+ },
+ {
+  "slug": "immunefi",
+  "name": "Immunefi",
+  "category": "Services",
+  "description": "Web3 bug bounty and audit-competition platform. On chain there is the IMU token (ERC-20 on Ethereum) and the reward splitter contracts that let projects pay whitehats and Immunefi's fee in one transaction; bounty programs, reports and IMU pledging run through the immunefi.com web app.",
+  "website": "https://immunefi.com",
+  "docs": "https://docs.immunefi.foundation",
+  "defillama": "https://defillama.com/protocol/immunefi",
+  "chains": [
+   "ethereum"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xb48c6B24f36307c7A1f2a9281E978a9ef2902BA5",
+    "name": "IMU token",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.immunefi.foundation/imu-coinlist-token-claiming/",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "IMU balance (18 decimals)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply; 10,000,000,000 IMU at research time (equals the stated initial supply)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer IMU."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "transferFrom(address,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer using an allowance."
+     },
+     {
+      "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "EIP-2612 gasless approval (owner, spender, value, deadline, v, r, s)."
+     },
+     {
+      "signature": "allowance(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Current allowance."
+     },
+     {
+      "signature": "burn(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn your own IMU."
+     },
+     {
+      "signature": "paused()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if transfers are paused by PAUSER_ROLE."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x323498D3Fb02594ac3E0a11B2Dea337893ecABBe",
+    "name": "Immunefi reward Splitter",
+    "role": "other",
+    "proxy": false,
+    "source": "https://immunefi.com/bug-bounty/immunefi/scope/",
+    "keyFunctions": [
+     {
+      "signature": "payWhitehat(bytes32,address,(address,uint256)[],uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Project pays a bounty: (referenceId = Immunefi report id, whitehat address, ERC-20 payouts [(token, amount)], native ETH amount, gas for the ETH send (<= gasCap), fee in basis points (<= maxFee 1500 of FEE_BASIS 10000)). Sends payouts to the whitehat plus the fee to Immunefi's feeRecipient. Caller needs ERC-20 approvals to this contract and must send the ETH amount plus its fee as msg.value."
+     },
+     {
+      "signature": "maxFee()",
+      "kind": "read",
+      "payable": false,
+      "description": "Maximum fee in basis points (1500 = 15%)."
+     },
+     {
+      "signature": "feeRecipient()",
+      "kind": "read",
+      "payable": false,
+      "description": "Immunefi fee recipient."
+     },
+     {
+      "signature": "gasCap()",
+      "kind": "read",
+      "payable": false,
+      "description": "Maximum gas forwarded on the native-token payout."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x03Fd3D61423E6d46DCC3917862fBC57653dc3Eb0",
+    "name": "Immunefi reward splitter, fixed-fee version (listed as 'Vault' in Immunefi's scope)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://immunefi.com/bug-bounty/immunefi/scope/",
+    "keyFunctions": [
+     {
+      "signature": "payWhitehat(bytes32,address,(address,uint256)[],uint256,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Older version: same as the Splitter's payWhitehat but the fee is the contract-wide fee() (1000 bps = 10% at research time) instead of a per-call argument."
+     },
+     {
+      "signature": "fee()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current fee in basis points of FEE_BASIS (10000)."
+     },
+     {
+      "signature": "feeRecipient()",
+      "kind": "read",
+      "payable": false,
+      "description": "Immunefi fee recipient."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [],
+  "actions": [
+   {
+    "name": "transfer-imu",
+    "description": "Send or approve IMU",
+    "how": "IMU token transfer(to, amount) / approve(spender, amount) on Ethereum, 18 decimals"
+   },
+   {
+    "name": "pay-bounty",
+    "description": "A project pays a whitehat for a report on Immunefi",
+    "how": "approve each ERC-20 to the Splitter, then Splitter.payWhitehat(referenceId, whitehat, [(token, amount)], nativeAmount, gas, feeBps) with msg.value = native amount + native fee; normally done from the Immunefi dashboard"
+   },
+   {
+    "name": "pledge-imu",
+    "description": "Back a security researcher with IMU (Hacker Pledging)",
+    "how": "Only through the immunefi.com/hacker-pledging web app with a connected wallet; no official contract address published"
+   }
+  ],
+  "risks": [
+   "IMU is an upgradeable proxy (EIP-1967; implementation 0x39eacef0ee562109df742c989e9d5227d4c17d2e, proxy admin 0xb91d57d8f7bd2898f1251239e5816d2de45db228 at research time) with MINTER_ROLE, PAUSER_ROLE and DEFAULT_ADMIN_ROLE: role holders can mint, pause transfers and upgrade the logic.",
+   "Token unlocks: early backers (16%) unlock over three years and team (26.5%) over 36 months; 47.5% ecosystem/community and 10% reserve are released on a schedule the Foundation updates quarterly.",
+   "The splitter contracts are owned by Immunefi (owner 0x23261Bb09D0857E9788a2B9A9cEb9dD487268219), which can change the fee recipient and, on the older one, the fee (up to maxFee 15%).",
+   "Bounty outcomes, mediation and pledging rewards are decided off chain by Immunefi; on-chain contracts only move funds."
+  ],
+  "notes": "IMU address comes from the Immunefi Foundation docs (token-claiming page). Checked on Ethereum: name Immunefi, symbol IMU, 18 decimals, total supply 10,000,000,000. The two splitter addresses come from Immunefi's own bug bounty program scope (assets labelled 'Vault' and 'Splitter'). Their ABIs (verified on Sourcify) are both reward splitters. Left out: (1) the newer Safe-based Vaults System (Immunefi Guard/Module, RewardSystem, Arbitration; code at https://github.com/immunefi-team/vaults). No official deployment addresses are published, and each project's vault is its own Safe. Immunefi's own bounty vault is 0xf4a8714f6ca5Bf232F10b308C693448738be0661 per its program page, but it is project-specific. (2) Hacker Pledging. No contract address appears on the official pledging page; the addresses on it are pledgers' wallets. (3) A public bounties API: none confirmed from an official source. DefiLlama lists only Ethereum; no other official IMU deployments found.",
+  "sources": [
+   "https://defillama.com/protocol/immunefi",
+   "https://api.llama.fi/protocol/immunefi",
+   "https://immunefi.com",
+   "https://www.immunefi.foundation/",
+   "https://docs.immunefi.foundation/",
+   "https://docs.immunefi.foundation/imu-coinlist-token-claiming/",
+   "https://docs.immunefi.foundation/imu-token/",
+   "https://docs.immunefi.foundation/tokenomics/",
+   "https://docs.immunefi.foundation/token-flywheel/",
+   "https://docs.immunefi.foundation/july-2026-immunefi-ecosystem-update/",
+   "https://immunefi.com/bug-bounty/immunefi/scope/",
+   "https://immunefi.com/bug-bounty/immunefi/information/",
+   "https://immunefi.com/hacker-pledging/",
+   "https://immunefi.com/vaults/",
+   "https://immunefi.com/blog/product-updates/vaults-system/",
+   "https://github.com/immunefi-team/vaults",
+   "https://ethereum-rpc.publicnode.com"
+  ],
+  "researchedAt": "2026-11-24"
+ },
+ {
+  "slug": "kittenswap-finance",
+  "name": "Kittenswap Finance",
+  "category": "Dexs",
+  "description": "ve(3,3) concentrated-liquidity DEX built on Algebra Integral, live on HyperEVM (full stack: swaps, LP NFTs, farming, KITTEN/veKITTEN voting) and Robinhood Chain (swaps and LP only). Agents can quote and swap through the SwapRouter/QuoterV2, open and manage LP positions via the NonfungiblePositionManager, farm positions, and lock KITTEN for veKITTEN.",
+  "website": "https://kittenswap.finance",
+  "docs": "https://docs.kittenswap.finance",
+  "defillama": "https://defillama.com/protocol/kittenswap-finance",
+  "chains": [
+   "hyperevm",
+   "robinhood"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0x4e73E421480a7E0C24fB3c11019254edE194f736",
+    "name": "SwapRouter (Algebra Integral)",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.kittenswap.finance/tokenomics/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "exactInputSingle((address,address,address,address,uint256,uint256,uint256,uint160))",
+      "kind": "write",
+      "payable": true,
+      "description": "Single-pool exact-input swap. Tuple: (tokenIn, tokenOut, deployer, recipient, deadline, amountIn, amountOutMinimum, limitSqrtPrice). deployer = 0x000...0 for standard pools (non-zero only for custom-deployer pools); limitSqrtPrice = 0 for no limit. Approve tokenIn to the router first. Payable: to swap native gas token, send it as msg.value with tokenIn = WHYPE 0x5555555555555555555555555555555555555555. Returns amountOut."
+     },
+     {
+      "signature": "exactInput((bytes,address,uint256,uint256,uint256))",
+      "kind": "write",
+      "payable": true,
+      "description": "Multi-hop exact-input swap. Tuple: (path, recipient, deadline, amountIn, amountOutMinimum). Algebra Integral path encoding: tokenIn(20 bytes) + deployer(20 bytes) + token(20 bytes) [+ deployer + token ...]; no fee field. Returns amountOut."
+     },
+     {
+      "signature": "exactOutputSingle((address,address,address,address,uint256,uint256,uint256,uint160))",
+      "kind": "write",
+      "payable": true,
+      "description": "Single-pool exact-output swap. Tuple: (tokenIn, tokenOut, deployer, recipient, deadline, amountOut, amountInMaximum, limitSqrtPrice). Returns amountIn. When paying with native token, add refundNativeToken() in a multicall."
+     },
+     {
+      "signature": "exactOutput((bytes,address,uint256,uint256,uint256))",
+      "kind": "write",
+      "payable": true,
+      "description": "Multi-hop exact-output swap: (path in REVERSE order, recipient, deadline, amountOut, amountInMaximum). Returns amountIn."
+     },
+     {
+      "signature": "exactInputSingleSupportingFeeOnTransferTokens((address,address,address,address,uint256,uint256,uint256,uint160))",
+      "kind": "write",
+      "payable": true,
+      "description": "Same tuple as exactInputSingle, for fee-on-transfer tokens."
+     },
+     {
+      "signature": "multicall(bytes[])",
+      "kind": "write",
+      "payable": true,
+      "description": "Batch router calls, e.g. swap to the router (recipient = router address) then unwrapWNativeToken to receive the native token."
+     },
+     {
+      "signature": "unwrapWNativeToken(uint256,address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Unwrap the router's WHYPE 0x5555555555555555555555555555555555555555 balance to native and send to recipient. Args (amountMinimum, recipient). Use inside multicall."
+     },
+     {
+      "signature": "refundNativeToken()",
+      "kind": "write",
+      "payable": true,
+      "description": "Return any leftover native token held by the router to msg.sender (use after exact-output swaps paid in native)."
+     },
+     {
+      "signature": "WNativeToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Wrapped native token address (WHYPE 0x5555555555555555555555555555555555555555)."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0xc58874216AFe47779ADED27B8AAd77E8Bd6eBEBb",
+    "name": "QuoterV2",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.kittenswap.finance/tokenomics/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "quoteExactInputSingle((address,address,address,uint256,uint160))",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote (call with eth_call, it is not a view function). Tuple: (tokenIn, tokenOut, deployer, amountIn, limitSqrtPrice). Returns (amountOut, amountIn, sqrtPriceX96After, initializedTicksCrossed, gasEstimate, fee)."
+     },
+     {
+      "signature": "quoteExactInput(bytes,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Multi-hop quote via eth_call: (path, amountIn). Returns (amountOutList[], amountInList[], sqrtPriceX96AfterList[], initializedTicksCrossedList[], gasEstimate, feeList[])."
+     },
+     {
+      "signature": "quoteExactOutputSingle((address,address,address,uint256,uint160))",
+      "kind": "read",
+      "payable": false,
+      "description": "Exact-output quote via eth_call. Tuple: (tokenIn, tokenOut, deployer, amount, limitSqrtPrice)."
+     },
+     {
+      "signature": "quoteExactOutput(bytes,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Multi-hop exact-output quote via eth_call; path in reverse order."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0x9ea4459c8DefBF561495d95414b9CF1E2242a3E2",
+    "name": "NonfungiblePositionManager",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.kittenswap.finance/tokenomics/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "mint((address,address,address,int24,int24,uint256,uint256,uint256,uint256,address,uint256))",
+      "kind": "write",
+      "payable": true,
+      "description": "Open a concentrated-liquidity position NFT. Tuple: (token0, token1, deployer, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline). token0 < token1 by address; ticks must be multiples of the pool tickSpacing. Approve both tokens first. Returns (tokenId, liquidity, amount0, amount1)."
+     },
+     {
+      "signature": "increaseLiquidity((uint256,uint256,uint256,uint256,uint256,uint256))",
+      "kind": "write",
+      "payable": true,
+      "description": "Add to a position: (tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline). Returns (liquidity, amount0, amount1)."
+     },
+     {
+      "signature": "decreaseLiquidity((uint256,uint128,uint256,uint256,uint256))",
+      "kind": "write",
+      "payable": true,
+      "description": "Remove liquidity: (tokenId, liquidity, amount0Min, amount1Min, deadline). Tokens are only credited to the position; call collect() to receive them."
+     },
+     {
+      "signature": "collect((uint256,address,uint128,uint128))",
+      "kind": "write",
+      "payable": true,
+      "description": "Withdraw owed tokens and fees: (tokenId, recipient, amount0Max, amount1Max); use 2^128-1 for all. Returns (amount0, amount1)."
+     },
+     {
+      "signature": "burn(uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Burn an empty position NFT (liquidity and owed tokens must be 0)."
+     },
+     {
+      "signature": "positions(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Position data: (nonce, operator, token0, token1, deployer, tickLower, tickUpper, liquidity, feeGrowthInside0LastX128, feeGrowthInside1LastX128, tokensOwed0, tokensOwed1)."
+     },
+     {
+      "signature": "createAndInitializePoolIfNecessary(address,address,address,uint160,bytes)",
+      "kind": "write",
+      "payable": true,
+      "description": "Create and initialize a pool: (token0, token1, deployer, sqrtPriceX96, data). Returns pool address."
+     },
+     {
+      "signature": "multicall(bytes[])",
+      "kind": "write",
+      "payable": true,
+      "description": "Batch calls (e.g. decreaseLiquidity + collect, or mint with native token + refundNativeToken)."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of position NFTs owned."
+     },
+     {
+      "signature": "tokenOfOwnerByIndex(address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Enumerate an owner's position tokenIds."
+     },
+     {
+      "signature": "approveForFarming(uint256,bool,address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Approve a position for farming: (tokenId, approve, farmingAddress = FarmingCenter). Required before FarmingCenter.enterFarming."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0x5f95E92c338e6453111Fc55ee66D4AafccE661A7",
+    "name": "AlgebraFactory",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.kittenswap.finance/tokenomics/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "poolByPair(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Standard pool address for a token pair (either order); zero address if none. One pool per pair (dynamic fee)."
+     },
+     {
+      "signature": "customPoolByPair(address,address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool created by a custom deployer: (customDeployer, tokenA, tokenB)."
+     },
+     {
+      "signature": "computePoolAddress(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Deterministic standard pool address for (token0, token1)."
+     },
+     {
+      "signature": "poolDeployer()",
+      "kind": "read",
+      "payable": false,
+      "description": "AlgebraPoolDeployer address."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0x211BD8917d433B7cC1F4497AbA906554Ab6ee479",
+    "name": "FarmingCenter",
+    "role": "staking",
+    "proxy": false,
+    "source": "https://docs.kittenswap.finance/tokenomics/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "enterFarming((address,address,address,uint256),uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake a position NFT in an eternal-farming incentive. Args: IncentiveKey (rewardToken, bonusRewardToken, pool, nonce) and tokenId. Call NonfungiblePositionManager.approveForFarming(tokenId, true, FarmingCenter) first."
+     },
+     {
+      "signature": "exitFarming((address,address,address,uint256),uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Leave the incentive (IncentiveKey, tokenId)."
+     },
+     {
+      "signature": "collectRewards((address,address,address,uint256),uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Accrue rewards for a farmed position; returns (reward, bonusReward). Then claimReward to receive them."
+     },
+     {
+      "signature": "claimReward(address,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Send accrued rewards: (rewardToken, to, amountRequested); 0 = all. Returns amount."
+     },
+     {
+      "signature": "deposits(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Active eternal incentiveId (bytes32) for a tokenId; zero if not farmed."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0xf3b57fE4d5D0927C3A5e549CB6aF1866687e2D62",
+    "name": "AlgebraEternalFarming",
+    "role": "staking",
+    "proxy": false,
+    "source": "https://docs.kittenswap.finance/tokenomics/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "getRewardInfo((address,address,address,uint256),uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pending (reward, bonusReward) for (IncentiveKey, tokenId)."
+     },
+     {
+      "signature": "rewards(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Claimable reward balance for (owner, rewardToken)."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0x618275F8EFE54c2afa87bfB9F210A52F0fF89364",
+    "name": "KITTEN",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.kittenswap.finance/tokenomics/kitten-token",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "KITTEN balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve KITTEN (e.g. to veKITTEN before create_lock, or to the router)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 transfer."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0x29d3A21fF35a519E00cF6d272f2aD897b109BD84",
+    "name": "veKITTEN (vote-escrow NFT)",
+    "role": "governance",
+    "proxy": true,
+    "source": "https://docs.kittenswap.finance/tokenomics/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "create_lock(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Lock KITTEN for a veKITTEN NFT: (amount, lockDurationSeconds). Docs: min 1 week, max 2 years, weekly increments, linear decay. Approve KITTEN first. Locked KITTEN cannot be withdrawn until expiry."
+     },
+     {
+      "signature": "create_lock_for(uint256,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Same as create_lock but mints the NFT to another address."
+     },
+     {
+      "signature": "increase_amount(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Add KITTEN to an existing lock: (tokenId, amount)."
+     },
+     {
+      "signature": "increase_unlock_time(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Extend a lock: (tokenId, newLockDurationSeconds)."
+     },
+     {
+      "signature": "withdraw(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw KITTEN from an expired lock (tokenId)."
+     },
+     {
+      "signature": "merge(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Merge lock (from, to)."
+     },
+     {
+      "signature": "locked(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Lock amount and end time for a tokenId."
+     },
+     {
+      "signature": "balanceOfNFT(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Current voting power of a veKITTEN NFT."
+     },
+     {
+      "signature": "voted(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Whether the NFT has active votes (may block withdraw/transfer until reset)."
+     },
+     {
+      "signature": "tokenOfOwnerByIndex(address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Enumerate an owner's veKITTEN tokenIds."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0xb7F7053F7e6c210e6777D5BA758E4b3ECa6C88A0",
+    "name": "Voter",
+    "role": "governance",
+    "proxy": true,
+    "source": "https://docs.kittenswap.finance/tokenomics/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "vote(uint256,address[],uint256[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Vote emissions with a veKITTEN NFT: (tokenId, addresses[], weights[]). Signature confirmed in bytecode; whether the address list is pools or gauges is not confirmed from source, so prefer the app (app.kittenswap.finance/vote)."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0xFa31F79e4306dcA84cc2C14A9ba68f9298959fF7",
+    "name": "TimelockController",
+    "role": "governance",
+    "proxy": false,
+    "source": "https://docs.kittenswap.finance/tokenomics/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "getMinDelay()",
+      "kind": "read",
+      "payable": false,
+      "description": "Minimum delay (seconds) for queued admin operations; 60 at time of research."
+     }
+    ]
+   },
+   {
+    "chain": "robinhood",
+    "chainId": 4663,
+    "address": "0x7064C7Bb85979f008212877c4CE41285ddf5374C",
+    "name": "SwapRouter (Algebra Integral)",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.kittenswap.finance/tokenomics/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "exactInputSingle((address,address,address,address,uint256,uint256,uint256,uint160))",
+      "kind": "write",
+      "payable": true,
+      "description": "Single-pool exact-input swap. Tuple: (tokenIn, tokenOut, deployer, recipient, deadline, amountIn, amountOutMinimum, limitSqrtPrice). deployer = 0x000...0 for standard pools (non-zero only for custom-deployer pools); limitSqrtPrice = 0 for no limit. Approve tokenIn to the router first. Payable: to swap native gas token, send it as msg.value with tokenIn = WETH 0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73. Returns amountOut."
+     },
+     {
+      "signature": "exactInput((bytes,address,uint256,uint256,uint256))",
+      "kind": "write",
+      "payable": true,
+      "description": "Multi-hop exact-input swap. Tuple: (path, recipient, deadline, amountIn, amountOutMinimum). Algebra Integral path encoding: tokenIn(20 bytes) + deployer(20 bytes) + token(20 bytes) [+ deployer + token ...]; no fee field. Returns amountOut."
+     },
+     {
+      "signature": "exactOutputSingle((address,address,address,address,uint256,uint256,uint256,uint160))",
+      "kind": "write",
+      "payable": true,
+      "description": "Single-pool exact-output swap. Tuple: (tokenIn, tokenOut, deployer, recipient, deadline, amountOut, amountInMaximum, limitSqrtPrice). Returns amountIn. When paying with native token, add refundNativeToken() in a multicall."
+     },
+     {
+      "signature": "exactOutput((bytes,address,uint256,uint256,uint256))",
+      "kind": "write",
+      "payable": true,
+      "description": "Multi-hop exact-output swap: (path in REVERSE order, recipient, deadline, amountOut, amountInMaximum). Returns amountIn."
+     },
+     {
+      "signature": "exactInputSingleSupportingFeeOnTransferTokens((address,address,address,address,uint256,uint256,uint256,uint160))",
+      "kind": "write",
+      "payable": true,
+      "description": "Same tuple as exactInputSingle, for fee-on-transfer tokens."
+     },
+     {
+      "signature": "multicall(bytes[])",
+      "kind": "write",
+      "payable": true,
+      "description": "Batch router calls, e.g. swap to the router (recipient = router address) then unwrapWNativeToken to receive the native token."
+     },
+     {
+      "signature": "unwrapWNativeToken(uint256,address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Unwrap the router's WETH 0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73 balance to native and send to recipient. Args (amountMinimum, recipient). Use inside multicall."
+     },
+     {
+      "signature": "refundNativeToken()",
+      "kind": "write",
+      "payable": true,
+      "description": "Return any leftover native token held by the router to msg.sender (use after exact-output swaps paid in native)."
+     },
+     {
+      "signature": "WNativeToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Wrapped native token address (WETH 0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73)."
+     }
+    ]
+   },
+   {
+    "chain": "robinhood",
+    "chainId": 4663,
+    "address": "0xC45E0e18A82670A6Dd1D19b5D6CC7a4314B3E07d",
+    "name": "QuoterV2",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.kittenswap.finance/tokenomics/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "quoteExactInputSingle((address,address,address,uint256,uint160))",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote (call with eth_call, it is not a view function). Tuple: (tokenIn, tokenOut, deployer, amountIn, limitSqrtPrice). Returns (amountOut, amountIn, sqrtPriceX96After, initializedTicksCrossed, gasEstimate, fee)."
+     },
+     {
+      "signature": "quoteExactInput(bytes,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Multi-hop quote via eth_call: (path, amountIn). Returns (amountOutList[], amountInList[], sqrtPriceX96AfterList[], initializedTicksCrossedList[], gasEstimate, feeList[])."
+     },
+     {
+      "signature": "quoteExactOutputSingle((address,address,address,uint256,uint160))",
+      "kind": "read",
+      "payable": false,
+      "description": "Exact-output quote via eth_call. Tuple: (tokenIn, tokenOut, deployer, amount, limitSqrtPrice)."
+     },
+     {
+      "signature": "quoteExactOutput(bytes,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Multi-hop exact-output quote via eth_call; path in reverse order."
+     }
+    ]
+   },
+   {
+    "chain": "robinhood",
+    "chainId": 4663,
+    "address": "0xf2c72D4EA4b3d54652Df182edA49b082678d02e3",
+    "name": "NonfungiblePositionManager",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.kittenswap.finance/tokenomics/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "mint((address,address,address,int24,int24,uint256,uint256,uint256,uint256,address,uint256))",
+      "kind": "write",
+      "payable": true,
+      "description": "Open a concentrated-liquidity position NFT. Tuple: (token0, token1, deployer, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline). token0 < token1 by address; ticks must be multiples of the pool tickSpacing. Approve both tokens first. Returns (tokenId, liquidity, amount0, amount1)."
+     },
+     {
+      "signature": "increaseLiquidity((uint256,uint256,uint256,uint256,uint256,uint256))",
+      "kind": "write",
+      "payable": true,
+      "description": "Add to a position: (tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline). Returns (liquidity, amount0, amount1)."
+     },
+     {
+      "signature": "decreaseLiquidity((uint256,uint128,uint256,uint256,uint256))",
+      "kind": "write",
+      "payable": true,
+      "description": "Remove liquidity: (tokenId, liquidity, amount0Min, amount1Min, deadline). Tokens are only credited to the position; call collect() to receive them."
+     },
+     {
+      "signature": "collect((uint256,address,uint128,uint128))",
+      "kind": "write",
+      "payable": true,
+      "description": "Withdraw owed tokens and fees: (tokenId, recipient, amount0Max, amount1Max); use 2^128-1 for all. Returns (amount0, amount1)."
+     },
+     {
+      "signature": "burn(uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Burn an empty position NFT (liquidity and owed tokens must be 0)."
+     },
+     {
+      "signature": "positions(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Position data: (nonce, operator, token0, token1, deployer, tickLower, tickUpper, liquidity, feeGrowthInside0LastX128, feeGrowthInside1LastX128, tokensOwed0, tokensOwed1)."
+     },
+     {
+      "signature": "createAndInitializePoolIfNecessary(address,address,address,uint160,bytes)",
+      "kind": "write",
+      "payable": true,
+      "description": "Create and initialize a pool: (token0, token1, deployer, sqrtPriceX96, data). Returns pool address."
+     },
+     {
+      "signature": "multicall(bytes[])",
+      "kind": "write",
+      "payable": true,
+      "description": "Batch calls (e.g. decreaseLiquidity + collect, or mint with native token + refundNativeToken)."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of position NFTs owned."
+     },
+     {
+      "signature": "tokenOfOwnerByIndex(address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Enumerate an owner's position tokenIds."
+     }
+    ]
+   },
+   {
+    "chain": "robinhood",
+    "chainId": 4663,
+    "address": "0xf03875b5Ec5eAc83cab83A6c2ab17844304AA7a0",
+    "name": "AlgebraFactory",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.kittenswap.finance/tokenomics/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "poolByPair(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Standard pool address for a token pair (either order); zero address if none. One pool per pair (dynamic fee)."
+     },
+     {
+      "signature": "customPoolByPair(address,address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool created by a custom deployer: (customDeployer, tokenA, tokenB)."
+     },
+     {
+      "signature": "computePoolAddress(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Deterministic standard pool address for (token0, token1)."
+     },
+     {
+      "signature": "poolDeployer()",
+      "kind": "read",
+      "payable": false,
+      "description": "AlgebraPoolDeployer address."
+     }
+    ]
+   },
+   {
+    "chain": "robinhood",
+    "chainId": 4663,
+    "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+    "name": "WETH (Robinhood Chain wrapped native)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.kittenswap.finance/tokenomics/deployed-contracts",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "WETH balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve WETH to the SwapRouter / NonfungiblePositionManager."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [],
+  "actions": [
+   {
+    "name": "quote",
+    "description": "Get a swap quote",
+    "how": "eth_call QuoterV2.quoteExactInputSingle((tokenIn, tokenOut, 0x0 deployer, amountIn, 0)) and read amountOut."
+   },
+   {
+    "name": "swap",
+    "description": "Swap ERC-20 tokens",
+    "how": "tokenIn.approve(SwapRouter, amountIn); SwapRouter.exactInputSingle((tokenIn, tokenOut, 0x0000000000000000000000000000000000000000, recipient, deadline, amountIn, minOut, 0)). Set minOut from the quote minus slippage."
+   },
+   {
+    "name": "swap-native",
+    "description": "Swap HYPE (HyperEVM) or ETH (Robinhood)",
+    "how": "exactInputSingle with tokenIn = WNativeToken() and msg.value = amountIn. To receive native: multicall([exactInputSingle(... recipient = router ...), unwrapWNativeToken(minOut, me)])."
+   },
+   {
+    "name": "add-liquidity",
+    "description": "Open a concentrated-liquidity position",
+    "how": "Find the pool with AlgebraFactory.poolByPair(a,b); approve both tokens to NonfungiblePositionManager; NPM.mint((token0, token1, 0x0, tickLower, tickUpper, amt0, amt1, min0, min1, me, deadline))."
+   },
+   {
+    "name": "remove-liquidity",
+    "description": "Close or reduce a position",
+    "how": "NPM.multicall([decreaseLiquidity((tokenId, liquidity, min0, min1, deadline)), collect((tokenId, me, 2^128-1, 2^128-1))])."
+   },
+   {
+    "name": "farm",
+    "description": "Farm an LP position (HyperEVM)",
+    "how": "NPM.approveForFarming(tokenId, true, FarmingCenter); FarmingCenter.enterFarming(incentiveKey, tokenId); later collectRewards + claimReward. Incentive keys are easiest to get from the app."
+   },
+   {
+    "name": "lock",
+    "description": "Lock KITTEN for veKITTEN (HyperEVM)",
+    "how": "KITTEN.approve(veKITTEN, amt); veKITTEN.create_lock(amt, durationSeconds) with 1 week <= duration <= 2 years; vote in the app."
+   }
+  ],
+  "risks": [
+   "Concentrated liquidity: positions out of range earn no fees and suffer impermanent loss; the pool fee is dynamic (Algebra plugin), not a fixed tier.",
+   "Upgradeable contracts: KITTEN, veKITTEN, Voter, RebaseReward and Minter are EIP-1967 proxies. Docs say proxy ownership moves to the TimelockController and the delay will rise from 1 minute to 24 hours; at research time getMinDelay() on the timelock still returned 60 seconds.",
+   "veKITTEN locks are illiquid until expiry (up to 2 years); voting power decays linearly.",
+   "Robinhood Chain has swaps and LP only; farming contracts exist there but incentives are not enabled, and veKITTEN/voting is HyperEVM-only. Positions and balances do not bridge between chains.",
+   "Older contracts (Phase 1 V2-style PairFactory/Router, Phase 2 CLFactory/NFP/SwapRouter, Phase 3 gauge factories) are deprecated and no longer supported; only use them via legacy.kittenswap.finance to exit old positions.",
+   "Audits: Kittenswap contracts reviewed by Pashov Audit Group (3 reports, 2025; the July 2025 one covers the current contracts); the Algebra Integral base is audited by Bailsec, ABDK, MixBytes, Paladin and Hexens per the Kittenswap docs."
+  ],
+  "notes": "Addresses are from Kittenswap's official Deployed Contracts page (docs.kittenswap.finance) and the KITTEN token page; every one was checked with eth_getCode on HyperEVM (rpc.hyperliquid.xyz/evm, chainId 999) and Robinhood Chain (rpc.mainnet.chain.robinhood.com, chainId 4663). The contracts are not on Sourcify and HyperEVMScan needs an API key, so function signatures were taken from the Algebra Integral periphery/farming interfaces (github.com/cryptoalgebra/Algebra, which Kittenswap docs name as its AMM) and each selector was confirmed present in the deployed bytecode. veKITTEN and Voter signatures were matched by selector only (Velodrome-v1 style snake_case VotingEscrow); argument meanings for these are inferred, and other Voter functions (claim bribes/fees, reset, poke) could not be identified, so they are left out - use the app for voting and claiming. Omitted but listed in the docs: HyperEVM Quoter (v1) 0x3aA96eDb755C44F3E50C5408a36abb52f28326Ba, NonfungibleTokenPositionDescriptor, TickLens, RebaseReward 0xDd002E8DF80ccB7A8964BFef6e15ee36D414fC36, Minter (dynamic emissions) 0xac36d3671f21A5056Cd1751E201574d702748C7A and the deprecated Minter; Robinhood AlgebraPoolDeployer 0x45362763166CfED6174d312Fa1449EA1FC37988a, Multicall3, AlgebraEternalFarming 0xc8A85FD6511bf875646B3632Aedd60d5752610BC and FarmingCenter 0xE416C0C29DBDb4Fa25870b835ad904c1E8478CDc (not enabled), USDG 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168 (6 decimals, third-party stablecoin). Robinhood pool CREATE2 init code hash: 0x62441ebe4e4315cf3d49d5957f94d66b253dbabe7006f34ad7f70947e60bf15c. HyperEVM wrapped native token is WHYPE 0x5555555555555555555555555555555555555555 (read from SwapRouter.WNativeToken()). No official public API or GitHub was found (DefiLlama lists no GitHub).",
+  "sources": [
+   "https://defillama.com/protocol/kittenswap-finance",
+   "https://api.llama.fi/protocol/kittenswap-finance",
+   "https://kittenswap.finance",
+   "https://docs.kittenswap.finance/llms.txt",
+   "https://docs.kittenswap.finance/introduction",
+   "https://docs.kittenswap.finance/tokenomics/deployed-contracts",
+   "https://docs.kittenswap.finance/multichain/overview",
+   "https://docs.kittenswap.finance/tokenomics/kitten-token",
+   "https://docs.kittenswap.finance/tokenomics/security",
+   "https://github.com/cryptoalgebra/Algebra/blob/master/src/periphery/contracts/interfaces/ISwapRouter.sol",
+   "https://github.com/cryptoalgebra/Algebra/blob/master/src/periphery/contracts/interfaces/IQuoterV2.sol",
+   "https://github.com/cryptoalgebra/Algebra/blob/master/src/periphery/contracts/interfaces/INonfungiblePositionManager.sol",
+   "https://github.com/cryptoalgebra/Algebra/blob/master/src/periphery/contracts/libraries/Path.sol",
+   "https://github.com/cryptoalgebra/Algebra/blob/master/src/farming/contracts/interfaces/IFarmingCenter.sol",
+   "https://chainid.network/chains.json"
   ],
   "researchedAt": "2026-11-24"
  },
@@ -6625,6 +8559,1408 @@ export const PROTOCOLS: ProtocolEntry[] = [
   "researchedAt": "2026-11-24"
  },
  {
+  "slug": "origin-protocol",
+  "name": "Origin Protocol",
+  "category": "Liquid Staking",
+  "description": "Yield-bearing rebasing tokens backed 1:1 by a vault: OETH (ETH, Ethereum), OUSD (USDC, Ethereum) and Super OETH (superOETHb, Base), each with an ERC-4626 wrapper (wOETH, wOUSD, wsuperOETHb). Agents mint by depositing WETH/USDC (or ETH via the Zapper), redeem through a two-step withdrawal queue, wrap/unwrap, swap stETH<->WETH on the ARM, and stake OGN for xOGN.",
+  "website": "https://www.originprotocol.com",
+  "docs": "https://docs.originprotocol.com",
+  "defillama": "https://defillama.com/protocol/origin-protocol",
+  "chains": [
+   "ethereum",
+   "base",
+   "sonic",
+   "plume",
+   "arbitrum"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x856c4Efb76C1D1AE02e20CEB03A2A6a08b0b8dC3",
+    "name": "OETH (Origin Ether)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/registry/contracts/oeth-registry",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "OETH balance (18 decimals). For EOAs and opted-in contracts it grows with each rebase; contracts that have not called rebaseOptIn() keep a fixed balance."
+     },
+     {
+      "signature": "rebaseOptIn()",
+      "kind": "write",
+      "payable": false,
+      "description": "Called BY a smart contract / multisig holding OETH to start earning rebasing yield. Contracts are non-rebasing by default; EOAs rebase automatically. Cannot be called from a constructor."
+     },
+     {
+      "signature": "rebaseOptOut()",
+      "kind": "write",
+      "payable": false,
+      "description": "Stop receiving rebasing yield for msg.sender (balance then stays fixed)."
+     },
+     {
+      "signature": "rebaseState(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Rebase status enum: 0 NotSet (EOA earns, contract does not), 1 StdNonRebasing, 2 StdRebasing, 3 YieldDelegationSource, 4 YieldDelegationTarget."
+     },
+     {
+      "signature": "creditsBalanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (credits, creditsPerToken) for an account; internal accounting behind the rebasing balance."
+     },
+     {
+      "signature": "rebasingCreditsPerTokenHighres()",
+      "kind": "read",
+      "payable": false,
+      "description": "Global credits-per-token (1e27 precision); falls as yield is distributed."
+     },
+     {
+      "signature": "nonRebasingSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Supply held by non-rebasing accounts."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 transfer. Because of rebasing, a full-balance transfer can leave a 1-2 wei remainder."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 approve (e.g. approve the wrapped ERC-4626 token before deposit). Note: burning OETH via the OETH Vault needs no approval."
+     },
+     {
+      "signature": "vaultAddress()",
+      "kind": "read",
+      "payable": false,
+      "description": "Address of the OETH Vault that mints/burns this token."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xDcEe70654261AF21C44c093C300eD3Bb97b78192",
+    "name": "wOETH (Wrapped OETH, ERC-4626)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/registry/contracts/oeth-registry",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-4626 wrap: deposit OETH (assets, 18 decimals; approve OETH to this contract first), mint wOETH shares to receiver. Returns shares."
+     },
+     {
+      "signature": "mint(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-4626: mint an exact number of wOETH shares, pulling the needed OETH. Returns assets used."
+     },
+     {
+      "signature": "redeem(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-4626 unwrap: burn shares from owner, send OETH to receiver. Args (shares, receiver, owner). Returns assets."
+     },
+     {
+      "signature": "withdraw(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-4626: withdraw an exact OETH amount, burning the needed shares. Args (assets, receiver, owner)."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "OETH value of a wOETH share amount (exchange rate; rises as yield accrues). Use this, not an AMM price, for valuation."
+     },
+     {
+      "signature": "convertToShares(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "wOETH shares for a OETH amount."
+     },
+     {
+      "signature": "previewDeposit(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Shares minted for a deposit of assets."
+     },
+     {
+      "signature": "previewRedeem(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Assets returned for redeeming shares."
+     },
+     {
+      "signature": "totalAssets()",
+      "kind": "read",
+      "payable": false,
+      "description": "OETH held by the wrapper."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "wOETH share balance (does not rebase)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x39254033945AA2E4809Cc2977E7087BEE48bd7Ab",
+    "name": "OETH Vault",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/registry/contracts/oeth-registry",
+    "keyFunctions": [
+     {
+      "signature": "mint(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit WETH (amount in WETH units, 18 decimals; approve WETH to the vault first) and mint OETH 1:1 (scaled to 18 decimals) to msg.sender. Reverts if capitalPaused()."
+     },
+     {
+      "signature": "mint(address,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deprecated legacy form (asset, amount, minimumOut); first and last args are ignored and it behaves like mint(uint256). Prefer mint(uint256)."
+     },
+     {
+      "signature": "requestWithdrawal(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Step 1 of a redemption: burns OETH (18 decimals) from msg.sender and queues WETH 1:1. Returns (requestId, queued). The requestId is also in the WithdrawalRequested event."
+     },
+     {
+      "signature": "claimWithdrawal(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Step 2: claim a request by id; must be sent from the same address that requested. Reverts \"Claim delay not met\" before withdrawalClaimDelay (currently 600 s) and \"Queue pending liquidity\" until the vault has WETH for it. Returns WETH amount."
+     },
+     {
+      "signature": "claimWithdrawals(uint256[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim several requests at once; reverts if any one is not claimable. Returns (amounts[], totalAmount)."
+     },
+     {
+      "signature": "withdrawalRequests(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Request info: (withdrawer, claimed, timestamp, amount [OETH, 18 dec], queued [cumulative, WETH decimals]). Claimable when queued <= withdrawalQueueMetadata().claimable and the delay has passed."
+     },
+     {
+      "signature": "withdrawalQueueMetadata()",
+      "kind": "read",
+      "payable": false,
+      "description": "Queue totals in WETH decimals: (queued, claimable, claimed, nextWithdrawalIndex)."
+     },
+     {
+      "signature": "addWithdrawalQueueLiquidity()",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless: move idle vault assets into the withdrawal queue so pending requests become claimable."
+     },
+     {
+      "signature": "withdrawalClaimDelay()",
+      "kind": "read",
+      "payable": false,
+      "description": "Minimum seconds between request and claim (600 at time of research)."
+     },
+     {
+      "signature": "totalValue()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total value of vault assets incl. strategies (18 decimals)."
+     },
+     {
+      "signature": "capitalPaused()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if mint/requestWithdrawal are paused."
+     },
+     {
+      "signature": "asset()",
+      "kind": "read",
+      "payable": false,
+      "description": "The backing asset (WETH)."
+     },
+     {
+      "signature": "oToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "The OETH token address."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xDA0485c1E74A7ef690E99D8286C243942eDAa07B",
+    "name": "OETH Zapper",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.originprotocol.com/registry/contracts/oeth-registry",
+    "keyFunctions": [
+     {
+      "signature": "deposit()",
+      "kind": "write",
+      "payable": true,
+      "description": "Send native ETH as msg.value; wraps to WETH and mints OETH 1:1 to msg.sender. Returns OETH minted. Plain ETH transfers to the zapper do the same."
+     },
+     {
+      "signature": "depositETHForWrappedTokens(uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Send ETH as msg.value; mints OETH and wraps it into wOETH for msg.sender. Arg: minReceived (wOETH); reverts \"Zapper: not enough minted\" below it."
+     },
+     {
+      "signature": "depositWETHForWrappedTokens(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Args (wethAmount, minReceived): pulls WETH (approve first), mints OETH, wraps to wOETH for msg.sender."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x2A8e1E676Ec238d8A992307B495b45B3fEAa5e86",
+    "name": "OUSD (Origin Dollar)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/registry/contracts/ousd-registry",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "OUSD balance (18 decimals). For EOAs and opted-in contracts it grows with each rebase; contracts that have not called rebaseOptIn() keep a fixed balance."
+     },
+     {
+      "signature": "rebaseOptIn()",
+      "kind": "write",
+      "payable": false,
+      "description": "Called BY a smart contract / multisig holding OUSD to start earning rebasing yield. Contracts are non-rebasing by default; EOAs rebase automatically. Cannot be called from a constructor."
+     },
+     {
+      "signature": "rebaseOptOut()",
+      "kind": "write",
+      "payable": false,
+      "description": "Stop receiving rebasing yield for msg.sender (balance then stays fixed)."
+     },
+     {
+      "signature": "rebaseState(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Rebase status enum: 0 NotSet (EOA earns, contract does not), 1 StdNonRebasing, 2 StdRebasing, 3 YieldDelegationSource, 4 YieldDelegationTarget."
+     },
+     {
+      "signature": "creditsBalanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (credits, creditsPerToken) for an account; internal accounting behind the rebasing balance."
+     },
+     {
+      "signature": "rebasingCreditsPerTokenHighres()",
+      "kind": "read",
+      "payable": false,
+      "description": "Global credits-per-token (1e27 precision); falls as yield is distributed."
+     },
+     {
+      "signature": "nonRebasingSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Supply held by non-rebasing accounts."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 transfer. Because of rebasing, a full-balance transfer can leave a 1-2 wei remainder."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 approve (e.g. approve the wrapped ERC-4626 token before deposit). Note: burning OUSD via the OUSD Vault needs no approval."
+     },
+     {
+      "signature": "vaultAddress()",
+      "kind": "read",
+      "payable": false,
+      "description": "Address of the OUSD Vault that mints/burns this token."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xD2af830E8CBdFed6CC11Bab697bB25496ed6FA62",
+    "name": "wOUSD (Wrapped OUSD, ERC-4626)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/registry/contracts/ousd-registry",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-4626 wrap: deposit OUSD (assets, 18 decimals; approve OUSD to this contract first), mint wOUSD shares to receiver. Returns shares."
+     },
+     {
+      "signature": "mint(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-4626: mint an exact number of wOUSD shares, pulling the needed OUSD. Returns assets used."
+     },
+     {
+      "signature": "redeem(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-4626 unwrap: burn shares from owner, send OUSD to receiver. Args (shares, receiver, owner). Returns assets."
+     },
+     {
+      "signature": "withdraw(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-4626: withdraw an exact OUSD amount, burning the needed shares. Args (assets, receiver, owner)."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "OUSD value of a wOUSD share amount (exchange rate; rises as yield accrues). Use this, not an AMM price, for valuation."
+     },
+     {
+      "signature": "convertToShares(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "wOUSD shares for a OUSD amount."
+     },
+     {
+      "signature": "previewDeposit(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Shares minted for a deposit of assets."
+     },
+     {
+      "signature": "previewRedeem(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Assets returned for redeeming shares."
+     },
+     {
+      "signature": "totalAssets()",
+      "kind": "read",
+      "payable": false,
+      "description": "OUSD held by the wrapper."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "wOUSD share balance (does not rebase)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xE75D77B1865Ae93c7eaa3040B038D7aA7BC02F70",
+    "name": "OUSD Vault",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/registry/contracts/ousd-registry",
+    "keyFunctions": [
+     {
+      "signature": "mint(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit USDC (amount in USDC units, 6 decimals; approve USDC to the vault first) and mint OUSD 1:1 (scaled to 18 decimals) to msg.sender. Reverts if capitalPaused()."
+     },
+     {
+      "signature": "mint(address,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deprecated legacy form (asset, amount, minimumOut); first and last args are ignored and it behaves like mint(uint256). Prefer mint(uint256)."
+     },
+     {
+      "signature": "requestWithdrawal(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Step 1 of a redemption: burns OUSD (18 decimals) from msg.sender and queues USDC 1:1. Returns (requestId, queued). The requestId is also in the WithdrawalRequested event."
+     },
+     {
+      "signature": "claimWithdrawal(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Step 2: claim a request by id; must be sent from the same address that requested. Reverts \"Claim delay not met\" before withdrawalClaimDelay (currently 600 s) and \"Queue pending liquidity\" until the vault has USDC for it. Returns USDC amount."
+     },
+     {
+      "signature": "claimWithdrawals(uint256[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim several requests at once; reverts if any one is not claimable. Returns (amounts[], totalAmount)."
+     },
+     {
+      "signature": "withdrawalRequests(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Request info: (withdrawer, claimed, timestamp, amount [OUSD, 18 dec], queued [cumulative, USDC decimals]). Claimable when queued <= withdrawalQueueMetadata().claimable and the delay has passed."
+     },
+     {
+      "signature": "withdrawalQueueMetadata()",
+      "kind": "read",
+      "payable": false,
+      "description": "Queue totals in USDC decimals: (queued, claimable, claimed, nextWithdrawalIndex)."
+     },
+     {
+      "signature": "addWithdrawalQueueLiquidity()",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless: move idle vault assets into the withdrawal queue so pending requests become claimable."
+     },
+     {
+      "signature": "withdrawalClaimDelay()",
+      "kind": "read",
+      "payable": false,
+      "description": "Minimum seconds between request and claim (600 at time of research)."
+     },
+     {
+      "signature": "totalValue()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total value of vault assets incl. strategies (18 decimals)."
+     },
+     {
+      "signature": "capitalPaused()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if mint/requestWithdrawal are paused."
+     },
+     {
+      "signature": "asset()",
+      "kind": "read",
+      "payable": false,
+      "description": "The backing asset (USDC)."
+     },
+     {
+      "signature": "oToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "The OUSD token address."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x85B78AcA6Deae198fBF201c82DAF6Ca21942acc6",
+    "name": "stETH ARM (Lido ARM, ARM-WETH-stETH)",
+    "role": "pool",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/registry/contracts/arm-registry/lido-steth-weth",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokensForTokens(address,address,uint256,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Swap at the ARM's posted price. Args (inToken, outToken, amountIn, amountOutMin, to). Tokens are WETH and stETH; approve inToken first. Returns uint256[] amounts (in, out)."
+     },
+     {
+      "signature": "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Uniswap-V2-router-compatible form: (amountIn, amountOutMin, path[2], to, deadline)."
+     },
+     {
+      "signature": "swapTokensForExactTokens(address,address,uint256,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Exact-output swap: (inToken, outToken, amountOut, amountInMax, to)."
+     },
+     {
+      "signature": "traderate0()",
+      "kind": "read",
+      "payable": false,
+      "description": "Price (scaled 1e36) used when selling token0 (WETH) for token1 (stETH); i.e. token1 out per token0 in = amount * traderate0 / 1e36."
+     },
+     {
+      "signature": "traderate1()",
+      "kind": "read",
+      "payable": false,
+      "description": "Price (scaled 1e36) used when selling token1 (stETH) for token0 (WETH); token0 out = amount * traderate1 / 1e36 (e.g. 0.9998e36 = 2 bp discount)."
+     },
+     {
+      "signature": "token0()",
+      "kind": "read",
+      "payable": false,
+      "description": "Liquidity asset (WETH)."
+     },
+     {
+      "signature": "token1()",
+      "kind": "read",
+      "payable": false,
+      "description": "Base asset (stETH)."
+     },
+     {
+      "signature": "deposit(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "LP: deposit WETH (approve first) for ARM LP shares. Subject to the optional CapManager limits; reverts \"ARM: insolvent\" if outstanding withdrawals cannot be met."
+     },
+     {
+      "signature": "requestRedeem(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "LP exit step 1: burn shares, returns (requestId, assets). Value is set at request time but can be reduced if NAV falls before claim."
+     },
+     {
+      "signature": "claimRedeem(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "LP exit step 2 (after claimDelay, currently 600 s, and once liquidity is available): returns WETH paid out. Reverts until claimable."
+     },
+     {
+      "signature": "claimDelay()",
+      "kind": "read",
+      "payable": false,
+      "description": "Seconds between requestRedeem and claimRedeem."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Canonical share -> asset value (use this, not AMM prices, to value ARM LP shares)."
+     },
+     {
+      "signature": "previewDeposit(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Shares for a deposit."
+     },
+     {
+      "signature": "previewRedeem(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Assets for redeeming shares (estimate)."
+     },
+     {
+      "signature": "totalAssets()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total ARM assets in liquidity-asset terms."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x8207c1FfC5B6804F6024322CcF34F29c3541Ae26",
+    "name": "OGN (Origin Token)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.originprotocol.com/registry/contracts",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "OGN balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve OGN, e.g. to xOGN staking before stake()."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 transfer."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x63898b3b6Ef3d39332082178656E9862bee45C57",
+    "name": "xOGN (OGN Staking)",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/registry/contracts",
+    "keyFunctions": [
+     {
+      "signature": "stake(uint256,uint256,address,bool,int256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Lock OGN for xOGN voting points. Args (amountIn, durationSeconds, to, stakeRewards, lockupId); lockupId -1 creates a new lockup, otherwise extends/adds to an existing one. Approve OGN first. Duration must be >= minStakeDuration()."
+     },
+     {
+      "signature": "unstake(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw OGN from a lockup by id after (or, with a penalty per previewWithdraw, before) its end; also pays rewards."
+     },
+     {
+      "signature": "collectRewards()",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued OGN staking rewards."
+     },
+     {
+      "signature": "previewPoints(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "xOGN points for (amount, duration); returns (points, end)."
+     },
+     {
+      "signature": "previewRewards(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pending OGN rewards for a user."
+     },
+     {
+      "signature": "previewWithdraw(uint256,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "OGN returned for unstaking (amount, end) now, incl. early-exit penalty."
+     },
+     {
+      "signature": "lockups(address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Lockup info (amount, end, points) by user and index."
+     },
+     {
+      "signature": "lockupsCount(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of lockups for a user."
+     },
+     {
+      "signature": "delegate(address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Delegate governance votes."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xDBFeFD2e8460a6Ee4955A68582F85708BAEA60A3",
+    "name": "superOETHb (Super OETH)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/registry/contracts/super-oeth-registry",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "superOETHb balance (18 decimals). For EOAs and opted-in contracts it grows with each rebase; contracts that have not called rebaseOptIn() keep a fixed balance."
+     },
+     {
+      "signature": "rebaseOptIn()",
+      "kind": "write",
+      "payable": false,
+      "description": "Called BY a smart contract / multisig holding superOETHb to start earning rebasing yield. Contracts are non-rebasing by default; EOAs rebase automatically. Cannot be called from a constructor."
+     },
+     {
+      "signature": "rebaseOptOut()",
+      "kind": "write",
+      "payable": false,
+      "description": "Stop receiving rebasing yield for msg.sender (balance then stays fixed)."
+     },
+     {
+      "signature": "rebaseState(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Rebase status enum: 0 NotSet (EOA earns, contract does not), 1 StdNonRebasing, 2 StdRebasing, 3 YieldDelegationSource, 4 YieldDelegationTarget."
+     },
+     {
+      "signature": "creditsBalanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (credits, creditsPerToken) for an account; internal accounting behind the rebasing balance."
+     },
+     {
+      "signature": "rebasingCreditsPerTokenHighres()",
+      "kind": "read",
+      "payable": false,
+      "description": "Global credits-per-token (1e27 precision); falls as yield is distributed."
+     },
+     {
+      "signature": "nonRebasingSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Supply held by non-rebasing accounts."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 transfer. Because of rebasing, a full-balance transfer can leave a 1-2 wei remainder."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 approve (e.g. approve the wrapped ERC-4626 token before deposit). Note: burning superOETHb via the Super OETH Vault needs no approval."
+     },
+     {
+      "signature": "vaultAddress()",
+      "kind": "read",
+      "payable": false,
+      "description": "Address of the Super OETH Vault that mints/burns this token."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x7FcD174E80f264448ebeE8c88a7C4476AAF58Ea6",
+    "name": "wsuperOETHb (Wrapped Super OETH, ERC-4626)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/registry/contracts/super-oeth-registry",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-4626 wrap: deposit superOETHb (assets, 18 decimals; approve superOETHb to this contract first), mint wsuperOETHb shares to receiver. Returns shares."
+     },
+     {
+      "signature": "mint(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-4626: mint an exact number of wsuperOETHb shares, pulling the needed superOETHb. Returns assets used."
+     },
+     {
+      "signature": "redeem(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-4626 unwrap: burn shares from owner, send superOETHb to receiver. Args (shares, receiver, owner). Returns assets."
+     },
+     {
+      "signature": "withdraw(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-4626: withdraw an exact superOETHb amount, burning the needed shares. Args (assets, receiver, owner)."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "superOETHb value of a wsuperOETHb share amount (exchange rate; rises as yield accrues). Use this, not an AMM price, for valuation."
+     },
+     {
+      "signature": "convertToShares(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "wsuperOETHb shares for a superOETHb amount."
+     },
+     {
+      "signature": "previewDeposit(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Shares minted for a deposit of assets."
+     },
+     {
+      "signature": "previewRedeem(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Assets returned for redeeming shares."
+     },
+     {
+      "signature": "totalAssets()",
+      "kind": "read",
+      "payable": false,
+      "description": "superOETHb held by the wrapper."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "wsuperOETHb share balance (does not rebase)."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x98a0CbeF61bD2D21435f433bE4CD42B56B38CC93",
+    "name": "Super OETH Vault",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/registry/contracts/super-oeth-registry",
+    "keyFunctions": [
+     {
+      "signature": "mint(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit WETH (amount in WETH units, 18 decimals; approve WETH to the vault first) and mint superOETHb 1:1 (scaled to 18 decimals) to msg.sender. Reverts if capitalPaused()."
+     },
+     {
+      "signature": "mint(address,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deprecated legacy form (asset, amount, minimumOut); first and last args are ignored and it behaves like mint(uint256). Prefer mint(uint256)."
+     },
+     {
+      "signature": "requestWithdrawal(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Step 1 of a redemption: burns superOETHb (18 decimals) from msg.sender and queues WETH 1:1. Returns (requestId, queued). The requestId is also in the WithdrawalRequested event."
+     },
+     {
+      "signature": "claimWithdrawal(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Step 2: claim a request by id; must be sent from the same address that requested. Reverts \"Claim delay not met\" before withdrawalClaimDelay (currently 600 s) and \"Queue pending liquidity\" until the vault has WETH for it. Returns WETH amount."
+     },
+     {
+      "signature": "claimWithdrawals(uint256[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim several requests at once; reverts if any one is not claimable. Returns (amounts[], totalAmount)."
+     },
+     {
+      "signature": "withdrawalRequests(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Request info: (withdrawer, claimed, timestamp, amount [superOETHb, 18 dec], queued [cumulative, WETH decimals]). Claimable when queued <= withdrawalQueueMetadata().claimable and the delay has passed."
+     },
+     {
+      "signature": "withdrawalQueueMetadata()",
+      "kind": "read",
+      "payable": false,
+      "description": "Queue totals in WETH decimals: (queued, claimable, claimed, nextWithdrawalIndex)."
+     },
+     {
+      "signature": "addWithdrawalQueueLiquidity()",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless: move idle vault assets into the withdrawal queue so pending requests become claimable."
+     },
+     {
+      "signature": "withdrawalClaimDelay()",
+      "kind": "read",
+      "payable": false,
+      "description": "Minimum seconds between request and claim (600 at time of research)."
+     },
+     {
+      "signature": "totalValue()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total value of vault assets incl. strategies (18 decimals)."
+     },
+     {
+      "signature": "capitalPaused()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if mint/requestWithdrawal are paused."
+     },
+     {
+      "signature": "asset()",
+      "kind": "read",
+      "payable": false,
+      "description": "The backing asset (WETH)."
+     },
+     {
+      "signature": "oToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "The superOETHb token address."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x3b56c09543D3068f8488ED34e6F383c3854d2bC1",
+    "name": "Super OETH Zapper",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.originprotocol.com/registry/contracts/super-oeth-registry",
+    "keyFunctions": [
+     {
+      "signature": "deposit()",
+      "kind": "write",
+      "payable": true,
+      "description": "Send native ETH as msg.value; wraps to WETH and mints superOETHb 1:1 to msg.sender. Returns superOETHb minted. Plain ETH transfers to the zapper do the same."
+     },
+     {
+      "signature": "depositETHForWrappedTokens(uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Send ETH as msg.value; mints superOETHb and wraps it into wsuperOETHb for msg.sender. Arg: minReceived (wsuperOETHb); reverts \"Zapper: not enough minted\" below it."
+     },
+     {
+      "signature": "depositWETHForWrappedTokens(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Args (wethAmount, minReceived): pulls WETH (approve first), mints superOETHb, wraps to wsuperOETHb for msg.sender."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xD8724322f44E5c58D7A815F542036fb17DbbF839",
+    "name": "wOETH (bridged)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/registry/contracts/oeth-registry",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Bridged wOETH balance (18 decimals). Non-rebasing; value = wOETH.convertToAssets on Ethereum (or the Chainlink OETH/wOETH exchange-rate feed listed in the docs)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 approve."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Bridged supply on Base."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x7002458B1DF59EccB57387bC79fFc7C29E22e6f7",
+    "name": "OGN (Base)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.originprotocol.com/registry/contracts",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "OGN balance on Base (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 transfer."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0xD8724322f44E5c58D7A815F542036fb17DbbF839",
+    "name": "wOETH (bridged)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/registry/contracts/oeth-registry",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Bridged wOETH balance (18 decimals). Non-rebasing."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 approve."
+     }
+    ]
+   },
+   {
+    "chain": "sonic",
+    "chainId": 146,
+    "address": "0xb1e25689D55734FD3ffFc939c4C3Eb52DFf8A794",
+    "name": "OS (Origin Sonic) - winding down",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/resources/guides/withdrawing-from-os-and-the-os-arm",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "OS balance (18 decimals). OS no longer earns yield (wind-down)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 approve."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-20 transfer."
+     }
+    ]
+   },
+   {
+    "chain": "sonic",
+    "chainId": 146,
+    "address": "0x9F0dF7799f6FDAd409300080cfF680f5A23df4b1",
+    "name": "wOS (Wrapped OS, ERC-4626) - winding down",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/resources/guides/withdrawing-from-os-and-the-os-arm",
+    "keyFunctions": [
+     {
+      "signature": "redeem(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Unwrap: (shares, receiver, owner) -> OS. Official exit step before withdrawing OS."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "wOS share balance."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "OS per wOS shares."
+     }
+    ]
+   },
+   {
+    "chain": "sonic",
+    "chainId": 146,
+    "address": "0xa3c0eCA00D2B76b4d1F170b0AB3FdeA16C180186",
+    "name": "OS Vault - winding down",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/resources/guides/withdrawing-from-os-and-the-os-arm",
+    "keyFunctions": [
+     {
+      "signature": "requestWithdrawal(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Step 1 of a redemption: burns OS (18 decimals) from msg.sender and queues wS 1:1. Returns (requestId, queued). The requestId is also in the WithdrawalRequested event."
+     },
+     {
+      "signature": "claimWithdrawal(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Step 2: claim a request by id; must be sent from the same address that requested. Reverts \"Claim delay not met\" before withdrawalClaimDelay (currently 600 s) and \"Queue pending liquidity\" until the vault has wS for it. Returns wS amount."
+     },
+     {
+      "signature": "claimWithdrawals(uint256[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim several requests at once; reverts if any one is not claimable. Returns (amounts[], totalAmount)."
+     },
+     {
+      "signature": "withdrawalRequests(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Request info: (withdrawer, claimed, timestamp, amount [OS, 18 dec], queued [cumulative, wS decimals]). Claimable when queued <= withdrawalQueueMetadata().claimable and the delay has passed."
+     },
+     {
+      "signature": "withdrawalQueueMetadata()",
+      "kind": "read",
+      "payable": false,
+      "description": "Queue totals in wS decimals: (queued, claimable, claimed, nextWithdrawalIndex)."
+     },
+     {
+      "signature": "addWithdrawalQueueLiquidity()",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless: move idle vault assets into the withdrawal queue so pending requests become claimable."
+     },
+     {
+      "signature": "withdrawalClaimDelay()",
+      "kind": "read",
+      "payable": false,
+      "description": "Minimum seconds between request and claim (600 at time of research)."
+     },
+     {
+      "signature": "totalValue()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total value of vault assets incl. strategies (18 decimals)."
+     },
+     {
+      "signature": "capitalPaused()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if mint/requestWithdrawal are paused."
+     },
+     {
+      "signature": "asset()",
+      "kind": "read",
+      "payable": false,
+      "description": "The backing asset (wS)."
+     },
+     {
+      "signature": "oToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "The OS token address."
+     }
+    ]
+   },
+   {
+    "chain": "sonic",
+    "chainId": 146,
+    "address": "0x2F872623d1E1Af5835b08b0E49aAd2d81d649D30",
+    "name": "OS ARM (ARM-WS-OS) - winding down",
+    "role": "pool",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/resources/guides/withdrawing-from-os-and-the-os-arm",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "ARM-WS-OS LP share balance."
+     },
+     {
+      "signature": "previewRedeem(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "wS paid for redeeming shares."
+     },
+     {
+      "signature": "requestRedeem(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Exit step 1: (shares) -> (requestId, assets). requestId also in the RedeemRequested event."
+     },
+     {
+      "signature": "claimRedeem(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Exit step 2, >= 10 minutes later, from the same wallet: pays wS."
+     }
+    ]
+   },
+   {
+    "chain": "plume",
+    "chainId": 98866,
+    "address": "0xFCbe50DbE43bF7E5C88C6F6Fb9ef432D4165406E",
+    "name": "superOETHp (Super OETH on Plume) - deprecated",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/resources/guides/redeeming-superoethp",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "superOETHp balance (18 decimals). No longer earns yield."
+     }
+    ]
+   },
+   {
+    "chain": "plume",
+    "chainId": 98866,
+    "address": "0x2dE8A403f7A5c6C5161D4a129918Ec9f0b653918",
+    "name": "wsuperOETHp (Wrapped Super OETH on Plume) - deprecated",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/resources/guides/redeeming-superoethp",
+    "keyFunctions": [
+     {
+      "signature": "redeem(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Unwrap (shares, receiver, owner) -> superOETHp."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Share balance."
+     }
+    ]
+   },
+   {
+    "chain": "plume",
+    "chainId": 98866,
+    "address": "0xc8c8F8bEA5631A8AF26440AF32a55002138cB76a",
+    "name": "Plume Vault - deprecated",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://docs.originprotocol.com/resources/guides/redeeming-superoethp",
+    "keyFunctions": [
+     {
+      "signature": "requestWithdrawal(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn superOETHp (18 decimals) and queue a 1:1 withdrawal; requestId in the event logs."
+     },
+     {
+      "signature": "claimWithdrawal(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim by requestId after the 10-minute delay, from the requesting wallet."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [
+   {
+    "name": "Origin analytics API",
+    "url": "https://api.originprotocol.com/api/v2/{token}/stats/{stat}?chainId={chainId}",
+    "auth": "none",
+    "use": "Read APY/APR (apy7, apy30...), totalSupply, rebasing vs non-rebasing supply and prices for ousd, oeth, superoethb, os. Also /api/v2/{token}/apr/trailing/{days} and /api/v2/{symbol}/ratios. Origin says not to rely on it for mission-critical data.",
+    "source": "https://docs.originprotocol.com/registry/api"
+   }
+  ],
+  "actions": [
+   {
+    "name": "mint-oeth",
+    "description": "Get OETH for ETH/WETH at 1:1",
+    "how": "ETH: OETHZapper.deposit() with ETH value (or depositETHForWrappedTokens(minWOETH) to receive wOETH). WETH: WETH.approve(OETH Vault, amt) then Vault.mint(amt). Origin recommends also comparing the Curve OETH/ETH price, which can be better."
+   },
+   {
+    "name": "mint-ousd",
+    "description": "Get OUSD for USDC at 1:1",
+    "how": "USDC.approve(OUSD Vault, amt) then OUSDVault.mint(amt) (amt in 6-decimal USDC units)."
+   },
+   {
+    "name": "mint-superoethb",
+    "description": "Get superOETHb on Base",
+    "how": "Base Zapper.deposit() with ETH, or WETH.approve(Super OETH Vault) then Vault.mint(amt)."
+   },
+   {
+    "name": "redeem",
+    "description": "Redeem OETH/OUSD/superOETHb 1:1 for WETH/USDC",
+    "how": "Vault.requestWithdrawal(amount) -> requestId (event WithdrawalRequested); wait >= withdrawalClaimDelay (600 s) and until withdrawalRequests(id).queued <= withdrawalQueueMetadata().claimable; then Vault.claimWithdrawal(id) from the same address. For an instant exit, swap on Curve/Aerodrome or (stETH) the ARM instead."
+   },
+   {
+    "name": "wrap",
+    "description": "Convert rebasing token to non-rebasing ERC-4626",
+    "how": "OToken.approve(wrapper, amt) then wrapper.deposit(amt, receiver); unwrap with wrapper.redeem(shares, receiver, owner)."
+   },
+   {
+    "name": "enable-yield-for-contract",
+    "description": "Let a smart-contract wallet earn rebases",
+    "how": "From the contract/multisig: OToken.rebaseOptIn(); check with rebaseState(addr) == 2."
+   },
+   {
+    "name": "swap-steth",
+    "description": "Sell stETH for WETH (or buy) on the Lido ARM",
+    "how": "stETH.approve(ARM, amt); ARM.swapExactTokensForTokens(stETH, WETH, amt, minOut, to). Expected out = amt * traderate1 / 1e36."
+   },
+   {
+    "name": "stake-ogn",
+    "description": "Stake OGN for xOGN",
+    "how": "OGN.approve(xOGN, amt); xOGN.stake(amt, durationSeconds, to, false, -1)."
+   },
+   {
+    "name": "exit-os",
+    "description": "Exit Origin Sonic (wind-down)",
+    "how": "wOS.redeem(shares, me, me) -> OS; OSVault.requestWithdrawal(amount); after 10 min OSVault.claimWithdrawal(id) -> wS. ARM LPs: OSARM.requestRedeem(shares) then claimRedeem(id)."
+   }
+  ],
+  "risks": [
+   "OETH, OUSD and superOETHb are rebasing: EOA balances rise automatically, but smart contracts (incl. multisigs, AMM pools, vaults) do NOT earn yield unless they call rebaseOptIn(). Use the wrapped ERC-4626 tokens where balances must not change.",
+   "Redemptions are asynchronous: requestWithdrawal burns tokens immediately, the claim opens after withdrawalClaimDelay (600 s) and only when the queue has liquidity. Origin docs say OUSD redemptions can take up to ~24 h when funds must be pulled from strategies; OETH liquidity can depend on validator withdrawals.",
+   "All core contracts (tokens, vaults, wrappers, ARM, xOGN) are upgradeable proxies controlled by Origin governance (Timelock 0x35918cDE7233F2dD33fA41ae3Cb6aE0e42E0e69F on Ethereum, 5-of-8 Safe admins, and a Guardian Safe that can pause capital). rebase() itself is restricted to the operator/strategist/governor; rebases also happen during user actions and by keeper.",
+   "Yield comes from strategies: OETH from ETH staking (Origin native/compounding staking) and Curve AMO; OUSD from Morpho vaults on Ethereum/Base/HyperEVM (bridged via CCTP) and a Curve AMO; superOETHb from bridged wOETH plus Aerodrome/Curve AMOs. Strategy or bridge failure can impair backing; mint reverts if the vault is paused.",
+   "Past incident: OUSD was exploited in November 2020 (about $7M lost through a reentrancy bug); OUSD relaunched in January 2021 with upgraded contracts and a compensation plan (the deprecated \"OUSD Compensation\" contract is listed in the OUSD registry).",
+   "Audits: OpenZeppelin, Trail of Bits, Sigma Prime, Certora (formal verification), Nethermind, Narya, Perimeter and others; see the docs Audits page (github.com/OriginProtocol/security).",
+   "Origin Sonic (OS, wOS, OS ARM) is being wound down by governance vote: no yield, public minting is disabled (mint is restricted to strategist/governor), only withdrawals remain and dapp support is ending.",
+   "Super OETH on Plume (superOETHp) was deprecated on 12 Nov 2025 and no longer earns yield; redemptions only via the Plume explorer since 21 Jan 2026.",
+   "ARM LP shares: redemption value is fixed at request but reduced if NAV falls before claim; claims may stay pending until liquidity returns (e.g. via the Lido withdrawal queue). Deposits may be capped by a CapManager. Swaps happen at operator-set prices (traderate0/1), not an AMM curve."
+  ],
+  "notes": "Addresses are from Origin's docs registry (Contracts, OETH, Super OETH, OUSD, OS and ARM registry pages) and the official OS-withdrawal and superOETHp-redemption guides; each was checked on-chain with eth_getCode (Ethereum, Base, Arbitrum, Sonic, Plume). Function signatures come from Sourcify-verified sources/ABIs of the current implementations (OETH/OUSD Vault impls on Ethereum, OETHBaseVault, OSVault, OETHZapper, WOETH, LidoARM, ExponentialStaking) and from selector checks of the deployed bytecode. The docs' contracts index lists the OS contracts under \"Deprecated\"; they are kept here only for exits. Other ARMs on Ethereum (WETH ARM 0x68025A4615407993A680102b08a23A61D11C657C, eETH ARM 0xfB0A3CF9B019BFd8827443d131b235B3E0FC58d2, sUSDe ARM 0xCEDa2d856238aA0D12f6329de20B9115f07C366d, USDC ARM 0x9E3A7026E5767F2d7Ff5e83b0ed011005f45a170) are on the ARM registry page; DefiLlama tracks them as the separate \"Origin ARM\" protocol, so only the stETH ARM is detailed here. Strategies, oracles, harvesters, bridge adapters, governance Safes and Pool Boosters are omitted (not user-callable). OUSD exists only on Ethereum (its Base/HyperEVM strategies are internal). Arbitrum holds only bridged wOETH (DefiLlama does not list Arbitrum for this protocol). Plume superOETHp and Sonic OS are listed only for exits.",
+  "sources": [
+   "https://defillama.com/protocol/origin-protocol",
+   "https://api.llama.fi/protocol/origin-protocol",
+   "https://docs.originprotocol.com/llms.txt",
+   "https://docs.originprotocol.com/registry/contracts",
+   "https://docs.originprotocol.com/registry/contracts/oeth-registry",
+   "https://docs.originprotocol.com/registry/contracts/super-oeth-registry",
+   "https://docs.originprotocol.com/registry/contracts/ousd-registry",
+   "https://docs.originprotocol.com/registry/contracts/os-registry",
+   "https://docs.originprotocol.com/registry/contracts/arm-registry",
+   "https://docs.originprotocol.com/registry/contracts/arm-registry/lido-steth-weth",
+   "https://docs.originprotocol.com/registry/contracts/arm-registry/weth-arm",
+   "https://docs.originprotocol.com/resources/guides/withdrawing-from-os-and-the-os-arm",
+   "https://docs.originprotocol.com/resources/guides/redeeming-superoethp",
+   "https://docs.originprotocol.com/registry/api",
+   "https://docs.originprotocol.com/resources/guides/yield-bearing-token-integrations",
+   "https://docs.originprotocol.com/resources/guides/arm-integrations",
+   "https://docs.originprotocol.com/yield-bearing-tokens/core-concepts/rebasing-and-smart-contracts",
+   "https://docs.originprotocol.com/yield-bearing-tokens/origin-dollar-ousd",
+   "https://docs.originprotocol.com/security-and-risk/audits",
+   "https://www.originprotocol.com/blog/what-weve-changed-since-the-ousd-attack",
+   "https://github.com/OriginProtocol/origin-dollar/blob/master/contracts/contracts/vault/VaultCore.sol",
+   "https://sourcify.dev/server/v2/contract/1/0x0E979edF516f88119fa2843fA3f08A9643F8e575",
+   "https://sourcify.dev/server/v2/contract/8453/0xfdBE6A80e1D22ff652Cbff44FEaD2E52287393E8",
+   "https://sourcify.dev/server/v2/contract/146/0x41DF78939406BF3f189c304C72f01fAd7acAfce7",
+   "https://sourcify.dev/server/v2/contract/1/0x850da2E21F1F71479E2A307EDab114777D9F6217",
+   "https://sourcify.dev/server/v2/contract/1/0x97711c7a5D64A064a95d10e37f786d2bD8b1F3c8",
+   "https://sourcify.dev/server/v2/contract/1/0xDA0485c1E74A7ef690E99D8286C243942eDAa07B"
+  ],
+  "researchedAt": "2026-11-24"
+ },
+ {
   "slug": "polymarket",
   "name": "Polymarket",
   "category": "Prediction Market",
@@ -7871,6 +11207,2126 @@ export const PROTOCOLS: ProtocolEntry[] = [
   "researchedAt": "2026-11-24"
  },
  {
+  "slug": "shift-protocol",
+  "name": "Shift Protocol",
+  "category": "Onchain Capital Allocator",
+  "description": "Shift (by NebulaLabs) packages managed market-neutral / basis / market-making strategies on perp DEXs (Extended, GRVT, Lighter, Hibachi, RiseX) into vaults that issue an ERC-20 share token. Agents can read share prices and withdrawal status on-chain and request/claim withdrawals; deposits need an off-chain oracle authorisation from Shift.",
+  "website": "https://shiftprotocol.xyz",
+  "docs": "https://shiftprotocol.gitbook.io/shift",
+  "defillama": "https://defillama.com/protocol/shift-protocol",
+  "chains": [
+   "ethereum",
+   "base",
+   "arbitrum"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x4cE3ec1b7B4FFb33A0B70c64a0560A3F341AA2E1",
+    "name": "extUSD v1 (Shift Extended Basis USD) vault",
+    "role": "vault",
+    "proxy": false,
+    "source": "https://pub-api.shiftprotocol.xyz/pub/strategies",
+    "keyFunctions": [
+     {
+      "signature": "reqDeposit()",
+      "kind": "write",
+      "payable": false,
+      "description": "Step 1 of a deposit: open a deposit request for msg.sender. Reverts if one is still valid. The request expires after requestValidity() seconds (40 s on-chain at research time), and Shift's off-chain oracle must call ShiftTvlFeed.updateTvlForDeposit (which calls vault.allowDeposit) inside that window. Done in practice through the Shift app."
+     },
+     {
+      "signature": "deposit(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Step 2: deposit USDC (6 decimals, base units) after the oracle authorised the request and before it expires. Approve the vault for USDC first. Amount must be >= minDepositAmount() and TVL must stay <= maxTvl(). Assets go straight to the strategy executor address; shares (18 decimals) are minted at the price of the authorised TVL snapshot."
+     },
+     {
+      "signature": "reqWithdraw(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Request withdrawal of a share amount (18 decimals). Shares move into vault escrow and join the current batch. One active request per wallet. Timelock is timelock() seconds (604800 s = 7 days); the batch must also be resolved by Shift's executor."
+     },
+     {
+      "signature": "withdraw()",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim USDC for the active request once the timelock has passed and its batch is resolved; burns the escrowed shares. Reverts Locked / BatchNotResolved otherwise."
+     },
+     {
+      "signature": "cancelWithdraw()",
+      "kind": "write",
+      "payable": false,
+      "description": "Cancel the pending withdrawal and get shares back; only while the request is still in the current (unprocessed) batch."
+     },
+     {
+      "signature": "getWithdrawStatus()",
+      "kind": "read",
+      "payable": false,
+      "description": "Status of msg.sender's withdrawal: (uint8 status 0 none / 1 pending batch / 2 timelock active / 3 ready, shareAmount, tokenAmount, unlockTime). Uses msg.sender, so set `from` to the user in eth_call."
+     },
+     {
+      "signature": "getSharePrice()",
+      "kind": "read",
+      "payable": false,
+      "description": "Price of 1 share in USDC units (6 decimals, e.g. 1048186 = 1.048186). Returns 0 if TVL data is stale."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Vault share balance (ERC-20, 18 decimals). Shares in a pending withdrawal sit in the vault, not the user."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total shares."
+     },
+     {
+      "signature": "baseToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit/withdraw asset (USDC)."
+     },
+     {
+      "signature": "tvlFeed()",
+      "kind": "read",
+      "payable": false,
+      "description": "ShiftTvlFeed oracle contract for this vault."
+     },
+     {
+      "signature": "minDepositAmount()",
+      "kind": "read",
+      "payable": false,
+      "description": "Minimum deposit in USDC base units."
+     },
+     {
+      "signature": "maxTvl()",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit cap (TVL, asset base units)."
+     },
+     {
+      "signature": "timelock()",
+      "kind": "read",
+      "payable": false,
+      "description": "Withdrawal timelock in seconds for new requests."
+     },
+     {
+      "signature": "paused()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if deposits/requests are paused (withdraw() still works)."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xdBE599c184CC13D82F956fA5adAa1b18c0Ff67D3",
+    "name": "extUSD ShiftTvlFeed",
+    "role": "other",
+    "proxy": false,
+    "source": "https://pub-api.shiftprotocol.xyz/pub/strategies",
+    "keyFunctions": [
+     {
+      "signature": "getLastTvl()",
+      "kind": "read",
+      "payable": false,
+      "description": "Latest TVL snapshot (uint256 value in base-asset units, uint256 timestamp, uint256 supplySnapshot). Pushed by Shift's ORACLE_ROLE."
+     },
+     {
+      "signature": "getLastTvlEntries(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Last N TVL snapshots (array of the same struct); useful for share-price history."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Decimals of TVL values (= base asset decimals, 6)."
+     },
+     {
+      "signature": "shiftVault()",
+      "kind": "read",
+      "payable": false,
+      "description": "The vault this feed serves."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x6d7C897cD8B402690C07e7263C9f59B3777ae3c2",
+    "name": "vGRVT (Shift GRVT Hybrid Vault) vault",
+    "role": "vault",
+    "proxy": false,
+    "source": "https://pub-api.shiftprotocol.xyz/pub/strategies",
+    "keyFunctions": [
+     {
+      "signature": "reqDeposit()",
+      "kind": "write",
+      "payable": false,
+      "description": "Step 1 of a deposit: open a deposit request for msg.sender. Reverts if one is still valid. The request expires after requestValidity() seconds (40 s on-chain at research time), and Shift's off-chain oracle must call ShiftTvlFeed.updateTvlForDeposit (which calls vault.allowDeposit) inside that window. Done in practice through the Shift app."
+     },
+     {
+      "signature": "deposit(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Step 2: deposit USD₮0 (6 decimals, base units) after the oracle authorised the request and before it expires. Approve the vault for USD₮0 first. Amount must be >= minDepositAmount() and TVL must stay <= maxTvl(). Assets go straight to the strategy executor address; shares (18 decimals) are minted at the price of the authorised TVL snapshot."
+     },
+     {
+      "signature": "reqWithdraw(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Request withdrawal of a share amount (18 decimals). Shares move into vault escrow and join the current batch. One active request per wallet. Timelock is timelock() seconds (604800 s = 7 days); the batch must also be resolved by Shift's executor."
+     },
+     {
+      "signature": "withdraw()",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim USD₮0 for the active request once the timelock has passed and its batch is resolved; burns the escrowed shares. Reverts Locked / BatchNotResolved otherwise."
+     },
+     {
+      "signature": "cancelWithdraw()",
+      "kind": "write",
+      "payable": false,
+      "description": "Cancel the pending withdrawal and get shares back; only while the request is still in the current (unprocessed) batch."
+     },
+     {
+      "signature": "getWithdrawStatus()",
+      "kind": "read",
+      "payable": false,
+      "description": "Status of msg.sender's withdrawal: (uint8 status 0 none / 1 pending batch / 2 timelock active / 3 ready, shareAmount, tokenAmount, unlockTime). Uses msg.sender, so set `from` to the user in eth_call."
+     },
+     {
+      "signature": "getSharePrice()",
+      "kind": "read",
+      "payable": false,
+      "description": "Price of 1 share in USD₮0 units (6 decimals, e.g. 1048186 = 1.048186). Returns 0 if TVL data is stale."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Vault share balance (ERC-20, 18 decimals). Shares in a pending withdrawal sit in the vault, not the user."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total shares."
+     },
+     {
+      "signature": "baseToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit/withdraw asset (USD₮0)."
+     },
+     {
+      "signature": "tvlFeed()",
+      "kind": "read",
+      "payable": false,
+      "description": "ShiftTvlFeed oracle contract for this vault."
+     },
+     {
+      "signature": "minDepositAmount()",
+      "kind": "read",
+      "payable": false,
+      "description": "Minimum deposit in USD₮0 base units."
+     },
+     {
+      "signature": "maxTvl()",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit cap (TVL, asset base units)."
+     },
+     {
+      "signature": "timelock()",
+      "kind": "read",
+      "payable": false,
+      "description": "Withdrawal timelock in seconds for new requests."
+     },
+     {
+      "signature": "paused()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if deposits/requests are paused (withdraw() still works)."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0xCA1EC464b5037271a2758afb0997677916886320",
+    "name": "vGRVT ShiftTvlFeed",
+    "role": "other",
+    "proxy": false,
+    "source": "https://pub-api.shiftprotocol.xyz/pub/strategies",
+    "keyFunctions": [
+     {
+      "signature": "getLastTvl()",
+      "kind": "read",
+      "payable": false,
+      "description": "Latest TVL snapshot (uint256 value in base-asset units, uint256 timestamp, uint256 supplySnapshot). Pushed by Shift's ORACLE_ROLE."
+     },
+     {
+      "signature": "getLastTvlEntries(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Last N TVL snapshots (array of the same struct); useful for share-price history."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Decimals of TVL values (= base asset decimals, 6)."
+     },
+     {
+      "signature": "shiftVault()",
+      "kind": "read",
+      "payable": false,
+      "description": "The vault this feed serves."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x956bdd9C18B786b082fd50C52722d254f0CB6964",
+    "name": "ltLLP (Shift Lighter LLP Wrapper) vault",
+    "role": "vault",
+    "proxy": false,
+    "source": "https://pub-api.shiftprotocol.xyz/pub/strategies",
+    "keyFunctions": [
+     {
+      "signature": "reqDeposit()",
+      "kind": "write",
+      "payable": false,
+      "description": "Step 1 of a deposit: open a deposit request for msg.sender. Reverts if one is still valid. The request expires after requestValidity() seconds (40 s on-chain at research time), and Shift's off-chain oracle must call ShiftTvlFeed.updateTvlForDeposit (which calls vault.allowDeposit) inside that window. Done in practice through the Shift app."
+     },
+     {
+      "signature": "deposit(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Step 2: deposit USDC (6 decimals, base units) after the oracle authorised the request and before it expires. Approve the vault for USDC first. Amount must be >= minDepositAmount() and TVL must stay <= maxTvl(). Assets go straight to the strategy executor address; shares (18 decimals) are minted at the price of the authorised TVL snapshot."
+     },
+     {
+      "signature": "reqWithdraw(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Request withdrawal of a share amount (18 decimals). Shares move into vault escrow and join the current batch. One active request per wallet. Timelock is timelock() seconds (345600 s = 4 days); the batch must also be resolved by Shift's executor."
+     },
+     {
+      "signature": "withdraw()",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim USDC for the active request once the timelock has passed and its batch is resolved; burns the escrowed shares. Reverts Locked / BatchNotResolved otherwise."
+     },
+     {
+      "signature": "cancelWithdraw()",
+      "kind": "write",
+      "payable": false,
+      "description": "Cancel the pending withdrawal and get shares back; only while the request is still in the current (unprocessed) batch."
+     },
+     {
+      "signature": "getWithdrawStatus()",
+      "kind": "read",
+      "payable": false,
+      "description": "Status of msg.sender's withdrawal: (uint8 status 0 none / 1 pending batch / 2 timelock active / 3 ready, shareAmount, tokenAmount, unlockTime). Uses msg.sender, so set `from` to the user in eth_call."
+     },
+     {
+      "signature": "getSharePrice()",
+      "kind": "read",
+      "payable": false,
+      "description": "Price of 1 share in USDC units (6 decimals, e.g. 1048186 = 1.048186). Returns 0 if TVL data is stale."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Vault share balance (ERC-20, 18 decimals). Shares in a pending withdrawal sit in the vault, not the user."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total shares."
+     },
+     {
+      "signature": "baseToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit/withdraw asset (USDC)."
+     },
+     {
+      "signature": "tvlFeed()",
+      "kind": "read",
+      "payable": false,
+      "description": "ShiftTvlFeed oracle contract for this vault."
+     },
+     {
+      "signature": "minDepositAmount()",
+      "kind": "read",
+      "payable": false,
+      "description": "Minimum deposit in USDC base units."
+     },
+     {
+      "signature": "maxTvl()",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit cap (TVL, asset base units)."
+     },
+     {
+      "signature": "timelock()",
+      "kind": "read",
+      "payable": false,
+      "description": "Withdrawal timelock in seconds for new requests."
+     },
+     {
+      "signature": "paused()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if deposits/requests are paused (withdraw() still works)."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x4062c539D09A76D79e366F8C2a2e2F987EAD1FE0",
+    "name": "ltLLP ShiftTvlFeed",
+    "role": "other",
+    "proxy": false,
+    "source": "https://pub-api.shiftprotocol.xyz/pub/strategies",
+    "keyFunctions": [
+     {
+      "signature": "getLastTvl()",
+      "kind": "read",
+      "payable": false,
+      "description": "Latest TVL snapshot (uint256 value in base-asset units, uint256 timestamp, uint256 supplySnapshot). Pushed by Shift's ORACLE_ROLE."
+     },
+     {
+      "signature": "getLastTvlEntries(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Last N TVL snapshots (array of the same struct); useful for share-price history."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Decimals of TVL values (= base asset decimals, 6)."
+     },
+     {
+      "signature": "shiftVault()",
+      "kind": "read",
+      "payable": false,
+      "description": "The vault this feed serves."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x7174f0bD02664BebDB6Aa79a99fAF949570A10bd",
+    "name": "hibaUSD (Shift Hibachi Basis USD) vault",
+    "role": "vault",
+    "proxy": false,
+    "source": "https://pub-api.shiftprotocol.xyz/pub/strategies",
+    "keyFunctions": [
+     {
+      "signature": "reqDeposit()",
+      "kind": "write",
+      "payable": false,
+      "description": "Step 1 of a deposit: open a deposit request for msg.sender. Reverts if one is still valid. The request expires after requestValidity() seconds (40 s on-chain at research time), and Shift's off-chain oracle must call ShiftTvlFeed.updateTvlForDeposit (which calls vault.allowDeposit) inside that window. Done in practice through the Shift app."
+     },
+     {
+      "signature": "deposit(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Step 2: deposit USD₮0 (6 decimals, base units) after the oracle authorised the request and before it expires. Approve the vault for USD₮0 first. Amount must be >= minDepositAmount() and TVL must stay <= maxTvl(). Assets go straight to the strategy executor address; shares (18 decimals) are minted at the price of the authorised TVL snapshot."
+     },
+     {
+      "signature": "reqWithdraw(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Request withdrawal of a share amount (18 decimals). Shares move into vault escrow and join the current batch. One active request per wallet. Timelock is timelock() seconds (604800 s = 7 days); the batch must also be resolved by Shift's executor."
+     },
+     {
+      "signature": "withdraw()",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim USD₮0 for the active request once the timelock has passed and its batch is resolved; burns the escrowed shares. Reverts Locked / BatchNotResolved otherwise."
+     },
+     {
+      "signature": "cancelWithdraw()",
+      "kind": "write",
+      "payable": false,
+      "description": "Cancel the pending withdrawal and get shares back; only while the request is still in the current (unprocessed) batch."
+     },
+     {
+      "signature": "getWithdrawStatus()",
+      "kind": "read",
+      "payable": false,
+      "description": "Status of msg.sender's withdrawal: (uint8 status 0 none / 1 pending batch / 2 timelock active / 3 ready, shareAmount, tokenAmount, unlockTime). Uses msg.sender, so set `from` to the user in eth_call."
+     },
+     {
+      "signature": "getSharePrice()",
+      "kind": "read",
+      "payable": false,
+      "description": "Price of 1 share in USD₮0 units (6 decimals, e.g. 1048186 = 1.048186). Returns 0 if TVL data is stale."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Vault share balance (ERC-20, 18 decimals). Shares in a pending withdrawal sit in the vault, not the user."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total shares."
+     },
+     {
+      "signature": "baseToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit/withdraw asset (USD₮0)."
+     },
+     {
+      "signature": "tvlFeed()",
+      "kind": "read",
+      "payable": false,
+      "description": "ShiftTvlFeed oracle contract for this vault."
+     },
+     {
+      "signature": "minDepositAmount()",
+      "kind": "read",
+      "payable": false,
+      "description": "Minimum deposit in USD₮0 base units."
+     },
+     {
+      "signature": "maxTvl()",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit cap (TVL, asset base units)."
+     },
+     {
+      "signature": "timelock()",
+      "kind": "read",
+      "payable": false,
+      "description": "Withdrawal timelock in seconds for new requests."
+     },
+     {
+      "signature": "paused()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if deposits/requests are paused (withdraw() still works)."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x66b3D1092f6428C82052dADB00533a9EdE5B57DB",
+    "name": "hibaUSD ShiftTvlFeed",
+    "role": "other",
+    "proxy": false,
+    "source": "https://pub-api.shiftprotocol.xyz/pub/strategies",
+    "keyFunctions": [
+     {
+      "signature": "getLastTvl()",
+      "kind": "read",
+      "payable": false,
+      "description": "Latest TVL snapshot (uint256 value in base-asset units, uint256 timestamp, uint256 supplySnapshot). Pushed by Shift's ORACLE_ROLE."
+     },
+     {
+      "signature": "getLastTvlEntries(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Last N TVL snapshots (array of the same struct); useful for share-price history."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Decimals of TVL values (= base asset decimals, 6)."
+     },
+     {
+      "signature": "shiftVault()",
+      "kind": "read",
+      "payable": false,
+      "description": "The vault this feed serves."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [
+   {
+    "name": "Shift public strategy registry",
+    "url": "https://pub-api.shiftprotocol.xyz/pub/strategies",
+    "auth": "none",
+    "use": "JSON list of live strategies: vaultAddress, tvlFeedAddress, executorAddress, chainId, baseToken, minWithdrawal, Pendle market addresses, allocation. The official source of the vault addresses in this file.",
+    "source": "https://shiftprotocol.xyz"
+   },
+   {
+    "name": "Shift landing summary",
+    "url": "https://pub-api.shiftprotocol.xyz/pub/landing/summary",
+    "auth": "none",
+    "use": "Total TVL (USD), max APY and number of active strategies.",
+    "source": "https://shiftprotocol.xyz"
+   },
+   {
+    "name": "Shift docs MCP server",
+    "url": "https://shiftprotocol.gitbook.io/shift/~gitbook/mcp",
+    "auth": "none",
+    "use": "Search/read the Shift documentation from an agent.",
+    "source": "https://shiftprotocol.gitbook.io/shift/llms.txt"
+   }
+  ],
+  "actions": [
+   {
+    "name": "deposit (v1 vault)",
+    "description": "Deposit the vault asset and receive shares.",
+    "how": "Normally via the Shift app (app.shiftprotocol.xyz). On-chain: baseToken.approve(vault, amount) -> vault.reqDeposit() -> wait for Shift's oracle to call tvlFeed.updateTvlForDeposit(user, tvl, supply) (emits DepositAllowed on the vault) -> vault.deposit(amount) before the request expires (requestValidity, 40 s at research time). Without Shift's off-chain oracle the deposit cannot complete."
+   },
+   {
+    "name": "request withdrawal",
+    "description": "Queue shares for redemption.",
+    "how": "vault.reqWithdraw(shares). Check vault.getWithdrawStatus() (eth_call with from = user) until status 3."
+   },
+   {
+    "name": "claim withdrawal",
+    "description": "Receive the base asset.",
+    "how": "vault.withdraw() once unlockTime has passed and the batch is resolved."
+   },
+   {
+    "name": "cancel withdrawal",
+    "description": "Undo a request still in the open batch.",
+    "how": "vault.cancelWithdraw()"
+   },
+   {
+    "name": "read share price / TVL",
+    "description": "Value a position.",
+    "how": "vault.getSharePrice() (asset decimals) x vault.balanceOf(user)/1e18; history via tvlFeed.getLastTvlEntries(n)."
+   }
+  ],
+  "risks": [
+   "Custodial-style execution: deposit() transfers assets directly to the vault's executor address, which was an EOA (no contract code) for all four vaults at research time; the strategy then runs off-chain on perp venues (Extended/Starknet, GRVT, Lighter, Hibachi). Share value depends on an oracle-reported TVL, not on assets held by the contract.",
+   "Admin powers (ShiftAccessControl roles): DEFAULT_ADMIN can pause, change fees, timelock, max TVL, min deposit, executor and fee collector, and toggle a whitelist; ORACLE_ROLE pushes TVL (sets share price); EXECUTOR_ROLE resolves withdrawal batches and sets the redemption rate.",
+   "Withdrawals are not instant: timelock (7 days for extUSD v1, vGRVT, hibaUSD; 4 days for ltLLP) plus batch resolution by the executor; these are minimums, not deadlines.",
+   "getSharePrice() returns 0 when TVL data is stale (older than freshness()).",
+   "Strategies carry funding, basis, liquidation, venue/custody, bridge and depeg risk; docs say partial or total loss of principal is possible.",
+   "Audits: SB Security review of the v1 contracts (2025, in the GitHub repo); the docs Audits page also lists v2 reports. Audits do not cover the off-chain strategy.",
+   "Vault contracts are not proxies (immutable bytecode), but the parameters above are mutable by the admin."
+  ],
+  "notes": "Vault and TVL-feed addresses come from Shift's own public API (pub-api.shiftprotocol.xyz, the backend used by shiftprotocol.xyz); the docs site lists no addresses. Each one was checked on-chain on 2026-11-24/25: it has code, name/symbol match (extUSD, vGRVT, ltLLP, hibaUSD), baseToken() = USDC (Base 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, Arbitrum 0xaf88d065e77c8cC2239327C5EDb3A432268e5831) or USD₮0 (0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9), tvlFeed() matches and feed.shiftVault() points back, and all listed function selectors are in the bytecode. Signatures come from the official ShiftVault.sol / ShiftTvlFeed.sol source (repo main, Feb 2026); the deployed vaults report version 1.1.0 in the API. LEFT OUT: (1) risexUSDC, the Ethereum v2 (ERC-4626, async request/settle/claim) vault: Shift's API lists it (vaultId 6, chainId 1) without an address and no official page gives one, so it is omitted (DefiLlama's adapter lists 0x5F70E536190C15E5959DbFeF2F2632E540da74CD but that is not an official source). Ethereum is therefore in `chains` with no contract listed. (2) shiftEUR (v2, Ethereum, deprecated) and ltPARA/sltPARA (Base, decommissioned): no official address. (3) Pendle markets for Shift assets are standard Pendle contracts (addresses in the API's pendleMarket field) and belong to Pendle. (4) Executor EOAs and the access-control contract are not things an agent calls. Shift also runs on Starknet (Extended executor) and Robinhood Chain per the API, but no user-facing contracts there.",
+  "sources": [
+   "https://defillama.com/protocol/shift-protocol",
+   "https://api.llama.fi/protocol/shift-protocol",
+   "https://shiftprotocol.xyz",
+   "https://pub-api.shiftprotocol.xyz/pub/strategies",
+   "https://pub-api.shiftprotocol.xyz/pub/landing/summary",
+   "https://shiftprotocol.gitbook.io/shift/llms.txt",
+   "https://shiftprotocol.gitbook.io/shift/using-shift/shift-vaults/current-vaults",
+   "https://shiftprotocol.gitbook.io/shift/using-shift/shift-vaults/overview/v1",
+   "https://shiftprotocol.gitbook.io/shift/using-shift/shift-vaults/overview/v2",
+   "https://shiftprotocol.gitbook.io/shift/using-shift/shift-vaults/current-vaults/risexusdc",
+   "https://shiftprotocol.gitbook.io/shift/using-shift/shift-vaults/current-vaults/extusd-v1-basis-strategy-vault",
+   "https://shiftprotocol.gitbook.io/shift/using-shift/shift-vaults/current-vaults/vgrvt-hybrid-grvt-vault",
+   "https://shiftprotocol.gitbook.io/shift/using-shift/shift-vaults/current-vaults/ltllp-lighter-llp-liquid-token",
+   "https://shiftprotocol.gitbook.io/shift/using-shift/shift-vaults/current-vaults/hibausd",
+   "https://shiftprotocol.gitbook.io/shift/using-shift/fees",
+   "https://shiftprotocol.gitbook.io/shift/security/risks",
+   "https://shiftprotocol.gitbook.io/shift/security/audits",
+   "https://shiftprotocol.gitbook.io/shift/resources/faq",
+   "https://shiftprotocol.gitbook.io/shift/resources/links",
+   "https://github.com/SHIFT-NebulaLabs/shift-contracts",
+   "https://github.com/SHIFT-NebulaLabs/shift-contracts/blob/main/src/ShiftVault.sol",
+   "https://github.com/SHIFT-NebulaLabs/shift-contracts/blob/main/src/ShiftTvlFeed.sol",
+   "https://github.com/SHIFT-NebulaLabs/shift-contracts/blob/main/src/ShiftManager.sol",
+   "https://github.com/SHIFT-NebulaLabs/shift-contracts/blob/main/audits/shift-sbsecurity-audit-2025.pdf",
+   "https://mainnet.base.org",
+   "https://arb1.arbitrum.io/rpc"
+  ],
+  "researchedAt": "2026-11-24"
+ },
+ {
+  "slug": "stackingdao",
+  "name": "StackingDAO",
+  "category": "Liquid Staking",
+  "description": "Liquid staking on Stacks. Agents can deposit STX for stSTX (STX yield in the exchange rate) or stSTXbtc (1:1 with STX, yield paid in sBTC), deposit sBTC for stBTC, swap stSTX <> stSTXbtc fee-free, and exit through an instant (1% fee, idle liquidity) or cooldown withdrawal that mints a claim NFT.",
+  "website": "https://stackingdao.com",
+  "docs": "https://docs.stackingdao.com",
+  "defillama": "https://defillama.com/protocol/stackingdao",
+  "chains": [
+   "stacks"
+  ],
+  "vm": "mixed",
+  "agentAccess": "onchain",
+  "contracts": [
+   {
+    "chain": "stacks",
+    "chainId": null,
+    "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.stacking-dao-core-stx-v2",
+    "name": "stSTX Core (stacking-dao-core-stx-v2)",
+    "role": "staking",
+    "proxy": false,
+    "source": "https://docs.stackingdao.com/stackingdao/core-contracts/ststx-stacking-dao-core",
+    "keyFunctions": [
+     {
+      "signature": "deposit(stx-amount uint, min-shares-out uint)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake STX for stSTX. stx-amount in micro-STX (1 STX = 1000000). Transfers STX from tx-sender (add an STX post-condition) and mints stSTX = stx-amount * 1e6 / get-stx-per-ststx-up. Reverts with err u26007 if fewer than min-shares-out micro-stSTX would be minted (0 = no slippage check). Returns (ok ststx-amount)."
+     },
+     {
+      "signature": "init-withdraw(ststx-amount uint)",
+      "kind": "write",
+      "payable": false,
+      "description": "Start a standard withdrawal of ststx-amount micro-stSTX. Moves your stSTX to the core, locks STX at the current ratio and mints a withdrawal NFT (ststx-withdraw-nft-v4) to you. Returns (ok nft-id). Claimable after a fixed cooldown (currently 2,100 Bitcoin blocks, about two weeks; see withdraw-data-stx-v2.get-withdraw-unlock-burn-height)."
+     },
+     {
+      "signature": "withdraw(nft-id uint)",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim STX for a withdrawal NFT once burn-block-height >= its unlock-burn-height. tx-sender must own the NFT (err u26003 otherwise; err u26002 if still locked). Burns the NFT and the escrowed stSTX, sends STX. Returns (ok {stx-user, stx-fee})."
+     },
+     {
+      "signature": "withdraw-idle(ststx-amount uint)",
+      "kind": "write",
+      "payable": false,
+      "description": "Instant unstake: burns ststx-amount micro-stSTX and pays STX from idle reserve liquidity right away, minus the idle fee (get-withdraw-idle-fee, 100 bps = 1% at research time). Reverts err u26006 if the reserve lacks idle STX. Returns (ok {stx-user, stx-fee})."
+     },
+     {
+      "signature": "get-shutdown-deposits()",
+      "kind": "read",
+      "payable": false,
+      "description": "true if deposits are paused by governance. Also get-shutdown-init-withdraw(), get-shutdown-withdraw(), get-shutdown-withdraw-idle(). All false at research time."
+     },
+     {
+      "signature": "get-withdraw-idle-fee()",
+      "kind": "read",
+      "payable": false,
+      "description": "Instant-unstake fee in basis points (u100 = 1%)."
+     },
+     {
+      "signature": "get-withdraw-fee()",
+      "kind": "read",
+      "payable": false,
+      "description": "Fee on standard withdrawals in basis points (u0 at research time)."
+     }
+    ]
+   },
+   {
+    "chain": "stacks",
+    "chainId": null,
+    "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.data-stx-v2",
+    "name": "stSTX exchange-rate data (data-stx-v2)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.stackingdao.com/stackingdao/core-contracts/ststx-stacking-dao-core",
+    "keyFunctions": [
+     {
+      "signature": "get-stx-per-ststx()",
+      "kind": "read",
+      "payable": false,
+      "description": "micro-STX backing one stSTX, scaled by 1e6 (e.g. u1199681 = 1.199681 STX per stSTX at research time). Rounded down; use for redemption value and to size min-shares-out."
+     },
+     {
+      "signature": "get-stx-per-ststx-up()",
+      "kind": "read",
+      "payable": false,
+      "description": "Same ratio rounded up; this is the value deposit() divides by."
+     }
+    ]
+   },
+   {
+    "chain": "stacks",
+    "chainId": null,
+    "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststx-token",
+    "name": "stSTX token",
+    "role": "token",
+    "proxy": false,
+    "source": "https://github.com/StackingDAO/stackingdao-smart-contracts/blob/main/mainnet/README.md",
+    "keyFunctions": [
+     {
+      "signature": "get-balance(account principal)",
+      "kind": "read",
+      "payable": false,
+      "description": "stSTX balance in micro-stSTX (6 decimals). Value-accruing (non-rebasing) token."
+     },
+     {
+      "signature": "get-total-supply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total stSTX supply (6 decimals)."
+     },
+     {
+      "signature": "transfer(amount uint, sender principal, recipient principal, memo (optional (buff 34)))",
+      "kind": "write",
+      "payable": false,
+      "description": "SIP-010 transfer; sender must be tx-sender."
+     }
+    ]
+   },
+   {
+    "chain": "stacks",
+    "chainId": null,
+    "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.stacking-dao-core-ststxbtc-v2",
+    "name": "stSTXbtc Core (stacking-dao-core-ststxbtc-v2)",
+    "role": "staking",
+    "proxy": false,
+    "source": "https://docs.stackingdao.com/stackingdao/core-contracts/ststxbtc-stacking-dao-core",
+    "keyFunctions": [
+     {
+      "signature": "deposit(stx-amount uint, min-shares-out uint)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake micro-STX and receive the same amount of stSTXbtc (minted 1:1). Yield is paid in sBTC via ststxbtc-tracking-v2, not through a ratio. Returns (ok stx-amount)."
+     },
+     {
+      "signature": "init-withdraw(ststxbtc-amount uint)",
+      "kind": "write",
+      "payable": false,
+      "description": "Start a standard withdrawal (1 stSTXbtc = 1 STX). Mints a ststxbtc-withdraw-nft-v3 to you; returns (ok nft-id). Cooldown is currently 2,100 Bitcoin blocks (ststxbtc-data-v2.get-withdraw-cooldown-blocks)."
+     },
+     {
+      "signature": "withdraw(nft-id uint)",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim STX for an unlocked withdrawal NFT you own. Returns (ok {stx-user, stx-fee})."
+     },
+     {
+      "signature": "withdraw-idle(ststxbtc-amount uint)",
+      "kind": "write",
+      "payable": false,
+      "description": "Instant unstake from idle STX minus the idle fee (1% at research time). Returns (ok {stx-user, stx-fee})."
+     },
+     {
+      "signature": "get-shutdown-deposits()",
+      "kind": "read",
+      "payable": false,
+      "description": "Pause flag for deposits (also get-shutdown-init-withdraw / -withdraw / -withdraw-idle)."
+     },
+     {
+      "signature": "get-withdraw-idle-fee()",
+      "kind": "read",
+      "payable": false,
+      "description": "Instant-unstake fee in basis points."
+     }
+    ]
+   },
+   {
+    "chain": "stacks",
+    "chainId": null,
+    "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststxbtc-token-v2",
+    "name": "stSTXbtc token",
+    "role": "token",
+    "proxy": false,
+    "source": "https://github.com/StackingDAO/stackingdao-smart-contracts/blob/main/mainnet/README.md",
+    "keyFunctions": [
+     {
+      "signature": "get-balance(account principal)",
+      "kind": "read",
+      "payable": false,
+      "description": "stSTXbtc balance (6 decimals, 1:1 with STX)."
+     },
+     {
+      "signature": "transfer(amount uint, sender principal, recipient principal, memo (optional (buff 34)))",
+      "kind": "write",
+      "payable": false,
+      "description": "SIP-010 transfer. Transfers also refresh the holder's sBTC reward tracking."
+     }
+    ]
+   },
+   {
+    "chain": "stacks",
+    "chainId": null,
+    "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststxbtc-tracking-v2",
+    "name": "stSTXbtc sBTC reward tracker (ststxbtc-tracking-v2)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/StackingDAO/stackingdao-smart-contracts/blob/main/mainnet/README.md",
+    "keyFunctions": [
+     {
+      "signature": "get-pending-rewards(holder principal, position principal)",
+      "kind": "read",
+      "payable": false,
+      "description": "Unclaimed sBTC rewards (8 decimals) for a holder. For tokens held in the wallet itself pass position = holder; for stSTXbtc deposited in a supported DeFi position pass that position contract."
+     },
+     {
+      "signature": "claim-pending-rewards(holder principal, position principal)",
+      "kind": "write",
+      "payable": false,
+      "description": "Sends pending sBTC rewards to holder (anyone can call for any holder). Returns (ok amount). Fails if claims are disabled (get-claims-enabled)."
+     },
+     {
+      "signature": "get-claims-enabled()",
+      "kind": "read",
+      "payable": false,
+      "description": "Whether reward claims are currently enabled."
+     }
+    ]
+   },
+   {
+    "chain": "stacks",
+    "chainId": null,
+    "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.stacking-dao-core-stbtc-v1",
+    "name": "stBTC Core (stacking-dao-core-stbtc-v1)",
+    "role": "staking",
+    "proxy": false,
+    "source": "https://docs.stackingdao.com/stackingdao/core-contracts/stbtc-stacking-dao-core",
+    "keyFunctions": [
+     {
+      "signature": "deposit(sbtc-amount uint, min-shares-out uint)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit sBTC (SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token, 8 decimals, 1 sBTC = 100000000) and mint stBTC = sbtc-amount * 1e8 / get-sbtc-per-stbtc-up. Reverts if fewer than min-shares-out. Returns (ok stbtc-amount)."
+     },
+     {
+      "signature": "init-withdraw(stbtc-amount uint)",
+      "kind": "write",
+      "payable": false,
+      "description": "Start a standard withdrawal; mints a stbtc-withdraw-nft to you, returns (ok nft-id). Cooldown currently 4,200 Bitcoin blocks (about four weeks; withdraw-data-stbtc.get-withdraw-cooldown-blocks)."
+     },
+     {
+      "signature": "withdraw(nft-id uint)",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim sBTC for an unlocked withdrawal NFT you own."
+     },
+     {
+      "signature": "withdraw-idle(stbtc-amount uint)",
+      "kind": "write",
+      "payable": false,
+      "description": "Instant withdrawal from idle sBTC, minus the idle fee (1% at research time), if liquidity is available."
+     },
+     {
+      "signature": "get-shutdown-deposits()",
+      "kind": "read",
+      "payable": false,
+      "description": "Pause flag for deposits (also get-shutdown-init-withdraw / -withdraw / -withdraw-idle)."
+     },
+     {
+      "signature": "get-withdraw-idle-fee()",
+      "kind": "read",
+      "payable": false,
+      "description": "Instant-withdrawal fee in basis points."
+     }
+    ]
+   },
+   {
+    "chain": "stacks",
+    "chainId": null,
+    "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.data-stbtc-v1",
+    "name": "stBTC exchange-rate data (data-stbtc-v1)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.stackingdao.com/stackingdao/core-contracts/stbtc-stacking-dao-core",
+    "keyFunctions": [
+     {
+      "signature": "get-sbtc-per-stbtc()",
+      "kind": "read",
+      "payable": false,
+      "description": "sBTC (sats) per one stBTC, scaled by 1e8 (e.g. u100489172 = 1.00489 sBTC per stBTC at research time). Rounded down."
+     },
+     {
+      "signature": "get-sbtc-per-stbtc-up()",
+      "kind": "read",
+      "payable": false,
+      "description": "Same, rounded up; the value deposit() divides by."
+     }
+    ]
+   },
+   {
+    "chain": "stacks",
+    "chainId": null,
+    "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.stbtc-token",
+    "name": "stBTC token",
+    "role": "token",
+    "proxy": false,
+    "source": "https://github.com/StackingDAO/stackingdao-smart-contracts/blob/main/mainnet/README.md",
+    "keyFunctions": [
+     {
+      "signature": "get-balance(account principal)",
+      "kind": "read",
+      "payable": false,
+      "description": "stBTC balance (8 decimals). Value-accruing against sBTC."
+     },
+     {
+      "signature": "transfer(amount uint, sender principal, recipient principal, memo (optional (buff 34)))",
+      "kind": "write",
+      "payable": false,
+      "description": "SIP-010 transfer."
+     }
+    ]
+   },
+   {
+    "chain": "stacks",
+    "chainId": null,
+    "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.swap-ststx-ststxbtc-v4",
+    "name": "stSTX <> stSTXbtc swap (swap-ststx-ststxbtc-v4)",
+    "role": "exchange",
+    "proxy": false,
+    "source": "https://docs.stackingdao.com/stackingdao/core-contracts/switch-ststx-less-than-greater-than-ststxbtc",
+    "keyFunctions": [
+     {
+      "signature": "swap-ststx-for-ststxbtc(ststx-amount uint, min-out uint)",
+      "kind": "write",
+      "payable": false,
+      "description": "Instant, fee-free switch of micro-stSTX into stSTXbtc at the data-stx-v2 ratio. Reverts if output < min-out or the reserve lacks liquidity in that direction."
+     },
+     {
+      "signature": "swap-ststxbtc-for-ststx(ststxbtc-amount uint, min-out uint)",
+      "kind": "write",
+      "payable": false,
+      "description": "Reverse switch of stSTXbtc into stSTX; same slippage and liquidity rules."
+     }
+    ]
+   },
+   {
+    "chain": "stacks",
+    "chainId": null,
+    "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststx-withdraw-nft-v4",
+    "name": "stSTX withdrawal NFT (ststx-withdraw-nft-v4)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/StackingDAO/stackingdao-smart-contracts/blob/main/mainnet/README.md",
+    "keyFunctions": [
+     {
+      "signature": "get-owner(token-id uint)",
+      "kind": "read",
+      "payable": false,
+      "description": "Owner of a withdrawal NFT. Only the owner can call core withdraw(nft-id)."
+     },
+     {
+      "signature": "get-last-token-id()",
+      "kind": "read",
+      "payable": false,
+      "description": "Last minted NFT id."
+     }
+    ]
+   },
+   {
+    "chain": "stacks",
+    "chainId": null,
+    "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.withdraw-data-stx-v2",
+    "name": "stSTX withdrawal records (withdraw-data-stx-v2)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/StackingDAO/stackingdao-smart-contracts/blob/main/mainnet/README.md",
+    "keyFunctions": [
+     {
+      "signature": "get-withdrawals-by-nft(nft-id uint)",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns {unlock-burn-height, asset-amount (micro-STX), token-amount (micro-stSTX), withdraw-fee (bps)} for a withdrawal NFT; zeros if unknown or already claimed."
+     },
+     {
+      "signature": "get-withdraw-cooldown-blocks()",
+      "kind": "read",
+      "payable": false,
+      "description": "Cooldown in Bitcoin blocks (u2100 at research time)."
+     },
+     {
+      "signature": "get-withdraw-unlock-burn-height()",
+      "kind": "read",
+      "payable": false,
+      "description": "Unlock height a withdrawal started now would get (burn-block-height + cooldown)."
+     }
+    ]
+   },
+   {
+    "chain": "stacks",
+    "chainId": null,
+    "address": "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.native-pool-v1",
+    "name": "Native STX staking pool (native-pool-v1)",
+    "role": "staking",
+    "proxy": false,
+    "source": "https://github.com/StackingDAO/stackingdao-smart-contracts/blob/main/mainnet/README.md",
+    "keyFunctions": [
+     {
+      "signature": "delegate(signer-manager <signer-manager-trait>, amount-ustx uint, num-cycles uint)",
+      "kind": "write",
+      "payable": false,
+      "description": "Non-custodial native stacking: stakes amount-ustx of your own STX via PoX-5 with StackingDAO's native-pool signer manager (pass SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.native-pool-signer-manager; any other reverts err u36002) for num-cycles. STX stays locked in your wallet; no liquid token. Rewards in BTC/sBTC; 5% fee per docs FAQ."
+     },
+     {
+      "signature": "delegate-update(signer-manager <signer-manager-trait>, old-signer-manager <signer-manager-trait>, cycles-to-extend uint, amount-increase uint, signer-calldata (optional (buff 500)))",
+      "kind": "write",
+      "payable": false,
+      "description": "Extend or increase an existing native stake."
+     },
+     {
+      "signature": "undelegate(old-signer-manager <signer-manager-trait>)",
+      "kind": "write",
+      "payable": false,
+      "description": "Unstake from the native pool via PoX-5 unstake (STX unlocks per PoX rules)."
+     },
+     {
+      "signature": "is-delegating(staker principal, sm principal)",
+      "kind": "read",
+      "payable": false,
+      "description": "Transient flag used during delegate calls; not a reliable 'is staked' indicator."
+     },
+     {
+      "signature": "current-cycle()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current PoX reward cycle."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [],
+  "actions": [
+   {
+    "name": "stake STX for stSTX",
+    "description": "Liquid-stake STX, yield compounds into the stSTX/STX ratio.",
+    "how": "Read data-stx-v2.get-stx-per-ststx; min = stx-amount*1e6/ratio minus a small buffer; call stacking-dao-core-stx-v2.deposit(stx-amount, min) with an STX post-condition for stx-amount."
+   },
+   {
+    "name": "stake STX for stSTXbtc",
+    "description": "Liquid-stake STX and earn sBTC rewards.",
+    "how": "stacking-dao-core-ststxbtc-v2.deposit(stx-amount, stx-amount); later claim with ststxbtc-tracking-v2.claim-pending-rewards(you, you)."
+   },
+   {
+    "name": "stake sBTC for stBTC",
+    "description": "Liquid-stake sBTC.",
+    "how": "Read data-stbtc-v1.get-sbtc-per-stbtc; call stacking-dao-core-stbtc-v1.deposit(sbtc-amount, min) with an sBTC post-condition."
+   },
+   {
+    "name": "instant unstake",
+    "description": "Exit immediately for a 1% fee if idle liquidity exists.",
+    "how": "core.withdraw-idle(amount) on the matching core contract. Alternative: sell on a Stacks DEX (Bitflow), price may differ."
+   },
+   {
+    "name": "standard unstake",
+    "description": "Exit at full ratio after the cooldown.",
+    "how": "core.init-withdraw(amount) -> nft-id; wait until burn-block-height >= withdraw-data .get-withdrawals-by-nft(nft-id).unlock-burn-height (about 2 weeks for stSTX/stSTXbtc, about 4 weeks for stBTC); then core.withdraw(nft-id) from the NFT owner."
+   },
+   {
+    "name": "switch stSTX <> stSTXbtc",
+    "description": "Change yield type without unstaking.",
+    "how": "swap-ststx-ststxbtc-v4.swap-ststx-for-ststxbtc(amount, min-out) or swap-ststxbtc-for-ststx(amount, min-out)."
+   }
+  ],
+  "risks": [
+   "Standard withdrawals take a fixed cooldown: 2,100 Bitcoin blocks (~2 weeks) for stSTX/stSTXbtc and 4,200 (~4 weeks) for stBTC at research time; governance can lengthen it (minimum 2,100 on mainnet). The withdrawal NFT must not be transferred/sold by mistake: only its owner can claim.",
+   "Instant unstake charges a 1% fee and only works while the reserve holds enough idle liquidity.",
+   "Governance (dao / dao-multisig / dao-executor) can pause deposits and each withdrawal path, change fees, and upgrade contracts by activating new versions; versioned contract names (e.g. core-stx-v2 replaced core-v6) mean integrations must follow the docs.",
+   "stBTC depends on the external sBTC token and peg (SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token), outside StackingDAO's control.",
+   "Secondary-market prices of stSTX/stSTXbtc on DEXs can deviate from the protocol ratio.",
+   "Audited by Clarity Alliance (PoX-5 contracts and earlier versions) and CoinFabrik; Immunefi bug bounty up to $100k. Residents of restricted countries are barred from the app."
+  ],
+  "notes": "Stacks is a Clarity-VM chain (non-EVM), so vm is 'mixed' and chainId is null; addresses are Clarity contract principals (deployer.contract-name), all deployed by SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG. Function signatures are in Clarity form (name(arg type, ...)); call them with a Stacks contract-call transaction and add post-conditions for STX/sBTC/token transfers. Core, data and swap addresses come from the docs' Core Contracts pages; tokens, NFTs, tracker, withdraw-data and native pool come from the official mainnet deployment list (61 contracts) in StackingDAO/stackingdao-smart-contracts. Each listed contract was confirmed to exist via the Hiro API and live parameters (pause flags all false, idle fee 1%, ratios, cooldowns) were read on 2026-11-24. Internal contracts (reserves, strategy, stakers, signer managers, rewards, governance) are left out; see the mainnet README for them. Older cores (stacking-dao-core-v6, stacking-dao-core-btc-v3, swap-ststx-ststxbtc-v2) are superseded and should not be used.",
+  "sources": [
+   "https://defillama.com/protocol/stackingdao",
+   "https://api.llama.fi/protocol/stackingdao",
+   "https://docs.stackingdao.com/stackingdao/llms.txt",
+   "https://docs.stackingdao.com/stackingdao/core-contracts/ststx-stacking-dao-core",
+   "https://docs.stackingdao.com/stackingdao/core-contracts/ststxbtc-stacking-dao-core",
+   "https://docs.stackingdao.com/stackingdao/core-contracts/stbtc-stacking-dao-core",
+   "https://docs.stackingdao.com/stackingdao/core-contracts/switch-ststx-less-than-greater-than-ststxbtc",
+   "https://docs.stackingdao.com/stackingdao/the-stacking-dao-app/ststx-liquid-stx-staking-with-stx-rewards/withdrawing-from-ststx",
+   "https://docs.stackingdao.com/stackingdao/the-stacking-dao-app/ststxbtc-liquid-stx-staking-with-btc-rewards/ststxbtc-basics",
+   "https://docs.stackingdao.com/stackingdao/the-stacking-dao-app/frequently-asked-questions",
+   "https://docs.stackingdao.com/stackingdao/audits-and-security",
+   "https://docs.stackingdao.com/stackingdao/miscellaneous/essential-links",
+   "https://github.com/StackingDAO/stackingdao-smart-contracts",
+   "https://github.com/StackingDAO/stackingdao-smart-contracts/blob/main/mainnet/README.md",
+   "https://api.hiro.so/extended/v1/contract/SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.stacking-dao-core-stx-v2"
+  ],
+  "researchedAt": "2026-11-24"
+ },
+ {
+  "slug": "stakestone",
+  "name": "StakeStone",
+  "category": "Liquid Staking",
+  "description": "Omnichain liquid staking / yield tokens: stake ETH for yield-bearing STONE (non-rebasing, price rises) and redeem it through settlement rounds or instant withdrawal; mint SBTC 1:1 from BTC wrappers (WBTC/cbBTC on Ethereum, BTCB on BNB Chain) and STONEBTC from SBTC/LBTC; hold STONEUSD, a yield-bearing stablecoin token. STONE and SBTC bridge between chains via LayerZero.",
+  "website": "https://stakestone.io",
+  "docs": "https://docs.stakestone.io/stakestone",
+  "defillama": "https://defillama.com/protocol/stakestone",
+  "chains": [
+   "ethereum",
+   "bsc",
+   "monad"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xA62F9C5af106FeEE069F38dE51098D9d81B90572",
+    "name": "StoneVault",
+    "role": "vault",
+    "proxy": false,
+    "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stone",
+    "keyFunctions": [
+     {
+      "signature": "deposit()",
+      "kind": "write",
+      "payable": true,
+      "description": "Stake ETH (msg.value) and mint STONE to msg.sender. Returns STONE minted = amount * 1e18 / sharePrice, where sharePrice = max(last round price, current price)."
+     },
+     {
+      "signature": "depositFor(address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Same as deposit() but mints STONE to another address."
+     },
+     {
+      "signature": "requestWithdraw(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Queue STONE (shares, 18 decimals) for redemption at the next settlement round. Approve STONE to the vault first (it transferFroms the shares). ETH becomes claimable after rollToNextRound settles the round (rounds are at least rebaseTimeInterval = 3 days apart, often longer)."
+     },
+     {
+      "signature": "cancelWithdraw(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Cancel (part of) a pending request made in the current round; STONE is returned. Reverts if the round has already been settled."
+     },
+     {
+      "signature": "instantWithdraw(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw ETH now. Args: _amount = ETH (wei) already claimable from a settled request (see userReceipts), _shares = STONE to redeem instantly at min(last round price, current price); shares are burned from msg.sender (no approve needed). Instant redemption is paid from idle ETH and, if short, by force-withdrawing from strategies; reverts with \"still need wait\" if not enough ETH. Pass 0 for the part you do not use. A withdrawFeeRate fee (1e6 = 100%) may apply. Returns ETH withdrawn."
+     },
+     {
+      "signature": "userReceipts(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Your withdrawal state: (withdrawRound, withdrawShares pending, withdrawableAmount in wei). Shares from a settled earlier round become claimable at that round's price; claim them with instantWithdraw(_amount, 0)."
+     },
+     {
+      "signature": "currentSharePrice()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current ETH per STONE (1e18 = 1 ETH): (idle + strategy value - reserved withdrawals) / supply. Not a view function: use eth_call. Read 1.0766 ETH on 2026-11-25."
+     },
+     {
+      "signature": "roundPricePerShare(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Settled STONE price for a round id."
+     },
+     {
+      "signature": "latestRoundID()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current (unsettled) round id; requests made now settle when this round is rolled."
+     },
+     {
+      "signature": "settlementTime(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Unix time a round was settled."
+     },
+     {
+      "signature": "rebaseTimeInterval()",
+      "kind": "read",
+      "payable": false,
+      "description": "Minimum seconds between settlements (259200 = 3 days on 2026-11-25)."
+     },
+     {
+      "signature": "withdrawFeeRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "Withdrawal fee, 1e6 = 100% (0 on 2026-11-25)."
+     },
+     {
+      "signature": "getVaultAvailableAmount()",
+      "kind": "read",
+      "payable": false,
+      "description": "(idleAmount, investedAmount) in wei. idleAmount bounds what an instant withdrawal can pay without pulling from strategies. Not view: eth_call."
+     },
+     {
+      "signature": "rollToNextRound()",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless: settle the current round once block.timestamp > rebaseTime + rebaseTimeInterval."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x7122985656e38BDC0302Db86685bb972b145bD3C",
+    "name": "STONE (Ethereum, canonical)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stone",
+    "keyFunctions": [
+     {
+      "signature": "sendFrom(address,uint16,bytes,uint256,address,address,bytes)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge STONE via LayerZero v1. Args: _from (your address), _dstChainId (LayerZero v1 chain id, e.g. 101 Ethereum, 102 BNB Chain), _toAddress (abi.encodePacked(recipient)), _amount, _refundAddress, _zroPaymentAddress (zero address), _adapterParams (0x for default). Send the fee from estimateSendFee as msg.value."
+     },
+     {
+      "signature": "estimateSendFee(uint16,bytes,uint256,bool,bytes)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero fee for sendFrom: (_dstChainId, _toAddress, _amount, _useZro=false, _adapterParams). Returns (nativeFee, zroFee) in wei."
+     },
+     {
+      "signature": "tokenPrice()",
+      "kind": "read",
+      "payable": false,
+      "description": "STONE price in ETH (1e18 = 1 ETH) as stored on this token contract. On Ethereum it is the live vault price; on other chains it is the last price relayed by LayerZero and can be stale. Not a view function: use eth_call."
+     },
+     {
+      "signature": "getQuota()",
+      "kind": "read",
+      "payable": false,
+      "description": "Remaining cross-chain bridge quota for the current day (18 decimals)."
+     },
+     {
+      "signature": "enable()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if bridging is enabled on this contract."
+     },
+     {
+      "signature": "updatePrice(uint16,bytes)",
+      "kind": "write",
+      "payable": true,
+      "description": "Permissionless: relay the current STONE price to the STONE contract on another chain via LayerZero (_dstChainId, abi.encodePacked(remote STONE address)); pay the LayerZero fee as msg.value."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "STONE balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer STONE."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply on this chain."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x094c0e36210634c3CfA25DC11B96b562E0b07624",
+    "name": "SBTC (Ethereum)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_sbtc",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "SBTC balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer SBTC."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply on this chain."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x7dBAC0aA440A25D7FB43951f7b178FF7A809108D",
+    "name": "SBTCVault (Ethereum)",
+    "role": "vault",
+    "proxy": false,
+    "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_sbtc",
+    "keyFunctions": [
+     {
+      "signature": "deposit(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit a supported BTC token (_token, _amount in its own decimals) and mint SBTC 1:1 scaled to 18 decimals, minus depositFeeRate (FEE_BASE 10000). Approve the token first. On Ethereum deposits and withdrawals were whitelist-only on 2026-11-25 (whitelistMode = true for WBTC)."
+     },
+     {
+      "signature": "withdraw(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn SBTC (18 decimals) and receive the chosen supported token 1:1 (minus withdrawFeeRate) if the vault holds enough of it. Reverts if paused or whitelist mode is on and you are not whitelisted."
+     },
+     {
+      "signature": "getDepositAmounts()",
+      "kind": "read",
+      "payable": false,
+      "description": "(supported tokens[], amounts held[]): which BTC tokens the vault holds and can pay out."
+     },
+     {
+      "signature": "supportedTokens(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if a token is accepted."
+     },
+     {
+      "signature": "depositPaused(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit pause flag per token."
+     },
+     {
+      "signature": "withdrawPaused(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Withdraw pause flag per token."
+     },
+     {
+      "signature": "whitelistMode(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "If true only whitelisted addresses may deposit this token."
+     },
+     {
+      "signature": "withdrawWhitelistMode(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "If true only whitelisted addresses may withdraw to this token."
+     },
+     {
+      "signature": "depositCapacity(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit cap for a token (token units)."
+     },
+     {
+      "signature": "depositFeeRate(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit fee, FEE_BASE = 10000."
+     },
+     {
+      "signature": "withdrawFeeRate(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Withdraw fee, FEE_BASE = 10000."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x3f690f43a9fCA689829A22bf925c89B7a48ca57F",
+    "name": "SBTC LayerZero Adapter (Ethereum)",
+    "role": "bridge",
+    "proxy": false,
+    "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_sbtc",
+    "keyFunctions": [
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero v2 OFT fee quote. SendParam = (dstEid e.g. 30102 BNB Chain, to as bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd); returns (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge SBTC with LayerZero v2: (sendParam, fee=(nativeFee, 0), refundAddress); msg.value = nativeFee. Approve SBTC to the adapter first if approvalRequired()."
+     },
+     {
+      "signature": "getQuota()",
+      "kind": "read",
+      "payable": false,
+      "description": "Remaining bridge quota."
+     },
+     {
+      "signature": "token()",
+      "kind": "read",
+      "payable": false,
+      "description": "Underlying SBTC token."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x2D83F5BfC83cF0B09B8884101C015FA9c74c32F3",
+    "name": "STONEBTC",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stonebtc",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "STONEBTC balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer STONEBTC."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply on this chain."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x1fC603779DC6b4866769A58067777D2C52628226",
+    "name": "StoneBTCVault (AssetVault)",
+    "role": "vault",
+    "proxy": false,
+    "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stonebtc",
+    "keyFunctions": [
+     {
+      "signature": "deposit(address,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit SBTC or LBTC (_token, _amount, _minLpAmount) and mint STONEBTC at the OracleConfigurator prices (underlyingPrice / STONEBTC price), minus depositFeeRate. Approve the token first. Returns STONEBTC minted."
+     },
+     {
+      "signature": "depositMultiple(address[],uint256[],uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit several underlying tokens at once with one minimum."
+     },
+     {
+      "signature": "getUnderlyings()",
+      "kind": "read",
+      "payable": false,
+      "description": "Accepted underlying tokens (SBTC, LBTC on 2026-11-25)."
+     },
+     {
+      "signature": "depositPaused(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pause flag per token."
+     },
+     {
+      "signature": "whitelistMode(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "If true only whitelisted addresses may deposit this token."
+     },
+     {
+      "signature": "depositFeeRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit fee rate (denominator D4 = 10000)."
+     },
+     {
+      "signature": "requestWithdraw(address,address,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Restricted to MARKET_MAKER_ROLE: ordinary holders cannot call it. Users exit STONEBTC via the StakeStone app / market maker (docs: immediately up to seven days)."
+     },
+     {
+      "signature": "cancelWithdrawal(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Requester cancels a pending withdrawal request by id."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x6cD42e64630d25406bFC51CcA65cFfa7Cd495FB1",
+    "name": "OracleConfigurator (STONEBTC)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stonebtc",
+    "keyFunctions": [
+     {
+      "signature": "getPrice(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Price (1e18 scale, BTC terms) used by StoneBTCVault for a token (STONEBTC, SBTC, LBTC)."
+     },
+     {
+      "signature": "oracles(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Oracle contract configured for a token."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x6A6E3a4396993A4eC98a6f4A654Cc0819538721e",
+    "name": "STONEUSD (Ethereum)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stoneusd",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "STONEUSD balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer STONEUSD."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply on this chain."
+     },
+     {
+      "signature": "isBlacklisted(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if an address is blacklisted (transfers blocked)."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x80137510979822322193FC997d400D5A6C747bf7",
+    "name": "STONE (BNB Chain, bridged)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stone",
+    "keyFunctions": [
+     {
+      "signature": "sendFrom(address,uint16,bytes,uint256,address,address,bytes)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge STONE via LayerZero v1. Args: _from (your address), _dstChainId (LayerZero v1 chain id, e.g. 101 Ethereum, 102 BNB Chain), _toAddress (abi.encodePacked(recipient)), _amount, _refundAddress, _zroPaymentAddress (zero address), _adapterParams (0x for default). Send the fee from estimateSendFee as msg.value."
+     },
+     {
+      "signature": "estimateSendFee(uint16,bytes,uint256,bool,bytes)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero fee for sendFrom: (_dstChainId, _toAddress, _amount, _useZro=false, _adapterParams). Returns (nativeFee, zroFee) in wei."
+     },
+     {
+      "signature": "tokenPrice()",
+      "kind": "read",
+      "payable": false,
+      "description": "STONE price in ETH (1e18 = 1 ETH) as stored on this token contract. On Ethereum it is the live vault price; on other chains it is the last price relayed by LayerZero and can be stale. Not a view function: use eth_call."
+     },
+     {
+      "signature": "getQuota()",
+      "kind": "read",
+      "payable": false,
+      "description": "Remaining cross-chain bridge quota for the current day (18 decimals)."
+     },
+     {
+      "signature": "enable()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if bridging is enabled on this contract."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "STONE balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer STONE."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply on this chain."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x15469528C11E8Ace863F3F9e5a8329216e33dD7d",
+    "name": "SBTC (BNB Chain)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_sbtc",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "SBTC balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer SBTC."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply on this chain."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x3aa0670E24Cb122e1d5307Ed74b0c44d619aFF9b",
+    "name": "SBTCVault (BNB Chain)",
+    "role": "vault",
+    "proxy": false,
+    "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_sbtc",
+    "keyFunctions": [
+     {
+      "signature": "deposit(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit BTCB (0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c, the supported token on 2026-11-25) and mint SBTC 1:1 minus fee. Approve BTCB first. Open (not whitelisted) on 2026-11-25."
+     },
+     {
+      "signature": "withdraw(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn SBTC and receive BTCB 1:1 minus fee, if the vault holds enough."
+     },
+     {
+      "signature": "getDepositAmounts()",
+      "kind": "read",
+      "payable": false,
+      "description": "(tokens[], amounts held[])."
+     },
+     {
+      "signature": "depositPaused(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit pause flag per token."
+     },
+     {
+      "signature": "withdrawPaused(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Withdraw pause flag per token."
+     },
+     {
+      "signature": "whitelistMode(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit whitelist flag per token."
+     },
+     {
+      "signature": "depositFeeRate(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit fee, FEE_BASE = 10000."
+     },
+     {
+      "signature": "withdrawFeeRate(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Withdraw fee, FEE_BASE = 10000."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x7122985656e38BDC0302Db86685bb972b145bD3C",
+    "name": "SBTC LayerZero Adapter (BNB Chain)",
+    "role": "bridge",
+    "proxy": false,
+    "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_sbtc",
+    "keyFunctions": [
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero v2 fee quote (dstEid e.g. 30101 Ethereum)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge SBTC via LayerZero v2; msg.value = nativeFee."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x8B4E28607bdcacBf937f81F29E3DAFe7Bc1D7c0b",
+    "name": "STONEUSD (BNB Chain)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stoneusd",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "STONEUSD balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer STONEUSD."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply on this chain."
+     }
+    ]
+   },
+   {
+    "chain": "monad",
+    "chainId": 143,
+    "address": "0x095957CEB9f317ac1328f0aB3123622401766D71",
+    "name": "STONEUSD (Monad)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stoneusd",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "STONEUSD balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer STONEUSD."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply on this chain."
+     }
+    ]
+   }
+  ],
+  "actions": [
+   {
+    "name": "stake ETH for STONE",
+    "description": "Mint STONE on Ethereum",
+    "how": "StoneVault.deposit() with ETH value (or depositFor(user)). Preview: STONE ≈ amount * 1e18 / currentSharePrice() (eth_call)."
+   },
+   {
+    "name": "request withdrawal (slow, no slippage)",
+    "description": "Redeem STONE for ETH at the next settlement",
+    "how": "STONE.approve(StoneVault, shares); StoneVault.requestWithdraw(shares). After the round settles (check latestRoundID() increased / userReceipts), claim with StoneVault.instantWithdraw(withdrawableAmount, 0). Cancel before settlement with cancelWithdraw(shares)."
+   },
+   {
+    "name": "instant withdrawal",
+    "description": "Redeem STONE for ETH now",
+    "how": "StoneVault.instantWithdraw(0, shares) — burns STONE at min(last round price, current price); first check getVaultAvailableAmount() idle ETH, otherwise it pulls from strategies or reverts."
+   },
+   {
+    "name": "read STONE price",
+    "description": "ETH per STONE",
+    "how": "eth_call StoneVault.currentSharePrice() (or STONE.tokenPrice() on Ethereum). Do not trust tokenPrice() on bridged chains without checking it is fresh."
+   },
+   {
+    "name": "bridge STONE",
+    "description": "Move STONE between chains",
+    "how": "STONE.estimateSendFee(dstLzV1ChainId, abi.encodePacked(to), amount, false, 0x) then STONE.sendFrom(from, dstChainId, abi.encodePacked(to), amount, refund, 0x0, 0x) with msg.value = nativeFee."
+   },
+   {
+    "name": "mint / redeem SBTC",
+    "description": "BTC wrapper <-> SBTC 1:1",
+    "how": "approve token to SBTCVault; SBTCVault.deposit(token, amount). Redeem: SBTCVault.withdraw(token, sbtcAmount). Check supportedTokens, pause and whitelist flags first."
+   },
+   {
+    "name": "mint STONEBTC",
+    "description": "Deposit SBTC/LBTC into STONEBTC",
+    "how": "approve SBTC or LBTC to StoneBTCVault; StoneBTCVault.deposit(token, amount, minStoneBtcOut). Exit only through the StakeStone app / market maker."
+   }
+  ],
+  "risks": [
+   "STONE redemption is round based: requestWithdraw is settled only when rollToNextRound runs (minimum 3 days apart; observed ~9 days between the last two settlements on 2026-11-25). Instant withdrawals depend on idle ETH and may force-withdraw from strategies, and use the lower of the last round price and the current price.",
+   "STONE price is computed by the vault from strategy valuations (StrategyController), not a market price; DEX prices can differ. Bridged STONE on BNB Chain read tokenPrice() = 1.0 on 2026-11-25 while the Ethereum price was ~1.0766: bridged-chain prices can be stale or unset, so read the Ethereum vault.",
+   "Bridged STONE (BNB Chain and many L2s) is a LayerZero v1 OFT: Ethereum STONE is locked, not burned, when bridged out; bridging has a daily quota and an enable flag; LayerZero/DVN or misconfiguration risk applies. SBTC uses LayerZero v2 adapters.",
+   "Admin powers: StoneVault and STONE owner is 0xc1364aD857462e1B60609D9e56b5E24C5c21a312 (on 2026-11-25); the owner can change the withdraw fee, rebase interval, proposal contract and migrate the vault. Strategy changes go through the OPAP proposal/vote; per the docs strategies are operated by a multisig with partners (Cobo, Coincover).",
+   "SBTC vaults have role-based admins who can pause deposits/withdrawals per token, set fees (up to MAX_FEE_RATE), caps and whitelist mode; on Ethereum SBTC mint/redeem was whitelist-only on 2026-11-25. SBTC is redeemable only for whatever BTC tokens the vault holds.",
+   "STONEBTC withdrawals cannot be requested by holders on-chain (requestWithdraw is MARKET_MAKER_ROLE only); exits go through StakeStone/market maker, documented as immediate up to seven days. TVL is very small.",
+   "STONEUSD is backed mainly by arbitrage strategies run on centralized exchanges (custodial/CEX risk); mint and weekly redemption are permissioned (KYC/KYB whitelist); the token has a blacklist and admin mint role. Its on-chain token contracts expose no exchange-rate function; the rate is shown in the StakeStone app.",
+   "Audits listed in the docs: STONE by Quantstamp (2024) and SlowMist (2023-2024), Secure3; SBTC/STONEBTC by SlowMist; STONEUSD by Quantstamp (2025)."
+  ],
+  "notes": "All addresses come from the official StakeStone docs address pages and were confirmed as contracts with eth_getCode on Ethereum, BNB Chain and Monad; links between contracts were cross-checked on-chain (Minter.vault() = StoneVault, STONE.minter() = Minter, SBTCVault.stoneBTC() = SBTC, adapters' token() = SBTC, StoneBTCVault.lpToken() = STONEBTC). Function signatures are from the verified Ethereum sources (Blockscout) and the docs API reference; BNB Chain contracts were checked by selector against bytecode. Scope is the three chains DefiLlama tracks (Ethereum, BSC, Monad). The docs also list STONE on Berachain, Scroll, Manta, Mode, Zircuit, Astar zkEVM, Linea, Mantle, Base, Metis, Optimism, Arbitrum, Meter, X Layer, SEI, Merlin (M-STONE), B2 (BStone) and Aptos, and SBTC on Scroll, Zircuit, BOB and Aptos: see the address pages. Left out: Minter 0xEc306E46549A7E8f4fCE823D3058f2D134133B17 (mint/burn callable only by the vault), Proposal 0x3aa0670E24Cb122e1d5307Ed74b0c44d619aFF9b on Ethereum (OPAP voting), StrategyController 0x396aBF9fF46E21694F4eF01ca77C6d7893A017B2, AssetVault 0x9485711f11B17f73f2CCc8561bcae05BDc7E9ad9, MiningPool and G-NFT (governance/internal; listed in the docs). No StakeStone mint/redeem contract for STONEUSD is published, so only the token contracts are listed. The docs API page also describes HTTP endpoints but gives no base URL, so no offchain API is listed. The LayerZero chain IDs given in function descriptions (v1: 101 Ethereum, 102 BNB Chain; v2 eids 30101/30102) are LayerZero's standard IDs, not from StakeStone docs. Same hex, different contracts: Ethereum Proposal 0x3aa0670E24Cb122e1d5307Ed74b0c44d619aFF9b is SBTCVault on BNB Chain, and Ethereum STONE 0x7122985656e38BDC0302Db86685bb972b145bD3C is the SBTC LayerZero Adapter on BNB Chain; always match address with chain.",
+  "sources": [
+   "https://defillama.com/protocol/stakestone",
+   "https://api.llama.fi/protocol/stakestone",
+   "https://api.llama.fi/protocols",
+   "https://docs.stakestone.io/stakestone/llms.txt",
+   "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stone",
+   "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_sbtc",
+   "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stonebtc",
+   "https://docs.stakestone.io/stakestone/developers/smart-contracts-address_stoneusd",
+   "https://docs.stakestone.io/stakestone/developers/stakestone-api-references",
+   "https://docs.stakestone.io/stakestone/developers/cross-chain-interfaces",
+   "https://docs.stakestone.io/stakestone/stone-eth/how-it-works/stone-mechanism",
+   "https://docs.stakestone.io/stakestone/stone-eth/how-it-works/stake-and-mint",
+   "https://docs.stakestone.io/stakestone/stone-eth/how-it-works/unstake-and-omnichain-withdrawal",
+   "https://docs.stakestone.io/stakestone/stone-eth/how-it-works/unstake-and-omnichain-withdrawal/instant",
+   "https://docs.stakestone.io/stakestone/stone-eth/how-it-works/unstake-and-omnichain-withdrawal/request",
+   "https://docs.stakestone.io/stakestone/stone-eth/how-it-works/pricing",
+   "https://docs.stakestone.io/stakestone/stone-eth/how-it-works/bridging",
+   "https://docs.stakestone.io/stakestone/sbtc-and-stonebtc/sbtc",
+   "https://docs.stakestone.io/stakestone/sbtc-and-stonebtc/stonebtc",
+   "https://docs.stakestone.io/stakestone/product/earn/stoneusd",
+   "https://docs.stakestone.io/stakestone/additionals/audits-and-security",
+   "https://docs.stakestone.io/stakestone/additionals/risks",
+   "https://eth.blockscout.com/api/v2/smart-contracts/0xA62F9C5af106FeEE069F38dE51098D9d81B90572",
+   "https://eth.blockscout.com/api/v2/smart-contracts/0x7122985656e38BDC0302Db86685bb972b145bD3C",
+   "https://eth.blockscout.com/api/v2/smart-contracts/0x7dBAC0aA440A25D7FB43951f7b178FF7A809108D",
+   "https://eth.blockscout.com/api/v2/smart-contracts/0x1fC603779DC6b4866769A58067777D2C52628226",
+   "https://eth.blockscout.com/api/v2/smart-contracts/0x3f690f43a9fCA689829A22bf925c89B7a48ca57F",
+   "https://eth.blockscout.com/api/v2/smart-contracts/0x6A6E3a4396993A4eC98a6f4A654Cc0819538721e",
+   "https://ethereum-rpc.publicnode.com",
+   "https://bsc-dataseed.binance.org",
+   "https://rpc.monad.xyz"
+  ],
+  "researchedAt": "2026-11-24"
+ },
+ {
+  "slug": "stkesol-by-sol-strategies",
+  "name": "STKESOL by SOL Strategies",
+  "category": "Liquid Staking",
+  "description": "SOL liquid staking pool run by SOL Strategies (Nasdaq: STKE) on the standard SPL Stake Pool program. An agent can deposit SOL (or a stake account) to receive STKESOL, which appreciates against SOL as rewards accrue, and redeem STKESOL for SOL from the pool reserve or for a stake account, or swap it instantly via Jupiter.",
+  "website": "https://app.solstrategies.io",
+  "docs": "https://app.solstrategies.io/docs",
+  "defillama": "https://defillama.com/protocol/stkesol-by-sol-strategies",
+  "chains": [
+   "solana"
+  ],
+  "vm": "solana",
+  "agentAccess": "onchain",
+  "contracts": [
+   {
+    "chain": "solana",
+    "chainId": null,
+    "address": "StKeDUdSu7jMSnPJ1MPqDnk3RdEwD2QbJaisHMebGhw",
+    "name": "STKESOL stake pool (pool account)",
+    "role": "staking",
+    "proxy": null,
+    "source": "https://app.solstrategies.io/docs",
+    "keyFunctions": [
+     {
+      "signature": "DepositSol(lamports: u64)",
+      "kind": "write",
+      "payable": true,
+      "description": "Instruction of the SPL Stake Pool program (SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy) against this pool: deposit SOL into the reserve and mint STKESOL to the depositor's token account. Permissionless (no sol_deposit_authority set). Pool deposit fee 0%. Easiest via @solana/spl-stake-pool depositSol(connection, poolAddress, from, lamports) or CLI `spl-stake-pool deposit-sol <pool> <amount>`."
+     },
+     {
+      "signature": "DepositSolWithSlippage(lamports_in: u64, minimum_pool_tokens_out: u64)",
+      "kind": "write",
+      "payable": true,
+      "description": "Same as DepositSol with a minimum STKESOL out."
+     },
+     {
+      "signature": "DepositStake()",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit an active stake account delegated to one of the pool's validators and receive STKESOL. Uses the default program-derived stake deposit authority (7LYfeWY2cHtdgycPkTqcNppQbTqnPc7oP9Votq7dXrB7), so it is permissionless. Pool stake-deposit fee 0%."
+     },
+     {
+      "signature": "WithdrawSol(pool_tokens: u64)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn STKESOL and receive SOL directly from the pool's reserve stake account. Only works while the reserve has enough SOL. Pool withdrawal fee 0.1%. SDK: withdrawSol(connection, poolAddress, tokenOwner, solReceiver, amount); CLI `spl-stake-pool withdraw-sol`."
+     },
+     {
+      "signature": "WithdrawSolWithSlippage(pool_tokens_in: u64, minimum_lamports_out: u64)",
+      "kind": "write",
+      "payable": false,
+      "description": "Same as WithdrawSol with a minimum lamports out."
+     },
+     {
+      "signature": "WithdrawStake(pool_tokens: u64)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn STKESOL and receive a split stake account (delegated to a pool validator) that you then deactivate and withdraw after the epoch ends (~2-3 days). Use when the reserve is too small for WithdrawSol. Pool withdrawal fee 0.1%."
+     },
+     {
+      "signature": "UpdateValidatorListBalance / UpdateStakePoolBalance",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless epoch update; deposits/withdrawals fail if the pool was not updated this epoch. The SDK/CLI (`spl-stake-pool update <pool>`) handles it."
+     },
+     {
+      "signature": "StakePool account (this address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Borsh-decoded StakePool state: total_lamports / pool_token_supply gives the SOL per STKESOL exchange rate; also manager, staker, validator_list (StkemQE9eEzPZViA52YwYQqZU5cnYLvVfvch4p4Lsez), reserve_stake (HHnQYTNjtrbuHgQhERpGQfgu11ngXEvyjiG9qb4ZvbNC), fees. SDK: stakePoolInfo(connection, poolAddress)."
+     }
+    ]
+   },
+   {
+    "chain": "solana",
+    "chainId": null,
+    "address": "stke7uu3fXHsGqKVVjKnkmj65LRPVrqr4bLG2SJg7rh",
+    "name": "STKESOL token mint",
+    "role": "token",
+    "proxy": null,
+    "source": "https://app.solstrategies.io/docs",
+    "keyFunctions": [
+     {
+      "signature": "SPL Token transfer / transferChecked(amount: u64, decimals: 9)",
+      "kind": "write",
+      "payable": false,
+      "description": "Standard SPL Token (Tokenkeg program) mint, 9 decimals. Mint authority is the pool's withdraw-authority PDA; no freeze authority."
+     },
+     {
+      "signature": "Mint account (supply)",
+      "kind": "read",
+      "payable": false,
+      "description": "Total STKESOL supply; equals pool_token_supply in the stake pool account."
+     }
+    ]
+   },
+   {
+    "chain": "solana",
+    "chainId": null,
+    "address": "SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy",
+    "name": "SPL Stake Pool program",
+    "role": "other",
+    "proxy": true,
+    "source": "https://www.solana-program.com/docs/stake-pool",
+    "keyFunctions": [
+     {
+      "signature": "DepositSol / DepositStake / WithdrawSol / WithdrawStake",
+      "kind": "write",
+      "payable": true,
+      "description": "Shared SPL Stake Pool program used by this pool (owner of the pool account). Upgradeable (BPF upgradeable loader), maintained by the Solana program maintainers, not SOL Strategies. See the pool entry above for usage."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [],
+  "actions": [
+   {
+    "name": "stake",
+    "description": "Stake SOL for STKESOL",
+    "how": "SPL Stake Pool DepositSol(lamports) on pool StKeDUdSu7jMSnPJ1MPqDnk3RdEwD2QbJaisHMebGhw via @solana/spl-stake-pool depositSol(); or swap SOL -> STKESOL (mint stke7uu3fXHsGqKVVjKnkmj65LRPVrqr4bLG2SJg7rh) on Jupiter"
+   },
+   {
+    "name": "unstake-instant",
+    "description": "Redeem STKESOL for SOL now",
+    "how": "WithdrawSol(pool_tokens) if the reserve holds enough SOL (0.1% fee); otherwise swap STKESOL -> SOL on Jupiter (the SOL Strategies app uses Jupiter for instant withdrawals; market price and price impact apply)"
+   },
+   {
+    "name": "unstake-delayed",
+    "description": "Redeem STKESOL for a stake account",
+    "how": "WithdrawStake(pool_tokens) to get a stake account, then deactivate it and withdraw SOL after the epoch ends"
+   },
+   {
+    "name": "read-rate",
+    "description": "Get SOL per STKESOL",
+    "how": "Read the stake pool account: total_lamports / pool_token_supply (or stakePoolInfo() in @solana/spl-stake-pool)"
+   }
+  ],
+  "risks": [
+   "Fees (per SOL Strategies docs and on-chain pool state): 5% of epoch staking rewards, 0% deposit fee, 0.1% withdrawal fee (SOL or stake).",
+   "Native unstake goes through stake deactivation (end of the current epoch, ~2-3 days) unless the reserve covers WithdrawSol; instant exits via Jupiter depend on DEX liquidity and may trade below the pool rate.",
+   "Validator risk: stake is delegated to 40-80 validators chosen by SOL Strategies using the 30-day mean Wiz Score; validator downtime lowers rewards. Solana has no automatic slashing today, but that could change.",
+   "Issuer/manager risk: SOL Strategies is manager and staker (stker2jR6XibQZ3yT5xgEe4fYS5yHR1ZFVUj5fm7i1G) and can change fees (with an epoch delay), validators and authorities.",
+   "Program risk: the SPL Stake Pool program is upgradeable by its upgrade authority."
+  ],
+  "notes": "Pool and mint addresses come from the 'Pool addresses' section of the official STKESOL documentation page in the SOL Strategies app (https://app.solstrategies.io/docs). On 2026-11-24 I read that page's text from the app's JavaScript bundle; it is a client-rendered page. The support site support.solstrategies.io was unreachable from this environment. Checked on mainnet: the pool account is owned by SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy, its pool_mint is stke7uu3..., epoch fee 5/100, SOL and stake withdrawal fee 1/1000, deposit fees 0, no sol_deposit_authority or sol_withdraw_authority set, and the stake deposit authority is the default PDA. The mint has 9 decimals, mint authority 5vzKiHVuZNx1XQWQZQEcuqKaq4nfDp6LhuSvowQK2ayd (the pool's withdraw-authority PDA) and no freeze authority. Validator list, reserve and manager addresses come from the on-chain pool account, not from a SOL Strategies page. The SOL Strategies 'STKE' ticker token on DEXs is unrelated to STKESOL. No official public API found.",
+  "sources": [
+   "https://defillama.com/protocol/stkesol-by-sol-strategies",
+   "https://api.llama.fi/protocol/stkesol-by-sol-strategies",
+   "https://app.solstrategies.io",
+   "https://app.solstrategies.io/docs",
+   "https://solstrategies.io",
+   "https://www.solana-program.com/docs/stake-pool",
+   "https://www.solana-program.com/docs/stake-pool/cli",
+   "https://api.mainnet-beta.solana.com"
+  ],
+  "researchedAt": "2026-11-24"
+ },
+ {
   "slug": "tether",
   "name": "Tether",
   "category": "Stablecoin Issuer",
@@ -8468,6 +13924,265 @@ export const PROTOCOLS: ProtocolEntry[] = [
    "https://tether.to/en/legal/",
    "https://etherscan.io/address/0xdac17f958d2ee523a2206206994597c13d831ec7#code",
    "https://eth.blockscout.com/api/v2/smart-contracts/0xdAC17F958D2ee523a2206206994597C13D831ec7"
+  ],
+  "researchedAt": "2026-11-24"
+ },
+ {
+  "slug": "turbos",
+  "name": "Turbos Finance",
+  "category": "Dexs",
+  "description": "Concentrated-liquidity (Uniswap-v3-style CLMM) DEX on Sui. Agents can quote and execute swaps, open/adjust/close LP positions (NFTs), and collect fees and rewards through Move calls or the official TypeScript SDK (turbos-clmm-sdk).",
+  "website": "https://turbos.finance",
+  "docs": "https://turbos.gitbook.io/turbos",
+  "defillama": "https://defillama.com/protocol/turbos",
+  "chains": [
+   "sui"
+  ],
+  "vm": "mixed",
+  "agentAccess": "onchain",
+  "contracts": [
+   {
+    "chain": "sui",
+    "chainId": null,
+    "address": "0xa5a0c25c79e428eba04fb98b3fb2a34db45ab26d4c8faf0d7e39d66a63891e64",
+    "name": "Turbos CLMM package (latest, published-at)",
+    "role": "router",
+    "proxy": true,
+    "source": "https://turbos.gitbook.io/turbos/developer-docs/dev-overview",
+    "keyFunctions": [
+     {
+      "signature": "swap_router::swap_a_b<CoinTypeA,CoinTypeB,FeeType>(pool: &mut Pool<A,B,Fee>, coins_a: vector<Coin<A>>, amount: u64, amount_threshold: u64, sqrt_price_limit: u128, is_exact_in: bool, recipient: address, deadline: u64, clock: &Clock, versioned: &Versioned, ctx)",
+      "kind": "write",
+      "payable": false,
+      "description": "Entry. Swap coin A -> coin B in one pool. is_exact_in=true: amount = exact A in, amount_threshold = min B out; false: amount = exact B out, amount_threshold = max A in. sqrt_price_limit: use MIN_SQRT_PRICE 4295048016 for no limit. Output and leftover A are sent to recipient. Type args <CoinTypeA, CoinTypeB, FeeType> must equal the pool object's type (read it from the pool, e.g. Pool<SUI, USDC, 0x91bf…::fee3000bps::FEE3000BPS>). clock = 0x6, versioned = Versioned object 0xf1cf…5b6f. deadline is a unix timestamp in milliseconds."
+     },
+     {
+      "signature": "swap_router::swap_b_a<CoinTypeA,CoinTypeB,FeeType>(pool: &mut Pool<A,B,Fee>, coins_b: vector<Coin<B>>, amount: u64, amount_threshold: u64, sqrt_price_limit: u128, is_exact_in: bool, recipient: address, deadline: u64, clock: &Clock, versioned: &Versioned, ctx)",
+      "kind": "write",
+      "payable": false,
+      "description": "Entry. Swap coin B -> coin A. Same semantics as swap_a_b; no-limit sqrt_price_limit is MAX_SQRT_PRICE 79226673515401279992447579055."
+     },
+     {
+      "signature": "swap_router::swap_a_b_with_return_<A,B,Fee>(...same args as swap_a_b) -> (Coin<B>, Coin<A>)",
+      "kind": "write",
+      "payable": false,
+      "description": "Public (PTB-composable) version of swap_a_b: returns (output coin B, leftover coin A) instead of transferring. The Turbos SDK uses the *_with_return_ functions."
+     },
+     {
+      "signature": "swap_router::swap_b_a_with_return_<A,B,Fee>(...same args as swap_b_a) -> (Coin<A>, Coin<B>)",
+      "kind": "write",
+      "payable": false,
+      "description": "Public version of swap_b_a returning (output coin A, leftover coin B)."
+     },
+     {
+      "signature": "swap_router::swap_a_b_b_c<CoinTypeA,FeeTypeA,CoinTypeB,FeeTypeB,CoinTypeC>(pool_a: &mut Pool<A,B,FeeA>, pool_b: &mut Pool<B,C,FeeB>, coins_a: vector<Coin<A>>, amount: u64, amount_threshold: u64, sqrt_price_limit_a: u128, sqrt_price_limit_b: u128, is_exact_in: bool, recipient: address, deadline: u64, clock, versioned, ctx)",
+      "kind": "write",
+      "payable": false,
+      "description": "Entry. Two-hop swap A -> B -> C. Note the type-arg order (A, FeeA, B, FeeB, C). Variants swap_a_b_c_b, swap_b_a_b_c, swap_b_a_c_b cover the other pool orientations; each has a *_with_return_ form."
+     },
+     {
+      "signature": "pool_fetcher::compute_swap_result<A,B,Fee>(pool: &mut Pool<A,B,Fee>, a_to_b: bool, amount_specified: u128, amount_specified_is_input: bool, sqrt_price_limit: u128, clock: &Clock, versioned: &Versioned, ctx) -> ComputeSwapState",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote a swap without executing it; call it through devInspect/dry-run (the SDK reads amount_a, amount_b, fee_amount, sqrt_price, tick_current_index from the result). The SDK's trade.computeSwapResultV2 wraps this."
+     },
+     {
+      "signature": "position_manager::mint<A,B,Fee>(pool: &mut Pool<A,B,Fee>, positions: &mut Positions, coins_a: vector<Coin<A>>, coins_b: vector<Coin<B>>, tick_lower_index: u32, tick_lower_index_is_neg: bool, tick_upper_index: u32, tick_upper_index_is_neg: bool, amount_a_desired: u64, amount_b_desired: u64, amount_a_min: u64, amount_b_min: u64, recipient: address, deadline: u64, clock: &Clock, versioned: &Versioned, ctx)",
+      "kind": "write",
+      "payable": false,
+      "description": "Entry. Open a concentrated-liquidity position; mints a TurbosPositionNFT to recipient. Ticks are passed as absolute value + is_neg flag and must be multiples of the pool tick spacing. Unused coins are returned. Positions = 0xf576…e52d. mint_with_return_ returns (NFT, Coin<A>, Coin<B>)."
+     },
+     {
+      "signature": "position_manager::increase_liquidity<A,B,Fee>(pool: &mut Pool<A,B,Fee>, positions: &mut Positions, coins_a: vector<Coin<A>>, coins_b: vector<Coin<B>>, nft: &mut TurbosPositionNFT, amount_a_desired: u64, amount_b_desired: u64, amount_a_min: u64, amount_b_min: u64, deadline: u64, clock: &Clock, versioned: &Versioned, ctx)",
+      "kind": "write",
+      "payable": false,
+      "description": "Entry. Add liquidity to an existing position (nft comes after the coin vectors on-chain; the docs page lists a different order)."
+     },
+     {
+      "signature": "position_manager::decrease_liquidity<A,B,Fee>(pool: &mut Pool<A,B,Fee>, positions: &mut Positions, nft: &mut TurbosPositionNFT, liquidity: u128, amount_a_min: u64, amount_b_min: u64, deadline: u64, clock: &Clock, versioned: &Versioned, ctx)",
+      "kind": "write",
+      "payable": false,
+      "description": "Entry. Remove `liquidity` units from a position. On-chain there is no recipient argument (the docs page shows one). decrease_liquidity_with_return_ returns (Coin<A>, Coin<B>)."
+     },
+     {
+      "signature": "position_manager::collect<A,B,Fee>(pool: &mut Pool<A,B,Fee>, positions: &mut Positions, nft: &mut TurbosPositionNFT, amount_a_max: u64, amount_b_max: u64, recipient: address, deadline: u64, clock: &Clock, versioned: &Versioned, ctx)",
+      "kind": "write",
+      "payable": false,
+      "description": "Entry. Collect trading fees owed to the position (use u64::MAX for all)."
+     },
+     {
+      "signature": "position_manager::collect_reward<A,B,Fee,RewardCoin>(pool: &mut Pool<A,B,Fee>, positions: &mut Positions, nft: &mut TurbosPositionNFT, vault: &mut PoolRewardVault<RewardCoin>, reward_index: u64, amount_max: u64, recipient: address, deadline: u64, clock: &Clock, versioned: &Versioned, ctx)",
+      "kind": "write",
+      "payable": false,
+      "description": "Entry. Claim liquidity-mining rewards for reward_index; the reward vault id is in the pool's reward_infos."
+     },
+     {
+      "signature": "position_manager::burn<A,B,Fee>(positions: &mut Positions, nft: TurbosPositionNFT, versioned: &Versioned, ctx)",
+      "kind": "write",
+      "payable": false,
+      "description": "Entry. Burn an empty position NFT (decrease all liquidity and collect fees/rewards first)."
+     },
+     {
+      "signature": "position_manager::get_position_info(positions: &Positions, nft_address: address) -> (I32, I32, u128)",
+      "kind": "read",
+      "payable": false,
+      "description": "Tick lower, tick upper and liquidity of a position NFT."
+     },
+     {
+      "signature": "pool_factory::deploy_pool_and_mint<A,B,Fee>(pool_config: &mut PoolConfig, fee_type: &Fee<FeeType>, sqrt_price: u128, positions: &mut Positions, coins_a, coins_b, tick_lower_index: u32, tick_lower_index_is_neg: bool, tick_upper_index: u32, tick_upper_index_is_neg: bool, amount_a_desired: u64, amount_b_desired: u64, amount_a_min: u64, amount_b_min: u64, recipient: address, deadline: u64, clock, versioned, ctx)",
+      "kind": "write",
+      "payable": false,
+      "description": "Entry. Create a new pool for a pair/fee tier and add initial liquidity. fee_type is the Fee object of the tier (ids in contract.json \"fee\"). deploy_pool(...) creates a pool without liquidity."
+     },
+     {
+      "signature": "pool_factory::get_pool_id<A,B,Fee>(pool_config: &mut PoolConfig) -> Option<ID>",
+      "kind": "read",
+      "payable": false,
+      "description": "Find the pool id for a pair and fee type (via devInspect). Off-chain, the SDK pool.getPools() reads the PoolConfig pools table."
+     }
+    ]
+   },
+   {
+    "chain": "sui",
+    "chainId": null,
+    "address": "0x91bfbc386a41afcfd9b2533058d7e915a1d3829089cc268ff4333d54d6339ca1",
+    "name": "Turbos CLMM package (original id, used in type names)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://turbos.gitbook.io/turbos/developer-docs/dev-overview",
+    "keyFunctions": []
+   },
+   {
+    "chain": "sui",
+    "chainId": null,
+    "address": "0xc294552b2765353bcafa7c359cd28fd6bc237662e5db8f09877558d81669170c",
+    "name": "PoolConfig (shared object, pool registry)",
+    "role": "factory",
+    "proxy": null,
+    "source": "https://turbos.gitbook.io/turbos/developer-docs/dev-overview",
+    "keyFunctions": []
+   },
+   {
+    "chain": "sui",
+    "chainId": null,
+    "address": "0xf5762ae5ae19a2016bb233c72d9a4b2cba5a302237a82724af66292ae43ae52d",
+    "name": "Positions (shared object, position manager)",
+    "role": "other",
+    "proxy": null,
+    "source": "https://turbos.gitbook.io/turbos/developer-docs/dev-overview",
+    "keyFunctions": []
+   },
+   {
+    "chain": "sui",
+    "chainId": null,
+    "address": "0xf1cf0e81048df168ebeb1b8030fad24b3e0b53ae827c25053fff0779c1445b6f",
+    "name": "Versioned (shared object, passed to every call)",
+    "role": "other",
+    "proxy": null,
+    "source": "https://turbos.gitbook.io/turbos/developer-docs/dev-overview",
+    "keyFunctions": []
+   },
+   {
+    "chain": "sui",
+    "chainId": null,
+    "address": "0x0ca0dbe2da5ea7c7b0d0d0796e7918413f9328c4e4bf72e2f6bcd8bf3c993c45",
+    "name": "Turbos Automated Rebalance Vault package (latest)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://app.turbos.finance/sdk/contract.json",
+    "keyFunctions": []
+   },
+   {
+    "chain": "sui",
+    "chainId": null,
+    "address": "0x5d1f47ea69bb0de31c313d7acf89b890dbb8991ea8e03c6c355171f84bb1ba4a::turbos::TURBOS",
+    "name": "TURBOS token (coin type)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://turbos.gitbook.io/turbos/others/token-address",
+    "keyFunctions": []
+   }
+  ],
+  "offchainApis": [
+   {
+    "name": "turbos-clmm-sdk (npm)",
+    "url": "https://www.npmjs.com/package/turbos-clmm-sdk",
+    "auth": "none",
+    "use": "Official TypeScript SDK: sdk.pool.getPools/getPool, sdk.trade.computeSwapResultV2 (quote) and sdk.trade.swap (builds the swap Transaction), sdk.pool.addLiquidity/increaseLiquidity/decreaseLiquidity/removeLiquidity, collectFee/collectReward, vault helpers. Init: new TurbosSdk(Network.mainnet).",
+    "source": "https://turbos.gitbook.io/turbos/developer-docs/via-sdk/get-started"
+   },
+   {
+    "name": "Turbos contract config",
+    "url": "https://app.turbos.finance/sdk/contract.json",
+    "auth": "none",
+    "use": "Official JSON of current package ids, shared objects and fee-tier Fee object ids for mainnet/testnet; the SDK reads it (sdk.contract.getConfig()). Re-read it after upgrades instead of hard-coding the published-at id.",
+    "source": "https://turbos.gitbook.io/turbos/others/token-address"
+   },
+   {
+    "name": "Turbos Move interface",
+    "url": "https://github.com/turbos-finance/turbos-sui-move-interface",
+    "auth": "none",
+    "use": "Move stubs for calling Turbos CLMM from your own package (tag mainnet-v0.1.8).",
+    "source": "https://turbos.gitbook.io/turbos/developer-docs/dev-overview"
+   }
+  ],
+  "actions": [
+   {
+    "name": "swap",
+    "description": "Swap one coin for another.",
+    "how": "SDK: q = sdk.trade.computeSwapResultV2({pools:[{pool, a2b, amountSpecified}], address, amountSpecifiedIsInput:true}); tx = sdk.trade.swap({routes:[{pool, a2b, nextTickIndex: sdk.math.bitsToNumber(q[0].tick_current_index.bits)}], coinTypeA, coinTypeB, address, amountA, amountB: q[0].amount_b, amountSpecifiedIsInput:true, slippage:\"0.5\"}); sign and execute. Direct: moveCall <published-at>::swap_router::swap_a_b (or swap_b_a) with the pool type args."
+   },
+   {
+    "name": "add liquidity",
+    "description": "Open a CLMM position (NFT).",
+    "how": "position_manager::mint with pool, Positions 0xf576…e52d, coin vectors, tick range (abs + is_neg), desired/min amounts, recipient, deadline (ms), clock 0x6, Versioned 0xf1cf…5b6f; or sdk.pool.addLiquidity."
+   },
+   {
+    "name": "remove liquidity",
+    "description": "Withdraw from a position.",
+    "how": "position_manager::decrease_liquidity then collect (and collect_reward per reward index); burn the NFT when empty. SDK: removeLiquidity / decreaseLiquidity."
+   },
+   {
+    "name": "find a pool",
+    "description": "Locate the pool object for a pair/fee tier.",
+    "how": "sdk.pool.getPools() or read the PoolConfig (0xc294…170c) pools table; pool type is Pool<CoinA, CoinB, FeeType>."
+   }
+  ],
+  "risks": [
+   "Upgradeable Move package: the CLMM package has been upgraded many times (on-chain version 22 at research time). Always call the latest published-at id (from contract.json) and pass the Versioned object; old package ids revert on version checks.",
+   "Admin powers held via PoolFactoryAdminCap / AclConfig roles: pause/unpause pools (toggle_pool_status), set protocol fee share, add fee tiers, manage rewards, migrate positions, admin decrease_liquidity (decrease_liquidity_admin) and package upgrade.",
+   "After the May 2025 Cetus exploit (overflow bug in a shared math library), Verichains reported that the same flawed function existed in the Turbos codebase but was not used; Turbos stated it was not affected.",
+   "Concentrated liquidity: positions out of range earn no fees and suffer impermanent loss; set amount_min / slippage and deadlines.",
+   "The gitbook Contract Modules page lists some argument orders that differ from the deployed package (increase_liquidity, decrease_liquidity, collect, burn); the signatures here follow the on-chain package and the official Move interface."
+  ],
+  "notes": "Sui is not one of the registry VM types, so vm = \"mixed\"; the VM is the Sui Move VM and chainId is null. Ids are Sui object/package ids. Mainnet ids come from the official Dev Overview table and the official contract.json (both agree); all were checked on Sui mainnet via GraphQL on 2026-11-25 (PoolConfig, Positions, Versioned are shared objects of the expected 0x91bf… types; the package exposes the listed functions with the listed parameters). Fee-tier Fee objects (needed only to create pools): 10bps 0x49dcf28ac3b5480e65bee812ad2d6e60108ab8037d5a815c3c11bbe7bc47c270, 500bps 0xdfcd1043f54fef3aa649eccd4d0b2b09a3da6c87a8a62736467b686268869365, 3000bps 0x6bc433c8604f58272155d0c65327ae0b316f63869e5de3846f70aef4625d8c46, 10000bps 0xd30c41ec4b4d0eb9b30b0b898c53f81cd53a9eb0f75b5d3273584cd874b2d4c4; full list (100, 1000, 1500, 2000, 2500, 7500, 20000, 40000 bps) in contract.json. The SDK getConfig doc example shows an older PackageId (0x2476…16c8); use contract.json. Vault objects (VaultGlobalConfig 0x2994c75a2ab419adfe16e143bf45ad44c3a5ccfc07c8fe8e31f7c883c8d84c2b, VaultRewarderManager, VaultUserTierConfig) are in contract.json; vault Move functions are not documented beyond the SDK, so no keyFunctions are given (use the SDK vault methods). Not included: Turbos Fun (bonding-curve launchpad, parrot_fun::buy/sell) because its package and config ids are not on an official page; Turbos OMM page is empty; TURBOS on BNB Chain (0xA1E6410bF311C03429B37A76a80C8A5E61616e7F per the token page) is out of scope of the Sui DEX entry. Individual pool ids are not listed: discover them from PoolConfig or the SDK.",
+  "sources": [
+   "https://defillama.com/protocol/turbos",
+   "https://api.llama.fi/protocol/turbos",
+   "https://turbos.finance",
+   "https://app.turbos.finance/",
+   "https://turbos.gitbook.io/turbos/llms.txt",
+   "https://turbos.gitbook.io/turbos/developer-docs/dev-overview",
+   "https://app.turbos.finance/sdk/contract.json",
+   "https://turbos.gitbook.io/turbos/developer-docs/via-contract/get-started",
+   "https://turbos.gitbook.io/turbos/developer-docs/via-contract/contract-modules",
+   "https://turbos.gitbook.io/turbos/developer-docs/via-sdk/get-started",
+   "https://turbos.gitbook.io/turbos/developer-docs/via-sdk/initialize-sdk",
+   "https://turbos.gitbook.io/turbos/developer-docs/via-sdk/clmm/getconfig",
+   "https://turbos.gitbook.io/turbos/developer-docs/via-sdk/clmm/preswap",
+   "https://turbos.gitbook.io/turbos/developer-docs/via-sdk/clmm/swap",
+   "https://turbos.gitbook.io/turbos/products/concentrated-liquidity-amm/fee-tier-for-token-pairs",
+   "https://turbos.gitbook.io/turbos/others/token-address",
+   "https://turbos.gitbook.io/turbos/others/audits",
+   "https://turbos.gitbook.io/turbos/others/risks",
+   "https://turbos.gitbook.io/turbos/turbos-fun/buy",
+   "https://github.com/turbos-finance/turbos-sui-move-interface",
+   "https://github.com/turbos-finance/turbos-sui-move-interface/blob/main/clmm/sources/position_manager.move",
+   "https://github.com/turbos-finance/turbos-sui-move-interface/blob/main/clmm/sources/swap_router.move",
+   "https://github.com/turbos-finance/turbos-clmm-sdk",
+   "https://www.npmjs.com/package/turbos-clmm-sdk",
+   "https://graphql.mainnet.sui.io/graphql",
+   "https://blog.verichains.io/p/multiple-sui-projects-previously"
   ],
   "researchedAt": "2026-11-24"
  },
