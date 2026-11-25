@@ -1266,7 +1266,7 @@
           "signature": "open(address,bytes32,address)",
           "kind": "write",
           "payable": false,
-          "description": "Open an empty vault: (cdpManager, ilk as bytes32 e.g. 'ETH-A', usr = your DSProxy). Returns cdp id. Like every ProxyActions call, it must be sent as DSProxy.execute(ProxyActions, calldata) (delegatecall), never directly."
+          "description": "Open an empty vault: (cdpManager, ilk as bytes32 - read available ilks from the public API /api/v1/vault/collaterals; BSC currently lists PSM and Smart Allocator ilks), usr = your DSProxy). Returns cdp id. Like every ProxyActions call, it must be sent as DSProxy.execute(ProxyActions, calldata) (delegatecall), never directly."
         },
         {
           "signature": "openLockGemAndDraw(address,address,address,address,bytes32,uint256,uint256,bool)",
