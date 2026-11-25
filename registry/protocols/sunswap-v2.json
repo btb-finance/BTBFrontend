@@ -1,0 +1,311 @@
+{
+  "slug": "sunswap-v2",
+  "name": "SUNSwap V2",
+  "category": "Dexs",
+  "description": "Uniswap-V2-style constant-product DEX on TRON run by SUN.io (Factory + Router02 + per-pair contracts, 0.3% fee). An agent can swap TRC-20 tokens and TRX, quote with getAmountsOut, add/remove liquidity and look up pairs on-chain, or get best routes across SunSwap V1/V2/V3/V4, PSM and SunCurve from the official SUN.io routing API.",
+  "website": "https://sun.io",
+  "docs": "https://docs.sun.io/protocols/sunswap-v2/overview",
+  "defillama": "https://defillama.com/protocol/sunswap-v2",
+  "chains": [
+    "tron"
+  ],
+  "vm": "mixed",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "TNJVzGqKBWkJxJB5XYSqGAwUTV15U24pPq",
+      "name": "SunSwap V2 Router (UniswapV2Router02)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.sun.io/protocols/sunswap-v2/reference/contract",
+      "keyFunctions": [
+        {
+          "signature": "getAmountsOut(uint256,address[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote: amounts along path for an exact input (amountIn in the input token's base units). Includes the 0.3% fee per hop. Use WTRX TNUC9Qb1rRpS5CbWLmNMxXBjyFoydXjWFR in the path for TRX. Apply slippage to the last element to get amountOutMin."
+        },
+        {
+          "signature": "getAmountsIn(uint256,address[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote: required input for an exact output along path."
+        },
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(amountIn, amountOutMin, path, to, deadline). Sell an exact amount of a TRC-20 for another TRC-20. Approve the Router on the input token first. deadline is a Unix timestamp in seconds. Path hops must be existing V2 pairs."
+        },
+        {
+          "signature": "swapExactETHForTokens(uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "(amountOutMin, path, to, deadline). Sell exact native TRX (callValue in sun, 1 TRX = 1e6 sun); path must start with WTRX TNUC9Qb1rRpS5CbWLmNMxXBjyFoydXjWFR. \"ETH\" in V2 names means TRX."
+        },
+        {
+          "signature": "swapExactTokensForETH(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(amountIn, amountOutMin, path, to, deadline). Sell a TRC-20 for native TRX; path must end with WTRX. Approve the Router first."
+        },
+        {
+          "signature": "swapTokensForExactTokens(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(amountOut, amountInMax, path, to, deadline). Buy an exact output amount spending at most amountInMax."
+        },
+        {
+          "signature": "swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as swapExactTokensForTokens but for tokens that take a fee on transfer; returns nothing."
+        },
+        {
+          "signature": "addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin, to, deadline). Add liquidity to a TRC-20/TRC-20 pair (created automatically if missing); LP tokens go to `to`. Approve both tokens to the Router."
+        },
+        {
+          "signature": "addLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "(token, amountTokenDesired, amountTokenMin, amountETHMin, to, deadline). Add liquidity to a token/TRX pair; send TRX as callValue (wrapped to WTRX)."
+        },
+        {
+          "signature": "removeLiquidity(address,address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline). Burn LP for both tokens. Approve the pair (LP token) to the Router first."
+        },
+        {
+          "signature": "removeLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "(token, liquidity, amountTokenMin, amountETHMin, to, deadline). Burn LP of a token/WTRX pair, receive the token and native TRX."
+        },
+        {
+          "signature": "WETH()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns WTRX TNUC9Qb1rRpS5CbWLmNMxXBjyFoydXjWFR (checked on-chain)."
+        },
+        {
+          "signature": "factory()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns the V2 Factory TKWJdrQkqHisa1X8HUdHEfREvTzw4pMAaY (checked on-chain)."
+        }
+      ]
+    },
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "TKWJdrQkqHisa1X8HUdHEfREvTzw4pMAaY",
+      "name": "SunSwap V2 Factory (UniswapV2Factory)",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.sun.io/protocols/sunswap-v2/reference/contract",
+      "keyFunctions": [
+        {
+          "signature": "getPair(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pair (pool/LP token) address for two tokens; zero address if none. Use WTRX for TRX. Pairs expose standard Uniswap V2 getReserves(), token0(), token1(), totalSupply()."
+        },
+        {
+          "signature": "allPairsLength()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of pairs created."
+        },
+        {
+          "signature": "allPairs(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pair address by index."
+        },
+        {
+          "signature": "createPair(address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless pair creation (addLiquidity also creates the pair if missing)."
+        },
+        {
+          "signature": "feeTo()",
+          "kind": "read",
+          "payable": false,
+          "description": "Protocol fee recipient (the 0.05% SUN buyback-and-burn share)."
+        }
+      ]
+    },
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "TNUC9Qb1rRpS5CbWLmNMxXBjyFoydXjWFR",
+      "name": "WTRX (Wrapped TRX)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.sun.io/protocols/smart-router/reference/calculation-service",
+      "keyFunctions": [
+        {
+          "signature": "deposit()",
+          "kind": "write",
+          "payable": true,
+          "description": "Wrap TRX (callValue in sun) into WTRX 1:1. 6 decimals."
+        },
+        {
+          "signature": "withdraw(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Unwrap WTRX to TRX."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender such as the V2 Router."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "WTRX balance (6 decimals)."
+        }
+      ]
+    },
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "TSSMHYeV2uE9qYH95DqyoCuNCzEL1NvU3S",
+      "name": "SUN token (TRC-20)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.sun.io/sun-ai/sun-cli/command-guide",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "SUN balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer SUN."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender, e.g. the V2 Router."
+        }
+      ]
+    },
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "TGnC7LMji8hBpyvZt1TTEJhVpAZ5HFyJ3r",
+      "name": "SUN.io Smart Router (SmartExchangeRouter)",
+      "role": "router",
+      "proxy": null,
+      "source": "https://docs.sun.io/protocols/smart-router/reference/contract",
+      "keyFunctions": [
+        {
+          "signature": "swapExactInput(address[],string[],uint256[],uint24[],(uint256,uint256,address,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "(path, poolVersion, versionLen, fees, data=(amountIn, amountOutMin, to, deadline)). Multi-protocol swap across SunSwap V1/V2/V3, PSM and curve pools, typically fed by the routing API output (pool names e.g. 'v1','v2','v3'; versionLen counts tokens per segment, first entry +1; fees all 0 except V3 hops, last entry 0). Use address T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb (zero address) for native TRX and send callValue = amountIn. Approve input TRC-20 to this router."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Smart Router calculation service",
+      "url": "https://open.sun.io/apiv2/quote/swap/routingInV2",
+      "auth": "none",
+      "use": "GET ?fromTokenAddr&toTokenAddr&inAmount (base units) returns the top 3 paths (roadForAddr, pool per hop, amount, impact, fee) across SunSwap V1/V2/V3/V4, PSM and SunCurve; feed into Smart Router swapExactInput.",
+      "source": "https://docs.sun.io/protocols/smart-router/reference/calculation-service"
+    },
+    {
+      "name": "SUN.IO API",
+      "url": "https://open.sun.io",
+      "auth": "none",
+      "use": "Read-only REST (GET, JSON): token prices and search, pools/pairs, user positions, transactions, protocol stats, Universal Router quotes, SUN token data. 10 QPS without key; optional X-API-KEY header for higher limits.",
+      "source": "https://docs.sun.io/api/sun-io-api"
+    },
+    {
+      "name": "SUN MCP Server",
+      "url": "https://mcp.sun.io",
+      "auth": "none",
+      "use": "Official hosted SUN MCP Server: read-only SunSwap data (prices, quotes, pools/APYs, protocol stats, positions) with no wallet credentials. Swaps/liquidity need the self-hosted (local) deployment.",
+      "source": "https://docs.sun.io/sun-ai/sun-mcp-server/official-server-access"
+    }
+  ],
+  "actions": [
+    {
+      "name": "quote",
+      "description": "Quote a V2 swap",
+      "how": "Router.getAmountsOut(amountIn, [tokenIn, ..., tokenOut]) with WTRX for TRX; or GET https://open.sun.io/apiv2/quote/swap/routingInV2 for best multi-protocol route"
+    },
+    {
+      "name": "swap-token-for-token",
+      "description": "Swap TRC-20 to TRC-20",
+      "how": "approve(Router, amountIn) on tokenIn, then Router.swapExactTokensForTokens(amountIn, amountOutMin, path, to, nowSec+600)"
+    },
+    {
+      "name": "swap-trx-for-token",
+      "description": "Sell TRX",
+      "how": "Router.swapExactETHForTokens(amountOutMin, [WTRX, token], to, deadline) with callValue = TRX amount in sun"
+    },
+    {
+      "name": "swap-token-for-trx",
+      "description": "Buy TRX",
+      "how": "approve Router, then Router.swapExactTokensForETH(amountIn, amountOutMin, [token, WTRX], to, deadline)"
+    },
+    {
+      "name": "add-liquidity",
+      "description": "Provide liquidity",
+      "how": "approve both tokens to Router; Router.addLiquidity(...) or addLiquidityETH(token, ..., to, deadline) with TRX callValue"
+    },
+    {
+      "name": "remove-liquidity",
+      "description": "Withdraw liquidity",
+      "how": "Factory.getPair(a,b) -> approve pair LP to Router -> Router.removeLiquidity(...) / removeLiquidityETH(...)"
+    }
+  ],
+  "risks": [
+    "Permissionless pair creation: anyone can list any TRC-20, including scam, copycat or fee-on-transfer/honeypot tokens. Verify token addresses (e.g. against the SUN.io token list) before swapping.",
+    "Router and Smart Router addresses have changed: SUN.io marks older mainnet V2 contracts (TXF1xDbVGdxFGbovmmmXvBGu8ZiE3Lq4mR, TMmRKgwC1hx4azzkXoPzujgQThzF48Actq) and older Smart Routers as deprecated. Use only the current addresses from docs.sun.io.",
+    "Fee 0.3% per hop: 0.25% to LPs and 0.05% used to buy back and burn SUN.",
+    "Uniswap V2 code: Factory feeToSetter can change the protocol fee recipient; Router/Factory/Pairs are not upgradeable proxies (TronGrid shows plain UniswapV2Factory/UniswapV2Router02 contracts).",
+    "TRON resource costs: write calls burn energy/bandwidth; set an adequate feeLimit (docs examples use up to 10,000 TRX for Smart Router) or the tx fails and still costs TRX.",
+    "Audits: SUN.io states its contracts were audited by SlowMist (https://docs.sun.io/get-started/risks); DefiLlama links https://sunswap.com/docs/audit-report_en.pdf. Standard AMM risks: impermanent loss, slippage, MEV."
+  ],
+  "notes": "VM is TVM (TRON Virtual Machine, EVM-compatible ABI); addresses are base58 T... Every address above is from docs.sun.io and was confirmed via TronGrid getcontract (Router = UniswapV2Router02, Factory = UniswapV2Factory, WTRX, SunToken, SmartExchangeRouter); Router.factory() and Router.WETH() return the listed Factory and WTRX. Testnet (Nile): Factory THomLGMLhAjMecQf9FQjbZ8a1RtwsZLrGE, Router TYMjxCXfqLpMWW1QToP6hbcjpion7EE25p. The often-cited router TKzxdSv2FZKQrEqkKVgp5DcwEXBEKMg2Ax is not on the official contract page and is left out. SUN.io also runs a Universal Router (TQqgNg13s2DjvXhW1ky4v6TsR8wZGvb7Y4, https://docs.sun.io/protocols/universal-router/reference/contract) with Permit2; it is not part of SunSwap V2 and its functions are not documented here. SunSwap V1/V3/V4 are separate protocols. Decimals per SUN CLI docs: TRX/WTRX/USDT 6, SUN/USDD/JST 18. Router function signatures come from the TronGrid ABI and docs.sun.io main-interfaces page. No specific SunSwap V2 exploit was found on official pages.",
+  "sources": [
+    "https://defillama.com/protocol/sunswap-v2",
+    "https://api.llama.fi/protocol/sunswap-v2",
+    "https://docs.sun.io/protocols/sunswap-v2/overview",
+    "https://docs.sun.io/protocols/sunswap-v2/reference/contract",
+    "https://docs.sun.io/protocols/sunswap-v2/reference/functions",
+    "https://docs.sun.io/protocols/smart-router/reference/contract",
+    "https://docs.sun.io/protocols/smart-router/reference/swap-functions",
+    "https://docs.sun.io/protocols/smart-router/reference/calculation-service",
+    "https://docs.sun.io/protocols/universal-router/reference/contract",
+    "https://docs.sun.io/api/sun-io-api",
+    "https://docs.sun.io/sun-ai/sun-mcp-server/official-server-access",
+    "https://docs.sun.io/sun-ai/sun-cli/command-guide",
+    "https://docs.sun.io/trade/trading-fee",
+    "https://docs.sun.io/get-started/risks",
+    "https://docs.sun.io/ecosystem/tokenomics/overview",
+    "https://api.trongrid.io/wallet/getcontract",
+    "https://api.trongrid.io/wallet/triggerconstantcontract"
+  ],
+  "researchedAt": "2026-11-25"
+}

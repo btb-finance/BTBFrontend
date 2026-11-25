@@ -1,0 +1,244 @@
+{
+  "slug": "meteora-damm-v1",
+  "name": "Meteora DAMM V1",
+  "category": "Dexs",
+  "description": "Meteora's legacy Dynamic AMM (DAMM v1) on Solana: constant-product, stable and LST/depeg pools whose reserves sit in Meteora Dynamic Vaults. An agent can swap, add/remove liquidity, create permissionless pools and lock LP via the `amm` program, most easily through @meteora-ag/dynamic-amm-sdk or by routing swaps through Jupiter.",
+  "website": "https://www.meteora.ag",
+  "docs": "https://docs.meteora.ag/developer-guides/damm-v1",
+  "defillama": "https://defillama.com/protocol/meteora-damm-v1",
+  "chains": [
+    "solana"
+  ],
+  "vm": "solana",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB",
+      "name": "DAMM v1 / Dynamic AMM (`amm` program)",
+      "role": "exchange",
+      "proxy": null,
+      "source": "https://docs.meteora.ag/developer-guides/damm-v1",
+      "keyFunctions": [
+        {
+          "signature": "swap(in_amount: u64, minimum_out_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Exact-in swap A->B or B->A on one pool. Amounts in base units of the mints. minimum_out_amount is the slippage guard (SDK: pool.getSwapQuote(inMint, inAmount, slippagePct).minSwapOutAmount, then pool.swap(owner, inMint, inAmount, minOut, referralOwner?)). Input is deposited into one Dynamic Vault and output withdrawn from the other, so vault accounts are required. Stable LST/depeg pools need extra depeg remaining accounts; an optional host-fee (referral) token account receives 20% of the protocol fee. Fee numerators use FEE_DENOMINATOR = 100_000 (default constant-product trade fee 250 = 0.25%, protocol share 20% of the trade fee). Launch pools reject swaps before their activation point. No deadline argument: rely on blockhash expiry."
+        },
+        {
+          "signature": "add_balance_liquidity(pool_token_amount: u64, maximum_token_a_amount: u64, maximum_token_b_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint exactly pool_token_amount LP spending at most the given token A/B amounts. Normal path for constant-product pools. SDK: pool.getDepositQuote(aIn, bIn, balance=true, slippage) then pool.deposit(owner, aIn, bIn, poolTokenAmount)."
+        },
+        {
+          "signature": "add_imbalance_liquidity(minimum_pool_token_amount: u64, token_a_amount: u64, token_b_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit arbitrary A/B amounts for at least minimum_pool_token_amount LP. Stable pools only."
+        },
+        {
+          "signature": "remove_balance_liquidity(pool_token_amount: u64, minimum_a_token_out: u64, minimum_b_token_out: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn LP and withdraw A and B proportionally with minimum-out slippage guards. Still works when the pool is disabled. The LP token account must be owned by the signing user (SPL delegates cannot burn). SDK: pool.getWithdrawQuote(lpAmount, slippage) then pool.withdraw(owner, lpAmount, aOut, bOut)."
+        },
+        {
+          "signature": "remove_liquidity_single_side(pool_token_amount: u64, minimum_out_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn LP and withdraw a single token. Stable pools only (SDK: getWithdrawQuote(lpAmount, slippage, tokenMint))."
+        },
+        {
+          "signature": "initialize_permissionless_pool_with_fee_tier(curve_type: CurveType, trade_fee_bps: u64, token_a_amount: u64, token_b_amount: u64)",
+          "kind": "write",
+          "payable": true,
+          "description": "Create a permissionless pool (pool PDA from curve type, sorted mints and fee tier). Allowed trade_fee_bps: constant product [25, 100, 400, 600], stable [1, 4, 10, 100]. Initial amounts set the price; creator receives LP. Payer funds rent in SOL. SDK: AmmImpl.createPermissionlessPool(...)."
+        },
+        {
+          "signature": "initialize_permissionless_pool(curve_type: CurveType, token_a_amount: u64, token_b_amount: u64)",
+          "kind": "write",
+          "payable": true,
+          "description": "Create a permissionless pool with the curve's default fee."
+        },
+        {
+          "signature": "initialize_permissionless_constant_product_pool_with_config2(token_a_amount: u64, token_b_amount: u64, activation_point: Option<u64>)",
+          "kind": "write",
+          "payable": true,
+          "description": "Create a config-based constant-product pool (PDA from sorted mints + config key) inheriting fees/activation from a published config; private configs require the config's pool_creator_authority to sign. SDK: AmmImpl.createPermissionlessConstantProductPoolWithConfig2(...)."
+        },
+        {
+          "signature": "initialize_customizable_permissionless_constant_product_pool(token_a_amount: u64, token_b_amount: u64, params: CustomizableParams)",
+          "kind": "write",
+          "payable": true,
+          "description": "Create a customizable launch pool (trade fee 0.25%-15%, activation settings) without a config PDA."
+        },
+        {
+          "signature": "create_lock_escrow()",
+          "kind": "write",
+          "payable": true,
+          "description": "Create the lock-escrow PDA for (pool, owner) before locking LP."
+        },
+        {
+          "signature": "lock(max_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Permanently lock LP tokens into the owner's escrow; locked LP keeps earning fees. Irreversible. SDK: pool.lockLiquidity(owner, amount)."
+        },
+        {
+          "signature": "claim_fee(max_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim token A/B fees accrued by locked LP (bounded by max_amount, LP-denominated). SDK: pool.claimLockFee2(owner, maxAmount, payer, receiver)."
+        },
+        {
+          "signature": "get_pool_info()",
+          "kind": "read",
+          "payable": false,
+          "description": "Emits an event with pool token amounts, virtual price and timestamp (simulate the tx to read). Off-chain, AmmImpl.create(connection, pool).poolInfo gives the same data."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi",
+      "name": "Dynamic Vault (`vault` program)",
+      "role": "vault",
+      "proxy": null,
+      "source": "https://docs.meteora.ag/developer-guides/dynamic-vault/index",
+      "keyFunctions": [
+        {
+          "signature": "deposit(token_amount: u64, minimum_lp_token_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit the underlying token into a single-asset vault and mint vault LP (slippage-checked). DAMM v1 pools call this internally; direct use via @meteora-ag/vault-sdk vault.deposit(owner, amount)."
+        },
+        {
+          "signature": "withdraw(unmint_amount: u64, min_out_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn vault LP and withdraw underlying from the vault reserve; use withdraw_directly_from_strategy when the reserve is short (the SDK picks automatically)."
+        },
+        {
+          "signature": "withdraw_directly_from_strategy(unmint_amount: u64, min_out_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw by first pulling from a lending strategy when reserves are insufficient."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "FarmuwXPWXvefWUeqFAa5w6rifLkq5X6E8bimYvrhCB1",
+      "name": "DAMM v1 Farming program",
+      "role": "staking",
+      "proxy": null,
+      "source": "https://docs.meteora.ag/developer-guides/damm-v1",
+      "keyFunctions": []
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "METvsvVRapdj9cFLzq4Tr43xK4tAjQfwX76z3n6mWQL",
+      "name": "MET (Meteora token)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.meteora.ag/protocol/met/tokenomics",
+      "keyFunctions": [
+        {
+          "signature": "SPL Token transfer / transferChecked",
+          "kind": "write",
+          "payable": false,
+          "description": "Standard SPL Token (Tokenkeg program) mint, 6 decimals; mint and freeze authority are null on-chain. Total supply 1,000,000,000 at TGE (23 Oct 2025), with burns since."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "DAMM v1 Data API",
+      "url": "https://damm-api.meteora.ag",
+      "auth": "none",
+      "use": "Read-only indexed pool discovery and metrics: GET /pools, GET /pools/search (filter by mints, pool_type, TVL/APR), pool configs, fee configs, alpha vaults, farm-backed pools. Swagger at https://damm-api.meteora.ag/swagger-ui/. Not for exact state when building txs: load pools on-chain with the SDK.",
+      "source": "https://docs.meteora.ag/developer-guides/damm-v1/api-reference/overview"
+    },
+    {
+      "name": "@meteora-ag/dynamic-amm-sdk (TypeScript SDK)",
+      "url": "https://github.com/MeteoraAg/damm-v1-sdk",
+      "auth": "none",
+      "use": "Official SDK: AmmImpl.create / createMultiple / searchPoolsByToken, getSwapQuote + swap, getDepositQuote + deposit, getWithdrawQuote + withdraw, createPermissionlessPool and config pool creators, lockLiquidity, claimLockFee2. Returns unsigned Transactions. Use v2.0.0+ with program 0.5.7.",
+      "source": "https://docs.meteora.ag/developer-guides/damm-v1/typescript-sdk/getting-started"
+    }
+  ],
+  "actions": [
+    {
+      "name": "swap",
+      "description": "Swap on a DAMM v1 pool",
+      "how": "Simplest: route through Jupiter (Meteora's own UI swaps via Jupiter Terminal), which includes Meteora pools. Direct: const pool = await AmmImpl.create(connection, poolAddress); const q = pool.getSwapQuote(inMint, inAmount, slippagePct); const tx = await pool.swap(owner, inMint, inAmount, q.minSwapOutAmount); sign and send."
+    },
+    {
+      "name": "find-pool",
+      "description": "Find DAMM v1 pools for a token",
+      "how": "GET https://damm-api.meteora.ag/pools/search?include_token_mints=<mint> or AmmImpl.searchPoolsByToken(connection, mint)"
+    },
+    {
+      "name": "add-liquidity",
+      "description": "Deposit into a pool",
+      "how": "pool.getDepositQuote(aIn, bIn, true, slippage) -> pool.deposit(owner, q.tokenAInAmount, q.tokenBInAmount, q.minPoolTokenAmountOut) (program add_balance_liquidity)"
+    },
+    {
+      "name": "remove-liquidity",
+      "description": "Withdraw from a pool",
+      "how": "pool.getWithdrawQuote(lpAmount, slippage) -> pool.withdraw(owner, lpAmount, q.minTokenAOutAmount, q.minTokenBOutAmount) (program remove_balance_liquidity)"
+    },
+    {
+      "name": "create-pool",
+      "description": "Create a permissionless pool",
+      "how": "AmmImpl.createPermissionlessPool(...) with an allowed fee tier, or createPermissionlessConstantProductPoolWithConfig2(...) with a published config key (see https://docs.meteora.ag/developer-guides/damm-v1/pool-fee-configs). Meteora recommends DAMM v2 for new launches."
+    },
+    {
+      "name": "lock-lp",
+      "description": "Lock LP and keep earning fees",
+      "how": "pool.lockLiquidity(owner, amount) (create_lock_escrow + lock); claim with pool.claimLockFee2(owner, maxAmount, payer, receiver)"
+    }
+  ],
+  "risks": [
+    "Legacy product: Meteora describes DAMM v1 as legacy and recommends DAMM v2 for new pools; existing pools keep working.",
+    "Permissionless pool creation: anyone can create pools for any mint, including scam/copycat tokens and duplicate pools; always verify mints (Meteora's Staying Safe guide points to Rugcheck, JupShield and Jupiter Organic Score).",
+    "Programs are upgradeable (BPFLoaderUpgradeable) by Meteora. Admin-only instructions can disable pools (balanced withdrawals still allowed), set pool fees and partner settings, create/close configs and update launch activation points; operator accounts can withdraw/zap protocol fees.",
+    "Pool reserves are held in Dynamic Vaults that lend idle liquidity to external Solana lending strategies (managed by Meteora's off-chain Hermes keeper), adding strategy/smart-contract risk of those protocols.",
+    "Launch pools can block swaps until an activation point and may have an Alpha Vault with pre-activation access.",
+    "LP locks are permanent; locked LP can only claim fees.",
+    "Audits listed on Meteora's DAMM v1 audit page: Offside Labs, Halborn, Oak. Dynamic Vault has a separate audit page."
+  ],
+  "notes": "This entry is DAMM v1 only. Other Meteora products have their own programs (from official developer guides): DAMM v2 `cp_amm` cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG (pool authority HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC, https://docs.meteora.ag/developer-guides/damm-v2/index) and DLMM `lb_clmm` LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo (https://docs.meteora.ag/developer-guides/dlmm/index); both are separate DefiLlama entries and not listed as contracts here. All DAMM v1/vault/farm program IDs are identical on mainnet and devnet and were confirmed executable via getAccountInfo. Dynamic Vault affiliate program GacY9YuN16HNRTy7ZWwULPccwvfFSBeNLuAQP7y38Du3 is mentioned in the vault guide but omitted (not needed for DAMM v1). Instruction signatures come from the official IDL bundled in the SDK (https://github.com/MeteoraAg/damm-v1-sdk/blob/main/ts-client/src/amm/idl.ts); account lists are long (vaults, vault LP, protocol fee accounts), so build transactions with the SDK. The farming program is being deprecated per Meteora's farming changelog. Sample mainnet pools from the SDK reference: USDT/USDC 32D4zRxNc1EssbJieVHfPhZM3rH6CzfUPrWUuWxD9prG, USDC/SOL 5yuefgbJJpmFNK2iiYbLSpv1aZXq7F9AUKkZKErTYCvs. No standalone swap REST API is offered by Meteora; Jupiter is the usual aggregator path (Jupiter's own API is third-party and not documented here). No specific DAMM v1 security incident was found on official pages.",
+  "sources": [
+    "https://defillama.com/protocol/meteora-damm-v1",
+    "https://api.llama.fi/protocol/meteora-damm-v1",
+    "https://docs.meteora.ag/llms.txt",
+    "https://docs.meteora.ag/developer-guides/damm-v1",
+    "https://docs.meteora.ag/developer-guides/damm-v1/program/instructions",
+    "https://docs.meteora.ag/developer-guides/damm-v1/typescript-sdk/getting-started",
+    "https://docs.meteora.ag/developer-guides/damm-v1/typescript-sdk/reference",
+    "https://docs.meteora.ag/developer-guides/damm-v1/api-reference/overview",
+    "https://docs.meteora.ag/developer-guides/damm-v1/changelog",
+    "https://docs.meteora.ag/legacy-products/damm-v1/what-is-damm-v1",
+    "https://docs.meteora.ag/legacy-products/damm-v1/implementation-and-limits",
+    "https://docs.meteora.ag/developer-guides/dynamic-vault/index",
+    "https://docs.meteora.ag/developer-guides/dynamic-vault/program/instructions",
+    "https://docs.meteora.ag/developer-guides/damm-v2/index",
+    "https://docs.meteora.ag/developer-guides/dlmm/index",
+    "https://docs.meteora.ag/protocol/met/tokenomics",
+    "https://docs.meteora.ag/resources/audits/damm-v1",
+    "https://docs.meteora.ag/user-guides/swapping-tokens-on-meteora",
+    "https://docs.meteora.ag/user-guides/staying-safe-on-meteora",
+    "https://github.com/MeteoraAg/damm-v1-sdk",
+    "https://github.com/MeteoraAg/damm-v1-sdk/blob/main/ts-client/src/amm/idl.ts",
+    "https://api.mainnet-beta.solana.com"
+  ],
+  "researchedAt": "2026-11-25"
+}

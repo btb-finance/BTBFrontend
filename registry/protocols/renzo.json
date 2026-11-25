@@ -1,0 +1,800 @@
+{
+  "slug": "renzo",
+  "name": "Renzo",
+  "category": "Liquid Restaking",
+  "description": "Liquid restaking on EigenLayer: deposit ETH or stETH on Ethereum for non-rebasing ezETH (value rises against ETH), redeem through the WithdrawQueue (request, cooldown, claim), or mint ezETH directly on L2s (Arbitrum, Base, Linea, BNB Chain, Mode) through xRenzoDeposit contracts. ezETH is an xERC20 on L2s, backed 1:1 by ezETH locked in the Ethereum lockbox. REZ is the governance token.",
+  "website": "https://renzoprotocol.com",
+  "docs": "https://docs.renzoprotocol.com/docs",
+  "defillama": "https://defillama.com/protocol/renzo",
+  "chains": [
+    "ethereum",
+    "arbitrum",
+    "base",
+    "bsc",
+    "linea",
+    "mode",
+    "fraxtal",
+    "unichain",
+    "worldchain",
+    "zircuit",
+    "solana"
+  ],
+  "vm": "mixed",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x74a09653A083691711cF8215a6ab074BB4e99ef5",
+      "name": "RestakeManager",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/ethereum-mainnet",
+      "keyFunctions": [
+        {
+          "signature": "depositETH()",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit ETH (msg.value) and mint ezETH to msg.sender at the current rate (ezETH out = ETH value * ezETH supply / total TVL). No slippage parameter: compare with calculateTVLs() first. Reverts while paused."
+        },
+        {
+          "signature": "depositETH(uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same as depositETH() with a referral id (0 if none)."
+        },
+        {
+          "signature": "deposit(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit an accepted collateral token (approve RestakeManager first) and mint ezETH. Amount in token base units. On 2026-11-25 the only collateral token was stETH (0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84); check getCollateralTokensLength()/collateralTokens(i). Per-token TVL limits may apply (collateralTokenTvlLimits)."
+        },
+        {
+          "signature": "deposit(address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as deposit(address,uint256) with a referral id (0 if none)."
+        },
+        {
+          "signature": "calculateTVLs()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (uint256[][] per-operator-delegator per-token TVLs, uint256[] per-operator-delegator TVLs, uint256 total TVL in ETH wei). ezETH rate = total TVL / ezETH.totalSupply() (about 1.0899 ETH on 2026-11-25). Docs warn it can revert in rare cases; do not continue with stale data if it does."
+        },
+        {
+          "signature": "getCollateralTokensLength()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of accepted collateral tokens."
+        },
+        {
+          "signature": "collateralTokens(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Accepted collateral token at index i."
+        },
+        {
+          "signature": "collateralTokenTvlLimits(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "TVL cap for a collateral token in ETH value (0 = no cap)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if deposits are paused."
+        },
+        {
+          "signature": "renzoOracle()",
+          "kind": "read",
+          "payable": false,
+          "description": "RenzoOracle used to value collateral and to compute mint amounts (lookupTokenValue, calculateMintAmount)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xbf5495Efe5DB9ce00f80364C8B423567e58d2110",
+      "name": "ezETH",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/ethereum-mainnet",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "ezETH balance (18 decimals). Non-rebasing: value accrues through the rate."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "ezETH supply; divide RestakeManager.calculateTVLs() total by this for the ETH rate."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve the WithdrawQueue (withdraw), the InstantWithdrawer, or the lockbox (bridge to xezETH)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer ezETH."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x5efc9D10E42FB517456f4ac41EB5e2eBe42C8918",
+      "name": "WithdrawQueue",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/ethereum-mainnet",
+      "keyFunctions": [
+        {
+          "signature": "withdraw(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Request a redemption. Args: ezETH amount (wei), asset out (0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for native ETH; other assets only if withdrawalBufferTarget(asset) > 0). Approve ezETH to this contract first; the ezETH is locked and burned at claim. The ETH amount is fixed at request time (it can only go down at claim if the rate falls). Appends a request to withdrawRequests(msg.sender, i)."
+        },
+        {
+          "signature": "claim(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim request index i for user after the cooldown. Args: withdrawRequestIndex, user. Reverts EarlyClaim before coolDownPeriod (1,209,600 s = 14 days on 2026-11-25; a risk oracle can lengthen it) and QueuedWithdrawalNotFilled if the buffer was short at request time and has not been refilled. Claiming swaps the last request into the claimed index, so re-read indexes after each claim."
+        },
+        {
+          "signature": "getOutstandingWithdrawRequests(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of pending requests for a user."
+        },
+        {
+          "signature": "withdrawRequests(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Request i of a user: (collateralToken, withdrawRequestID, amountToRedeem, ezETHLocked, createdAt)."
+        },
+        {
+          "signature": "calculateAmountToRedeem(uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote: returns (per-delegator TVLs, amount of asset out) for an ezETH amount and asset out."
+        },
+        {
+          "signature": "coolDownPeriod()",
+          "kind": "read",
+          "payable": false,
+          "description": "Base cooldown in seconds between request and claim (14 days on 2026-11-25)."
+        },
+        {
+          "signature": "getAvailableToWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Assets currently in the withdraw buffer for an asset (use the 0xEeee… address for ETH). Requests larger than this are queued until the buffer is refilled."
+        },
+        {
+          "signature": "withdrawalBufferTarget(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Buffer target for an asset; 0 means the asset is not supported for withdrawal."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if withdrawals are paused."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x682C9Ee10E1F4bB820758F662BE0851D05150024",
+      "name": "InstantWithdrawer",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://app.renzoprotocol.com/_next/static/immutable/chunks/38v_bf0ddd1az.js",
+      "keyFunctions": [
+        {
+          "signature": "withdraw(uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem ezETH instantly from the withdraw buffer for a fee. Args: ezETH amount, redeem token (0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for ETH), minOut. Approve ezETH to this contract first. Reverts if the buffer would drop below its drawdown limit (NotEnoughWithdrawBuffer / BelowAllowedLimit) or the protocol is paused."
+        },
+        {
+          "signature": "getQuote(uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Amount out after fee for an ezETH amount and redeem token. Reverts when an instant withdrawal is not possible (it reverted on 2026-11-25: buffer 103 ETH below the 500 ETH drawdown limit)."
+        },
+        {
+          "signature": "getBufferDetails(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "(buffer capacity, buffer available, drawdown limit) for a redeem token. Instant withdrawals work only while available minus your amount stays above the drawdown limit."
+        },
+        {
+          "signature": "minFeeBps()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee in basis points (100 = 1% on 2026-11-25)."
+        },
+        {
+          "signature": "maxFeeBps()",
+          "kind": "read",
+          "payable": false,
+          "description": "Maximum fee in basis points (100 = 1% on 2026-11-25); the fee scales between min and max with buffer fullness."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xC8140dA31E6bCa19b287cC35531c2212763C2059",
+      "name": "ezETH Lockbox",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/ethereum-mainnet",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Lock ezETH (approve the lockbox first) and receive the same amount of xezETH on Ethereum, the xERC20 form that bridges to L2s."
+        },
+        {
+          "signature": "depositTo(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as deposit, xezETH sent to another address."
+        },
+        {
+          "signature": "withdraw(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn xezETH and get back the same amount of ezETH."
+        },
+        {
+          "signature": "withdrawTo(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as withdraw, ezETH sent to another address."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+      "name": "xezETH (xERC20 ezETH, Ethereum)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/ethereum-mainnet",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "xezETH balance. Redeem for ezETH 1:1 through the lockbox."
+        },
+        {
+          "signature": "lockbox()",
+          "kind": "read",
+          "payable": false,
+          "description": "The lockbox address (0xC8140dA31E6bCa19b287cC35531c2212763C2059)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x8c9532a60E0E7C6BbD2B2c1303F63aCE1c3E9811",
+      "name": "pzETH",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/ethereum-mainnet",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "pzETH balance (Symbiotic restaked wstETH). Minting is discontinued; holders redeem to wstETH in the Renzo app (14-21 days)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x3B50805453023a91a8bf641e279401a0b23FA6F9",
+      "name": "REZ",
+      "role": "governance",
+      "proxy": false,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/ethereum-mainnet",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "REZ balance (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve the REZ staking contract before stake()."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1736011D3E075351B319DBC1da28Dac68Ea830A6",
+      "name": "REZ Staking",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/ethereum-mainnet",
+      "keyFunctions": [
+        {
+          "signature": "stake(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake REZ (approve first)."
+        },
+        {
+          "signature": "unStake(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Start unstaking an amount of REZ; it becomes claimable after coolDownPeriod()."
+        },
+        {
+          "signature": "claim(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim unstake request at the given index once its cooldown has passed."
+        },
+        {
+          "signature": "activeStake(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "REZ currently staked by a user."
+        },
+        {
+          "signature": "getUnstakeRequestsLength(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of pending unstake requests."
+        },
+        {
+          "signature": "unstakeRequests(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Unstake request details for a user and index."
+        },
+        {
+          "signature": "coolDownPeriod()",
+          "kind": "read",
+          "payable": false,
+          "description": "Unstake cooldown in seconds (3,600 = 1 hour on 2026-11-25)."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+      "name": "ezETH (xERC20)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/arbitrum",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "ezETH balance on the L2 (same address on every listed L2)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x2EfA125B4fcD5B082a4233BA55b53FeB2Fb4Ff33",
+      "name": "xRenzoDeposit (L2 deposit)",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://app.renzoprotocol.com/_next/static/immutable/chunks/38v_bf0ddd1az.js",
+      "keyFunctions": [
+        {
+          "signature": "depositETH(uint256,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit ETH (msg.value) and mint ezETH on this L2 immediately at the L1 rate relayed to the L2. Args: minOut (ezETH wei), deadline (unix seconds). A bridge fee of bridgeFeeShare() bps (5 = 0.05% on 2026-11-25) is taken first."
+        },
+        {
+          "signature": "deposit(address,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit a supported token (WETH; check depositTokenSupported) and mint ezETH. Args: token, amountIn, minOut, deadline. Approve the token first. Same bridge fee as depositETH."
+        },
+        {
+          "signature": "getMintRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "(ezETH price in ETH 1e18, timestamp of the last L1 price update)."
+        },
+        {
+          "signature": "getRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "ezETH price in ETH (1e18); reverts if the price is stale."
+        },
+        {
+          "signature": "depositTokenSupported(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if a token can be deposited (0xEeee… = native ETH)."
+        },
+        {
+          "signature": "bridgeFeeShare()",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit fee in basis points (FEE_BASIS 10000)."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+      "name": "ezETH (xERC20)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/base",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "ezETH balance."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x766A4df76Cb091C41De22F75b6BD6733fb730357",
+      "name": "xRenzoDeposit (L2 deposit)",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://app.renzoprotocol.com/_next/static/immutable/chunks/38v_bf0ddd1az.js",
+      "keyFunctions": [
+        {
+          "signature": "depositETH(uint256,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit ETH and mint ezETH on Base. Args: minOut, deadline. 0.05% bridge fee (bridgeFeeShare 5 bps on 2026-11-25)."
+        },
+        {
+          "signature": "deposit(address,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit a supported token (WETH 0x4200000000000000000000000000000000000006). Args: token, amountIn, minOut, deadline. Approve first."
+        },
+        {
+          "signature": "getMintRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "(ezETH price in ETH 1e18, last update timestamp)."
+        },
+        {
+          "signature": "depositTokenSupported(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if a token can be deposited."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xf757c9804cF2EE8d8Ed64e0A8936293Fe43a7252",
+      "name": "REZ (Base)",
+      "role": "governance",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/base",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "REZ balance on Base (xERC20)."
+        }
+      ]
+    },
+    {
+      "chain": "linea",
+      "chainId": 59144,
+      "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+      "name": "ezETH (xERC20)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/linea",
+      "keyFunctions": []
+    },
+    {
+      "chain": "linea",
+      "chainId": 59144,
+      "address": "0x657eaC5Dc9e0DAe2E949391377708ACb896b2999",
+      "name": "xRenzoDeposit (L2 deposit)",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://app.renzoprotocol.com/_next/static/immutable/chunks/38v_bf0ddd1az.js",
+      "keyFunctions": [
+        {
+          "signature": "depositETH(uint256,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit ETH and mint ezETH on Linea. Args: minOut, deadline. 0.05% bridge fee."
+        },
+        {
+          "signature": "deposit(address,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit a supported token (WETH 0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f). Args: token, amountIn, minOut, deadline."
+        },
+        {
+          "signature": "getMintRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "(ezETH price in ETH 1e18, last update timestamp)."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+      "name": "ezETH (xERC20)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/bnb-chain",
+      "keyFunctions": []
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xf25484650484DE3d554fB0b7125e7696efA4ab99",
+      "name": "xRenzoDeposit (BNB Chain)",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/bnb-chain",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit the depositToken (Binance-Peg ETH 0x2170Ed0880ac9A755fd29B2688956BD959F933F8) and mint ezETH. Args: amountIn, minOut, deadline. Approve first. bridgeFeeShare was 0 on 2026-11-25."
+        },
+        {
+          "signature": "getMintRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "(ezETH price in ETH 1e18, last update timestamp)."
+        },
+        {
+          "signature": "depositToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "The token this contract accepts."
+        }
+      ]
+    },
+    {
+      "chain": "mode",
+      "chainId": 34443,
+      "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+      "name": "ezETH (xERC20)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/mode",
+      "keyFunctions": []
+    },
+    {
+      "chain": "mode",
+      "chainId": 34443,
+      "address": "0x4D7572040B84b41a6AA2efE4A93eFFF182388F88",
+      "name": "xRenzoDeposit (Mode)",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/mode",
+      "keyFunctions": [
+        {
+          "signature": "depositETH(uint256,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit ETH and mint ezETH on Mode. Args: minOut, deadline. Implementation not verified on Sourcify; selector confirmed in bytecode."
+        },
+        {
+          "signature": "deposit(uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit WETH (0x4200000000000000000000000000000000000006). Args: amountIn, minOut, deadline. Approve first."
+        },
+        {
+          "signature": "getMintRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "(ezETH price in ETH 1e18, last update timestamp)."
+        }
+      ]
+    },
+    {
+      "chain": "fraxtal",
+      "chainId": 252,
+      "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+      "name": "ezETH (xERC20)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/fraxtal",
+      "keyFunctions": []
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+      "name": "ezETH (xERC20)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/unichain",
+      "keyFunctions": []
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x9cb41CD74D01ae4b4f640EC40f7A60cA1bCF83E7",
+      "name": "pzETH (xERC20)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/unichain",
+      "keyFunctions": []
+    },
+    {
+      "chain": "worldchain",
+      "chainId": 480,
+      "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+      "name": "ezETH (xERC20)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/worldchain",
+      "keyFunctions": []
+    },
+    {
+      "chain": "zircuit",
+      "chainId": 48900,
+      "address": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+      "name": "ezETH (xERC20)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/layer-2s/zircuit-l2",
+      "keyFunctions": []
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "ezSoL6fY1PVdJcJsUpe5CM3xkfmy3zoVCABybm5WtiC",
+      "name": "ezSOL (Jito vault receipt token)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/solana-mainnet",
+      "keyFunctions": []
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "3DK98MXPz8TRuim7rfQnebSLpA7VSoc79Bgiee1m4Zw5",
+      "name": "REZ (Solana)",
+      "role": "governance",
+      "proxy": null,
+      "source": "https://docs.renzoprotocol.com/docs/contracts/solana-mainnet",
+      "keyFunctions": []
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "restake ETH for ezETH (Ethereum)",
+      "description": "Mint ezETH from ETH on Ethereum.",
+      "how": "RestakeManager.depositETH() with ETH value. Check paused() first; expected ezETH = amount * ezETH.totalSupply() / calculateTVLs()[2]."
+    },
+    {
+      "name": "restake stETH for ezETH",
+      "description": "Mint ezETH from stETH.",
+      "how": "stETH.approve(RestakeManager, amount) then RestakeManager.deposit(stETH, amount)."
+    },
+    {
+      "name": "mint ezETH on an L2",
+      "description": "Mint ezETH directly on Arbitrum, Base, Linea (ETH or WETH), Mode (ETH or WETH) or BNB Chain (Binance-Peg ETH).",
+      "how": "xRenzoDeposit.depositETH(minOut, deadline) with ETH value, or approve WETH and call deposit(...) (signature differs per chain, see contracts). Set minOut from getMintRate() minus the bridge fee."
+    },
+    {
+      "name": "redeem ezETH (standard)",
+      "description": "Redeem ezETH for ETH at the protocol rate with a cooldown.",
+      "how": "ezETH.approve(WithdrawQueue, amount); WithdrawQueue.withdraw(amount, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE); after coolDownPeriod() (14 days on 2026-11-25) find the request index via getOutstandingWithdrawRequests/withdrawRequests and call claim(index, user)."
+    },
+    {
+      "name": "redeem ezETH instantly",
+      "description": "Redeem immediately for a 1% fee when the buffer allows.",
+      "how": "Check InstantWithdrawer.getQuote(amount, 0xEeee…) succeeds; ezETH.approve(InstantWithdrawer, amount); InstantWithdrawer.withdraw(amount, 0xEeee…, minOut)."
+    },
+    {
+      "name": "exit on an L2",
+      "description": "There is no withdraw contract on L2s.",
+      "how": "Sell ezETH on a DEX, or bridge it to Ethereum (Renzo app bridge, powered by Hyperlane), convert xezETH to ezETH with Lockbox.withdraw if needed, then use the WithdrawQueue."
+    },
+    {
+      "name": "stake REZ",
+      "description": "Stake REZ for governance/rewards.",
+      "how": "REZ.approve(REZ Staking, amount); stake(amount). Unstake with unStake(amount), then claim(index) after coolDownPeriod()."
+    }
+  ],
+  "risks": [
+    "ezETH is restaked through EigenLayer; operator/AVS slashing can reduce the backing and the ezETH rate.",
+    "Standard withdrawals are slow: the on-chain cooldown was 14 days on 2026-11-25 (docs say 7 days if the buffer has assets, 10-15 days otherwise), and requests larger than the buffer wait until it is refilled. The ETH amount is fixed at request time and can only go down at claim.",
+    "Instant withdrawals cost a fee (1% on 2026-11-25) and revert when the buffer is near its drawdown limit; on 2026-11-25 the buffer (about 103 ETH) was below the 500 ETH limit, so instant withdrawals were unavailable.",
+    "L2 ezETH is minted against an oracle price relayed from Ethereum; deposited ETH is bridged to Ethereum later. L2 ezETH depends on the xERC20 lockbox and bridge mint limits.",
+    "Contracts are upgradeable proxies; admin roles can pause deposits/withdrawals, change cooldowns, buffer targets and fees. A risk oracle can lengthen the withdrawal cooldown.",
+    "Renzo takes 10% of restaking rewards (split between treasury and node operators).",
+    "ezETH trades on DEXs and can trade below its backing rate when withdrawal demand is high.",
+    "pzETH and ezSOL minting is discontinued; only withdrawals via the app remain (pzETH 14-21 days, ezSOL about 2 epochs with a 0.2% fee).",
+    "Audits listed by Renzo: Halborn (2023, 2024), Sigma Prime (2024), Code4rena (2024), Nethermind (2025)."
+  ],
+  "notes": "Main ezETH contracts (RestakeManager, ezETH, WithdrawQueue, lockbox, xezETH) and L2 ezETH/REZ/pzETH tokens are from the Renzo docs contract pages. The docs list xRenzoDeposit 0xf25484650484DE3d554fB0b7125e7696efA4ab99 for Arbitrum and Base and 0x4D7572040B84b41a6AA2efE4A93eFFF182388F88 for Linea, but on those chains these are now deprecated stubs whose newRenzoDeposit() points to the new contracts listed here (0x2EfA… Arbitrum, 0x766A… Base, 0x657e… Linea); the new addresses and the InstantWithdrawer come from the official Renzo app config (app.renzoprotocol.com JS bundle; the chunk name changes with app releases) and match newRenzoDeposit() on-chain. The docs' Ethereum page prints pzETH truncated; the address used is the one in the docs' Etherscan link, which has code. Left out: xRenzoBridge, xERC20 factory, DepositQueue and RenzoOracle (internal, not called by users), EigenLayer StrategyManager (EigenLayer's contract), ezREZ, ezEIGEN, ezBTC, bzSOL, ezJTO and reserve vaults (smaller or separate products), Renzo on Ink (app lists a deposit contract but the docs list no Ink ezETH), and Sei RedETH. Optimism and Blast ezETH appear on DefiLlama but are not on the docs pages, so they are left out. The 24 Apr 2024 ezETH depeg is not described on the Renzo docs pages read, so it is not cited as a fact here. The docs say the WithdrawQueue buffer delay is 3 days, but coolDownPeriod() returned 14 days on-chain on 2026-11-25. No official public HTTP API is documented. Function signatures come from Sourcify-verified sources of the current implementations (Mode deposit implementation unverified; selectors checked in bytecode).",
+  "sources": [
+    "https://api.llama.fi/protocol/renzo",
+    "https://docs.renzoprotocol.com/docs/sitemap.md",
+    "https://docs.renzoprotocol.com/docs/llms-full.txt",
+    "https://docs.renzoprotocol.com/docs/contracts/ethereum-mainnet",
+    "https://docs.renzoprotocol.com/docs/contracts/layer-2s/arbitrum",
+    "https://docs.renzoprotocol.com/docs/contracts/layer-2s/base",
+    "https://docs.renzoprotocol.com/docs/contracts/layer-2s/bnb-chain",
+    "https://docs.renzoprotocol.com/docs/contracts/layer-2s/linea",
+    "https://docs.renzoprotocol.com/docs/contracts/layer-2s/mode",
+    "https://docs.renzoprotocol.com/docs/contracts/layer-2s/fraxtal",
+    "https://docs.renzoprotocol.com/docs/contracts/layer-2s/unichain",
+    "https://docs.renzoprotocol.com/docs/contracts/layer-2s/worldchain",
+    "https://docs.renzoprotocol.com/docs/contracts/layer-2s/zircuit-l2",
+    "https://docs.renzoprotocol.com/docs/contracts/solana-mainnet",
+    "https://docs.renzoprotocol.com/docs/contracts/third-party-integration",
+    "https://docs.renzoprotocol.com/docs/contracts/source-code",
+    "https://docs.renzoprotocol.com/docs/services/withdrawals",
+    "https://docs.renzoprotocol.com/docs/services/instant-withdrawals",
+    "https://docs.renzoprotocol.com/docs/services/bridge",
+    "https://docs.renzoprotocol.com/docs/products/staking-suite/pzeth",
+    "https://docs.renzoprotocol.com/docs/products/staking-suite/ezsol",
+    "https://docs.renzoprotocol.com/docs/security/audits",
+    "https://app.renzoprotocol.com/_next/static/immutable/chunks/38v_bf0ddd1az.js",
+    "https://github.com/Renzo-Protocol/contracts-public",
+    "https://sourcify.dev/server/v2/contract/1/0xd5b3be349ed0b7c82dbd9271ce3739a381fc7aa0",
+    "https://sourcify.dev/server/v2/contract/1/0xf821a5cff2cdd014c6e6bbb8e05b81c3d7e98003",
+    "https://sourcify.dev/server/v2/contract/1/0x2ddaa152b3cf455693c944f9f47925408ff6f8ff",
+    "https://sourcify.dev/server/v2/contract/1/0xeeada1f6061e30bb1501319bbffb44fdf7037ca8",
+    "https://sourcify.dev/server/v2/contract/1/0xb370a0bd64daf1c6b04eaf01c1dedf7c6bce30f7",
+    "https://sourcify.dev/server/v2/contract/1/0x1f7e86e15f5098ba6c0b59f1792af22167d01728",
+    "https://sourcify.dev/server/v2/contract/42161/0x766a4df76cb091c41de22f75b6bd6733fb730357",
+    "https://sourcify.dev/server/v2/contract/56/0xfde1366f26cc3621d944afbc96177a90f2849d26"
+  ],
+  "researchedAt": "2026-11-25"
+}
