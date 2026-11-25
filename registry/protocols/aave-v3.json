@@ -1110,7 +1110,7 @@
     }
   ],
   "risks": [
-    "Liquidation: if the health factor (getUserAccountData, 18 decimals) drops below 1, anyone can repay part of the debt and seize collateral plus a liquidation bonus (typically 4-10% per asset). Prices come from AaveOracle (mostly Chainlink feeds, some with CAPO price caps for LSTs/stablecoins); oracle errors or delays can cause unexpected liquidations.",
+    "Liquidation: if the health factor (getUserAccountData, 18 decimals) drops below 1, anyone can repay part of the debt and seize collateral plus that reserve's liquidation bonus (getReserveConfigurationData.liquidationBonus, e.g. 10500 = 5%). Prices come from AaveOracle (mostly Chainlink feeds, some with CAPO price caps for LSTs/stablecoins); oracle errors or delays can cause unexpected liquidations.",
     "Variable rates only: stable-rate borrowing was removed (v3.2); interestRateMode must be 2. Rates jump sharply above each reserve's optimal utilisation, and at 100% utilisation suppliers cannot withdraw until borrowers repay or new supply arrives.",
     "Reserves can be frozen (no new supply/borrow; repay/withdraw still work) or paused (nothing works, including liquidations) by governance or the Protocol Guardian; supply and borrow caps can make transactions revert. Check ProtocolDataProvider.getReserveConfigurationData (isFrozen) and getPaused before acting.",
     "Isolation mode / siloed borrowing / e-mode restrict what a user can borrow alongside certain collateral. The aave-v3-origin main branch marks debt-ceiling isolation and siloed borrowing as deprecated in v3.7.0 in favour of isolated e-mode categories; which behaviour applies depends on the version deployed in each market, so read the reserve config rather than assuming.",
