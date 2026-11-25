@@ -1,0 +1,771 @@
+{
+  "slug": "rocket-pool",
+  "name": "Rocket Pool",
+  "category": "Liquid Staking",
+  "description": "Decentralised Ethereum liquid staking: deposit ETH into the RocketDepositPool for non-rebasing rETH (its ETH value rises via the exchange rate), redeem rETH with burn() when the protocol has ETH collateral, or trade it on DEXs. rETH and RPL are bridged to Arbitrum, Optimism, Base, Polygon and more.",
+  "website": "https://rocketpool.net",
+  "docs": "https://docs.rocketpool.net",
+  "defillama": "https://defillama.com/protocol/rocket-pool",
+  "chains": [
+    "ethereum",
+    "arbitrum",
+    "optimism",
+    "base",
+    "polygon"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1d8f8f00cfa6758d7bE78336684788Fb0ee0Fa46",
+      "name": "RocketStorage",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+      "keyFunctions": [
+        {
+          "signature": "getAddress(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Resolve the CURRENT address of any Rocket Pool contract: key = keccak256(abi.encodePacked(\"contract.address\", name)), e.g. name \"rocketDepositPool\", \"rocketTokenRETH\", \"rocketNetworkBalances\", \"rocketDAOProtocolSettingsDeposit\". RocketStorage never changes address; other contracts are replaced on upgrades, so resolve them here before use."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xCE15294273CFb9D9b628F4D61636623decDF4fdC",
+      "name": "RocketDepositPool (v1.4, Saturn 1)",
+      "role": "staking",
+      "proxy": false,
+      "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+      "keyFunctions": [
+        {
+          "signature": "deposit()",
+          "kind": "write",
+          "payable": true,
+          "description": "Stake ETH (msg.value, wei) and mint rETH to msg.sender. rETH out = getRethValue(msg.value - fee), fee = msg.value * getDepositFee() / 1e18 (0.05% on 2026-11-25). Reverts if deposits are disabled, msg.value < getMinimumDeposit() (0.01 ETH on 2026-11-25) or the deposit exceeds getMaximumDepositAmount(). Only the current deposit pool accepts deposits (older versions revert): resolve via RocketStorage first."
+        },
+        {
+          "signature": "getMaximumDepositAmount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Largest ETH deposit (wei) accepted right now (0 if deposits disabled). About 6.02M ETH on 2026-11-25 (maximumDepositPoolSize 6,000,000 ETH plus queue capacity), so the pool was far from full."
+        },
+        {
+          "signature": "getBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "ETH held by the deposit pool (wei)."
+        },
+        {
+          "signature": "getExcessBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit pool ETH not needed for the validator queue (wei); this is the part usable for rETH burns. 0 on 2026-11-25."
+        },
+        {
+          "signature": "getUserBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "int256: user portion of the pool balance (negative when node operator bonds exceed it)."
+        },
+        {
+          "signature": "version()",
+          "kind": "read",
+          "payable": false,
+          "description": "Contract version (4 on 2026-11-25)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xae78736Cd615f374D3085123A210448E74Fc6393",
+      "name": "rETH (RocketTokenRETH)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+      "keyFunctions": [
+        {
+          "signature": "getExchangeRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "ETH value of 1 rETH (18 decimals); about 1.1764 on 2026-11-25. Updated by the Oracle DAO via RocketNetworkBalances (roughly daily), not per block."
+        },
+        {
+          "signature": "getEthValue(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "ETH (wei) backing an rETH amount at the current rate."
+        },
+        {
+          "signature": "getRethValue(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "rETH amount for an ETH amount (wei) at the current rate (before the deposit fee)."
+        },
+        {
+          "signature": "burn(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem rETH for ETH at getEthValue(amount); ETH is sent to msg.sender. Reverts with \"Insufficient ETH balance for exchange\" unless getTotalCollateral() >= getEthValue(amount). Collateral was ~0 ETH on 2026-11-25, so burning was effectively unavailable; sell on a DEX instead."
+        },
+        {
+          "signature": "getTotalCollateral()",
+          "kind": "read",
+          "payable": false,
+          "description": "ETH available for burns (wei) = rETH contract balance + deposit pool excess balance."
+        },
+        {
+          "signature": "getCollateralRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "Share of rETH supply backed by ETH held in the rETH contract (1e18 = 100%)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "rETH balance (18 decimals). rETH is non-rebasing: value grows via the exchange rate."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer rETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender (EigenLayer StrategyManager, DEX router, RocketSwapRouter)."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer with allowance."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total rETH supply on Ethereum."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1D9F14C6Bfd8358b589964baD8665AdD248E9473",
+      "name": "RocketNetworkBalances",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+      "keyFunctions": [
+        {
+          "signature": "getTotalETHBalance()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total ETH backing rETH as last reported by the Oracle DAO (wei)."
+        },
+        {
+          "signature": "getTotalRETHSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "rETH supply used for the rate (wei)."
+        },
+        {
+          "signature": "getBalancesBlock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Block the current balances were calculated at."
+        },
+        {
+          "signature": "getBalancesTimestamp()",
+          "kind": "read",
+          "payable": false,
+          "description": "Timestamp of the last balances update."
+        },
+        {
+          "signature": "getETHUtilizationRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fraction of ETH that is staking (1e18 = 100%)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x227BE8dD01DF8ad9BED0178e4F8cEC2996C5c365",
+      "name": "RocketDAOProtocolSettingsDeposit",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+      "keyFunctions": [
+        {
+          "signature": "getDepositEnabled()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if deposit() is open (true on 2026-11-25)."
+        },
+        {
+          "signature": "getMinimumDeposit()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum deposit in wei (1e16 = 0.01 ETH on 2026-11-25)."
+        },
+        {
+          "signature": "getMaximumDepositPoolSize()",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit pool cap in wei (6,000,000 ETH on 2026-11-25)."
+        },
+        {
+          "signature": "getDepositFee()",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit fee as a fraction of 1e18 (5e14 = 0.05% on 2026-11-25)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x16D5A408e807db8eF7c578279BEeEe6b228f1c1C",
+      "name": "RocketSwapRouter",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+      "keyFunctions": [
+        {
+          "signature": "optimiseSwapTo(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Call with eth_call only (not on-chain): (ETH amount, steps ~10) returns (uint256[2] portions [uniswap, balancer], uint256 amountOut) for swapTo."
+        },
+        {
+          "signature": "swapTo(uint256,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "ETH -> rETH with ETH value: (uniswapPortion, balancerPortion, minTokensOut, idealTokensOut). Uses the deposit pool when its rate gives at least idealTokensOut and there is room, the rest via Uniswap/Balancer; reverts if rETH received < minTokensOut."
+        },
+        {
+          "signature": "optimiseSwapFrom(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "eth_call only: (rETH amount, steps) returns portions and expected ETH out for swapFrom."
+        },
+        {
+          "signature": "swapFrom(uint256,uint256,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "rETH -> ETH: (uniswapPortion, balancerPortion, minTokensOut, idealTokensOut, rETH amount in). Approve rETH to the router first. Burns via rETH when collateral exists and the protocol rate >= idealTokensOut, otherwise swaps on Uniswap/Balancer; sends ETH to msg.sender; reverts below minTokensOut."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xD33526068D116cE69F19A9ee46F0bd304F21A51f",
+      "name": "RPL (RocketTokenRPL)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "RPL balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer RPL."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender (e.g. a DEX router)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply on this chain."
+        },
+        {
+          "signature": "swapTokens(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap legacy fixed-supply RPL (0xB4EFd85c19999D84251304bDA99E90B92300Bd93) 1:1 for current RPL (approve the legacy token first)."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8",
+      "name": "rETH (bridged, Arbitrum)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "rETH balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer rETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender (e.g. a DEX router)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xB766039cc6DB368759C1E56B79AFfE831d0Cc507",
+      "name": "RPL (bridged, Arbitrum)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "RPL balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer RPL."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender (e.g. a DEX router)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x7EcCBbd05830EdF593d30005B8F69E965AF4D59f",
+      "name": "RocketPriceOracle (rETH rate, Arbitrum)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/rocket-pool/rocketpool-arbitrum-oracle",
+      "keyFunctions": [
+        {
+          "signature": "rate()",
+          "kind": "read",
+          "payable": false,
+          "description": "rETH/ETH exchange rate relayed from Ethereum (ETH per 1 rETH, 18 decimals). Bridged rETH has no getExchangeRate(); use this. Updated by Rocket Pool's price messenger over the Arbitrum bridge."
+        },
+        {
+          "signature": "lastUpdated()",
+          "kind": "read",
+          "payable": false,
+          "description": "Unix timestamp of the last rate update; check freshness before relying on rate()."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x9Bcef72be871e61ED4fBbc7630889beE758eb81D",
+      "name": "rETH (bridged, Optimism)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "rETH balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer rETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender (e.g. a DEX router)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0xC81D1F0EB955B0c020E5d5b264E1FF72c14d1401",
+      "name": "RPL (bridged, Optimism)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "RPL balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer RPL."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender (e.g. a DEX router)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x1a8F81c256aee9C640e14bB0453ce247ea0DFE6F",
+      "name": "RocketPriceOracle (rETH rate, Optimism)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/rocket-pool/rocketpool-ovm-oracle",
+      "keyFunctions": [
+        {
+          "signature": "rate()",
+          "kind": "read",
+          "payable": false,
+          "description": "rETH/ETH exchange rate relayed from Ethereum (ETH per 1 rETH, 18 decimals). Bridged rETH has no getExchangeRate(); use this. Updated by Rocket Pool's price messenger over the Optimism bridge."
+        },
+        {
+          "signature": "lastUpdated()",
+          "kind": "read",
+          "payable": false,
+          "description": "Unix timestamp of the last rate update; check freshness before relying on rate()."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xB6fe221Fe9EeF5aBa221c348bA20A1Bf5e73624c",
+      "name": "rETH (bridged, Base)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "rETH balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer rETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender (e.g. a DEX router)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x1f73EAf55d696BFFA9b0EA16fa987B93b0f4d302",
+      "name": "RPL (bridged, Base)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "RPL balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer RPL."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender (e.g. a DEX router)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x658843BB859B7b85cEAb5cF77167e3F0a78dFE7f",
+      "name": "RocketPriceOracle (rETH rate, Base)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/rocket-pool/rocketpool-ovm-oracle",
+      "keyFunctions": [
+        {
+          "signature": "rate()",
+          "kind": "read",
+          "payable": false,
+          "description": "rETH/ETH exchange rate relayed from Ethereum (ETH per 1 rETH, 18 decimals). Bridged rETH has no getExchangeRate(); use this. Updated by Rocket Pool's price messenger over the Base bridge."
+        },
+        {
+          "signature": "lastUpdated()",
+          "kind": "read",
+          "payable": false,
+          "description": "Unix timestamp of the last rate update; check freshness before relying on rate()."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x0266F4F08D82372CF0FcbCCc0Ff74309089c74d1",
+      "name": "rETH (bridged, Polygon PoS)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "rETH balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer rETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender (e.g. a DEX router)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x7205705771547cF79201111B4bd8aaF29467b9eC",
+      "name": "RPL (bridged, Polygon PoS)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "RPL balance (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer RPL."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender (e.g. a DEX router)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supply on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x594Fb75D3dc2DFa0150Ad03F99F97817747dd4E1",
+      "name": "RocketPriceOracle (rETH rate, Polygon PoS)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://github.com/rocket-pool/rocketpool-polygon-oracle",
+      "keyFunctions": [
+        {
+          "signature": "rate()",
+          "kind": "read",
+          "payable": false,
+          "description": "rETH/ETH exchange rate relayed from Ethereum (ETH per 1 rETH, 18 decimals). Bridged rETH has no getExchangeRate(); use this. Updated by Rocket Pool's price messenger over the Polygon PoS bridge."
+        },
+        {
+          "signature": "lastUpdated()",
+          "kind": "read",
+          "payable": false,
+          "description": "Unix timestamp of the last rate update; check freshness before relying on rate()."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Rocket Pool stats payload",
+      "url": "https://api.rocketpool.net/api/mainnet/payload",
+      "auth": "none",
+      "use": "Protocol stats used by rocketpool.net: rethAPR (percent, e.g. \"1.849\" = 1.85%), depositPoolBalance, rethCollateral (ETH available for burns), megapool queue sizes, ethStakingTotal, RPL price. Read-only.",
+      "source": "https://rocketpool.net"
+    }
+  ],
+  "actions": [
+    {
+      "name": "stake ETH for rETH",
+      "description": "Mint rETH from ETH at the protocol rate.",
+      "how": "Resolve the deposit pool: RocketStorage.getAddress(keccak256(abi.encodePacked(\"contract.address\",\"rocketDepositPool\"))) (0xCE15294273CFb9D9b628F4D61636623decDF4fdC on 2026-11-25). Check amount <= getMaximumDepositAmount() and >= getMinimumDeposit(); call deposit() with ETH value. Expected rETH = rETH.getRethValue(amount * (1 - 0.0005))."
+    },
+    {
+      "name": "redeem rETH (burn)",
+      "description": "Redeem rETH for ETH directly from the protocol.",
+      "how": "Check rETH.getTotalCollateral() >= rETH.getEthValue(amount); then rETH.burn(amount). If collateral is insufficient (the usual case, ~0 on 2026-11-25), sell instead."
+    },
+    {
+      "name": "sell rETH",
+      "description": "Exit rETH via DEX liquidity.",
+      "how": "On Ethereum: rETH.approve(RocketSwapRouter, amount); eth_call optimiseSwapFrom(amount, 10) for portions; swapFrom(portions[0], portions[1], minOut, idealOut, amount). Or use any DEX/aggregator (docs mention CoW Swap, Balancer, Uniswap). On L2s swap on a DEX; compare against the L2 RocketPriceOracle.rate()."
+    },
+    {
+      "name": "buy rETH via router",
+      "description": "Get rETH through the best of deposit pool and DEXs.",
+      "how": "eth_call RocketSwapRouter.optimiseSwapTo(amount, 10); swapTo(portions[0], portions[1], minOut, idealOut) with ETH value."
+    },
+    {
+      "name": "restake rETH on EigenLayer",
+      "description": "Deposit rETH into the EigenLayer rETH strategy.",
+      "how": "rETH.approve(EigenLayer StrategyManager 0x858646372CC42E1A627fcE94aa7A7033e7CF075A, amount); StrategyManager.depositIntoStrategy(0x1BeE69b7dFFfA4E2d53C2a2Df135C388AD25dCD2, rETH, amount). See the eigencloud entry."
+    },
+    {
+      "name": "value rETH",
+      "description": "Get ETH value of rETH.",
+      "how": "Ethereum: rETH.getEthValue(amount) or getExchangeRate(). L2s: RocketPriceOracle.rate() * amount / 1e18 (check lastUpdated())."
+    }
+  ],
+  "risks": [
+    "Deposit pool cap: deposit() reverts when the amount exceeds getMaximumDepositAmount() or deposits are disabled; the cap was 6,000,000 ETH (plenty of room) on 2026-11-25 but is set by the pDAO.",
+    "rETH burn needs ETH collateral: burn() only works up to getTotalCollateral() (rETH contract balance + deposit pool excess). Collateral was ~0 on 2026-11-25, so exits generally go through DEX liquidity and can trade below the protocol rate.",
+    "Deposits pay a 0.05% fee (getDepositFee) and mint at the Oracle DAO rate.",
+    "Node operator risk: ETH is run by permissionless node operators (megapools/minipools) who bond their own ETH; slashing or poor performance beyond the bond can reduce rETH backing.",
+    "Oracle DAO risk: the rETH rate and balances are reported by the Oracle DAO (trusted node set) about daily; a wrong or stale report affects mint/burn prices.",
+    "Upgrades: contracts are replaced (not proxied) through pDAO/oDAO governance; always resolve addresses from RocketStorage. rETH and RPL token contracts are not upgradeable.",
+    "L2 rETH/RPL are bridged tokens (Arbitrum and Polygon versions are bridge proxies); there is no deposit or burn on L2s, and their value depends on the canonical bridges. L2 rates come from Rocket Pool price oracles updated via bridge messages."
+  ],
+  "notes": "RocketStorage, rETH, RPL and the deposit pool addresses are from the official docs Contracts & Integrations page (list dated 11/11/2026). RocketDepositPool, rocketTokenRETH, rocketTokenRPL, rocketNetworkBalances and rocketDAOProtocolSettingsDeposit were also resolved on 2026-11-25 by calling RocketStorage.getAddress(keccak256(abi.encodePacked(\"contract.address\", name))) on-chain, and matched the docs (deposit pool v1.4 / Saturn 1, version() = 4). RocketSwapRouter is listed on the docs page but is not registered in RocketStorage (docs footnote). L2 rETH/RPL addresses are from the docs token table; L2 RocketPriceOracle addresses are from the official rocket-pool oracle repos (README deployment tables); all were checked for code and returned current rates on 2026-11-25. Also officially listed but left out to keep scope: rETH on zkSync Era (0x32Fd44bB869620C0EF993754c8a00Be67C464806), Scroll (0x53878B874283351D26d206FA512aEcE1Bef6C0dD), Unichain (0x94Cac393f3444cEf63a651FfC18497E7e8bd036a), Starknet, RPL on zkSync, the L1 price messengers and Balancer rate providers (Optimism 0x658843BB859B7b85cEAb5cF77167e3F0a78dFE7f, Base 0x039f7205c2cba4535c2575123ac3d657263892c4, Arbitrum 0xd4E96eF8eee8678dBFf4d535E033Ed1a4F7605b7, Polygon 0xA73ec45Fe405B5BFCdC0bF4cbc9014Bb32a01cd2; getRate() returns the same rate), and node-operator, megapool and DAO contracts. The via-l2 guide still says only Optimism and Arbitrum are supported for L2 swaps, while the contracts page lists more chains. api.rocketpool.net/api/mainnet/payload is the endpoint the official rocketpool.net site loads (seen in its JS bundle); /api/mainnet/apr on the same host returns only yearlyAPR but was not seen referenced by the site. Signatures come from Sourcify-verified sources.",
+  "sources": [
+    "https://api.llama.fi/protocol/rocket-pool",
+    "https://docs.rocketpool.net/llms.txt",
+    "https://docs.rocketpool.net/protocol/contracts-integrations",
+    "https://docs.rocketpool.net/protocol/contracts-integrations.md",
+    "https://docs.rocketpool.net/protocol/contracts-usage.md",
+    "https://docs.rocketpool.net/liquid-staking/via-rp.md",
+    "https://docs.rocketpool.net/liquid-staking/via-l2.md",
+    "https://docs.rocketpool.net/liquid-staking/overview.md",
+    "https://github.com/rocket-pool/rocketpool-ovm-oracle",
+    "https://raw.githubusercontent.com/rocket-pool/rocketpool-ovm-oracle/master/README.md",
+    "https://github.com/rocket-pool/rocketpool-arbitrum-oracle",
+    "https://raw.githubusercontent.com/rocket-pool/rocketpool-arbitrum-oracle/master/README.md",
+    "https://github.com/rocket-pool/rocketpool-polygon-oracle",
+    "https://raw.githubusercontent.com/rocket-pool/rocketpool-polygon-oracle/master/README.md",
+    "https://rocketpool.net",
+    "https://rocketpool.net/static/js/index.ce0c1f4acb.js",
+    "https://api.rocketpool.net/api/mainnet/payload",
+    "https://sourcify.dev/server/v2/contract/1/0xCE15294273CFb9D9b628F4D61636623decDF4fdC",
+    "https://sourcify.dev/server/v2/contract/1/0xae78736Cd615f374D3085123A210448E74Fc6393",
+    "https://sourcify.dev/server/v2/contract/1/0x1d8f8f00cfa6758d7bE78336684788Fb0ee0Fa46",
+    "https://sourcify.dev/server/v2/contract/1/0x1D9F14C6Bfd8358b589964baD8665AdD248E9473",
+    "https://sourcify.dev/server/v2/contract/1/0xD33526068D116cE69F19A9ee46F0bd304F21A51f",
+    "https://sourcify.dev/server/v2/contract/1/0x227BE8dD01DF8ad9BED0178e4F8cEC2996C5c365",
+    "https://sourcify.dev/server/v2/contract/1/0x16D5A408e807db8eF7c578279BEeEe6b228f1c1C",
+    "https://sourcify.dev/server/v2/contract/10/0x1a8F81c256aee9C640e14bB0453ce247ea0DFE6F",
+    "https://sourcify.dev/server/v2/contract/42161/0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8",
+    "https://sourcify.dev/server/v2/contract/137/0x0266F4F08D82372CF0FcbCCc0Ff74309089c74d1",
+    "https://ethereum-rpc.publicnode.com",
+    "https://arb1.arbitrum.io/rpc",
+    "https://mainnet.optimism.io",
+    "https://mainnet.base.org",
+    "https://polygon-rpc.com"
+  ],
+  "researchedAt": "2026-11-25"
+}

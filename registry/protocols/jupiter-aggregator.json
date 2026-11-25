@@ -1,0 +1,242 @@
+{
+  "slug": "jupiter-aggregator",
+  "name": "Jupiter Aggregator",
+  "category": "DEX Aggregator",
+  "description": "Solana's main swap aggregator. An agent asks Jupiter's Swap API for a quote and a ready-to-sign transaction (GET https://api.jup.ag/swap/v2/order with taker), signs it with the user's key and either POSTs it to /swap/v2/execute (Jupiter lands it) or, for custom transactions, gets raw instructions from /swap/v2/build and sends them itself. On-chain the swap runs through the Jupiter Aggregator v6 program.",
+  "website": "https://jup.ag",
+  "docs": "https://developers.jup.ag/docs",
+  "defillama": "https://defillama.com/protocol/jupiter-aggregator",
+  "chains": [
+    "solana"
+  ],
+  "vm": "solana",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+      "name": "Jupiter Aggregator v6 program",
+      "role": "router",
+      "proxy": null,
+      "source": "https://developers.jup.ag/docs/swap/routing/rfq/v2/streaming",
+      "keyFunctions": [
+        {
+          "signature": "route(route_plan: Vec<RoutePlanStep>, in_amount: u64, quoted_out_amount: u64, slippage_bps: u16, platform_fee_bps: u8)",
+          "kind": "write",
+          "payable": true,
+          "description": "ExactIn swap along route_plan (each step: swap variant + percent + input/output index). Fails if output < quoted_out_amount reduced by slippage_bps. Built by the Swap API (/swap/v1/swap or /swap/v2/build); do not hand-encode the route plan or the per-DEX remaining accounts."
+        },
+        {
+          "signature": "shared_accounts_route(id: u8, route_plan: Vec<RoutePlanStep>, in_amount: u64, quoted_out_amount: u64, slippage_bps: u16, platform_fee_bps: u8)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same as route but uses Jupiter's shared program-owned intermediate token accounts (id selects the program authority), so the user needs no intermediate ATAs."
+        },
+        {
+          "signature": "exact_out_route(route_plan: Vec<RoutePlanStep>, out_amount: u64, quoted_in_amount: u64, slippage_bps: u16, platform_fee_bps: u8)",
+          "kind": "write",
+          "payable": true,
+          "description": "ExactOut swap: receive exactly out_amount, spending at most quoted_in_amount plus slippage. Only via Swap API V1 /quote?swapMode=ExactOut (V2 /order supports ExactIn only)."
+        },
+        {
+          "signature": "shared_accounts_exact_out_route(id: u8, route_plan: Vec<RoutePlanStep>, out_amount: u64, quoted_in_amount: u64, slippage_bps: u16, platform_fee_bps: u8)",
+          "kind": "write",
+          "payable": true,
+          "description": "ExactOut variant using shared accounts."
+        },
+        {
+          "signature": "route_with_token_ledger(route_plan: Vec<RoutePlanStep>, quoted_out_amount: u64, slippage_bps: u16, platform_fee_bps: u8) / shared_accounts_route_with_token_ledger(id: u8, ...)",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap the amount recorded by a prior set_token_ledger instruction in the same tx (input = balance change), for composing after another instruction whose output amount is unknown in advance."
+        },
+        {
+          "signature": "route_v2(in_amount: u64, quoted_out_amount: u64, slippage_bps: u16, platform_fee_bps: u16, positive_slippage_bps: u16, route_plan: Vec<RoutePlanStepV2>)",
+          "kind": "write",
+          "payable": true,
+          "description": "Newer route instruction in the on-chain IDL (u16 platform fee, positive-slippage capture). Variants: shared_accounts_route_v2(id, ...), exact_out_route_v2(out_amount, quoted_in_amount, ...), shared_accounts_exact_out_route_v2. Emitted by current API versions; use the API output as-is."
+        },
+        {
+          "signature": "route_with_attestation(in_amount: u64, quoted_out_amount: u64, slippage_bps: u16, platform_fee_bps: u16, positive_slippage_bps: u16, route_plan: Vec<RoutePlanStepV2>, attestation: [u8; 74])",
+          "kind": "write",
+          "payable": true,
+          "description": "Route variant carrying a 74-byte attestation (also shared_accounts_route_with_attestation). Present in the on-chain IDL; used by Jupiter's own routing (e.g. RFQ fills inside Metis routes). Not meant to be built by hand."
+        },
+        {
+          "signature": "set_token_ledger() / create_token_ledger()",
+          "kind": "write",
+          "payable": false,
+          "description": "Record a token account balance in a token ledger account before *_with_token_ledger routes."
+        },
+        {
+          "signature": "close_wsol_token_account() / create_token_account(bump: u8)",
+          "kind": "write",
+          "payable": false,
+          "description": "Helper instructions the API adds for wrapping/unwrapping SOL and creating token accounts."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "JUP token (SPL mint)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.jup.ag/user-docs/more/jup-token/faq",
+      "keyFunctions": [
+        {
+          "signature": "SPL Token transfer / transferChecked (Token program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA)",
+          "kind": "write",
+          "payable": false,
+          "description": "JUP is a classic SPL token with 6 decimals; mint authority and freeze authority are both null (checked on-chain 2026-11-25). Move it with the SPL Token program between associated token accounts."
+        },
+        {
+          "signature": "Mint account (getAccountInfo / getTokenSupply)",
+          "kind": "read",
+          "payable": false,
+          "description": "Read supply and decimals (6)."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Swap API V2: GET /order (Meta-Aggregator quote + transaction)",
+      "url": "https://api.jup.ag/swap/v2/order",
+      "auth": "none",
+      "use": "Recommended path. Query: inputMint, outputMint, amount (input base units, e.g. lamports; ExactIn only), taker (wallet that signs; omit for a quote only, then transaction is null). Optional: slippageBps (0-10000; omit to let Jupiter's RTSE choose), receiver (different wallet to receive output), referralAccount + referralFee (50-255 bps), payer (integrator pays gas; disables Dflow/OKX), priorityFeeLamports, jitoTipLamports, broadcastFeeType (maxCap|exactFee), excludeRouters (metis,jupiterz,dflow,okx), excludeDexes (Metis only), maxSupportedTransactionVersion ('0'|'1'). Response: transaction (base64 unsigned versioned tx), requestId, inAmount, outAmount, otherAmountThreshold, slippageBps, priceImpactPct, routePlan, router, feeBps, feeMint, gasless, errorCode/errorMessage. Keyless works at 0.5 RPS; send x-api-key for higher limits. SOL is wrapped/unwrapped automatically; use mint So11111111111111111111111111111111111111112 for SOL.",
+      "source": "https://raw.githubusercontent.com/jup-ag/docs/main/openapi-spec/swap/v2/swap.yaml"
+    },
+    {
+      "name": "Swap API V2: POST /execute (managed landing)",
+      "url": "https://api.jup.ag/swap/v2/execute",
+      "auth": "none",
+      "use": "Body JSON {signedTransaction: base64 of the /order transaction after the taker signs it, requestId: from /order, lastValidBlockHeight?}. Jupiter lands the tx (priority fee set for you, polls confirmation). Response: status (Success|Failed), signature, code, totalInputAmount, totalOutputAmount, inputAmountResult, outputAmountResult, error. Separate rate-limit bucket (keyless 20 RPS, free 50, paid 100). Do not modify the /order transaction before signing (JupiterZ RFQ transactions cannot be modified).",
+      "source": "https://developers.jup.ag/docs/swap/order-and-execute"
+    },
+    {
+      "name": "Swap API V2: GET /build (Router path, raw instructions)",
+      "url": "https://api.jup.ag/swap/v2/build",
+      "auth": "none",
+      "use": "For custom transactions / CPI. Query: inputMint, outputMint, amount, taker (all required); slippageBps (default 50, or 'rtse'), mode=fast, dexes / excludeDexes, platformFeeBps + feeAccount, maxAccounts (default 64), maxBytes, payer, wrapAndUnwrapSol (default true), destinationTokenAccount / nativeDestinationAccount, blockhashSlotsToExpiry (default 150), tipAmount (for tx.jup.ag), computeUnitPricePercentile (medium|high|veryHigh|0-10000), forJitoBundle, transactionVersion ('0'|'1'). Returns quote plus computeBudgetInstructions, setupInstructions, swapInstruction, cleanupInstruction, otherInstructions, tipInstruction and addressesByLookupTableAddress; you assemble a v0 tx, sign, and send via your own RPC or tx.jup.ag. Metis routing only, no Jupiter swap fee.",
+      "source": "https://raw.githubusercontent.com/jup-ag/docs/main/openapi-spec/swap/v2/swap.yaml"
+    },
+    {
+      "name": "Swap API V1 (Metis): GET /quote, POST /swap, POST /swap-instructions",
+      "url": "https://api.jup.ag/swap/v1",
+      "auth": "none",
+      "use": "Older two-step flow, still documented and live but superseded by V2. GET /quote?inputMint&outputMint&amount&slippageBps (default 50)&swapMode (ExactIn|ExactOut)&dexes&excludeDexes&restrictIntermediateTokens&onlyDirectRoutes&maxAccounts&platformFeeBps -> quoteResponse. POST /swap {quoteResponse, userPublicKey, wrapAndUnwrapSol (default true), dynamicComputeUnitLimit, prioritizationFeeLamports ({priorityLevelWithMaxLamports:{priorityLevel:'veryHigh',maxLamports:N}} or {jitoTipLamports:N}), feeAccount, destinationTokenAccount, payer} -> {swapTransaction (base64 versioned tx), lastValidBlockHeight, prioritizationFeeLamports}; deserialize, sign, send via your RPC. POST /swap-instructions takes the same body and returns the instructions separately. Use V1 only if you need ExactOut.",
+      "source": "https://raw.githubusercontent.com/jup-ag/docs/main/openapi-spec/swap/v1/swap.yaml"
+    },
+    {
+      "name": "Program ID to Label",
+      "url": "https://api.jup.ag/swap/v2/program-id-to-label",
+      "auth": "none",
+      "use": "Map of DEX program ids to labels (for dexes/excludeDexes and for identifying the failing program in a swap error).",
+      "source": "https://developers.jup.ag/docs/api-reference/swap/program-id-to-label"
+    },
+    {
+      "name": "Transaction submission (tx.jup.ag)",
+      "url": "https://tx.jup.ag",
+      "auth": "api-key",
+      "use": "Send-only Solana RPC-compatible endpoint (sendTransaction) that lands any signed transaction through Jupiter's landing infrastructure; requires x-api-key and a SOL tip (min 0.001 SOL; /build tipAmount adds it). Not needed for /order + /execute.",
+      "source": "https://developers.jup.ag/docs/transaction/submit"
+    },
+    {
+      "name": "Tokens API V2",
+      "url": "https://api.jup.ag/tokens/v2/search",
+      "auth": "none",
+      "use": "GET ?query=<symbol|name|mint> resolves a ticker to mints with isVerified, organicScore, audit flags (mint/freeze authority, isSus), decimals, tokenProgram, liquidity. Use it to pick the right mint and screen out fakes before swapping.",
+      "source": "https://developers.jup.ag/docs/tokens/index"
+    },
+    {
+      "name": "Price API V3",
+      "url": "https://api.jup.ag/price/v3",
+      "auth": "none",
+      "use": "GET ?ids=<comma-separated mints, max 50> -> usdPrice, decimals, priceChange24h, liquidity. Tokens without a reliable price are omitted.",
+      "source": "https://developers.jup.ag/docs/price/index"
+    },
+    {
+      "name": "API keys and plans (Developer Platform)",
+      "url": "https://developers.jup.ag/portal",
+      "auth": "api-key",
+      "use": "Create an API key (format jup_...) and pass it as the x-api-key header on api.jup.ag. Tiers: Keyless 0.5 RPS (no sign-up), Free 1 RPS, Developer $25/mo 10 RPS, Launch $100/mo 50 RPS, Pro $500/mo 150 RPS; limits per organisation, 60 s sliding window. The old free host lite-api.jup.ag is being phased out in favour of keyless api.jup.ag; ultra-api.jup.ag (Ultra) moved to api.jup.ag/swap/v2 with identical /order and /execute.",
+      "source": "https://developers.jup.ag/docs/portal/rate-limits"
+    }
+  ],
+  "actions": [
+    {
+      "name": "swap (recommended)",
+      "description": "Swap an exact input amount of one Solana token for another at the best price",
+      "how": "1) GET https://api.jup.ag/swap/v2/order?inputMint=..&outputMint=..&amount=<base units>&taker=<wallet> (optional slippageBps). 2) Check outAmount, priceImpactPct, feeBps and that transaction is non-empty (else read errorMessage). 3) base64-decode transaction to a VersionedTransaction, sign with the taker key (do not alter it). 4) POST https://api.jup.ag/swap/v2/execute {signedTransaction: base64, requestId}. 5) Check status == 'Success' and signature."
+    },
+    {
+      "name": "quote only",
+      "description": "Get a price quote without a wallet",
+      "how": "GET /swap/v2/order without taker; read outAmount, priceImpactPct, routePlan, router."
+    },
+    {
+      "name": "custom swap transaction",
+      "description": "Compose the swap with your own instructions or CPI",
+      "how": "GET /swap/v2/build?inputMint&outputMint&amount&taker&slippageBps; build a v0 message from computeBudgetInstructions + setupInstructions + swapInstruction + cleanupInstruction + otherInstructions with the returned address lookup tables and a fresh blockhash; sign and send via your RPC (or tx.jup.ag with tipAmount). The swapInstruction targets program JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4."
+    },
+    {
+      "name": "legacy swap (V1)",
+      "description": "Quote + swap returning a serialized transaction",
+      "how": "GET https://api.jup.ag/swap/v1/quote?inputMint&outputMint&amount&slippageBps=50, then POST /swap/v1/swap {quoteResponse, userPublicKey, wrapAndUnwrapSol: true, dynamicComputeUnitLimit: true, prioritizationFeeLamports: {priorityLevelWithMaxLamports: {priorityLevel: 'veryHigh', maxLamports: 1000000}}}; deserialize swapTransaction (base64 VersionedTransaction), sign, sendRawTransaction via your RPC and confirm before lastValidBlockHeight."
+    },
+    {
+      "name": "resolve token",
+      "description": "Find the correct mint for a ticker",
+      "how": "GET https://api.jup.ag/tokens/v2/search?query=<ticker>; prefer isVerified tokens with high organicScore and liquidity; confirm the mint with the user."
+    }
+  ],
+  "risks": [
+    "Scam and copycat tokens: anyone can create a token with any name/symbol; always swap by mint address, check isVerified / organicScore / audit flags from the Tokens API, and confirm with the user.",
+    "Slippage and price impact: quotes move quickly; set slippageBps deliberately for illiquid tokens (or let RTSE choose on /order), check priceImpactPct and otherAmountThreshold, and get a fresh order right before signing. Transactions expire with the blockhash (~150 slots, about 1 minute).",
+    "Routes can go through many third-party DEX programs; a failure or exploit in one pool affects that swap. Jupiter's listing rules decide which markets are routable (new markets get short instant-routing grace periods).",
+    "API dependency: keyless access is limited to 0.5 RPS (429 above it, per organisation, 60 s sliding window); production needs an x-api-key. lite-api.jup.ag is being retired and ultra-api.jup.ag replaced by api.jup.ag/swap/v2.",
+    "Fees: /order charges a Jupiter platform fee by pair (0 bps on pegged/Jupiter tokens up to about 10 bps on most pairs; shown in feeBps/feeMint); /build has no Jupiter fee.",
+    "Never sign a transaction returned by a non-official host; Jupiter's APIs live on api.jup.ag (and tx.jup.ag for submission). Verify that the transaction's swap instruction targets the Jupiter v6 program.",
+    "Jupiter programs are upgradeable by Jupiter; the IDL has gained new route instructions (route_v2, *_with_attestation) over time, so build from current API output rather than a cached IDL."
+  ],
+  "notes": "DefiLlama slug 'jupiter-aggregator' (parent 'jupiter'; siblings include Jupiter Perpetual Exchange, Jupiter Lend, Jupiter DCA/Limit, Jupiter Staked SOL, JupUSD). Program id JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 is named as 'the Jupiter v6 swap aggregator program' on Jupiter's dev docs (RFQ v2 streaming page) and declared in jup-ag/jupiter-cpi (src/lib.rs); confirmed executable on mainnet (BPF upgradeable). Instruction names and args come from the program's on-chain Anchor IDL (fetched 2026-11-25); the older IDL in jup-ag/jupiter-cpi lacks the v2/attestation variants. Related Jupiter products (not separate contracts here): Jupiter Lend program ids from developers.jup.ag/docs/lend/architecture: Liquidity jupeiUmn818Jg1ekPURTpr4mFo29p46vygyykFJ3wZC, Lending/Earn jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9, Vaults/Borrow jupr81YtYssSyPt8jbnGuiWon5f6x9TcDEFxYe3Bdzi (plus Earn Rewards jup7TthsMgcR9Y3L277b8Eo9uboVSmu1utkuXHNUKar and Borrow Oracle jupnw4B6Eqs7ft6rxpzYLJZYSnrpRgPcr589n5Kv4oc per developers.jup.ag/docs/jupusd/juiced); Lend Earn API at api.jup.ag/lend/v1/earn/*. Jupiter Perps: the dev docs (developers.jup.ag/docs/perps/*) say the Perps API is a work in progress and only link to the Perpetuals program on Solscan (PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu, executable on mainnet) and the single JLP Pool account 5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq without a plain statement of the id, so Perps is not listed as a contract. JLP mint left out: no official Jupiter page found that states the JLP mint address (only third-party sites). The Ultra Swap API is not a separate product any more: Jupiter's docs say Ultra users move to /swap/v2/order + /execute with identical parameters. Other Jupiter APIs (Trigger limit orders/DCA, Recurring, Prediction, Studio, Lock) are documented at developers.jup.ag/docs; Jupiter also runs a hosted Trading MCP at https://mcp.jup.ag.",
+  "sources": [
+    "https://api.llama.fi/protocol/jupiter-aggregator",
+    "https://api.llama.fi/protocol/jupiter",
+    "https://dev.jup.ag/llms.txt",
+    "https://dev.jup.ag/llms-full.txt",
+    "https://developers.jup.ag/docs/swap/index",
+    "https://developers.jup.ag/docs/swap/order-and-execute",
+    "https://developers.jup.ag/docs/swap/build",
+    "https://developers.jup.ag/docs/api-reference/swap/order",
+    "https://developers.jup.ag/docs/api-reference/swap/build",
+    "https://developers.jup.ag/docs/api-reference/swap/program-id-to-label",
+    "https://developers.jup.ag/docs/swap/migration/metis-to-meta-aggregator",
+    "https://developers.jup.ag/docs/swap/migration/metis-to-build",
+    "https://developers.jup.ag/docs/swap/migration/ultra-to-order",
+    "https://developers.jup.ag/docs/swap/routing/rfq/v2/streaming",
+    "https://developers.jup.ag/docs/portal/rate-limits",
+    "https://developers.jup.ag/docs/portal/plans",
+    "https://developers.jup.ag/docs/portal/migration",
+    "https://developers.jup.ag/docs/transaction/submit",
+    "https://developers.jup.ag/docs/tokens/index",
+    "https://developers.jup.ag/docs/price/index",
+    "https://developers.jup.ag/docs/lend/architecture",
+    "https://developers.jup.ag/docs/jupusd/juiced",
+    "https://developers.jup.ag/docs/perps/index",
+    "https://developers.jup.ag/docs/perps/custody-account",
+    "https://developers.jup.ag/docs/perps/pool-account",
+    "https://docs.jup.ag/llms-full.txt",
+    "https://docs.jup.ag/user-docs/more/jup-token/faq",
+    "https://raw.githubusercontent.com/jup-ag/docs/main/openapi-spec/swap/v2/swap.yaml",
+    "https://raw.githubusercontent.com/jup-ag/docs/main/openapi-spec/swap/v1/swap.yaml",
+    "https://github.com/jup-ag/jupiter-cpi",
+    "https://raw.githubusercontent.com/jup-ag/jupiter-cpi/main/src/lib.rs",
+    "https://raw.githubusercontent.com/jup-ag/jupiter-cpi/main/idl.json",
+    "https://api.mainnet-beta.solana.com"
+  ],
+  "researchedAt": "2026-11-25"
+}
