@@ -3,6 +3,1168 @@ import type { ProtocolEntry } from './registry';
 
 export const PROTOCOLS: ProtocolEntry[] = [
  {
+  "slug": "aave-v3",
+  "name": "Aave V3",
+  "category": "Lending",
+  "description": "The largest multi-chain lending market: supply assets to earn variable interest (receive aTokens), borrow against collateral at variable rates, use e-mode for correlated assets, flash-loan, and use GHO (Aave's stablecoin), Savings GHO (sGHO), AAVE staking and Umbrella aToken staking. Agents call the Pool (or the WrappedTokenGateway for native ETH/POL/AVAX/BNB) and read positions via the data providers or the public Aave V3 GraphQL API.",
+  "website": "https://aave.com",
+  "docs": "https://aave.com/docs/aave-v3",
+  "defillama": "https://defillama.com/protocol/aave-v3",
+  "chains": [
+   "ethereum",
+   "base",
+   "arbitrum",
+   "optimism",
+   "polygon",
+   "avalanche",
+   "bnb"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+    "name": "Pool (Ethereum Core)",
+    "role": "pool",
+    "proxy": true,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+    "keyFunctions": [
+     {
+      "signature": "supply(address,uint256,address,uint16)",
+      "kind": "write",
+      "payable": false,
+      "description": "Supply an asset: (asset, amount, onBehalfOf, referralCode=0). Amount in the asset's base units. ERC-20 approve(Pool, amount) first. Mints aTokens 1:1 to onBehalfOf; aToken balance grows with interest. Reverts if the reserve is paused, frozen, inactive or the supply cap is reached."
+     },
+     {
+      "signature": "withdraw(address,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw supplied asset: (asset, amount, to). Burns aTokens. amount = type(uint256).max withdraws the whole balance. Reverts if it would push the health factor below 1 or if the reserve lacks liquidity (high utilisation). Returns the amount withdrawn."
+     },
+     {
+      "signature": "borrow(address,uint256,uint256,uint16,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Borrow: (asset, amount, interestRateMode, referralCode=0, onBehalfOf). interestRateMode must be 2 (variable); stable rate was removed in v3.2. Needs enough collateral (see getUserAccountData.availableBorrowsBase). Debt is a VariableDebtToken balance. Borrowing on behalf of another address needs credit delegation (approveDelegation on the variable debt token)."
+     },
+     {
+      "signature": "repay(address,uint256,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Repay debt: (asset, amount, interestRateMode=2, onBehalfOf). ERC-20 approve(Pool) first. amount = type(uint256).max repays the full debt of msg.sender (only when onBehalfOf = msg.sender; for others pass the exact amount). Returns the amount repaid."
+     },
+     {
+      "signature": "repayWithATokens(address,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Repay debt by burning your aTokens of the same asset: (asset, amount, interestRateMode=2). No approval needed. type(uint256).max repays up to the debt with available aTokens."
+     },
+     {
+      "signature": "setUserUseReserveAsCollateral(address,bool)",
+      "kind": "write",
+      "payable": false,
+      "description": "Enable/disable a supplied asset as collateral. Disabling reverts if it would drop the health factor below 1. Some assets (LTV 0 or isolated) cannot be enabled together with others."
+     },
+     {
+      "signature": "setUserEMode(uint8)",
+      "kind": "write",
+      "payable": false,
+      "description": "Enter an efficiency-mode category (e.g. ETH-correlated or stablecoin) for higher LTV/liquidation threshold among correlated assets; 0 = leave e-mode. Reverts if current positions are not allowed in the category or the HF would fall below 1. Read categories with getEModeCategoryData / UiPoolDataProvider.getEModes."
+     },
+     {
+      "signature": "getUserAccountData(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (totalCollateralBase, totalDebtBase, availableBorrowsBase, currentLiquidationThreshold, ltv, healthFactor). Base amounts are in the oracle base currency (USD with 8 decimals on these markets; check Oracle.BASE_CURRENCY_UNIT). ltv/threshold in bps. healthFactor has 18 decimals; below 1e18 the position can be liquidated; type(uint256).max when there is no debt."
+     },
+     {
+      "signature": "getReserveData(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Reserve state and config for an asset (ReserveDataLegacy struct): configuration bitmap, liquidityIndex, currentLiquidityRate and currentVariableBorrowRate (ray, 27 decimals, per-second-compounded APR), id, aTokenAddress, variableDebtTokenAddress, interestRateStrategyAddress, accruedToTreasury. Use it to find the aToken / debt token for an asset."
+     },
+     {
+      "signature": "getReservesList()",
+      "kind": "read",
+      "payable": false,
+      "description": "All reserve (underlying asset) addresses listed in this market."
+     },
+     {
+      "signature": "getUserEMode(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "E-mode category id the user is in (0 = none)."
+     },
+     {
+      "signature": "getEModeCategoryData(uint8)",
+      "kind": "read",
+      "payable": false,
+      "description": "E-mode category LTV, liquidation threshold, liquidation bonus and label (legacy struct)."
+     },
+     {
+      "signature": "flashLoanSimple(address,address,uint256,bytes,uint16)",
+      "kind": "write",
+      "payable": false,
+      "description": "Flash loan one asset: (receiverAddress, asset, amount, params, referralCode). receiverAddress must be a contract implementing executeOperation and approve amount + premium back to the Pool in the same tx. Premium is FLASHLOAN_PREMIUM_TOTAL (governance-set, read it on the Pool)."
+     },
+     {
+      "signature": "liquidationCall(address,address,address,uint256,bool)",
+      "kind": "write",
+      "payable": false,
+      "description": "Liquidate a position with health factor < 1: (collateralAsset, debtAsset, borrower, debtToCover, receiveAToken). Approve debtAsset first. Receives collateral plus the liquidation bonus. Usually up to 50% of the debt per call (100% when HF is very low or position small)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e",
+    "name": "PoolAddressesProvider (Ethereum Core)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+    "keyFunctions": [
+     {
+      "signature": "getPool()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current Pool proxy address of this market. Use it instead of hard-coding if in doubt."
+     },
+     {
+      "signature": "getPriceOracle()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current AaveOracle address."
+     },
+     {
+      "signature": "getPoolDataProvider()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current AaveProtocolDataProvider address."
+     },
+     {
+      "signature": "getACLManager()",
+      "kind": "read",
+      "payable": false,
+      "description": "ACLManager (roles: pool admin, emergency admin, risk admin)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x0a16f2FCC0D44FaE41cc54e079281D84A363bECD",
+    "name": "AaveProtocolDataProvider / PoolDataProvider (Ethereum Core)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+    "keyFunctions": [
+     {
+      "signature": "getReserveTokensAddresses(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(aTokenAddress, stableDebtTokenAddress [deprecated, zero/unused], variableDebtTokenAddress) for an underlying asset. The way to find an asset's aToken and debt token."
+     },
+     {
+      "signature": "getAllReservesTokens()",
+      "kind": "read",
+      "payable": false,
+      "description": "List of (symbol, tokenAddress) for every reserve in the market."
+     },
+     {
+      "signature": "getAllATokens()",
+      "kind": "read",
+      "payable": false,
+      "description": "List of (symbol, aTokenAddress) for every aToken in the market."
+     },
+     {
+      "signature": "getUserReserveData(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(asset, user) -> currentATokenBalance, currentStableDebt (deprecated), currentVariableDebt, principalStableDebt, scaledVariableDebt, stableBorrowRate, liquidityRate, stableRateLastUpdated, usageAsCollateralEnabled. Balances in asset base units; rates in ray."
+     },
+     {
+      "signature": "getReserveConfigurationData(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(decimals, ltv, liquidationThreshold, liquidationBonus, reserveFactor, usageAsCollateralEnabled, borrowingEnabled, stableBorrowRateEnabled, isActive, isFrozen). ltv/threshold/bonus in bps (bonus 10500 = 5%)."
+     },
+     {
+      "signature": "getReserveCaps(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(borrowCap, supplyCap) in whole tokens (not base units); 0 = no cap."
+     },
+     {
+      "signature": "getPaused(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the reserve is paused (no supply, withdraw, borrow, repay or liquidation)."
+     },
+     {
+      "signature": "getReserveData(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Totals and rates: unbacked, accruedToTreasuryScaled, totalAToken, totalStableDebt, totalVariableDebt, liquidityRate, variableBorrowRate (ray), indexes, lastUpdateTimestamp."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x2dAd8162A989cd99D673dE4425Bb2298Db1E1aA2",
+    "name": "UiPoolDataProviderV3 (Ethereum Core)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+    "keyFunctions": [
+     {
+      "signature": "getReservesData(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Argument: the market's PoolAddressesProvider. Returns every reserve with config, caps, rates, prices, e-mode info, plus base-currency info. One call for a full market snapshot."
+     },
+     {
+      "signature": "getUserReservesData(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(PoolAddressesProvider, user) -> per-reserve scaled aToken balance, collateral flag, scaled variable debt, plus the user's e-mode id."
+     },
+     {
+      "signature": "getEModes(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Argument: PoolAddressesProvider. All e-mode categories with their LTV, liquidation threshold, bonus and collateral/borrowable bitmaps."
+     },
+     {
+      "signature": "getReservesList(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Argument: PoolAddressesProvider. Reserve asset list."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xd01607c3C5eCABa394D8be377a08590149325722",
+    "name": "WrappedTokenGatewayV3 (Ethereum Core)",
+    "role": "router",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+    "keyFunctions": [
+     {
+      "signature": "depositETH(address,address,uint16)",
+      "kind": "write",
+      "payable": true,
+      "description": "Supply native gas token (ETH/POL/AVAX/BNB) with msg.value: (pool [unused, kept for compatibility; pass the Pool address], onBehalfOf, referralCode=0). Wraps to WETH/WPOL/etc. and mints the aToken to onBehalfOf."
+     },
+     {
+      "signature": "withdrawETH(address,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw native token: (pool [unused], amount, to). First approve the gateway to spend your aWETH (aToken of the wrapped native) for amount. type(uint256).max withdraws all."
+     },
+     {
+      "signature": "borrowETH(address,uint256,uint16)",
+      "kind": "write",
+      "payable": false,
+      "description": "Borrow native token: (pool [unused], amount, referralCode=0). First call approveDelegation(gateway, amount) on the wrapped-native VariableDebtToken (from getReserveData(WETH).variableDebtTokenAddress); interest rate mode is variable."
+     },
+     {
+      "signature": "repayETH(address,uint256,address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Repay native-token debt with msg.value: (pool [unused], amount, onBehalfOf). Send msg.value >= amount; excess is refunded. type(uint256).max repays the whole debt if msg.value covers it."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x54586bE62E3c3580375aE3723C145253060Ca0C2",
+    "name": "AaveOracle (Ethereum Core)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+    "keyFunctions": [
+     {
+      "signature": "getAssetPrice(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Price of an asset in the base currency (USD, 8 decimals on these markets; check BASE_CURRENCY_UNIT). This is the price Aave uses for health factor and liquidations."
+     },
+     {
+      "signature": "getAssetsPrices(address[])",
+      "kind": "read",
+      "payable": false,
+      "description": "Prices for several assets."
+     },
+     {
+      "signature": "BASE_CURRENCY_UNIT()",
+      "kind": "read",
+      "payable": false,
+      "description": "Unit of the base currency (1e8 for USD-based markets)."
+     },
+     {
+      "signature": "getSourceOfAsset(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Price feed (usually a Chainlink aggregator or a CAPO adapter) used for an asset."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x4e033931ad43597d96D6bcc25c280717730B58B1",
+    "name": "Pool (Ethereum Prime (address book: AaveV3EthereumLido)) - same interface as the Ethereum Core entry",
+    "role": "pool",
+    "proxy": true,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3EthereumLido.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xcfBf336fe147D643B9Cb705648500e101504B16d",
+    "name": "PoolAddressesProvider (Ethereum Prime (address book: AaveV3EthereumLido)) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3EthereumLido.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xB85B2bFEbeC4F5f401dbf92ac147A3076391fCD5",
+    "name": "AaveProtocolDataProvider / PoolDataProvider (Ethereum Prime (address book: AaveV3EthereumLido)) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3EthereumLido.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x2dAd8162A989cd99D673dE4425Bb2298Db1E1aA2",
+    "name": "UiPoolDataProviderV3 (Ethereum Prime (address book: AaveV3EthereumLido)) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3EthereumLido.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x3167C452fA3fa1e5C16bB83Bc0fde4519C464299",
+    "name": "WrappedTokenGatewayV3 (Ethereum Prime (address book: AaveV3EthereumLido)) - same interface as the Ethereum Core entry",
+    "role": "router",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3EthereumLido.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xE3C061981870C0C7b1f3C4F4bB36B95f1F260BE6",
+    "name": "AaveOracle (Ethereum Prime (address book: AaveV3EthereumLido)) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3EthereumLido.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+    "name": "Pool (Base) - same interface as the Ethereum Core entry",
+    "role": "pool",
+    "proxy": true,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D",
+    "name": "PoolAddressesProvider (Base) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x0F43731EB8d45A581f4a36DD74F5f358bc90C73A",
+    "name": "AaveProtocolDataProvider / PoolDataProvider (Base) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x0C6BC4a12039788be08F87e87Cff87FEDbd1D386",
+    "name": "UiPoolDataProviderV3 (Base) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xa0d9C1E9E48Ca30c8d8C3B5D69FF5dc1f6DFfC24",
+    "name": "WrappedTokenGatewayV3 (Base) - same interface as the Ethereum Core entry",
+    "role": "router",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x2Cc0Fc26eD4563A5ce5e8bdcfe1A2878676Ae156",
+    "name": "AaveOracle (Base) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "name": "Pool (Arbitrum) - same interface as the Ethereum Core entry",
+    "role": "pool",
+    "proxy": true,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
+    "name": "PoolAddressesProvider (Arbitrum) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x243Aa95cAC2a25651eda86e80bEe66114413c43b",
+    "name": "AaveProtocolDataProvider / PoolDataProvider (Arbitrum) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x91E04cf78e53aEBe609e8a7f2003e7EECD743F2B",
+    "name": "UiPoolDataProviderV3 (Arbitrum) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x5283BEcEd7ADF6D003225C13896E536f2D4264FF",
+    "name": "WrappedTokenGatewayV3 (Arbitrum) - same interface as the Ethereum Core entry",
+    "role": "router",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0xb56c2F0B653B2e0b10C9b928C8580Ac5Df02C7C7",
+    "name": "AaveOracle (Arbitrum) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "name": "Pool (Optimism) - same interface as the Ethereum Core entry",
+    "role": "pool",
+    "proxy": true,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
+    "name": "PoolAddressesProvider (Optimism) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x243Aa95cAC2a25651eda86e80bEe66114413c43b",
+    "name": "AaveProtocolDataProvider / PoolDataProvider (Optimism) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x68100bD5345eA474D93577127C11F39FF8463e93",
+    "name": "UiPoolDataProviderV3 (Optimism) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x5f2508cAE9923b02316254026CD43d7902866725",
+    "name": "WrappedTokenGatewayV3 (Optimism) - same interface as the Ethereum Core entry",
+    "role": "router",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0xD81eb3728a631871a7eBBaD631b5f424909f0c77",
+    "name": "AaveOracle (Optimism) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "name": "Pool (Polygon) - same interface as the Ethereum Core entry",
+    "role": "pool",
+    "proxy": true,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
+    "name": "PoolAddressesProvider (Polygon) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0x243Aa95cAC2a25651eda86e80bEe66114413c43b",
+    "name": "AaveProtocolDataProvider / PoolDataProvider (Polygon) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0x66E1aBdb06e7363a618D65a910c540dfED23754f",
+    "name": "UiPoolDataProviderV3 (Polygon) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0xBC302053db3aA514A3c86B9221082f162B91ad63",
+    "name": "WrappedTokenGatewayV3 (Polygon) - same interface as the Ethereum Core entry",
+    "role": "router",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0xb023e699F5a33916Ea823A16485e259257cA8Bd1",
+    "name": "AaveOracle (Polygon) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "avalanche",
+    "chainId": 43114,
+    "address": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    "name": "Pool (Avalanche) - same interface as the Ethereum Core entry",
+    "role": "pool",
+    "proxy": true,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "avalanche",
+    "chainId": 43114,
+    "address": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
+    "name": "PoolAddressesProvider (Avalanche) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "avalanche",
+    "chainId": 43114,
+    "address": "0x243Aa95cAC2a25651eda86e80bEe66114413c43b",
+    "name": "AaveProtocolDataProvider / PoolDataProvider (Avalanche) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "avalanche",
+    "chainId": 43114,
+    "address": "0xFBa4Df643205c5400BC3e05a1E67E0dFaEeeb41F",
+    "name": "UiPoolDataProviderV3 (Avalanche) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "avalanche",
+    "chainId": 43114,
+    "address": "0x2825cE5921538d17cc15Ae00a8B24fF759C6CDaE",
+    "name": "WrappedTokenGatewayV3 (Avalanche) - same interface as the Ethereum Core entry",
+    "role": "router",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "avalanche",
+    "chainId": 43114,
+    "address": "0xEBd36016B3eD09D4693Ed4251c67Bd858c3c7C9C",
+    "name": "AaveOracle (Avalanche) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "bnb",
+    "chainId": 56,
+    "address": "0x6807dc923806fE8Fd134338EABCA509979a7e0cB",
+    "name": "Pool (BNB Chain) - same interface as the Ethereum Core entry",
+    "role": "pool",
+    "proxy": true,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "bnb",
+    "chainId": 56,
+    "address": "0xff75B6da14FfbbfD355Daf7a2731456b3562Ba6D",
+    "name": "PoolAddressesProvider (BNB Chain) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "bnb",
+    "chainId": 56,
+    "address": "0xc90Df74A7c16245c5F5C5870327Ceb38Fe5d5328",
+    "name": "AaveProtocolDataProvider / PoolDataProvider (BNB Chain) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "bnb",
+    "chainId": 56,
+    "address": "0x68100bD5345eA474D93577127C11F39FF8463e93",
+    "name": "UiPoolDataProviderV3 (BNB Chain) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "bnb",
+    "chainId": 56,
+    "address": "0x0c2C95b24529664fE55D4437D7A31175CFE6c4f7",
+    "name": "WrappedTokenGatewayV3 (BNB Chain) - same interface as the Ethereum Core entry",
+    "role": "router",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "bnb",
+    "chainId": 56,
+    "address": "0x39bc1bfDa2130d6Bb6DBEfd366939b4c7aa7C697",
+    "name": "AaveOracle (BNB Chain) - same interface as the Ethereum Core entry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9",
+    "name": "AAVE token",
+    "role": "token",
+    "proxy": true,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "AAVE balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer AAVE."
+     },
+     {
+      "signature": "delegate(address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Delegate both voting and proposition power to an address (Aave Governance V3)."
+     },
+     {
+      "signature": "getPowerCurrent(address,uint8)",
+      "kind": "read",
+      "payable": false,
+      "description": "Current governance power of a user: (user, delegationType) with 0 = voting, 1 = proposition."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x40D16FC0246aD3160Ccc09B8D0D3A2cD28aE6C2f",
+    "name": "GHO stablecoin",
+    "role": "token",
+    "proxy": false,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/GhoEthereum.sol",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "GHO balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer GHO."
+     },
+     {
+      "signature": "getFacilitatorsList()",
+      "kind": "read",
+      "payable": false,
+      "description": "Addresses allowed to mint GHO (Aave pools, GSMs, flash minter, bridge)."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x6Bb7a212910682DCFdbd5BCBb3e28FB4E8da10Ee",
+    "name": "GHO stablecoin (Base, CCIP-bridged) - standard ERC-20",
+    "role": "token",
+    "proxy": true,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/GhoBase.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x7dfF72693f6A4149b17e7C6314655f6A9F7c8B33",
+    "name": "GHO stablecoin (Arbitrum, CCIP-bridged) - standard ERC-20",
+    "role": "token",
+    "proxy": true,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/GhoArbitrum.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "avalanche",
+    "chainId": 43114,
+    "address": "0xfc421aD3C883Bf9E7C4f42dE845C4e4405799e73",
+    "name": "GHO stablecoin (Avalanche, CCIP-bridged) - standard ERC-20",
+    "role": "token",
+    "proxy": null,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/GhoAvalanche.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xE1753F2e00940cC31213dd92013cF019DFE4ca1d",
+    "name": "sGHO (Savings GHO, ERC-4626)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://aave.com/docs/ecosystem/gho/sgho",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit GHO (approve sGHO first): (assets, receiver). Returns shares. Yield accrues via an on-chain rate set by governance; no cooldown, no slashing."
+     },
+     {
+      "signature": "redeem(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn shares for GHO instantly: (shares, receiver, owner)."
+     },
+     {
+      "signature": "withdraw(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw an exact GHO amount: (assets, receiver, owner)."
+     },
+     {
+      "signature": "previewRedeem(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "GHO received for a number of shares."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "GHO value of shares (exchange rate)."
+     },
+     {
+      "signature": "maxWithdraw(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Max GHO the owner can withdraw now."
+     },
+     {
+      "signature": "totalAssets()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total GHO held by the vault."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x4da27a545c0c5B758a6BA100e3a049001de870f5",
+    "name": "stkAAVE (legacy Safety Module, staked AAVE)",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveSafetyModule.sol",
+    "keyFunctions": [
+     {
+      "signature": "stake(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake AAVE (approve stkAAVE first): (onBehalfOf, amount). Mints stkAAVE, earns AAVE rewards, keeps governance power."
+     },
+     {
+      "signature": "cooldown()",
+      "kind": "write",
+      "payable": false,
+      "description": "Start the unstake cooldown for your whole balance. After the cooldown (getCooldownSeconds) you have a limited unstake window to redeem; otherwise restart it."
+     },
+     {
+      "signature": "redeem(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Unstake after the cooldown, inside the unstake window: (to, amount). Returns AAVE at the current exchange rate."
+     },
+     {
+      "signature": "claimRewards(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued AAVE rewards: (to, amount); type(uint256).max claims all."
+     },
+     {
+      "signature": "getTotalRewardsBalance(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Claimable AAVE rewards of a staker."
+     },
+     {
+      "signature": "getCooldownSeconds()",
+      "kind": "read",
+      "payable": false,
+      "description": "Cooldown length in seconds."
+     },
+     {
+      "signature": "previewRedeem(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "AAVE received for an amount of stkAAVE (exchange rate can fall if slashed)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x1a88Df1cFe15Af22B3c4c783D4e6F7F9e0C1885d",
+    "name": "stkGHO (legacy Safety Module, being phased out for sGHO / Umbrella stkGHO) - same staking interface as stkAAVE",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveSafetyModule.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xD400fc38ED4732893174325693a63C30ee3881a8",
+    "name": "Umbrella (core, Ethereum) - users interact with the StakeTokens, not this contract",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/UmbrellaEthereum.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x6bf183243FdD1e306ad2C4450BC7dcf6f0bf8Aa6",
+    "name": "Umbrella StakeToken stkwaUSDC.v1 (Ethereum Core aUSDC)",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/UmbrellaEthereum.sol",
+    "keyFunctions": [
+     {
+      "signature": "asset()",
+      "kind": "read",
+      "payable": false,
+      "description": "Token to stake: a wrapped aToken (stata token, e.g. waEthUSDC) or GHO. Plain aTokens can be wrapped and staked in one tx via UmbrellaBatchHelper (see address book)."
+     },
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake (approve the StakeToken for asset() first): (assets, receiver). Mints shares; the exchange rate starts 1:1 and only falls if slashed."
+     },
+     {
+      "signature": "cooldown()",
+      "kind": "write",
+      "payable": false,
+      "description": "Start the 20-day cooldown (governance-configurable). Funds stay slashable during it; then a 2-day window to withdraw."
+     },
+     {
+      "signature": "getStakerCooldown(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Cooldown snapshot of a user (amount, end time, withdrawal window)."
+     },
+     {
+      "signature": "redeem(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Unstake shares inside the unstake window: (shares, receiver, owner)."
+     },
+     {
+      "signature": "withdraw(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Unstake an exact asset amount inside the window: (assets, receiver, owner)."
+     },
+     {
+      "signature": "previewRedeem(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Assets for shares at the current (possibly slashed) rate."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xA484Ab92fe32B143AEE7019fC1502b1dAA522D31",
+    "name": "Umbrella StakeToken stkwaUSDT.v1 (Ethereum Core aUSDT) - same ERC-4626 StakeToken interface as stkwaUSDC.v1",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/UmbrellaEthereum.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xaAFD07D53A7365D3e9fb6F3a3B09EC19676B73Ce",
+    "name": "Umbrella StakeToken stkwaWETH.v1 (Ethereum Core aWETH) - same ERC-4626 StakeToken interface as stkwaUSDC.v1",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/UmbrellaEthereum.sol",
+    "keyFunctions": []
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x4f827A63755855cDf3e8f3bcD20265C833f15033",
+    "name": "Umbrella StakeToken stkGHO.v1 (GHO) - same ERC-4626 StakeToken interface as stkwaUSDC.v1",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/UmbrellaEthereum.sol",
+    "keyFunctions": []
+   }
+  ],
+  "offchainApis": [
+   {
+    "name": "Aave V3 GraphQL API (AaveKit API)",
+    "url": "https://api.v3.aave.com/graphql",
+    "auth": "none",
+    "use": "Markets, reserves, rates and user positions across all Aave V3 chains, and transaction building: simple queries return a TransactionRequest (to, data, value, chainId); complex ones return an ExecutionPlan (ApprovalRequired first, then the tx; or InsufficientBalanceError). Also sGHO vault previews and deposit/redeem plans. The URL is also a GraphQL playground.",
+    "source": "https://aave.com/docs/aave-v3/getting-started/graphql"
+   }
+  ],
+  "actions": [
+   {
+    "name": "supply",
+    "description": "Lend an ERC-20 and earn interest",
+    "how": "ERC-20 approve(Pool, amount); Pool.supply(asset, amount, onBehalfOf=you, 0). Native token: WrappedTokenGatewayV3.depositETH(Pool, you, 0) with msg.value."
+   },
+   {
+    "name": "withdraw",
+    "description": "Take supplied assets back",
+    "how": "Pool.withdraw(asset, amount or type(uint256).max, to). Native: approve aWETH to the gateway, then gateway.withdrawETH(Pool, amount, to)."
+   },
+   {
+    "name": "borrow",
+    "description": "Borrow against collateral at a variable rate",
+    "how": "Make sure the supplied asset is collateral (setUserUseReserveAsCollateral(asset,true) if needed), check Pool.getUserAccountData(you).availableBorrowsBase, convert to token units with Oracle.getAssetPrice, then Pool.borrow(asset, amount, 2, 0, you). Keep the health factor well above 1e18."
+   },
+   {
+    "name": "repay",
+    "description": "Repay a loan",
+    "how": "approve(Pool, amount); Pool.repay(asset, amount or type(uint256).max, 2, you). Or repayWithATokens(asset, amount, 2) to repay with your deposits of the same asset."
+   },
+   {
+    "name": "find aToken / debt token addresses",
+    "description": "Get the aToken and variable debt token of any reserve",
+    "how": "AaveProtocolDataProvider.getReserveTokensAddresses(asset) or Pool.getReserveData(asset).aTokenAddress / variableDebtTokenAddress. List reserves with Pool.getReservesList(). Full lists are in the per-market address-book file (…Assets library)."
+   },
+   {
+    "name": "check health / risk",
+    "description": "Read a user's position",
+    "how": "Pool.getUserAccountData(user) (healthFactor 18 decimals; < 1e18 = liquidatable); per-asset detail via ProtocolDataProvider.getUserReserveData(asset,user) or UiPoolDataProvider.getUserReservesData(provider,user)."
+   },
+   {
+    "name": "e-mode",
+    "description": "Higher LTV for correlated assets",
+    "how": "Read categories via UiPoolDataProvider.getEModes(provider); Pool.setUserEMode(categoryId). 0 exits."
+   },
+   {
+    "name": "save in GHO",
+    "description": "Earn the GHO savings rate",
+    "how": "approve(sGHO, amount) on GHO; sGHO.deposit(amount, you). Exit any time with sGHO.redeem(shares, you, you)."
+   },
+   {
+    "name": "stake in Umbrella",
+    "description": "Earn extra rewards by covering bad debt",
+    "how": "approve the StakeToken for its asset() (wrapped aToken or GHO); StakeToken.deposit(assets, you). To exit: cooldown(), wait 20 days, then redeem within the 2-day window."
+   },
+   {
+    "name": "build tx via API",
+    "description": "Let Aave build the calldata",
+    "how": "POST a GraphQL query to https://api.v3.aave.com/graphql (supply/borrow/repay/withdraw queries) and sign the returned TransactionRequest / ExecutionPlan steps."
+   }
+  ],
+  "risks": [
+   "Liquidation: if the health factor (getUserAccountData, 18 decimals) drops below 1, anyone can repay part of the debt and seize collateral plus that reserve's liquidation bonus (getReserveConfigurationData.liquidationBonus, e.g. 10500 = 5%). Prices come from AaveOracle (mostly Chainlink feeds, some with CAPO price caps for LSTs/stablecoins); oracle errors or delays can cause unexpected liquidations.",
+   "Variable rates only: stable-rate borrowing was removed (v3.2); interestRateMode must be 2. Rates jump sharply above each reserve's optimal utilisation, and at 100% utilisation suppliers cannot withdraw until borrowers repay or new supply arrives.",
+   "Reserves can be frozen (no new supply/borrow; repay/withdraw still work) or paused (nothing works, including liquidations) by governance or the Protocol Guardian; supply and borrow caps can make transactions revert. Check ProtocolDataProvider.getReserveConfigurationData (isFrozen) and getPaused before acting.",
+   "Isolation mode / siloed borrowing / e-mode restrict what a user can borrow alongside certain collateral. The aave-v3-origin main branch marks debt-ceiling isolation and siloed borrowing as deprecated in v3.7.0 in favour of isolated e-mode categories; which behaviour applies depends on the version deployed in each market, so read the reserve config rather than assuming.",
+   "aTokens and debt tokens are rebasing (balances grow every second); integrations that cache balances will be off. Debt tokens are non-transferable.",
+   "Pools, aTokens and most periphery are upgradeable proxies controlled by Aave Governance V3 (AAVE holders, with timelocked executors) plus a Protocol Guardian multisig that can pause/freeze; contract logic can change after a governance vote.",
+   "Umbrella stakers and legacy stkAAVE/stkABPT can be slashed to cover bad debt (Umbrella: per asset/network, 20-day cooldown then a 2-day window, slashable during cooldown). sGHO has no cooldown and no slashing.",
+   "GHO is minted by facilitators (Aave pools, GSMs, bridges) with rates and caps set by governance; it is a soft-pegged stablecoin and can trade off peg. Bridged GHO on Base/Arbitrum/Avalanche moves via Chainlink CCIP.",
+   "L2 markets (Base, Arbitrum, Optimism, Polygon, Avalanche) use the L2Pool variant, which also accepts the normal Pool function signatures; BNB, Base and Ethereum Prime have different addresses from the shared 0x794a... Pool used on Arbitrum/Optimism/Polygon/Avalanche."
+  ],
+  "notes": "Every address comes from the official BGD Labs aave-address-book (github.com/bgd-labs/aave-address-book, autogenerated from on-chain governance state; the aave.com docs point to it as the address registry). 'Ethereum Prime' is the market the address book still names AaveV3EthereumLido (its GHO steward is called GHO_AAVE_PRIME_STEWARD). keyFunctions are listed once on the Ethereum Core contracts; all other markets' Pool, PoolAddressesProvider, PoolDataProvider, UiPoolDataProvider, Gateway and Oracle share the same interface. Not listed on purpose: individual aTokens, variable debt tokens, stata tokens and per-asset oracles (hundreds; get them with getReserveTokensAddresses / getReserveData or the …Assets library in each address-book file), PoolConfigurator/ACLManager/Collector/EmissionManager (admin only), UiIncentiveDataProvider and RewardsController (in the address book if you need incentives), swap adapters (ParaSwap/CoW, change often), GHO GSMs (GhoEthereum.sol: GSM_USDC 0x3A3868898305f04beC7FEa77BecFf04C13444112, GSM_USDT 0x882285E62656b9623AF136Ce3078c6BdCc33F5E3 - not added as contracts because their underlying asset could not be re-checked on-chain during research), stkABPT, UmbrellaBatchHelper (0xCe6Ced23118EDEb23054E06118a702797b13fc2F in UmbrellaEthereum.sol; signatures not verified here), and Aave V3 on the ~30 other chains DefiLlama lists (Gnosis, Scroll, Linea, Sonic, zkSync, Mantle, Metis, Celo, Soneium, Plasma, MegaETH, X Layer, Monad, Ethereum EtherFi/Horizon markets, etc.: see AaveV3<Chain>.sol files in the address book). Aave V4 is a separate protocol (api.v4.aave.com) and not covered. All addresses have contract code on their chain (eth_getCode checked for every Ethereum address and every Pool/provider/gateway/oracle/UiPoolDataProvider elsewhere). Signatures come from aave-dao/aave-v3-origin interfaces, bgd-labs/aave-stk-v1-5 (stkAAVE) and Sourcify (Umbrella StakeToken, sGHO implementations). AAVE token and stkAAVE/umbrella use 18 decimals.",
+  "sources": [
+   "https://defillama.com/protocol/aave-v3",
+   "https://api.llama.fi/protocol/aave-v3",
+   "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Ethereum.sol",
+   "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3EthereumLido.sol",
+   "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Base.sol",
+   "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol",
+   "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Optimism.sol",
+   "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Polygon.sol",
+   "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Avalanche.sol",
+   "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3BNB.sol",
+   "https://github.com/bgd-labs/aave-address-book/blob/main/src/GhoEthereum.sol",
+   "https://github.com/bgd-labs/aave-address-book/blob/main/src/GhoBase.sol",
+   "https://github.com/bgd-labs/aave-address-book/blob/main/src/GhoArbitrum.sol",
+   "https://github.com/bgd-labs/aave-address-book/blob/main/src/GhoAvalanche.sol",
+   "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveSafetyModule.sol",
+   "https://github.com/bgd-labs/aave-address-book/blob/main/src/UmbrellaEthereum.sol",
+   "https://github.com/bgd-labs/aave-address-book/blob/main/src/MiscEthereum.sol",
+   "https://github.com/bgd-labs/aave-address-book/blob/main/src/GovernanceV3Ethereum.sol",
+   "https://raw.githubusercontent.com/bgd-labs/aave-address-book/main/src/AaveV3Ethereum.sol",
+   "https://github.com/aave-dao/aave-v3-origin/blob/main/src/contracts/interfaces/IPool.sol",
+   "https://github.com/aave-dao/aave-v3-origin/blob/main/src/contracts/interfaces/IPoolDataProvider.sol",
+   "https://github.com/aave-dao/aave-v3-origin/blob/main/src/contracts/helpers/interfaces/IWrappedTokenGatewayV3.sol",
+   "https://github.com/aave-dao/aave-v3-origin/blob/main/src/contracts/helpers/interfaces/IUiPoolDataProviderV3.sol",
+   "https://github.com/aave-dao/aave-v3-origin/blob/main/src/contracts/interfaces/IAaveOracle.sol",
+   "https://github.com/aave-dao/aave-v3-origin/blob/main/src/contracts/interfaces/IPriceOracleGetter.sol",
+   "https://github.com/bgd-labs/aave-stk-v1-5/blob/main/src/interfaces/IStakedTokenV2.sol",
+   "https://github.com/bgd-labs/aave-stk-v1-5/blob/main/src/interfaces/IStakedTokenV3.sol",
+   "https://sourcify.dev/server/v2/contract/1/0x75e8aC0c063B6966E2A9954adEdf39BdE9370197",
+   "https://aave.com/docs/llms.txt",
+   "https://aave.com/docs/aave-v3/getting-started/graphql",
+   "https://aave.com/docs/aave-v3/smart-contracts/wrapped-token-gateway",
+   "https://aave.com/docs/aave-v3/umbrella",
+   "https://aave.com/docs/ecosystem/gho/sgho",
+   "https://aave.com/docs/ecosystem/gho",
+   "https://aave.com/docs/resources/addresses"
+  ],
+  "researchedAt": "2026-11-25"
+ },
+ {
   "slug": "arrakis-modular",
   "name": "Arrakis Modular",
   "category": "Liquidity Manager",
@@ -1389,6 +2551,1870 @@ export const PROTOCOLS: ProtocolEntry[] = [
    "https://api.hiro.so/v2/contracts/source/SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR/token-stx-v-1-2",
    "https://api.hiro.so/v2/contracts/source/SPQC38PW542EQJ5M11CR25P7BS1CA6QT4TBXGB3M/stableswap-stx-ststx-v-1-2",
    "https://api.hiro.so/v2/contracts/interface/SM1793C4R5PZ4NS4VQ4WMP7SKKYVH8JZEWSZ9HCCR/xyk-core-v-1-1"
+  ],
+  "researchedAt": "2026-11-25"
+ },
+ {
+  "slug": "chainlink",
+  "name": "Chainlink",
+  "category": "Oracle",
+  "description": "Oracle network. Agents read Chainlink Data Feeds (AggregatorV3 proxy contracts, e.g. ETH/USD) on-chain for reference prices, and move tokens or messages between chains with CCIP by calling the CCIP Router (getFee, then ccipSend). LINK is the network's ERC-677 token and a CCIP fee token.",
+  "website": "https://chain.link",
+  "docs": "https://docs.chain.link",
+  "defillama": "https://defillama.com/protocol/chainlink",
+  "chains": [
+   "ethereum",
+   "base",
+   "arbitrum",
+   "optimism",
+   "polygon",
+   "bsc",
+   "avalanche"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
+    "name": "Chainlink ETH / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-mainnet.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the ETH / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 3600 s and deviation threshold 0.5% (per Chainlink's feed directory): the answer updates when price moves more than 0.5% or 3600 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"ETH / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c",
+    "name": "Chainlink BTC / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-mainnet.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the BTC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 3600 s and deviation threshold 0.5% (per Chainlink's feed directory): the answer updates when price moves more than 0.5% or 3600 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"BTC / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6",
+    "name": "Chainlink USDC / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-mainnet.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the USDC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 82800 s and deviation threshold 0.25% (per Chainlink's feed directory): the answer updates when price moves more than 0.25% or 82800 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"USDC / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c",
+    "name": "Chainlink LINK / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-mainnet.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the LINK / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 3600 s and deviation threshold 0.5% (per Chainlink's feed directory): the answer updates when price moves more than 0.5% or 3600 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"LINK / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x80226fc0Ee2b096224EeAc085Bb9a8cba1146f7D",
+    "name": "CCIP Router (chain selector 5009297550715157269)",
+    "role": "bridge",
+    "proxy": false,
+    "source": "https://docs.chain.link/ccip/directory/mainnet/chain/mainnet",
+    "keyFunctions": [
+     {
+      "signature": "ccipSend(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Send a cross-chain message and/or tokens. Args: destinationChainSelector (uint64, NOT the EVM chainId; see CCIP Directory), Client.EVM2AnyMessage {bytes receiver = abi.encode(receiverAddress) for EVM destinations; bytes data (payload, empty for token-only transfers); EVMTokenAmount[] tokenAmounts {address token, uint256 amount} (tokens must be CCIP-enabled on this lane and approved to this Router first); address feeToken (address(0) = pay in native gas token via msg.value, or LINK / listed fee token, approved to the Router); bytes extraArgs}. extraArgs = bytes4 tag 0x181dcf10 (GENERIC_EXTRA_ARGS_V2_TAG) + abi.encode(uint256 gasLimit, bool allowOutOfOrderExecution); use gasLimit 0 for token-only transfers to an EOA; empty extraArgs defaults to 200k gas but Chainlink recommends always setting it explicitly. Returns bytes32 messageId. If paying natively, msg.value must be >= getFee(); overpayment is not refunded."
+     },
+     {
+      "signature": "getFee(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+      "kind": "read",
+      "payable": false,
+      "description": "Fee for the exact same (destinationChainSelector, message) you will pass to ccipSend, denominated in message.feeToken (native wei if feeToken = address(0)). Call right before sending; add a small buffer when paying natively."
+     },
+     {
+      "signature": "isChainSupported(uint64)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the destination chain selector has a lane from this chain. Check before ccipSend (otherwise UnsupportedDestinationChain)."
+     },
+     {
+      "signature": "getWrappedNative()",
+      "kind": "read",
+      "payable": false,
+      "description": "Wrapped native token accepted as a fee token on this chain (WETH 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2)."
+     },
+     {
+      "signature": "getOnRamp(uint64)",
+      "kind": "read",
+      "payable": false,
+      "description": "OnRamp contract for a destination selector (zero address if no lane)."
+     },
+     {
+      "signature": "typeAndVersion()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns \"Router 1.2.0\"."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x514910771AF9Ca656af840dff83E8264EcF986CA",
+    "name": "LINK token (LINK)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.chain.link/resources/link-token-contracts",
+    "keyFunctions": [
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Send LINK (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender, e.g. the CCIP Router when paying CCIP fees in LINK."
+     },
+     {
+      "signature": "transferAndCall(address,uint256,bytes)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-677: transfer LINK to a contract and call its onTokenTransfer(sender, amount, data) in one tx (used by VRF subscriptions, staking and legacy oracle requests). Only works if the receiver implements onTokenTransfer."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LINK balance in base units (18 decimals)."
+     },
+     {
+      "signature": "allowance(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Allowance: owner, spender."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "18."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70",
+    "name": "Chainlink ETH / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-base-1.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the ETH / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 1200 s and deviation threshold 0.15% (per Chainlink's feed directory): the answer updates when price moves more than 0.15% or 1200 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0. On this L2 also check the L2 Sequencer Uptime Feed first (answer must be 0 and the grace period since startedAt must have passed)."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"ETH / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x64c911996D3c6aC71f9b455B1E8E7266BcbD848F",
+    "name": "Chainlink BTC / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-base-1.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the BTC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 1200 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 1200 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0. On this L2 also check the L2 Sequencer Uptime Feed first (answer must be 0 and the grace period since startedAt must have passed)."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"BTC / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x7e860098F58bBFC8648a4311b374B1D669a2bc6B",
+    "name": "Chainlink USDC / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-base-1.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the USDC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 86400 s and deviation threshold 0.3% (per Chainlink's feed directory): the answer updates when price moves more than 0.3% or 86400 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0. On this L2 also check the L2 Sequencer Uptime Feed first (answer must be 0 and the grace period since startedAt must have passed)."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"USDC / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xBCF85224fc0756B9Fa45aA7892530B47e10b6433",
+    "name": "Chainlink L2 Sequencer Uptime Status Feed",
+    "role": "other",
+    "proxy": true,
+    "source": "https://docs.chain.link/data-feeds/l2-sequencer-feeds",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "answer 0 = sequencer up, 1 = sequencer down. startedAt = when the status last changed. Before trusting any price feed on this L2: require answer == 0 and block.timestamp - startedAt > GRACE_PERIOD (Chainlink's example uses 3600 s). On Arbitrum startedAt can be 0 only if the feed is not initialised; treat that as invalid."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x881e3A65B4d4a04dD529061dd0071cf975F58bCD",
+    "name": "CCIP Router (chain selector 15971525489660198786)",
+    "role": "bridge",
+    "proxy": false,
+    "source": "https://docs.chain.link/ccip/directory/mainnet/chain/ethereum-mainnet-base-1",
+    "keyFunctions": [
+     {
+      "signature": "ccipSend(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Send a cross-chain message and/or tokens. Args: destinationChainSelector (uint64, NOT the EVM chainId; see CCIP Directory), Client.EVM2AnyMessage {bytes receiver = abi.encode(receiverAddress) for EVM destinations; bytes data (payload, empty for token-only transfers); EVMTokenAmount[] tokenAmounts {address token, uint256 amount} (tokens must be CCIP-enabled on this lane and approved to this Router first); address feeToken (address(0) = pay in native gas token via msg.value, or LINK / listed fee token, approved to the Router); bytes extraArgs}. extraArgs = bytes4 tag 0x181dcf10 (GENERIC_EXTRA_ARGS_V2_TAG) + abi.encode(uint256 gasLimit, bool allowOutOfOrderExecution); use gasLimit 0 for token-only transfers to an EOA; empty extraArgs defaults to 200k gas but Chainlink recommends always setting it explicitly. Returns bytes32 messageId. If paying natively, msg.value must be >= getFee(); overpayment is not refunded."
+     },
+     {
+      "signature": "getFee(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+      "kind": "read",
+      "payable": false,
+      "description": "Fee for the exact same (destinationChainSelector, message) you will pass to ccipSend, denominated in message.feeToken (native wei if feeToken = address(0)). Call right before sending; add a small buffer when paying natively."
+     },
+     {
+      "signature": "isChainSupported(uint64)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the destination chain selector has a lane from this chain. Check before ccipSend (otherwise UnsupportedDestinationChain)."
+     },
+     {
+      "signature": "getWrappedNative()",
+      "kind": "read",
+      "payable": false,
+      "description": "Wrapped native token accepted as a fee token on this chain (WETH 0x4200000000000000000000000000000000000006)."
+     },
+     {
+      "signature": "getOnRamp(uint64)",
+      "kind": "read",
+      "payable": false,
+      "description": "OnRamp contract for a destination selector (zero address if no lane)."
+     },
+     {
+      "signature": "typeAndVersion()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns \"Router 1.2.0\"."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x88Fb150BDc53A65fe94Dea0c9BA0a6dAf8C6e196",
+    "name": "LINK token (LINK)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.chain.link/resources/link-token-contracts",
+    "keyFunctions": [
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Send LINK (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender, e.g. the CCIP Router when paying CCIP fees in LINK."
+     },
+     {
+      "signature": "transferAndCall(address,uint256,bytes)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-677: transfer LINK to a contract and call its onTokenTransfer(sender, amount, data) in one tx (used by VRF subscriptions, staking and legacy oracle requests). Only works if the receiver implements onTokenTransfer."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LINK balance in base units (18 decimals)."
+     },
+     {
+      "signature": "allowance(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Allowance: owner, spender."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "18."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612",
+    "name": "Chainlink ETH / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-arbitrum-1.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the ETH / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 1755 s and deviation threshold 0.05% (per Chainlink's feed directory): the answer updates when price moves more than 0.05% or 1755 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0. On this L2 also check the L2 Sequencer Uptime Feed first (answer must be 0 and the grace period since startedAt must have passed)."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"ETH / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x6ce185860a4963106506C203335A2910413708e9",
+    "name": "Chainlink BTC / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-arbitrum-1.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the BTC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 1755 s and deviation threshold 0.05% (per Chainlink's feed directory): the answer updates when price moves more than 0.05% or 1755 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0. On this L2 also check the L2 Sequencer Uptime Feed first (answer must be 0 and the grace period since startedAt must have passed)."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"BTC / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3",
+    "name": "Chainlink USDC / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-arbitrum-1.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the USDC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 255 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 255 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0. On this L2 also check the L2 Sequencer Uptime Feed first (answer must be 0 and the grace period since startedAt must have passed)."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"USDC / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0xFdB631F5EE196F0ed6FAa767959853A9F217697D",
+    "name": "Chainlink L2 Sequencer Uptime Status Feed",
+    "role": "other",
+    "proxy": true,
+    "source": "https://docs.chain.link/data-feeds/l2-sequencer-feeds",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "answer 0 = sequencer up, 1 = sequencer down. startedAt = when the status last changed. Before trusting any price feed on this L2: require answer == 0 and block.timestamp - startedAt > GRACE_PERIOD (Chainlink's example uses 3600 s). On Arbitrum startedAt can be 0 only if the feed is not initialised; treat that as invalid."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x141fa059441E0ca23ce184B6A78bafD2A517DdE8",
+    "name": "CCIP Router (chain selector 4949039107694359620)",
+    "role": "bridge",
+    "proxy": false,
+    "source": "https://docs.chain.link/ccip/directory/mainnet/chain/ethereum-mainnet-arbitrum-1",
+    "keyFunctions": [
+     {
+      "signature": "ccipSend(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Send a cross-chain message and/or tokens. Args: destinationChainSelector (uint64, NOT the EVM chainId; see CCIP Directory), Client.EVM2AnyMessage {bytes receiver = abi.encode(receiverAddress) for EVM destinations; bytes data (payload, empty for token-only transfers); EVMTokenAmount[] tokenAmounts {address token, uint256 amount} (tokens must be CCIP-enabled on this lane and approved to this Router first); address feeToken (address(0) = pay in native gas token via msg.value, or LINK / listed fee token, approved to the Router); bytes extraArgs}. extraArgs = bytes4 tag 0x181dcf10 (GENERIC_EXTRA_ARGS_V2_TAG) + abi.encode(uint256 gasLimit, bool allowOutOfOrderExecution); use gasLimit 0 for token-only transfers to an EOA; empty extraArgs defaults to 200k gas but Chainlink recommends always setting it explicitly. Returns bytes32 messageId. If paying natively, msg.value must be >= getFee(); overpayment is not refunded."
+     },
+     {
+      "signature": "getFee(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+      "kind": "read",
+      "payable": false,
+      "description": "Fee for the exact same (destinationChainSelector, message) you will pass to ccipSend, denominated in message.feeToken (native wei if feeToken = address(0)). Call right before sending; add a small buffer when paying natively."
+     },
+     {
+      "signature": "isChainSupported(uint64)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the destination chain selector has a lane from this chain. Check before ccipSend (otherwise UnsupportedDestinationChain)."
+     },
+     {
+      "signature": "getWrappedNative()",
+      "kind": "read",
+      "payable": false,
+      "description": "Wrapped native token accepted as a fee token on this chain (WETH 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1)."
+     },
+     {
+      "signature": "getOnRamp(uint64)",
+      "kind": "read",
+      "payable": false,
+      "description": "OnRamp contract for a destination selector (zero address if no lane)."
+     },
+     {
+      "signature": "typeAndVersion()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns \"Router 1.2.0\"."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4",
+    "name": "LINK token (LINK)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.chain.link/resources/link-token-contracts",
+    "keyFunctions": [
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Send LINK (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender, e.g. the CCIP Router when paying CCIP fees in LINK."
+     },
+     {
+      "signature": "transferAndCall(address,uint256,bytes)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-677: transfer LINK to a contract and call its onTokenTransfer(sender, amount, data) in one tx (used by VRF subscriptions, staking and legacy oracle requests). Only works if the receiver implements onTokenTransfer."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LINK balance in base units (18 decimals)."
+     },
+     {
+      "signature": "allowance(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Allowance: owner, spender."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "18."
+     }
+    ]
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x13e3Ee699D1909E989722E753853AE30b17e08c5",
+    "name": "Chainlink ETH / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-optimism-1.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the ETH / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 1200 s and deviation threshold 0.15% (per Chainlink's feed directory): the answer updates when price moves more than 0.15% or 1200 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0. On this L2 also check the L2 Sequencer Uptime Feed first (answer must be 0 and the grace period since startedAt must have passed)."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"ETH / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0xD702DD976Fb76Fffc2D3963D037dfDae5b04E593",
+    "name": "Chainlink BTC / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-optimism-1.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the BTC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 1200 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 1200 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0. On this L2 also check the L2 Sequencer Uptime Feed first (answer must be 0 and the grace period since startedAt must have passed)."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"BTC / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x16a9FA2FDa030272Ce99B29CF780dFA30361E0f3",
+    "name": "Chainlink USDC / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-optimism-1.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the USDC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 86400 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 86400 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0. On this L2 also check the L2 Sequencer Uptime Feed first (answer must be 0 and the grace period since startedAt must have passed)."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"USDC / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x371EAD81c9102C9BF4874A9075FFFf170F2Ee389",
+    "name": "Chainlink L2 Sequencer Uptime Status Feed",
+    "role": "other",
+    "proxy": true,
+    "source": "https://docs.chain.link/data-feeds/l2-sequencer-feeds",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "answer 0 = sequencer up, 1 = sequencer down. startedAt = when the status last changed. Before trusting any price feed on this L2: require answer == 0 and block.timestamp - startedAt > GRACE_PERIOD (Chainlink's example uses 3600 s). On Arbitrum startedAt can be 0 only if the feed is not initialised; treat that as invalid."
+     }
+    ]
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x3206695CaE29952f4b0c22a169725a865bc8Ce0f",
+    "name": "CCIP Router (chain selector 3734403246176062136)",
+    "role": "bridge",
+    "proxy": false,
+    "source": "https://docs.chain.link/ccip/directory/mainnet/chain/ethereum-mainnet-optimism-1",
+    "keyFunctions": [
+     {
+      "signature": "ccipSend(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Send a cross-chain message and/or tokens. Args: destinationChainSelector (uint64, NOT the EVM chainId; see CCIP Directory), Client.EVM2AnyMessage {bytes receiver = abi.encode(receiverAddress) for EVM destinations; bytes data (payload, empty for token-only transfers); EVMTokenAmount[] tokenAmounts {address token, uint256 amount} (tokens must be CCIP-enabled on this lane and approved to this Router first); address feeToken (address(0) = pay in native gas token via msg.value, or LINK / listed fee token, approved to the Router); bytes extraArgs}. extraArgs = bytes4 tag 0x181dcf10 (GENERIC_EXTRA_ARGS_V2_TAG) + abi.encode(uint256 gasLimit, bool allowOutOfOrderExecution); use gasLimit 0 for token-only transfers to an EOA; empty extraArgs defaults to 200k gas but Chainlink recommends always setting it explicitly. Returns bytes32 messageId. If paying natively, msg.value must be >= getFee(); overpayment is not refunded."
+     },
+     {
+      "signature": "getFee(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+      "kind": "read",
+      "payable": false,
+      "description": "Fee for the exact same (destinationChainSelector, message) you will pass to ccipSend, denominated in message.feeToken (native wei if feeToken = address(0)). Call right before sending; add a small buffer when paying natively."
+     },
+     {
+      "signature": "isChainSupported(uint64)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the destination chain selector has a lane from this chain. Check before ccipSend (otherwise UnsupportedDestinationChain)."
+     },
+     {
+      "signature": "getWrappedNative()",
+      "kind": "read",
+      "payable": false,
+      "description": "Wrapped native token accepted as a fee token on this chain (WETH 0x4200000000000000000000000000000000000006)."
+     },
+     {
+      "signature": "getOnRamp(uint64)",
+      "kind": "read",
+      "payable": false,
+      "description": "OnRamp contract for a destination selector (zero address if no lane)."
+     },
+     {
+      "signature": "typeAndVersion()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns \"Router 1.2.0\"."
+     }
+    ]
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6",
+    "name": "LINK token (LINK)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.chain.link/resources/link-token-contracts",
+    "keyFunctions": [
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Send LINK (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender, e.g. the CCIP Router when paying CCIP fees in LINK."
+     },
+     {
+      "signature": "transferAndCall(address,uint256,bytes)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-677: transfer LINK to a contract and call its onTokenTransfer(sender, amount, data) in one tx (used by VRF subscriptions, staking and legacy oracle requests). Only works if the receiver implements onTokenTransfer."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LINK balance in base units (18 decimals)."
+     },
+     {
+      "signature": "allowance(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Allowance: owner, spender."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "18."
+     }
+    ]
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0xF9680D99D6C9589e2a93a78A04A279e509205945",
+    "name": "Chainlink ETH / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-matic-mainnet.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the ETH / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 27 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 27 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"ETH / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0xc907E116054Ad103354f2D350FD2514433D57F6f",
+    "name": "Chainlink BTC / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-matic-mainnet.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the BTC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 27 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 27 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"BTC / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0xfE4A8cc5b5B2366C1B58Bea3858e81843581b2F7",
+    "name": "Chainlink USDC / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-matic-mainnet.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the USDC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 27 s and deviation threshold 0.005% (per Chainlink's feed directory): the answer updates when price moves more than 0.005% or 27 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"USDC / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0x849c5ED5a80F5B408Dd4969b78c2C8fdf0565Bfe",
+    "name": "CCIP Router (chain selector 4051577828743386545)",
+    "role": "bridge",
+    "proxy": false,
+    "source": "https://docs.chain.link/ccip/directory/mainnet/chain/matic-mainnet",
+    "keyFunctions": [
+     {
+      "signature": "ccipSend(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Send a cross-chain message and/or tokens. Args: destinationChainSelector (uint64, NOT the EVM chainId; see CCIP Directory), Client.EVM2AnyMessage {bytes receiver = abi.encode(receiverAddress) for EVM destinations; bytes data (payload, empty for token-only transfers); EVMTokenAmount[] tokenAmounts {address token, uint256 amount} (tokens must be CCIP-enabled on this lane and approved to this Router first); address feeToken (address(0) = pay in native gas token via msg.value, or LINK / listed fee token, approved to the Router); bytes extraArgs}. extraArgs = bytes4 tag 0x181dcf10 (GENERIC_EXTRA_ARGS_V2_TAG) + abi.encode(uint256 gasLimit, bool allowOutOfOrderExecution); use gasLimit 0 for token-only transfers to an EOA; empty extraArgs defaults to 200k gas but Chainlink recommends always setting it explicitly. Returns bytes32 messageId. If paying natively, msg.value must be >= getFee(); overpayment is not refunded."
+     },
+     {
+      "signature": "getFee(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+      "kind": "read",
+      "payable": false,
+      "description": "Fee for the exact same (destinationChainSelector, message) you will pass to ccipSend, denominated in message.feeToken (native wei if feeToken = address(0)). Call right before sending; add a small buffer when paying natively."
+     },
+     {
+      "signature": "isChainSupported(uint64)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the destination chain selector has a lane from this chain. Check before ccipSend (otherwise UnsupportedDestinationChain)."
+     },
+     {
+      "signature": "getWrappedNative()",
+      "kind": "read",
+      "payable": false,
+      "description": "Wrapped native token accepted as a fee token on this chain (WPOL 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270)."
+     },
+     {
+      "signature": "getOnRamp(uint64)",
+      "kind": "read",
+      "payable": false,
+      "description": "OnRamp contract for a destination selector (zero address if no lane)."
+     },
+     {
+      "signature": "typeAndVersion()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns \"Router 1.2.0\"."
+     }
+    ]
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0xb0897686c545045aFc77CF20eC7A532E3120E0F1",
+    "name": "LINK token (LINK)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.chain.link/resources/link-token-contracts",
+    "keyFunctions": [
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Send LINK (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender, e.g. the CCIP Router when paying CCIP fees in LINK."
+     },
+     {
+      "signature": "transferAndCall(address,uint256,bytes)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-677: transfer LINK to a contract and call its onTokenTransfer(sender, amount, data) in one tx (used by VRF subscriptions, staking and legacy oracle requests). Only works if the receiver implements onTokenTransfer."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LINK balance in base units (18 decimals)."
+     },
+     {
+      "signature": "allowance(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Allowance: owner, spender."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "18."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x9ef1B8c0E4F7dc8bF5719Ea496883DC6401d5b2e",
+    "name": "Chainlink ETH / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-bsc-mainnet.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the ETH / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 60 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 60 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"ETH / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x264990fbd0A4796A3E3d8E37C4d5F87a3aCa5Ebf",
+    "name": "Chainlink BTC / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-bsc-mainnet.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the BTC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 60 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 60 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"BTC / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x51597f405303C4377E36123cBc172b13269EA163",
+    "name": "Chainlink USDC / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-bsc-mainnet.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the USDC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 900 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 900 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"USDC / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x34B03Cb9086d7D758AC55af71584F81A598759FE",
+    "name": "CCIP Router (chain selector 11344663589394136015)",
+    "role": "bridge",
+    "proxy": false,
+    "source": "https://docs.chain.link/ccip/directory/mainnet/chain/bsc-mainnet",
+    "keyFunctions": [
+     {
+      "signature": "ccipSend(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Send a cross-chain message and/or tokens. Args: destinationChainSelector (uint64, NOT the EVM chainId; see CCIP Directory), Client.EVM2AnyMessage {bytes receiver = abi.encode(receiverAddress) for EVM destinations; bytes data (payload, empty for token-only transfers); EVMTokenAmount[] tokenAmounts {address token, uint256 amount} (tokens must be CCIP-enabled on this lane and approved to this Router first); address feeToken (address(0) = pay in native gas token via msg.value, or LINK / listed fee token, approved to the Router); bytes extraArgs}. extraArgs = bytes4 tag 0x181dcf10 (GENERIC_EXTRA_ARGS_V2_TAG) + abi.encode(uint256 gasLimit, bool allowOutOfOrderExecution); use gasLimit 0 for token-only transfers to an EOA; empty extraArgs defaults to 200k gas but Chainlink recommends always setting it explicitly. Returns bytes32 messageId. If paying natively, msg.value must be >= getFee(); overpayment is not refunded."
+     },
+     {
+      "signature": "getFee(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+      "kind": "read",
+      "payable": false,
+      "description": "Fee for the exact same (destinationChainSelector, message) you will pass to ccipSend, denominated in message.feeToken (native wei if feeToken = address(0)). Call right before sending; add a small buffer when paying natively."
+     },
+     {
+      "signature": "isChainSupported(uint64)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the destination chain selector has a lane from this chain. Check before ccipSend (otherwise UnsupportedDestinationChain)."
+     },
+     {
+      "signature": "getWrappedNative()",
+      "kind": "read",
+      "payable": false,
+      "description": "Wrapped native token accepted as a fee token on this chain (WBNB 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c)."
+     },
+     {
+      "signature": "getOnRamp(uint64)",
+      "kind": "read",
+      "payable": false,
+      "description": "OnRamp contract for a destination selector (zero address if no lane)."
+     },
+     {
+      "signature": "typeAndVersion()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns \"Router 1.2.0\"."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x404460C6A5EdE2D891e8297795264fDe62ADBB75",
+    "name": "LINK token (LINK)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.chain.link/resources/link-token-contracts",
+    "keyFunctions": [
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Send LINK (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender, e.g. the CCIP Router when paying CCIP fees in LINK."
+     },
+     {
+      "signature": "transferAndCall(address,uint256,bytes)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-677: transfer LINK to a contract and call its onTokenTransfer(sender, amount, data) in one tx (used by VRF subscriptions, staking and legacy oracle requests). Only works if the receiver implements onTokenTransfer."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LINK balance in base units (18 decimals)."
+     },
+     {
+      "signature": "allowance(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Allowance: owner, spender."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "18."
+     }
+    ]
+   },
+   {
+    "chain": "avalanche",
+    "chainId": 43114,
+    "address": "0x976B3D034E162d8bD72D6b9C989d545b839003b0",
+    "name": "Chainlink ETH / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-avalanche-mainnet.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the ETH / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 86400 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 86400 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"ETH / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "avalanche",
+    "chainId": 43114,
+    "address": "0x2779D32d5166BAaa2B2b658333bA7e6Ec0C65743",
+    "name": "Chainlink BTC / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-avalanche-mainnet.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the BTC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 86400 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 86400 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"BTC / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "avalanche",
+    "chainId": 43114,
+    "address": "0xF096872672F44d6EBA71458D74fe67F9a77a23B9",
+    "name": "Chainlink USDC / USD price feed (proxy)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://reference-data-directory.vercel.app/feeds-avalanche-mainnet.json",
+    "keyFunctions": [
+     {
+      "signature": "latestRoundData()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound). answer is the USDC / USD price scaled by 10^decimals() (8 here). Heartbeat for this feed is 86400 s and deviation threshold 0.1% (per Chainlink's feed directory): the answer updates when price moves more than 0.1% or 86400 s pass. Reject the answer if block.timestamp - updatedAt > heartbeat (plus a small buffer), if answer <= 0, or if updatedAt == 0."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of decimals in answer (8 for this feed). Always read it rather than hard-coding; some Chainlink feeds use 18."
+     },
+     {
+      "signature": "description()",
+      "kind": "read",
+      "payable": false,
+      "description": "Human-readable pair, returns \"USDC / USD\". Use it to sanity-check you have the right proxy."
+     },
+     {
+      "signature": "getRoundData(uint80)",
+      "kind": "read",
+      "payable": false,
+      "description": "Same tuple as latestRoundData for a historical roundId (round ids are phase-encoded; not guaranteed contiguous across aggregator upgrades)."
+     },
+     {
+      "signature": "aggregator()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current underlying aggregator behind this proxy. Always read prices from the proxy, never the aggregator, since Chainlink swaps aggregators behind the proxy."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Aggregator interface version."
+     }
+    ]
+   },
+   {
+    "chain": "avalanche",
+    "chainId": 43114,
+    "address": "0xF4c7E640EdA248ef95972845a62bdC74237805dB",
+    "name": "CCIP Router (chain selector 6433500567565415381)",
+    "role": "bridge",
+    "proxy": false,
+    "source": "https://docs.chain.link/ccip/directory/mainnet/chain/avalanche-mainnet",
+    "keyFunctions": [
+     {
+      "signature": "ccipSend(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Send a cross-chain message and/or tokens. Args: destinationChainSelector (uint64, NOT the EVM chainId; see CCIP Directory), Client.EVM2AnyMessage {bytes receiver = abi.encode(receiverAddress) for EVM destinations; bytes data (payload, empty for token-only transfers); EVMTokenAmount[] tokenAmounts {address token, uint256 amount} (tokens must be CCIP-enabled on this lane and approved to this Router first); address feeToken (address(0) = pay in native gas token via msg.value, or LINK / listed fee token, approved to the Router); bytes extraArgs}. extraArgs = bytes4 tag 0x181dcf10 (GENERIC_EXTRA_ARGS_V2_TAG) + abi.encode(uint256 gasLimit, bool allowOutOfOrderExecution); use gasLimit 0 for token-only transfers to an EOA; empty extraArgs defaults to 200k gas but Chainlink recommends always setting it explicitly. Returns bytes32 messageId. If paying natively, msg.value must be >= getFee(); overpayment is not refunded."
+     },
+     {
+      "signature": "getFee(uint64,(bytes,bytes,(address,uint256)[],address,bytes))",
+      "kind": "read",
+      "payable": false,
+      "description": "Fee for the exact same (destinationChainSelector, message) you will pass to ccipSend, denominated in message.feeToken (native wei if feeToken = address(0)). Call right before sending; add a small buffer when paying natively."
+     },
+     {
+      "signature": "isChainSupported(uint64)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the destination chain selector has a lane from this chain. Check before ccipSend (otherwise UnsupportedDestinationChain)."
+     },
+     {
+      "signature": "getWrappedNative()",
+      "kind": "read",
+      "payable": false,
+      "description": "Wrapped native token accepted as a fee token on this chain (WAVAX 0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7)."
+     },
+     {
+      "signature": "getOnRamp(uint64)",
+      "kind": "read",
+      "payable": false,
+      "description": "OnRamp contract for a destination selector (zero address if no lane)."
+     },
+     {
+      "signature": "typeAndVersion()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns \"Router 1.2.0\"."
+     }
+    ]
+   },
+   {
+    "chain": "avalanche",
+    "chainId": 43114,
+    "address": "0x5947BB275c521040051D82396192181b413227A3",
+    "name": "LINK token (LINK.e (bridged via Avalanche Bridge, Chainlink's official LINK on Avalanche))",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.chain.link/resources/link-token-contracts",
+    "keyFunctions": [
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Send LINK (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender, e.g. the CCIP Router when paying CCIP fees in LINK."
+     },
+     {
+      "signature": "transferAndCall(address,uint256,bytes)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-677: transfer LINK to a contract and call its onTokenTransfer(sender, amount, data) in one tx (used by VRF subscriptions, staking and legacy oracle requests). Only works if the receiver implements onTokenTransfer."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LINK balance in base units (18 decimals)."
+     },
+     {
+      "signature": "allowance(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Allowance: owner, spender."
+     },
+     {
+      "signature": "decimals()",
+      "kind": "read",
+      "payable": false,
+      "description": "18."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [
+   {
+    "name": "Data Feeds directory (data.chain.link)",
+    "url": "https://data.chain.link",
+    "auth": "none",
+    "use": "Search every Chainlink feed by pair and network; each feed page shows the proxy address to call, decimals, heartbeat and deviation threshold, and whether it is deprecated.",
+    "source": "https://docs.chain.link/data-feeds/price-feeds/addresses"
+   },
+   {
+    "name": "Feed reference data directory (JSON)",
+    "url": "https://reference-data-directory.vercel.app/feeds-{network}.json",
+    "auth": "none",
+    "use": "Machine-readable list of all feeds for one network (the same data docs.chain.link renders). Fields: name, proxyAddress (call this), decimals, heartbeat, threshold, feedCategory, docs.hidden / shutdownDate. {network} examples: mainnet (Ethereum), ethereum-mainnet-base-1, ethereum-mainnet-arbitrum-1, ethereum-mainnet-optimism-1, matic-mainnet, bsc-mainnet, avalanche-mainnet. Some entries have secondaryProxyAddress/secondaryProxyEns (e.g. Base ETH/USD): the standard proxy is the one whose ens is the plain pair name (eth-usd); 'svr' proxies are Smart Value Recapture variants.",
+    "source": "https://docs.chain.link/data-feeds/price-feeds/addresses"
+   },
+   {
+    "name": "CCIP Directory",
+    "url": "https://docs.chain.link/ccip/directory/mainnet",
+    "auth": "none",
+    "use": "Per-chain Router address, chain selector, fee tokens, supported lanes and supported tokens (with token pool and rate limits) for CCIP mainnet.",
+    "source": "https://docs.chain.link/ccip/directory/mainnet"
+   },
+   {
+    "name": "CCIP Explorer",
+    "url": "https://ccip.chain.link",
+    "auth": "none",
+    "use": "Track a CCIP message by messageId or source tx hash (status: waiting for finality, committed, success/failure; manual execution if it failed on the destination).",
+    "source": "https://docs.chain.link/ccip"
+   }
+  ],
+  "actions": [
+   {
+    "name": "read-price",
+    "description": "Get a reference USD price on-chain",
+    "how": "Call latestRoundData() on the feed proxy for the pair and chain (this file for ETH/BTC/USDC; any other pair: look up the proxyAddress on data.chain.link or the reference-data-directory JSON). price = answer / 10^decimals(). Reject if answer <= 0 or now - updatedAt > heartbeat. On Arbitrum/Base/Optimism first check the L2 Sequencer Uptime Feed (answer == 0 and now - startedAt > grace period)."
+   },
+   {
+    "name": "ccip-token-transfer",
+    "description": "Bridge a CCIP-supported token to another chain",
+    "how": "1) Confirm the token is supported on the lane in the CCIP Directory and router.isChainSupported(destSelector). 2) token.approve(router, amount). 3) Build EVM2AnyMessage{receiver: abi.encode(recipient), data: \"\", tokenAmounts: [(token, amount)], feeToken: LINK or address(0), extraArgs: 0x181dcf10 ++ abi.encode(0, true)}. 4) fee = router.getFee(destSelector, msg). 5) If feeToken is LINK, LINK.approve(router, fee) (plus amount if LINK is also the token sent); else send value = fee. 6) router.ccipSend(destSelector, msg). 7) Track messageId on ccip.chain.link."
+   },
+   {
+    "name": "ccip-message",
+    "description": "Send arbitrary data to a receiver contract on another chain",
+    "how": "Same as token transfer with data = your payload, tokenAmounts = [], and extraArgs gasLimit sized for the receiver's ccipReceive (the receiver must implement CCIPReceiver / IAny2EVMMessageReceiver)."
+   },
+   {
+    "name": "get-link",
+    "description": "Obtain/identify official LINK",
+    "how": "Use the LINK address for the chain from this file (from docs.chain.link/resources/link-token-contracts). On BNB Chain and Polygon, bridged LINK from the chain's native bridge is not ERC-677 and must be converted with Chainlink PegSwap before use with Chainlink services."
+   }
+  ],
+  "risks": [
+   "Stale prices: a feed only updates on its deviation threshold or heartbeat; always compare updatedAt with the heartbeat listed for that feed, and do not assume the same heartbeat across chains (e.g. ETH/USD is 3600 s on Ethereum but 27 s on Polygon, 86400 s on Avalanche).",
+   "Feeds get deprecated: Chainlink marks feeds for shutdown on data.chain.link and in the directory JSON (shutdownDate / hidden). A deprecated proxy can stop updating; check before integrating and re-check periodically.",
+   "Use the proxy, never the aggregator address; aggregators are replaced during upgrades. Several networks also list SVR (Smart Value Recapture) proxies and Arbitrum lists hidden 'cre-backup' proxies for the same pair with different decimals (18): read decimals() and use the standard proxy unless you specifically want SVR.",
+   "L2s (Arbitrum, Base, Optimism): if the sequencer is down, feeds can look fresh but be wrong for users who cannot transact; check the L2 Sequencer Uptime Feed and enforce a grace period after it comes back up. The directory JSON currently flags the Optimism sequencer feed as hidden although the L2 sequencer docs page still lists it.",
+   "Data feeds are market references with a deviation band (e.g. 0.5%); they are not exact execution prices and can be manipulated on low-liquidity assets ('medium'/'high' risk categories on data.chain.link).",
+   "CCIP fees: getFee depends on the destination, data size, gas limit and token amounts; overpaid native fees are not refunded. Messages wait for source-chain finality (minutes on Ethereum, can be longer on some chains).",
+   "CCIP rate limits: each token pool has per-lane capacity and refill-rate limits; transfers above the available capacity revert. Check the token's rate limits in the CCIP Directory before large transfers.",
+   "CCIP chain selectors are not EVM chain IDs; sending to a wrong selector or an unsupported lane reverts with UnsupportedDestinationChain. Receiver must be abi.encode(address) for EVM destinations; tokens sent to a contract that cannot handle them may be stuck.",
+   "Bridged LINK from BNB Chain's and Polygon's native bridges is not ERC-677 and is not usable with Chainlink services; use PegSwap to convert. LINK on Avalanche reports symbol LINK.e."
+  ],
+  "notes": "DefiLlama lists Chainlink as a parent protocol 'chainlink' with child entries (Chainlink Requests 'chainlink-requests', CCIP, Chainlink Staking); 'chainlink' is used because this file covers Data Feeds, CCIP and LINK together. Feed proxies are the standard (non-SVR) proxies from Chainlink's reference data directory JSON, which docs.chain.link/data-feeds/price-feeds/addresses loads; on Base the standard eth-usd and btc-usd proxies appear as secondaryProxyAddress of the shared-SVR entries. LINK/USD is included for Ethereum only. All feeds were checked on 2026-11-25 with description(), decimals() (all 8) and latestRoundData() (ETH ~1652 USD, BTC ~58,950 USD, USDC ~0.9999 USD); all CCIP routers returned typeAndVersion 'Router 1.2.0' and isChainSupported true for the other test chains; all LINK addresses returned decimals 18. Left out: the Ethereum Feed Registry: docs.chain.link/data-feeds/feed-registry now redirects to the Data Feeds overview and no current official page lists its address, so it is omitted (read individual proxies instead). Other CCIP contracts per chain (RMN proxy/armProxy, TokenAdminRegistry, RegistryModuleOwnerCustom, TokenPoolFactory, OnRamps/OffRamps) are listed in the CCIP Directory and in https://github.com/smartcontractkit/documentation/blob/main/src/config/data/ccip/v1_2_0/mainnet/chains.json. Every other price feed (thousands, on 50+ networks) is listed at data.chain.link with its proxy address. Polygon here means Polygon PoS (chainId 137).",
+  "sources": [
+   "https://docs.chain.link",
+   "https://docs.chain.link/data-feeds",
+   "https://docs.chain.link/data-feeds/price-feeds/addresses",
+   "https://docs.chain.link/data-feeds/price-feeds/addresses?network=ethereum",
+   "https://docs.chain.link/data-feeds/l2-sequencer-feeds",
+   "https://docs.chain.link/data-feeds/api-reference",
+   "https://docs.chain.link/data-feeds/feed-registry",
+   "https://data.chain.link",
+   "https://reference-data-directory.vercel.app/feeds-mainnet.json",
+   "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-base-1.json",
+   "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-arbitrum-1.json",
+   "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-optimism-1.json",
+   "https://reference-data-directory.vercel.app/feeds-matic-mainnet.json",
+   "https://reference-data-directory.vercel.app/feeds-bsc-mainnet.json",
+   "https://reference-data-directory.vercel.app/feeds-avalanche-mainnet.json",
+   "https://docs.chain.link/resources/link-token-contracts",
+   "https://docs.chain.link/ccip/directory/mainnet",
+   "https://docs.chain.link/ccip/directory/mainnet/chain/mainnet",
+   "https://docs.chain.link/ccip/directory/mainnet/chain/ethereum-mainnet-base-1",
+   "https://docs.chain.link/ccip/directory/mainnet/chain/ethereum-mainnet-arbitrum-1",
+   "https://docs.chain.link/ccip/directory/mainnet/chain/ethereum-mainnet-optimism-1",
+   "https://docs.chain.link/ccip/directory/mainnet/chain/matic-mainnet",
+   "https://docs.chain.link/ccip/directory/mainnet/chain/bsc-mainnet",
+   "https://docs.chain.link/ccip/directory/mainnet/chain/avalanche-mainnet",
+   "https://docs.chain.link/ccip/v1/evm/api-reference/v1.6.2/client",
+   "https://docs.chain.link/ccip/v1/evm/api-reference/v1.6.2/i-router-client",
+   "https://raw.githubusercontent.com/smartcontractkit/documentation/main/src/config/data/ccip/v1_2_0/mainnet/chains.json",
+   "https://raw.githubusercontent.com/smartcontractkit/documentation/main/src/config/data/ccip/v1_2_0/mainnet/tokens.json",
+   "https://github.com/smartcontractkit/documentation/blob/main/src/features/data/chains.ts",
+   "https://ccip.chain.link",
+   "https://api.llama.fi/protocol/chainlink",
+   "https://api.llama.fi/protocol/chainlink-requests"
   ],
   "researchedAt": "2026-11-25"
  },
@@ -7455,6 +10481,3208 @@ export const PROTOCOLS: ProtocolEntry[] = [
   "researchedAt": "2026-11-25"
  },
  {
+  "slug": "curve-dex",
+  "name": "Curve DEX",
+  "category": "Dexs",
+  "description": "Curve's AMM for stablecoins, pegged assets (StableSwap) and volatile pairs (Twocrypto/Tricrypto). Agents can swap through CurveRouterNG with an off-chain computed route, discover pools on-chain via MetaRegistry/AddressProvider, provide liquidity, stake LP in gauges for CRV, lock CRV as veCRV to vote and earn revenue, and use crvUSD/scrvUSD.",
+  "website": "https://curve.finance",
+  "docs": "https://docs.curve.finance",
+  "defillama": "https://defillama.com/protocol/curve-dex",
+  "chains": [
+   "ethereum",
+   "arbitrum",
+   "base",
+   "optimism",
+   "polygon",
+   "bsc",
+   "avalanche"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x45312ea0eFf7E09C83CBE249fa1d7598c4C8cd4e",
+    "name": "CurveRouterNG v1.2.0",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "exchange(address[11],uint256[5][5],uint256,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Swap along a route of up to 5 Curve pools: (_route, _swap_params, _amount of _route[0] in its decimals, _expected = min output of the final token). Approve _route[0] to the router first; send ETH as msg.value when _route[0] is 0xEeee...EEeE. Returns the amount received. _route is address[11] = [tokenIn, pool1, token1, pool2, token2, ...] padded with zero addresses (up to 5 hops; native ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). _swap_params is uint256[5][5], one row per hop = [i, j, swap_type, pool_type, n_coins] where i/j are coin indices in that pool (pool.coins(n) or MetaRegistry.get_coin_indices), swap_type 1=exchange, 2=exchange_underlying, 3=underlying via zap, 4=coin->LP (add_liquidity), 5=lending underlying->LP, 6=LP->coin (remove_liquidity_one_coin), 7=LP->lending underlying, 8=ETH/WETH/stETH-type wraps, 9=SNX; pool_type 1=stableswap, 2=twocrypto, 3=tricrypto, 4=LLAMMA; unused rows are zeros. Routes are computed off-chain: use Curve's JS library (@curvefi/api router, github.com/curvefi/curve-js, or curve-router-js) or build a one-hop route yourself from MetaRegistry.find_pools_for_coins + get_coin_indices."
+     },
+     {
+      "signature": "exchange(address[11],uint256[5][5],uint256,uint256,address[5],address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Same with _pools (only needed for swap_type 3 zaps; zeros otherwise) and an explicit _receiver."
+     },
+     {
+      "signature": "get_dy(address[11],uint256[5][5],uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote output of the final token for _amount in (same route encoding). Use it to set _expected with slippage."
+     },
+     {
+      "signature": "get_dy(address[11],uint256[5][5],uint256,address[5])",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote with _pools for zap routes."
+     },
+     {
+      "signature": "get_dx(address[11],uint256[5][5],uint256,address[5])",
+      "kind": "read",
+      "payable": false,
+      "description": "Required input for a desired final output (_out_amount); pass zero-filled _pools when not using zaps. Approximate for crypto pools."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Router version string."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x16C6521Dff6baB339122a0FE25a9116693265353",
+    "name": "CurveRouterNG v1.1 (AddressProvider ID 2)",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "exchange(address[11],uint256[5][5],uint256,uint256,address[5],address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Same interface as v1.2 (route/swap_params encoding identical). Still registered as 'Exchange Router' (ID 2) in the Ethereum AddressProvider; the docs list it as router-v1 and 0x45312ea0eFf7E09C83CBE249fa1d7598c4C8cd4e (v1.2) as router-v2. Approve _route[0] to whichever router you call."
+     },
+     {
+      "signature": "get_dy(address[11],uint256[5][5],uint256,address[5])",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote output for a route."
+     },
+     {
+      "signature": "get_dx(address[11],uint256[5][5],uint256,address[5],address[5],address[5])",
+      "kind": "read",
+      "payable": false,
+      "description": "Required input for a desired output (_out_amount, _pools, _base_pools, _base_tokens)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x5ffe7FB82894076ECB99A30D6A32e969e6e35E98",
+    "name": "AddressProvider (NG)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "get_address(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Address registered under an ID. IDs: 2 Exchange Router, 7 MetaRegistry, 11 TricryptoNG Factory, 12 StableswapNG Factory, 13 TwocryptoNG Factory, 14/15 calc zaps, 16 crvUSD controller factory, 19 CRV, 25 crvUSD (not every ID exists on every chain)."
+     },
+     {
+      "signature": "get_id_info(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(addr, description, version, last_modified) for an ID."
+     },
+     {
+      "signature": "ids()",
+      "kind": "read",
+      "payable": false,
+      "description": "All registered IDs."
+     },
+     {
+      "signature": "num_entries()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of entries."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xF98B45FA17DE75FB1aD0e7aFD971b0ca00e379fC",
+    "name": "MetaRegistry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "find_pools_for_coins(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "All registered pools (all factories and legacy registries) that hold both tokens. Main on-chain pool discovery call."
+     },
+     {
+      "signature": "find_pool_for_coins(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "The i-th pool for a token pair (i = 0 is the first)."
+     },
+     {
+      "signature": "get_coin_indices(address,address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(pool, from, to) -> (i, j, is_underlying). Use i/j in pool.exchange or as the router's swap_params."
+     },
+     {
+      "signature": "get_coins(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coins of a pool (address[8], zero-padded)."
+     },
+     {
+      "signature": "get_n_coins(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of coins."
+     },
+     {
+      "signature": "get_decimals(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coin decimals (uint256[8])."
+     },
+     {
+      "signature": "get_balances(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool balances (uint256[8])."
+     },
+     {
+      "signature": "get_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LP token of a pool (same as the pool for NG pools)."
+     },
+     {
+      "signature": "get_pool_from_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool address for an LP token (e.g. 3Crv -> 3pool)."
+     },
+     {
+      "signature": "get_gauge(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Liquidity gauge of a pool (zero if none)."
+     },
+     {
+      "signature": "get_virtual_price_from_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LP virtual price (1e18)."
+     },
+     {
+      "signature": "get_pool_name(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool name."
+     },
+     {
+      "signature": "pool_count()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of registered pools; enumerate with pool_list(uint256)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x6A8cbed756804B16E05E741eDaBd5cB544AE21bf",
+    "name": "Stableswap-NG Factory",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "find_pool_for_coins(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "i-th pool deployed by this factory that holds both coins."
+     },
+     {
+      "signature": "pool_count()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of pools deployed by this factory; enumerate with pool_list(uint256)."
+     },
+     {
+      "signature": "pool_list(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool address by index."
+     },
+     {
+      "signature": "get_coins(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coins of a pool deployed by this factory."
+     },
+     {
+      "signature": "get_coin_indices(address,address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(pool, from, to) -> coin indices (int128 i, int128 j, is_underlying)."
+     },
+     {
+      "signature": "get_gauge(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Gauge of a pool (zero if none)."
+     },
+     {
+      "signature": "deploy_gauge(address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless: deploy a liquidity gauge for a pool of this factory (it still needs a DAO vote to receive CRV emissions)."
+     },
+     {
+      "signature": "deploy_plain_pool(string,string,address[],uint256,uint256,uint256,uint256,uint256,uint8[],bytes4[],address[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless pool creation (name, symbol, coins, A, fee, offpeg_fee_multiplier, ma_exp_time, implementation_idx, asset_types, method_ids, oracles). Pools from this factory are the LP token themselves and expose exchange(int128,int128,uint256,uint256[,address receiver]) -> uint256, exchange_received(int128,int128,uint256,uint256,address), get_dy(int128,int128,uint256), get_dx(int128,int128,uint256), add_liquidity(uint256[],uint256[,address]) (dynamic array), calc_token_amount(uint256[],bool), remove_liquidity_one_coin(uint256,int128,uint256[,address]) and calc_withdraw_one_coin(uint256,int128)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x98EE851a00abeE0d95D08cF4CA2BdCE32aeaAF7F",
+    "name": "Twocrypto-NG Factory",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "find_pool_for_coins(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "i-th pool deployed by this factory that holds both coins."
+     },
+     {
+      "signature": "pool_count()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of pools deployed by this factory; enumerate with pool_list(uint256)."
+     },
+     {
+      "signature": "pool_list(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool address by index."
+     },
+     {
+      "signature": "get_coins(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coins of a pool deployed by this factory."
+     },
+     {
+      "signature": "get_coin_indices(address,address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(pool, from, to) -> coin indices (uint256 i, uint256 j)."
+     },
+     {
+      "signature": "get_gauge(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Gauge of a pool (zero if none)."
+     },
+     {
+      "signature": "deploy_gauge(address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless: deploy a liquidity gauge for a pool of this factory (it still needs a DAO vote to receive CRV emissions)."
+     },
+     {
+      "signature": "deploy_pool(string,string,address[2],uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless two-coin volatile pool creation. Twocrypto-NG pools are their own LP token and expose exchange(uint256,uint256,uint256,uint256[,address]) -> uint256 (uint256 indices), exchange_received, get_dy(uint256,uint256,uint256), get_dx, add_liquidity(uint256[2],uint256[,address]), calc_token_amount(uint256[2],bool), remove_liquidity_one_coin(uint256,uint256,uint256[,address]), calc_withdraw_one_coin(uint256,uint256). The same factory also deploys FXSwap pools."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963",
+    "name": "Tricrypto-NG Factory",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "find_pool_for_coins(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "i-th pool deployed by this factory that holds both coins."
+     },
+     {
+      "signature": "pool_count()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of pools deployed by this factory; enumerate with pool_list(uint256)."
+     },
+     {
+      "signature": "pool_list(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool address by index."
+     },
+     {
+      "signature": "get_coins(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coins of a pool deployed by this factory."
+     },
+     {
+      "signature": "get_coin_indices(address,address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(pool, from, to) -> coin indices (uint256 i, uint256 j)."
+     },
+     {
+      "signature": "get_gauge(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Gauge of a pool (zero if none)."
+     },
+     {
+      "signature": "deploy_gauge(address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless: deploy a liquidity gauge for a pool of this factory (it still needs a DAO vote to receive CRV emissions)."
+     },
+     {
+      "signature": "deploy_pool(string,string,address[3],address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256[2])",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless three-coin volatile pool creation. Tricrypto-NG pools are their own LP token and expose exchange(uint256,uint256,uint256,uint256[,bool use_eth][,address receiver]), get_dy(uint256,uint256,uint256), add_liquidity(uint256[3],uint256[,bool,address]), calc_token_amount(uint256[3],bool), remove_liquidity_one_coin(uint256,uint256,uint256[,bool,address])."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xD533a949740bb3306d119CC777fa900bA034cd52",
+    "name": "CRV (Curve DAO Token)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "CRV balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender. Approve CRV to veCRV 0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2 before create_lock/increase_amount."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer (18 decimals)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2",
+    "name": "veCRV (VotingEscrow)",
+    "role": "governance",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "create_lock(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Lock CRV (_value, 18 decimals) until _unlock_time (unix seconds, rounded down to whole weeks; 1 week to 4 years). Approve CRV to veCRV first. One lock per address; smart contracts must be whitelisted by the DAO (smart_wallet_checker)."
+     },
+     {
+      "signature": "increase_amount(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Add CRV to an existing, unexpired lock."
+     },
+     {
+      "signature": "increase_unlock_time(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Extend the lock end (new time, rounded to weeks, max 4 years from now)."
+     },
+     {
+      "signature": "withdraw()",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw all CRV after the lock has expired. No early exit."
+     },
+     {
+      "signature": "locked(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(amount int128, end) of a lock."
+     },
+     {
+      "signature": "locked__end(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Lock end timestamp."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Current veCRV voting power (decays linearly to 0 at lock end); not transferable."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total veCRV voting power."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x2F50D538606Fa9EDD2B11E2446BEb18C9D5846bB",
+    "name": "GaugeController",
+    "role": "governance",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "vote_for_gauge_weights(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Allocate veCRV voting power to a gauge (_user_weight in basis points, 0-10000 across all your votes). Each gauge vote can be changed once every 10 days."
+     },
+     {
+      "signature": "gauge_relative_weight(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Gauge's share of weekly CRV emissions (1e18 = 100%)."
+     },
+     {
+      "signature": "get_gauge_weight(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Absolute gauge weight."
+     },
+     {
+      "signature": "gauge_types(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Gauge type id (reverts if the gauge is not added)."
+     },
+     {
+      "signature": "vote_user_power(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Basis points of a user's voting power already used."
+     },
+     {
+      "signature": "last_user_vote(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Timestamp of a user's last vote for a gauge."
+     },
+     {
+      "signature": "n_gauges()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of gauges; gauges(uint256) enumerates them."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xd061D61a4d941c39E5453435B6345Dc261C2fcE0",
+    "name": "Minter (CRV emissions)",
+    "role": "staking",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "mint(address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim the caller's accrued CRV from an Ethereum liquidity gauge (gauge address as argument)."
+     },
+     {
+      "signature": "mint_many(address[8])",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim CRV from up to 8 gauges (zero-padded)."
+     },
+     {
+      "signature": "mint_for(address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim for another address (gauge, for); that address must have approved the caller via toggle_approve_mint."
+     },
+     {
+      "signature": "minted(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "CRV already minted (user, gauge)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xD16d5eC345Dd86Fb63C6a9C43c517210F1027914",
+    "name": "FeeDistributor (crvUSD revenue to veCRV)",
+    "role": "staking",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "claim()",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim the caller's weekly protocol revenue (paid in crvUSD) earned by veCRV. Revenue is distributed within 24 h after Thursday 00:00 UTC each week."
+     },
+     {
+      "signature": "claim(address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim on behalf of an address (funds go to that address)."
+     },
+     {
+      "signature": "claim_many(address[20])",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim for up to 20 addresses."
+     },
+     {
+      "signature": "token()",
+      "kind": "read",
+      "payable": false,
+      "description": "Reward token (crvUSD)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E",
+    "name": "crvUSD",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "crvUSD balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender. Approve to scrvUSD 0x0655977FEb2f289A4aB78af67BAB0d17aAb84367 for deposit, or to a pool/router for swaps."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer (18 decimals)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xC9332fdCB1C491Dcc683bAe86Fe3cb70360738BC",
+    "name": "crvUSD ControllerFactory (mint markets)",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "n_collaterals()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of crvUSD mint markets (9 at research time); enumerate with collaterals(uint256), controllers(uint256), amms(uint256)."
+     },
+     {
+      "signature": "get_controller(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Controller (loan management) for a collateral token. Controllers expose create_loan(uint256 collateral, uint256 debt, uint256 N) (payable for ETH markets), add_collateral(uint256), remove_collateral(uint256), borrow_more(uint256,uint256), repay(...), debt(address), health(address), max_borrowable(uint256,uint256); approve collateral to the Controller first. N = number of LLAMMA liquidation bands (4-50)."
+     },
+     {
+      "signature": "get_amm(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LLAMMA AMM for a collateral token."
+     },
+     {
+      "signature": "controllers(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Controller by index."
+     },
+     {
+      "signature": "total_debt()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total crvUSD debt across mint markets."
+     },
+     {
+      "signature": "debt_ceiling(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Debt ceiling of a controller."
+     },
+     {
+      "signature": "stablecoin()",
+      "kind": "read",
+      "payable": false,
+      "description": "crvUSD address."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x0655977FEb2f289A4aB78af67BAB0d17aAb84367",
+    "name": "scrvUSD (Savings crvUSD, Yearn V3 vault, ERC-4626)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit crvUSD (assets, 18 decimals) for scrvUSD shares. Approve crvUSD to scrvUSD first."
+     },
+     {
+      "signature": "redeem(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn shares (shares, receiver, owner) for crvUSD."
+     },
+     {
+      "signature": "withdraw(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw an exact crvUSD amount."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "crvUSD per share amount."
+     },
+     {
+      "signature": "pricePerShare()",
+      "kind": "read",
+      "payable": false,
+      "description": "crvUSD per 1e18 shares (about 1.1158 at research time)."
+     },
+     {
+      "signature": "previewRedeem(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Exact crvUSD for redeeming shares."
+     },
+     {
+      "signature": "totalAssets()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total crvUSD in the vault."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "scrvUSD balance (18 decimals)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7",
+    "name": "3pool (DAI/USDC/USDT StableSwap)",
+    "role": "pool",
+    "proxy": false,
+    "source": "https://github.com/curvefi/curve-contract/tree/master/contracts/pools/3pool",
+    "keyFunctions": [
+     {
+      "signature": "exchange(int128,int128,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Swap coin i for coin j (indices: 0 DAI 18 dec, 1 USDC 6 dec, 2 USDT 6 dec): (i, j, dx in coin i units, min_dy). Approve coin i to the pool first (USDT requires resetting the allowance to 0 before setting a new non-zero value). Returns nothing; check balances."
+     },
+     {
+      "signature": "get_dy(int128,int128,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Output amount of coin j for dx of coin i (after fee)."
+     },
+     {
+      "signature": "add_liquidity(uint256[3],uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit [DAI, USDC, USDT] amounts (each in its own decimals) for at least min_mint_amount 3Crv LP (0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490). Approve each coin first."
+     },
+     {
+      "signature": "calc_token_amount(uint256[3],bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "Approximate LP minted (deposit=true) or burned (false), fees excluded; apply slippage."
+     },
+     {
+      "signature": "remove_liquidity_one_coin(uint256,int128,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn 3Crv (_token_amount) for one coin i with min_amount."
+     },
+     {
+      "signature": "calc_withdraw_one_coin(uint256,int128)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coin i received for burning an LP amount."
+     },
+     {
+      "signature": "remove_liquidity(uint256,uint256[3])",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn LP for all three coins proportionally (min_amounts)."
+     },
+     {
+      "signature": "get_virtual_price()",
+      "kind": "read",
+      "payable": false,
+      "description": "LP value in USD-ish units (1e18)."
+     },
+     {
+      "signature": "coins(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coin address by index."
+     },
+     {
+      "signature": "balances(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool balance of coin index."
+     },
+     {
+      "signature": "fee()",
+      "kind": "read",
+      "payable": false,
+      "description": "Swap fee (1e10 = 100%)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490",
+    "name": "3Crv (3pool LP token)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://github.com/curvefi/curve-contract/tree/master/contracts/pools/3pool",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "3Crv balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender. Approve to the 3pool gauge 0xbFcF63294aD7105dEa65aA58F8AE5BE2D9d0952A before deposit."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer (18 decimals)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xbFcF63294aD7105dEa65aA58F8AE5BE2D9d0952A",
+    "name": "3pool LiquidityGauge (v1)",
+    "role": "staking",
+    "proxy": false,
+    "source": "https://github.com/curvefi/curve-contract/tree/master/contracts/pools/3pool",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake 3Crv (approve 3Crv to the gauge first) to earn CRV emissions."
+     },
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake on behalf of an address."
+     },
+     {
+      "signature": "withdraw(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Unstake 3Crv."
+     },
+     {
+      "signature": "claimable_tokens(address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Pending CRV (non-view in Vyper; call it with eth_call). CRV is claimed through Minter 0xd061D61a4d941c39E5453435B6345Dc261C2fcE0 .mint(gauge), not on the gauge. Newer gauges (LiquidityGaugeV6) add deposit(uint256,address,bool), withdraw(uint256,bool) and claim_rewards() for extra reward tokens."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Staked LP."
+     },
+     {
+      "signature": "working_balances(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Boost-adjusted balance (veCRV boost up to 2.5x)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E",
+    "name": "crvUSD/USDC pool (Stableswap factory plain pool)",
+    "role": "pool",
+    "proxy": true,
+    "source": "https://docs.curve.finance/developer/amm/router/curve-router-ng.md",
+    "keyFunctions": [
+     {
+      "signature": "exchange(int128,int128,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Swap (i, j, dx, min_dy); coins: 0 USDC (6 dec), 1 crvUSD (18 dec). Approve coin i first. Returns dy."
+     },
+     {
+      "signature": "exchange(int128,int128,uint256,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Swap with a receiver."
+     },
+     {
+      "signature": "get_dy(int128,int128,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote."
+     },
+     {
+      "signature": "add_liquidity(uint256[2],uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit [USDC, crvUSD]; the pool is its own LP token."
+     },
+     {
+      "signature": "calc_token_amount(uint256[2],bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "Approximate LP for a deposit/withdrawal."
+     },
+     {
+      "signature": "remove_liquidity_one_coin(uint256,int128,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn LP for one coin."
+     },
+     {
+      "signature": "calc_withdraw_one_coin(uint256,int128)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coin received for an LP amount."
+     },
+     {
+      "signature": "price_oracle()",
+      "kind": "read",
+      "payable": false,
+      "description": "EMA price of crvUSD in USDC (1e18)."
+     },
+     {
+      "signature": "coins(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coin by index."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x2191718CD32d02B8E60BAdFFeA33E4B5DD9A0A0D",
+    "name": "CurveRouterNG v1.1.0",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "exchange(address[11],uint256[5][5],uint256,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Swap along a route of up to 5 Curve pools: (_route, _swap_params, _amount of _route[0] in its decimals, _expected = min output of the final token). Approve _route[0] to the router first; send ETH as msg.value when _route[0] is 0xEeee...EEeE. Returns the amount received. _route is address[11] = [tokenIn, pool1, token1, pool2, token2, ...] padded with zero addresses (up to 5 hops; native ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). _swap_params is uint256[5][5], one row per hop = [i, j, swap_type, pool_type, n_coins] where i/j are coin indices in that pool (pool.coins(n) or MetaRegistry.get_coin_indices), swap_type 1=exchange, 2=exchange_underlying, 3=underlying via zap, 4=coin->LP (add_liquidity), 5=lending underlying->LP, 6=LP->coin (remove_liquidity_one_coin), 7=LP->lending underlying, 8=ETH/WETH/stETH-type wraps, 9=SNX; pool_type 1=stableswap, 2=twocrypto, 3=tricrypto, 4=LLAMMA; unused rows are zeros. Routes are computed off-chain: use Curve's JS library (@curvefi/api router, github.com/curvefi/curve-js, or curve-router-js) or build a one-hop route yourself from MetaRegistry.find_pools_for_coins + get_coin_indices."
+     },
+     {
+      "signature": "exchange(address[11],uint256[5][5],uint256,uint256,address[5],address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Same with _pools (only needed for swap_type 3 zaps; zeros otherwise) and an explicit _receiver."
+     },
+     {
+      "signature": "get_dy(address[11],uint256[5][5],uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote output of the final token for _amount in (same route encoding). Use it to set _expected with slippage."
+     },
+     {
+      "signature": "get_dy(address[11],uint256[5][5],uint256,address[5])",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote with _pools for zap routes."
+     },
+     {
+      "signature": "get_dx(address[11],uint256[5][5],uint256,address[5])",
+      "kind": "read",
+      "payable": false,
+      "description": "Required input for a desired final output (_out_amount); pass zero-filled _pools when not using zaps. Approximate for crypto pools."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Router version string."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x5ffe7FB82894076ECB99A30D6A32e969e6e35E98",
+    "name": "AddressProvider (NG)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "get_address(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Address registered under an ID. IDs: 2 Exchange Router, 7 MetaRegistry, 11 TricryptoNG Factory, 12 StableswapNG Factory, 13 TwocryptoNG Factory, 14/15 calc zaps, 16 crvUSD controller factory, 19 CRV, 25 crvUSD (not every ID exists on every chain)."
+     },
+     {
+      "signature": "get_id_info(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(addr, description, version, last_modified) for an ID."
+     },
+     {
+      "signature": "ids()",
+      "kind": "read",
+      "payable": false,
+      "description": "All registered IDs."
+     },
+     {
+      "signature": "num_entries()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of entries."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x13526206545e2DC7CcfBaF28dC88F440ce7AD3e0",
+    "name": "MetaRegistry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "find_pools_for_coins(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "All registered pools (all factories and legacy registries) that hold both tokens. Main on-chain pool discovery call."
+     },
+     {
+      "signature": "find_pool_for_coins(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "The i-th pool for a token pair (i = 0 is the first)."
+     },
+     {
+      "signature": "get_coin_indices(address,address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(pool, from, to) -> (i, j, is_underlying). Use i/j in pool.exchange or as the router's swap_params."
+     },
+     {
+      "signature": "get_coins(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coins of a pool (address[8], zero-padded)."
+     },
+     {
+      "signature": "get_n_coins(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of coins."
+     },
+     {
+      "signature": "get_decimals(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coin decimals (uint256[8])."
+     },
+     {
+      "signature": "get_balances(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool balances (uint256[8])."
+     },
+     {
+      "signature": "get_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LP token of a pool (same as the pool for NG pools)."
+     },
+     {
+      "signature": "get_pool_from_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool address for an LP token (e.g. 3Crv -> 3pool)."
+     },
+     {
+      "signature": "get_gauge(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Liquidity gauge of a pool (zero if none)."
+     },
+     {
+      "signature": "get_virtual_price_from_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LP virtual price (1e18)."
+     },
+     {
+      "signature": "get_pool_name(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool name."
+     },
+     {
+      "signature": "pool_count()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of registered pools; enumerate with pool_list(uint256)."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x4f37A9d177470499A2dD084621020b023fcffc1F",
+    "name": "CurveRouterNG v1.1.0",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "exchange(address[11],uint256[5][5],uint256,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Swap along a route of up to 5 Curve pools: (_route, _swap_params, _amount of _route[0] in its decimals, _expected = min output of the final token). Approve _route[0] to the router first; send ETH as msg.value when _route[0] is 0xEeee...EEeE. Returns the amount received. _route is address[11] = [tokenIn, pool1, token1, pool2, token2, ...] padded with zero addresses (up to 5 hops; native ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). _swap_params is uint256[5][5], one row per hop = [i, j, swap_type, pool_type, n_coins] where i/j are coin indices in that pool (pool.coins(n) or MetaRegistry.get_coin_indices), swap_type 1=exchange, 2=exchange_underlying, 3=underlying via zap, 4=coin->LP (add_liquidity), 5=lending underlying->LP, 6=LP->coin (remove_liquidity_one_coin), 7=LP->lending underlying, 8=ETH/WETH/stETH-type wraps, 9=SNX; pool_type 1=stableswap, 2=twocrypto, 3=tricrypto, 4=LLAMMA; unused rows are zeros. Routes are computed off-chain: use Curve's JS library (@curvefi/api router, github.com/curvefi/curve-js, or curve-router-js) or build a one-hop route yourself from MetaRegistry.find_pools_for_coins + get_coin_indices."
+     },
+     {
+      "signature": "exchange(address[11],uint256[5][5],uint256,uint256,address[5],address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Same with _pools (only needed for swap_type 3 zaps; zeros otherwise) and an explicit _receiver."
+     },
+     {
+      "signature": "get_dy(address[11],uint256[5][5],uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote output of the final token for _amount in (same route encoding). Use it to set _expected with slippage."
+     },
+     {
+      "signature": "get_dy(address[11],uint256[5][5],uint256,address[5])",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote with _pools for zap routes."
+     },
+     {
+      "signature": "get_dx(address[11],uint256[5][5],uint256,address[5])",
+      "kind": "read",
+      "payable": false,
+      "description": "Required input for a desired final output (_out_amount); pass zero-filled _pools when not using zaps. Approximate for crypto pools."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Router version string."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x5ffe7FB82894076ECB99A30D6A32e969e6e35E98",
+    "name": "AddressProvider (NG)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "get_address(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Address registered under an ID. IDs: 2 Exchange Router, 7 MetaRegistry, 11 TricryptoNG Factory, 12 StableswapNG Factory, 13 TwocryptoNG Factory, 14/15 calc zaps, 16 crvUSD controller factory, 19 CRV, 25 crvUSD (not every ID exists on every chain)."
+     },
+     {
+      "signature": "get_id_info(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(addr, description, version, last_modified) for an ID."
+     },
+     {
+      "signature": "ids()",
+      "kind": "read",
+      "payable": false,
+      "description": "All registered IDs."
+     },
+     {
+      "signature": "num_entries()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of entries."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x87DD13Dd25a1DBde0E1EdcF5B8Fa6cfff7eABCaD",
+    "name": "MetaRegistry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "find_pools_for_coins(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "All registered pools (all factories and legacy registries) that hold both tokens. Main on-chain pool discovery call."
+     },
+     {
+      "signature": "find_pool_for_coins(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "The i-th pool for a token pair (i = 0 is the first)."
+     },
+     {
+      "signature": "get_coin_indices(address,address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(pool, from, to) -> (i, j, is_underlying). Use i/j in pool.exchange or as the router's swap_params."
+     },
+     {
+      "signature": "get_coins(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coins of a pool (address[8], zero-padded)."
+     },
+     {
+      "signature": "get_n_coins(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of coins."
+     },
+     {
+      "signature": "get_decimals(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coin decimals (uint256[8])."
+     },
+     {
+      "signature": "get_balances(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool balances (uint256[8])."
+     },
+     {
+      "signature": "get_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LP token of a pool (same as the pool for NG pools)."
+     },
+     {
+      "signature": "get_pool_from_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool address for an LP token (e.g. 3Crv -> 3pool)."
+     },
+     {
+      "signature": "get_gauge(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Liquidity gauge of a pool (zero if none)."
+     },
+     {
+      "signature": "get_virtual_price_from_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LP virtual price (1e18)."
+     },
+     {
+      "signature": "get_pool_name(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool name."
+     },
+     {
+      "signature": "pool_count()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of registered pools; enumerate with pool_list(uint256)."
+     }
+    ]
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x0DCDED3545D565bA3B19E683431381007245d983",
+    "name": "CurveRouterNG v1.1.0",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "exchange(address[11],uint256[5][5],uint256,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Swap along a route of up to 5 Curve pools: (_route, _swap_params, _amount of _route[0] in its decimals, _expected = min output of the final token). Approve _route[0] to the router first; send ETH as msg.value when _route[0] is 0xEeee...EEeE. Returns the amount received. _route is address[11] = [tokenIn, pool1, token1, pool2, token2, ...] padded with zero addresses (up to 5 hops; native ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). _swap_params is uint256[5][5], one row per hop = [i, j, swap_type, pool_type, n_coins] where i/j are coin indices in that pool (pool.coins(n) or MetaRegistry.get_coin_indices), swap_type 1=exchange, 2=exchange_underlying, 3=underlying via zap, 4=coin->LP (add_liquidity), 5=lending underlying->LP, 6=LP->coin (remove_liquidity_one_coin), 7=LP->lending underlying, 8=ETH/WETH/stETH-type wraps, 9=SNX; pool_type 1=stableswap, 2=twocrypto, 3=tricrypto, 4=LLAMMA; unused rows are zeros. Routes are computed off-chain: use Curve's JS library (@curvefi/api router, github.com/curvefi/curve-js, or curve-router-js) or build a one-hop route yourself from MetaRegistry.find_pools_for_coins + get_coin_indices."
+     },
+     {
+      "signature": "exchange(address[11],uint256[5][5],uint256,uint256,address[5],address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Same with _pools (only needed for swap_type 3 zaps; zeros otherwise) and an explicit _receiver."
+     },
+     {
+      "signature": "get_dy(address[11],uint256[5][5],uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote output of the final token for _amount in (same route encoding). Use it to set _expected with slippage."
+     },
+     {
+      "signature": "get_dy(address[11],uint256[5][5],uint256,address[5])",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote with _pools for zap routes."
+     },
+     {
+      "signature": "get_dx(address[11],uint256[5][5],uint256,address[5])",
+      "kind": "read",
+      "payable": false,
+      "description": "Required input for a desired final output (_out_amount); pass zero-filled _pools when not using zaps. Approximate for crypto pools."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Router version string."
+     }
+    ]
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x5ffe7FB82894076ECB99A30D6A32e969e6e35E98",
+    "name": "AddressProvider (NG)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "get_address(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Address registered under an ID. IDs: 2 Exchange Router, 7 MetaRegistry, 11 TricryptoNG Factory, 12 StableswapNG Factory, 13 TwocryptoNG Factory, 14/15 calc zaps, 16 crvUSD controller factory, 19 CRV, 25 crvUSD (not every ID exists on every chain)."
+     },
+     {
+      "signature": "get_id_info(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(addr, description, version, last_modified) for an ID."
+     },
+     {
+      "signature": "ids()",
+      "kind": "read",
+      "payable": false,
+      "description": "All registered IDs."
+     },
+     {
+      "signature": "num_entries()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of entries."
+     }
+    ]
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0xc65CB3156225380BEda366610BaB18D5835A1647",
+    "name": "MetaRegistry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "find_pools_for_coins(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "All registered pools (all factories and legacy registries) that hold both tokens. Main on-chain pool discovery call."
+     },
+     {
+      "signature": "find_pool_for_coins(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "The i-th pool for a token pair (i = 0 is the first)."
+     },
+     {
+      "signature": "get_coin_indices(address,address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(pool, from, to) -> (i, j, is_underlying). Use i/j in pool.exchange or as the router's swap_params."
+     },
+     {
+      "signature": "get_coins(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coins of a pool (address[8], zero-padded)."
+     },
+     {
+      "signature": "get_n_coins(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of coins."
+     },
+     {
+      "signature": "get_decimals(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coin decimals (uint256[8])."
+     },
+     {
+      "signature": "get_balances(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool balances (uint256[8])."
+     },
+     {
+      "signature": "get_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LP token of a pool (same as the pool for NG pools)."
+     },
+     {
+      "signature": "get_pool_from_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool address for an LP token (e.g. 3Crv -> 3pool)."
+     },
+     {
+      "signature": "get_gauge(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Liquidity gauge of a pool (zero if none)."
+     },
+     {
+      "signature": "get_virtual_price_from_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LP virtual price (1e18)."
+     },
+     {
+      "signature": "get_pool_name(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool name."
+     },
+     {
+      "signature": "pool_count()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of registered pools; enumerate with pool_list(uint256)."
+     }
+    ]
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0x0DCDED3545D565bA3B19E683431381007245d983",
+    "name": "CurveRouterNG v1.1.0",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "exchange(address[11],uint256[5][5],uint256,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Swap along a route of up to 5 Curve pools: (_route, _swap_params, _amount of _route[0] in its decimals, _expected = min output of the final token). Approve _route[0] to the router first; send ETH as msg.value when _route[0] is 0xEeee...EEeE. Returns the amount received. _route is address[11] = [tokenIn, pool1, token1, pool2, token2, ...] padded with zero addresses (up to 5 hops; native ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). _swap_params is uint256[5][5], one row per hop = [i, j, swap_type, pool_type, n_coins] where i/j are coin indices in that pool (pool.coins(n) or MetaRegistry.get_coin_indices), swap_type 1=exchange, 2=exchange_underlying, 3=underlying via zap, 4=coin->LP (add_liquidity), 5=lending underlying->LP, 6=LP->coin (remove_liquidity_one_coin), 7=LP->lending underlying, 8=ETH/WETH/stETH-type wraps, 9=SNX; pool_type 1=stableswap, 2=twocrypto, 3=tricrypto, 4=LLAMMA; unused rows are zeros. Routes are computed off-chain: use Curve's JS library (@curvefi/api router, github.com/curvefi/curve-js, or curve-router-js) or build a one-hop route yourself from MetaRegistry.find_pools_for_coins + get_coin_indices."
+     },
+     {
+      "signature": "exchange(address[11],uint256[5][5],uint256,uint256,address[5],address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Same with _pools (only needed for swap_type 3 zaps; zeros otherwise) and an explicit _receiver."
+     },
+     {
+      "signature": "get_dy(address[11],uint256[5][5],uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote output of the final token for _amount in (same route encoding). Use it to set _expected with slippage."
+     },
+     {
+      "signature": "get_dy(address[11],uint256[5][5],uint256,address[5])",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote with _pools for zap routes."
+     },
+     {
+      "signature": "get_dx(address[11],uint256[5][5],uint256,address[5])",
+      "kind": "read",
+      "payable": false,
+      "description": "Required input for a desired final output (_out_amount); pass zero-filled _pools when not using zaps. Approximate for crypto pools."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Router version string."
+     }
+    ]
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0x5ffe7FB82894076ECB99A30D6A32e969e6e35E98",
+    "name": "AddressProvider (NG)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "get_address(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Address registered under an ID. IDs: 2 Exchange Router, 7 MetaRegistry, 11 TricryptoNG Factory, 12 StableswapNG Factory, 13 TwocryptoNG Factory, 14/15 calc zaps, 16 crvUSD controller factory, 19 CRV, 25 crvUSD (not every ID exists on every chain)."
+     },
+     {
+      "signature": "get_id_info(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(addr, description, version, last_modified) for an ID."
+     },
+     {
+      "signature": "ids()",
+      "kind": "read",
+      "payable": false,
+      "description": "All registered IDs."
+     },
+     {
+      "signature": "num_entries()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of entries."
+     }
+    ]
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0x296d2B5C23833A70D07c8fCBB97d846c1ff90DDD",
+    "name": "MetaRegistry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "find_pools_for_coins(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "All registered pools (all factories and legacy registries) that hold both tokens. Main on-chain pool discovery call."
+     },
+     {
+      "signature": "find_pool_for_coins(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "The i-th pool for a token pair (i = 0 is the first)."
+     },
+     {
+      "signature": "get_coin_indices(address,address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(pool, from, to) -> (i, j, is_underlying). Use i/j in pool.exchange or as the router's swap_params."
+     },
+     {
+      "signature": "get_coins(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coins of a pool (address[8], zero-padded)."
+     },
+     {
+      "signature": "get_n_coins(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of coins."
+     },
+     {
+      "signature": "get_decimals(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coin decimals (uint256[8])."
+     },
+     {
+      "signature": "get_balances(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool balances (uint256[8])."
+     },
+     {
+      "signature": "get_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LP token of a pool (same as the pool for NG pools)."
+     },
+     {
+      "signature": "get_pool_from_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool address for an LP token (e.g. 3Crv -> 3pool)."
+     },
+     {
+      "signature": "get_gauge(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Liquidity gauge of a pool (zero if none)."
+     },
+     {
+      "signature": "get_virtual_price_from_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LP virtual price (1e18)."
+     },
+     {
+      "signature": "get_pool_name(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool name."
+     },
+     {
+      "signature": "pool_count()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of registered pools; enumerate with pool_list(uint256)."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0xA72C85C258A81761433B4e8da60505Fe3Dd551CC",
+    "name": "CurveRouterNG v1.1.0",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "exchange(address[11],uint256[5][5],uint256,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Swap along a route of up to 5 Curve pools: (_route, _swap_params, _amount of _route[0] in its decimals, _expected = min output of the final token). Approve _route[0] to the router first; send ETH as msg.value when _route[0] is 0xEeee...EEeE. Returns the amount received. _route is address[11] = [tokenIn, pool1, token1, pool2, token2, ...] padded with zero addresses (up to 5 hops; native ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). _swap_params is uint256[5][5], one row per hop = [i, j, swap_type, pool_type, n_coins] where i/j are coin indices in that pool (pool.coins(n) or MetaRegistry.get_coin_indices), swap_type 1=exchange, 2=exchange_underlying, 3=underlying via zap, 4=coin->LP (add_liquidity), 5=lending underlying->LP, 6=LP->coin (remove_liquidity_one_coin), 7=LP->lending underlying, 8=ETH/WETH/stETH-type wraps, 9=SNX; pool_type 1=stableswap, 2=twocrypto, 3=tricrypto, 4=LLAMMA; unused rows are zeros. Routes are computed off-chain: use Curve's JS library (@curvefi/api router, github.com/curvefi/curve-js, or curve-router-js) or build a one-hop route yourself from MetaRegistry.find_pools_for_coins + get_coin_indices."
+     },
+     {
+      "signature": "exchange(address[11],uint256[5][5],uint256,uint256,address[5],address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Same with _pools (only needed for swap_type 3 zaps; zeros otherwise) and an explicit _receiver."
+     },
+     {
+      "signature": "get_dy(address[11],uint256[5][5],uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote output of the final token for _amount in (same route encoding). Use it to set _expected with slippage."
+     },
+     {
+      "signature": "get_dy(address[11],uint256[5][5],uint256,address[5])",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote with _pools for zap routes."
+     },
+     {
+      "signature": "get_dx(address[11],uint256[5][5],uint256,address[5])",
+      "kind": "read",
+      "payable": false,
+      "description": "Required input for a desired final output (_out_amount); pass zero-filled _pools when not using zaps. Approximate for crypto pools."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Router version string."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x5ffe7FB82894076ECB99A30D6A32e969e6e35E98",
+    "name": "AddressProvider (NG)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "get_address(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Address registered under an ID. IDs: 2 Exchange Router, 7 MetaRegistry, 11 TricryptoNG Factory, 12 StableswapNG Factory, 13 TwocryptoNG Factory, 14/15 calc zaps, 16 crvUSD controller factory, 19 CRV, 25 crvUSD (not every ID exists on every chain)."
+     },
+     {
+      "signature": "get_id_info(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(addr, description, version, last_modified) for an ID."
+     },
+     {
+      "signature": "ids()",
+      "kind": "read",
+      "payable": false,
+      "description": "All registered IDs."
+     },
+     {
+      "signature": "num_entries()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of entries."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x4C7A5A5D57F98D362f1c00D7135F0dA5B6f82227",
+    "name": "MetaRegistry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "find_pools_for_coins(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "All registered pools (all factories and legacy registries) that hold both tokens. Main on-chain pool discovery call."
+     },
+     {
+      "signature": "find_pool_for_coins(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "The i-th pool for a token pair (i = 0 is the first)."
+     },
+     {
+      "signature": "get_coin_indices(address,address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(pool, from, to) -> (i, j, is_underlying). Use i/j in pool.exchange or as the router's swap_params."
+     },
+     {
+      "signature": "get_coins(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coins of a pool (address[8], zero-padded)."
+     },
+     {
+      "signature": "get_n_coins(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of coins."
+     },
+     {
+      "signature": "get_decimals(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coin decimals (uint256[8])."
+     },
+     {
+      "signature": "get_balances(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool balances (uint256[8])."
+     },
+     {
+      "signature": "get_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LP token of a pool (same as the pool for NG pools)."
+     },
+     {
+      "signature": "get_pool_from_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool address for an LP token (e.g. 3Crv -> 3pool)."
+     },
+     {
+      "signature": "get_gauge(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Liquidity gauge of a pool (zero if none)."
+     },
+     {
+      "signature": "get_virtual_price_from_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LP virtual price (1e18)."
+     },
+     {
+      "signature": "get_pool_name(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool name."
+     },
+     {
+      "signature": "pool_count()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of registered pools; enumerate with pool_list(uint256)."
+     }
+    ]
+   },
+   {
+    "chain": "avalanche",
+    "chainId": 43114,
+    "address": "0x0DCDED3545D565bA3B19E683431381007245d983",
+    "name": "CurveRouterNG v1.1.0",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "exchange(address[11],uint256[5][5],uint256,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Swap along a route of up to 5 Curve pools: (_route, _swap_params, _amount of _route[0] in its decimals, _expected = min output of the final token). Approve _route[0] to the router first; send ETH as msg.value when _route[0] is 0xEeee...EEeE. Returns the amount received. _route is address[11] = [tokenIn, pool1, token1, pool2, token2, ...] padded with zero addresses (up to 5 hops; native ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE). _swap_params is uint256[5][5], one row per hop = [i, j, swap_type, pool_type, n_coins] where i/j are coin indices in that pool (pool.coins(n) or MetaRegistry.get_coin_indices), swap_type 1=exchange, 2=exchange_underlying, 3=underlying via zap, 4=coin->LP (add_liquidity), 5=lending underlying->LP, 6=LP->coin (remove_liquidity_one_coin), 7=LP->lending underlying, 8=ETH/WETH/stETH-type wraps, 9=SNX; pool_type 1=stableswap, 2=twocrypto, 3=tricrypto, 4=LLAMMA; unused rows are zeros. Routes are computed off-chain: use Curve's JS library (@curvefi/api router, github.com/curvefi/curve-js, or curve-router-js) or build a one-hop route yourself from MetaRegistry.find_pools_for_coins + get_coin_indices."
+     },
+     {
+      "signature": "exchange(address[11],uint256[5][5],uint256,uint256,address[5],address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Same with _pools (only needed for swap_type 3 zaps; zeros otherwise) and an explicit _receiver."
+     },
+     {
+      "signature": "get_dy(address[11],uint256[5][5],uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote output of the final token for _amount in (same route encoding). Use it to set _expected with slippage."
+     },
+     {
+      "signature": "get_dy(address[11],uint256[5][5],uint256,address[5])",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote with _pools for zap routes."
+     },
+     {
+      "signature": "get_dx(address[11],uint256[5][5],uint256,address[5])",
+      "kind": "read",
+      "payable": false,
+      "description": "Required input for a desired final output (_out_amount); pass zero-filled _pools when not using zaps. Approximate for crypto pools."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Router version string."
+     }
+    ]
+   },
+   {
+    "chain": "avalanche",
+    "chainId": 43114,
+    "address": "0x5ffe7FB82894076ECB99A30D6A32e969e6e35E98",
+    "name": "AddressProvider (NG)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "get_address(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Address registered under an ID. IDs: 2 Exchange Router, 7 MetaRegistry, 11 TricryptoNG Factory, 12 StableswapNG Factory, 13 TwocryptoNG Factory, 14/15 calc zaps, 16 crvUSD controller factory, 19 CRV, 25 crvUSD (not every ID exists on every chain)."
+     },
+     {
+      "signature": "get_id_info(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "(addr, description, version, last_modified) for an ID."
+     },
+     {
+      "signature": "ids()",
+      "kind": "read",
+      "payable": false,
+      "description": "All registered IDs."
+     },
+     {
+      "signature": "num_entries()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of entries."
+     }
+    ]
+   },
+   {
+    "chain": "avalanche",
+    "chainId": 43114,
+    "address": "0xB6845b562F01eB02ef20CBB63553d2a768e5a1Cb",
+    "name": "MetaRegistry",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.curve.finance/deployments.json",
+    "keyFunctions": [
+     {
+      "signature": "find_pools_for_coins(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "All registered pools (all factories and legacy registries) that hold both tokens. Main on-chain pool discovery call."
+     },
+     {
+      "signature": "find_pool_for_coins(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "The i-th pool for a token pair (i = 0 is the first)."
+     },
+     {
+      "signature": "get_coin_indices(address,address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(pool, from, to) -> (i, j, is_underlying). Use i/j in pool.exchange or as the router's swap_params."
+     },
+     {
+      "signature": "get_coins(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coins of a pool (address[8], zero-padded)."
+     },
+     {
+      "signature": "get_n_coins(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of coins."
+     },
+     {
+      "signature": "get_decimals(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Coin decimals (uint256[8])."
+     },
+     {
+      "signature": "get_balances(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool balances (uint256[8])."
+     },
+     {
+      "signature": "get_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LP token of a pool (same as the pool for NG pools)."
+     },
+     {
+      "signature": "get_pool_from_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool address for an LP token (e.g. 3Crv -> 3pool)."
+     },
+     {
+      "signature": "get_gauge(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Liquidity gauge of a pool (zero if none)."
+     },
+     {
+      "signature": "get_virtual_price_from_lp_token(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "LP virtual price (1e18)."
+     },
+     {
+      "signature": "get_pool_name(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Pool name."
+     },
+     {
+      "signature": "pool_count()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of registered pools; enumerate with pool_list(uint256)."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [
+   {
+    "name": "Curve API",
+    "url": "https://api.curve.finance/v1",
+    "auth": "none",
+    "use": "Pool lists with coins, balances, TVL, APYs and gauge data: e.g. /getPools/all/{blockchainId} (ethereum, arbitrum, base, ...), /getPoolList/{blockchainId}, /getAllGauges, /getVolumes/{blockchainId}, /getTokens/all/{blockchainId}. OpenAPI spec at https://api.curve.finance/v1/openapi.json. Use it to pick pools and coin indices for routes.",
+    "source": "https://docs.curve.finance/developer/integration/api/curve-api"
+   },
+   {
+    "name": "Curve Prices API",
+    "url": "https://prices.curve.finance",
+    "auth": "none",
+    "use": "Pool metadata, OHLC, trades, volume, liquidity and LP positions, crvUSD markets: e.g. /v1/pools/{chain}/{address}, /v1/ohlc/{chain}/{address}, /v1/liquidity/{chain}/{user}/positions, /v1/crvusd/markets. OpenAPI spec at https://prices.curve.finance/feeds-docs/openapi.json.",
+    "source": "https://docs.curve.finance/developer/integration/api/curve-prices"
+   },
+   {
+    "name": "Curve deployments JSON",
+    "url": "https://docs.curve.finance/deployments.json",
+    "auth": "none",
+    "use": "Machine-readable list of every official Curve contract per chain (routers, registries, factories, gauges, tokens, crvUSD, LlamaLend).",
+    "source": "https://docs.curve.finance/llms.txt"
+   }
+  ],
+  "actions": [
+   {
+    "name": "swap via router",
+    "description": "Swap any tokens through up to 5 Curve pools.",
+    "how": "Compute _route and _swap_params off-chain (Curve JS @curvefi/api router or curve-router-js), or for one hop: pool = MetaRegistry.find_pools_for_coins(tokenIn, tokenOut)[0]; (i, j, _) = MetaRegistry.get_coin_indices(pool, tokenIn, tokenOut); route = [tokenIn, pool, tokenOut, 0x0...]; params[0] = [i, j, 1, pool_type, n_coins]. Quote router.get_dy(route, params, amount); approve tokenIn to the router (Ethereum v1.2 0x45312ea0eFf7E09C83CBE249fa1d7598c4C8cd4e); router.exchange(route, params, amount, minOut)."
+   },
+   {
+    "name": "swap directly in a pool",
+    "description": "Single-pool swap without the router.",
+    "how": "Find indices with pool.coins(n) or MetaRegistry.get_coin_indices; approve coin i to the pool; pool.exchange(i, j, dx, min_dy). Stableswap pools use int128 indices, Twocrypto/Tricrypto-NG use uint256."
+   },
+   {
+    "name": "add liquidity",
+    "description": "Deposit coins into a pool for LP.",
+    "how": "Approve each coin to the pool; quote calc_token_amount(amounts, true); add_liquidity(amounts, minLP). Amount array length = n_coins (NG stableswap takes a dynamic array). Remove with remove_liquidity_one_coin(lp, i, min) after calc_withdraw_one_coin."
+   },
+   {
+    "name": "stake LP for CRV",
+    "description": "Earn CRV emissions on Ethereum.",
+    "how": "gauge = MetaRegistry.get_gauge(pool); approve LP to gauge; gauge.deposit(amount). Claim CRV with Minter.mint(gauge); extra rewards with gauge.claim_rewards() on newer gauges."
+   },
+   {
+    "name": "lock CRV (veCRV)",
+    "description": "Get voting power, boost and revenue.",
+    "how": "CRV.approve(veCRV, amt); veCRV.create_lock(amt, unlockTime up to now+4y). Vote with GaugeController.vote_for_gauge_weights(gauge, bps). Claim weekly crvUSD revenue with FeeDistributor.claim(). Withdraw only after expiry: veCRV.withdraw()."
+   },
+   {
+    "name": "save in scrvUSD",
+    "description": "Earn the crvUSD savings rate.",
+    "how": "crvUSD.approve(scrvUSD, amt); scrvUSD.deposit(amt, receiver); exit with redeem(shares, receiver, owner)."
+   }
+  ],
+  "risks": [
+   "July 30, 2023: a Vyper compiler bug (versions 0.2.15, 0.2.16, 0.3.0 had broken @nonreentrant locks) let attackers re-enter and drain several Curve pools compiled with those versions (tens of millions of USD lost; partly recovered). Current pool implementations use fixed compiler versions, but old pools and other Vyper contracts may still carry legacy code risk.",
+   "Depeg risk: in stable pools an LP ends up holding mostly the depegged asset if one coin loses its peg; losses can be permanent.",
+   "Permissionless factories: anyone can deploy pools with any token (including malicious or fee-on-transfer tokens). Only use pools whose coins you have verified; MetaRegistry/API listing is not an endorsement.",
+   "Volatile (Twocrypto/Tricrypto) pools have impermanent loss and re-pegging dynamics; quotes for multi-hop routes can move between quote and execution: always set _expected/min_dy.",
+   "Governance: the Curve DAO (veCRV) controls pool parameters, gauge additions and crvUSD markets; the Emergency DAO (5-of-9 multisig) can kill gauges and cancel parameter changes. The AddressProvider is administered by a Curve individual and its IDs can change, so verify addresses it returns.",
+   "veCRV locks cannot be withdrawn before expiry and are non-transferable. crvUSD loans in LLAMMA are soft-liquidated gradually and can be hard-liquidated if health drops below 0.",
+   "USDT (3pool coin 2) requires approve(0) before changing a non-zero allowance; 3pool's exchange returns no value."
+  ],
+  "notes": "All addresses come from Curve's official deployments data (docs.curve.finance/deployments.json, rendered at docs.curve.finance/developer/deployments.md), except the 3pool/3Crv/3pool gauge (official curvefi/curve-contract GitHub README and pooldata.json) and the crvUSD/USDC pool (example pool in the official CurveRouterNG docs). Every Ethereum address and every L2 router/AddressProvider/MetaRegistry was checked for code on-chain; router versions were read on-chain (Ethereum 0x45312ea0... = 1.2.0, 0x16C6521D... = 1.1.0, all listed L2 routers = 1.1.0). Wiring checked: MetaRegistry.get_pool_from_lp_token(3Crv) = 3pool, get_gauge(3pool) = the listed gauge, scrvUSD.asset = crvUSD, ControllerFactory.stablecoin = crvUSD, crvUSD/USDC pool coins = [USDC, crvUSD]; the Ethereum AddressProvider IDs were enumerated on-chain. Signatures are from Sourcify-verified Vyper sources (router v1.2, MetaRegistry, factories, veCRV, GaugeController, Minter, FeeDistributor, ControllerFactory, 3pool, gauge, scrvUSD's Yearn V3 implementation, crvUSD/USDC pool implementation) and Curve docs (AddressProvider ABI, NG pool and LiquidityGaugeV6 signatures). Pools are not enumerated here: discover them with MetaRegistry.find_pools_for_coins / pool_list, the factories' pool_list, or the Curve API. CRV emissions are claimed via the Minter only on Ethereum; L2 gauges are child gauges (see docs.curve.finance/developer/gauges/xchain-gauges/). Not listed: L2 factories, CRV/crvUSD/scrvUSD token addresses on L2s and the ~25 other chains (all in deployments.json), LlamaLend v1/v2 contracts (separate DefiLlama entries), individual crvUSD controllers (get them from ControllerFactory), calc zaps, fee burners and DAO Aragon voting contracts. The AddressProvider ID 2 'Exchange Router' on Ethereum still points to router v1.1 while the deployments page also lists v1.2; both work with the same route encoding.",
+  "sources": [
+   "https://docs.curve.finance/deployments.json",
+   "https://docs.curve.finance/developer/deployments.md",
+   "https://docs.curve.finance/user/deployments.md",
+   "https://docs.curve.finance/llms.txt",
+   "https://docs.curve.finance/developer/amm/router/curve-router-ng.md",
+   "https://docs.curve.finance/developer/integration/address-provider.md",
+   "https://docs.curve.finance/developer/integration/meta-registry.md",
+   "https://docs.curve.finance/developer/amm/stableswap-ng/pools/plainpool.md",
+   "https://docs.curve.finance/developer/amm/twocrypto-ng/pools/twocrypto.md",
+   "https://docs.curve.finance/developer/gauges/gauges/liquidity-gauge-v6.md",
+   "https://docs.curve.finance/developer/integration/api/curve-api",
+   "https://api.curve.finance/v1/openapi.json",
+   "https://docs.curve.finance/developer/integration/api/curve-prices",
+   "https://prices.curve.finance/feeds-docs/openapi.json",
+   "https://docs.curve.finance/user/security/risks/pools.md",
+   "https://github.com/curvefi/curve-contract/tree/master/contracts/pools/3pool",
+   "https://raw.githubusercontent.com/curvefi/curve-contract/master/contracts/pools/3pool/pooldata.json",
+   "https://github.com/curvefi/curve-router-ng/tree/master/contracts",
+   "https://hackmd.io/@vyperlang/HJUgNMhs2",
+   "https://sourcify.dev/server/v2/contract/1/0x45312ea0eFf7E09C83CBE249fa1d7598c4C8cd4e",
+   "https://sourcify.dev/server/v2/contract/1/0xF98B45FA17DE75FB1aD0e7aFD971b0ca00e379fC",
+   "https://sourcify.dev/server/v2/contract/1/0x6A8cbed756804B16E05E741eDaBd5cB544AE21bf",
+   "https://sourcify.dev/server/v2/contract/1/0x98EE851a00abeE0d95D08cF4CA2BdCE32aeaAF7F",
+   "https://sourcify.dev/server/v2/contract/1/0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963",
+   "https://sourcify.dev/server/v2/contract/1/0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2",
+   "https://sourcify.dev/server/v2/contract/1/0x2F50D538606Fa9EDD2B11E2446BEb18C9D5846bB",
+   "https://sourcify.dev/server/v2/contract/1/0xd061D61a4d941c39E5453435B6345Dc261C2fcE0",
+   "https://sourcify.dev/server/v2/contract/1/0xD16d5eC345Dd86Fb63C6a9C43c517210F1027914",
+   "https://sourcify.dev/server/v2/contract/1/0xC9332fdCB1C491Dcc683bAe86Fe3cb70360738BC",
+   "https://sourcify.dev/server/v2/contract/1/0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7",
+   "https://sourcify.dev/server/v2/contract/1/0xbFcF63294aD7105dEa65aA58F8AE5BE2D9d0952A",
+   "https://sourcify.dev/server/v2/contract/1/0xd8063123bba3b480569244ae66bfe72b6c84b00d",
+   "https://sourcify.dev/server/v2/contract/1/0x67fe41a94e779ccfa22cff02cc2957dc9c0e4286",
+   "https://api.llama.fi/protocol/curve-dex"
+  ],
+  "researchedAt": "2026-11-25"
+ },
+ {
+  "slug": "eigencloud",
+  "name": "EigenLayer (EigenCloud)",
+  "category": "Restaking",
+  "description": "EigenLayer restaking on Ethereum: deposit LSTs (stETH, rETH, cbETH, ...) or EIGEN into strategies via the StrategyManager, delegate to an operator through the DelegationManager, withdraw through a ~14-day queue, and claim AVS rewards with merkle proofs from the RewardsCoordinator. Native ETH restaking goes through EigenPods. Restaked assets are slashable.",
+  "website": "https://www.eigencloud.xyz",
+  "docs": "https://docs.eigencloud.xyz",
+  "defillama": "https://defillama.com/protocol/eigencloud",
+  "chains": [
+   "ethereum"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x858646372CC42E1A627fcE94aa7A7033e7CF075A",
+    "name": "StrategyManager",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "depositIntoStrategy(address,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit ERC-20 into a strategy: (strategy, token, amount in token base units). Approve the StrategyManager (not the strategy) for the token first. Credits deposit shares to msg.sender; if msg.sender is delegated, the shares are delegated to that operator too. Strategy must be whitelisted (strategyIsWhitelistedForDeposit). Returns depositShares."
+     },
+     {
+      "signature": "depositIntoStrategyWithSignature(address,address,uint256,address,uint256,bytes)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit on behalf of a staker with their EIP-712 signature: (strategy, token, amount, staker, expiry, signature). Caller pays the tokens."
+     },
+     {
+      "signature": "stakerDepositShares(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit shares of (staker, strategy). Deposit shares are not reduced by slashing; use DelegationManager.getWithdrawableShares for the withdrawable amount."
+     },
+     {
+      "signature": "getDeposits(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (address[] strategies, uint256[] depositShares) for a staker (ERC-20 strategies only; native ETH shares live in EigenPodManager)."
+     },
+     {
+      "signature": "stakerStrategyListLength(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of strategies a staker has deposits in (max 32)."
+     },
+     {
+      "signature": "strategyIsWhitelistedForDeposit(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if deposits into the strategy are allowed."
+     },
+     {
+      "signature": "paused()",
+      "kind": "read",
+      "payable": false,
+      "description": "Pause bitmap; non-zero bits mean some actions are paused (0 on 2026-11-25)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x39053D51B77DC0d36036Fc1fCc8Cb819df8Ef37A",
+    "name": "DelegationManager",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "delegateTo(address,(bytes,uint256),bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "Delegate ALL of msg.sender's restaked assets to an operator: (operator, approverSignatureAndExpiry=(bytes signature, uint256 expiry), approverSalt). If delegationApprover(operator) is the zero address, pass an empty signature (\"0x\", 0) and salt 0x00..00; otherwise you need an EIP-712 signature from the approver (digest from calculateDelegationApprovalDigestHash) with an unused salt. Reverts if already delegated or the operator is not registered. A staker can be delegated to one operator only."
+     },
+     {
+      "signature": "undelegate(address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Undelegate a staker (callable by the staker, or by the operator / its approver to force-undelegate). Queues withdrawals for ALL the staker's shares (one withdrawal per strategy) and returns their withdrawal roots; these must be completed after the delay like any withdrawal. Operators cannot undelegate."
+     },
+     {
+      "signature": "redelegate(address,(bytes,uint256),bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "Undelegate (queuing withdrawals for all shares) and delegate to a new operator in one call. Queued shares can later be completed as shares (receiveAsTokens=false) to restake them with the new operator."
+     },
+     {
+      "signature": "queueWithdrawals((address[],uint256[],address)[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Queue withdrawals. Each QueuedWithdrawalParams = (address[] strategies, uint256[] depositShares, address __deprecated_withdrawer). depositShares are deposit shares (see StrategyManager.getDeposits / getDepositedShares), not tokens; the withdrawer field is ignored (only the staker can complete). Returns withdrawal roots. Shares stay slashable for MIN_WITHDRAWAL_DELAY_BLOCKS."
+     },
+     {
+      "signature": "completeQueuedWithdrawal((address,address,address,uint256,uint32,address[],uint256[]),address[],bool)",
+      "kind": "write",
+      "payable": false,
+      "description": "Complete one withdrawal after minWithdrawalDelayBlocks() (100800 blocks, ~14 days) have passed since startBlock: (Withdrawal = (address staker, address delegatedTo, address withdrawer, uint256 nonce, uint32 startBlock, address[] strategies, uint256[] scaledShares) exactly as queued, tokens[] = each strategy's underlyingToken() in the same order (any value for beacon-chain ETH), receiveAsTokens). receiveAsTokens=true sends tokens to the staker; false re-credits shares (delegated to the current operator). Amount received is reduced by any slashing up to the completion block. Only the staker can call. Get the struct from getQueuedWithdrawals(staker) or the SlashingWithdrawalQueued event."
+     },
+     {
+      "signature": "completeQueuedWithdrawals((address,address,address,uint256,uint32,address[],uint256[])[],address[][],bool[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Batch version of completeQueuedWithdrawal."
+     },
+     {
+      "signature": "getQueuedWithdrawals(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (Withdrawal[] withdrawals, uint256[][] shares) for a staker: the structs to pass to completeQueuedWithdrawal and the shares currently expected (after slashing)."
+     },
+     {
+      "signature": "getQueuedWithdrawal(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (Withdrawal, uint256[] shares) for a withdrawal root."
+     },
+     {
+      "signature": "getWithdrawableShares(address,address[])",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (withdrawableShares[], depositShares[]) for (staker, strategies): withdrawable reflects slashing; use it to size queueWithdrawals."
+     },
+     {
+      "signature": "getDepositedShares(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (strategies[], depositShares[]) across StrategyManager and EigenPodManager (includes beacon chain ETH strategy 0xbeaC0eeEeeeeEEeEeEEEEeeEEeEeeeEeeEEBEaC0)."
+     },
+     {
+      "signature": "delegatedTo(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Operator a staker is delegated to (zero address if none)."
+     },
+     {
+      "signature": "isDelegated(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the staker is delegated."
+     },
+     {
+      "signature": "isOperator(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the address is a registered operator."
+     },
+     {
+      "signature": "delegationApprover(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Operator's delegation approver; zero address means anyone can delegate with an empty signature."
+     },
+     {
+      "signature": "minWithdrawalDelayBlocks()",
+      "kind": "read",
+      "payable": false,
+      "description": "Withdrawal delay in blocks (100800 = ~14 days on mainnet, read 2026-11-25)."
+     },
+     {
+      "signature": "calculateWithdrawalRoot((address,address,address,uint256,uint32,address[],uint256[]))",
+      "kind": "read",
+      "payable": false,
+      "description": "Hash of a Withdrawal struct; pendingWithdrawals(root) tells if it is still queued."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x7750d328b314EfFa365A0402CcfD489B80B0adda",
+    "name": "RewardsCoordinator",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "processClaim((uint32,uint32,bytes,(address,bytes32),uint32[],bytes[],(address,uint256)[]),address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim rewards: (RewardsMerkleClaim claim, recipient). claim = (uint32 rootIndex, uint32 earnerIndex, bytes earnerTreeProof, (address earner, bytes32 earnerTokenRoot) earnerLeaf, uint32[] tokenIndices, bytes[] tokenTreeProofs, (address token, uint256 cumulativeEarnings)[] tokenLeaves). Proofs are generated off-chain from the posted distribution (EigenLayer app or the official eigenlayer CLI). Pays cumulativeEarnings minus cumulativeClaimed per token. Caller must be the earner or its claimerFor."
+     },
+     {
+      "signature": "processClaims((uint32,uint32,bytes,(address,bytes32),uint32[],bytes[],(address,uint256)[])[],address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Batch claim to one recipient."
+     },
+     {
+      "signature": "checkClaim((uint32,uint32,bytes,(address,bytes32),uint32[],bytes[],(address,uint256)[]))",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns true if the claim proofs are valid (reverts otherwise). Use before processClaim."
+     },
+     {
+      "signature": "setClaimerFor(address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Let another address claim (and choose the recipient of) msg.sender's rewards."
+     },
+     {
+      "signature": "claimerFor(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Claimer set for an earner (zero = earner claims)."
+     },
+     {
+      "signature": "cumulativeClaimed(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Amount of a token already claimed by an earner (earner, token)."
+     },
+     {
+      "signature": "getCurrentClaimableDistributionRoot()",
+      "kind": "read",
+      "payable": false,
+      "description": "Latest active root: (bytes32 root, uint32 rewardsCalculationEndTimestamp, uint32 activatedAt, bool disabled). Roots become claimable activationDelay() after posting (604800 s = 7 days on 2026-11-25)."
+     },
+     {
+      "signature": "getDistributionRootsLength()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of posted roots; rootIndex in a claim refers to this array."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x948a420b8CC1d6BFd0B6087C2E7c344a2CD0bc39",
+    "name": "AllocationManager",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "getMaxMagnitude(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Operator's max magnitude for a strategy (operator, strategy), 1e18 = never slashed; lower values mean the operator has been slashed and delegated stakers' withdrawable shares drop proportionally."
+     },
+     {
+      "signature": "getAllocation(address,(address,uint32),address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Allocation of an operator to an operator set (operator, (avs, id), strategy): (currentMagnitude, pendingDiff, effectBlock). Allocated stake is slashable by that AVS."
+     },
+     {
+      "signature": "getEncumberedMagnitude(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Magnitude an operator has allocated or pending for a strategy (operator, strategy)."
+     },
+     {
+      "signature": "isOperatorSlashable(address,(address,uint32))",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the operator can currently be slashed by the operator set."
+     },
+     {
+      "signature": "getAllocationDelay(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (isSet, delay in blocks) before an operator's new allocations take effect."
+     },
+     {
+      "signature": "DEALLOCATION_DELAY()",
+      "kind": "read",
+      "payable": false,
+      "description": "Blocks before deallocated magnitude stops being slashable (100800, ~14 days, read 2026-11-25)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x91E677b07F7AF907ec9a428aafA9fc14a0d3A338",
+    "name": "EigenPodManager",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "createPod()",
+      "kind": "write",
+      "payable": false,
+      "description": "Deploy an EigenPod for msg.sender (one per address). Native restaking: point validator withdrawal credentials to the pod, then verify credentials on the pod with beacon-chain proofs (needs proof tooling such as the official eigenpod-proofs-generation CLI)."
+     },
+     {
+      "signature": "getPod(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "EigenPod address for an owner (deterministic, also before it is deployed)."
+     },
+     {
+      "signature": "hasPod(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the owner has deployed a pod."
+     },
+     {
+      "signature": "podOwnerDepositShares(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Beacon chain ETH deposit shares (int256, wei; can be negative after penalties)."
+     },
+     {
+      "signature": "beaconChainSlashingFactor(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Factor (1e18 = none) applied to a pod owner's shares for beacon-chain slashing."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x93c4b944D05dfe6df7645A86cd2206016c51564D",
+    "name": "Strategy stETH (StrategyBaseTVLLimits)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "underlyingToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Token this strategy accepts (stETH 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84 (Lido, rebasing))."
+     },
+     {
+      "signature": "sharesToUnderlyingView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+     },
+     {
+      "signature": "underlyingToSharesView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert an underlying token amount to strategy shares."
+     },
+     {
+      "signature": "userUnderlyingView(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+     },
+     {
+      "signature": "totalShares()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total shares issued by the strategy."
+     },
+     {
+      "signature": "getTVLLimits()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x1BeE69b7dFFfA4E2d53C2a2Df135C388AD25dCD2",
+    "name": "Strategy rETH (StrategyBaseTVLLimits)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "underlyingToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Token this strategy accepts (rETH 0xae78736Cd615f374D3085123A210448E74Fc6393 (Rocket Pool))."
+     },
+     {
+      "signature": "sharesToUnderlyingView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+     },
+     {
+      "signature": "underlyingToSharesView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert an underlying token amount to strategy shares."
+     },
+     {
+      "signature": "userUnderlyingView(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+     },
+     {
+      "signature": "totalShares()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total shares issued by the strategy."
+     },
+     {
+      "signature": "getTVLLimits()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x54945180dB7943c0ed0FEE7EdaB2Bd24620256bc",
+    "name": "Strategy cbETH (StrategyBaseTVLLimits)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "underlyingToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Token this strategy accepts (cbETH 0xBe9895146f7AF43049ca1c1AE358B0541Ea49704 (Coinbase))."
+     },
+     {
+      "signature": "sharesToUnderlyingView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+     },
+     {
+      "signature": "underlyingToSharesView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert an underlying token amount to strategy shares."
+     },
+     {
+      "signature": "userUnderlyingView(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+     },
+     {
+      "signature": "totalShares()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total shares issued by the strategy."
+     },
+     {
+      "signature": "getTVLLimits()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x9d7eD45EE2E8FC5482fa2428f15C971e6369011d",
+    "name": "Strategy ETHx (StrategyBaseTVLLimits)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "underlyingToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Token this strategy accepts (ETHx 0xA35b1B31Ce002FBF2058D22F30f95D405200A15b (Stader))."
+     },
+     {
+      "signature": "sharesToUnderlyingView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+     },
+     {
+      "signature": "underlyingToSharesView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert an underlying token amount to strategy shares."
+     },
+     {
+      "signature": "userUnderlyingView(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+     },
+     {
+      "signature": "totalShares()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total shares issued by the strategy."
+     },
+     {
+      "signature": "getTVLLimits()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x13760F50a9d7377e4F20CB8CF9e4c26586c658ff",
+    "name": "Strategy ankrETH (StrategyBaseTVLLimits)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "underlyingToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Token this strategy accepts (ankrETH 0xE95A203B1a91a908F9B9CE46459d101078c2c3cb (Ankr))."
+     },
+     {
+      "signature": "sharesToUnderlyingView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+     },
+     {
+      "signature": "underlyingToSharesView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert an underlying token amount to strategy shares."
+     },
+     {
+      "signature": "userUnderlyingView(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+     },
+     {
+      "signature": "totalShares()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total shares issued by the strategy."
+     },
+     {
+      "signature": "getTVLLimits()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xa4C637e0F704745D182e4D38cAb7E7485321d059",
+    "name": "Strategy OETH (StrategyBaseTVLLimits)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "underlyingToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Token this strategy accepts (OETH 0x856c4Efb76C1D1AE02e20CEB03A2A6a08b0b8dC3 (Origin, rebasing))."
+     },
+     {
+      "signature": "sharesToUnderlyingView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+     },
+     {
+      "signature": "underlyingToSharesView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert an underlying token amount to strategy shares."
+     },
+     {
+      "signature": "userUnderlyingView(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+     },
+     {
+      "signature": "totalShares()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total shares issued by the strategy."
+     },
+     {
+      "signature": "getTVLLimits()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x57ba429517c3473B6d34CA9aCd56c0e735b94c02",
+    "name": "Strategy osETH (StrategyBaseTVLLimits)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "underlyingToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Token this strategy accepts (osETH 0xf1C9acDc66974dFB6dEcB12aA385b9cD01190E38 (StakeWise))."
+     },
+     {
+      "signature": "sharesToUnderlyingView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+     },
+     {
+      "signature": "underlyingToSharesView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert an underlying token amount to strategy shares."
+     },
+     {
+      "signature": "userUnderlyingView(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+     },
+     {
+      "signature": "totalShares()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total shares issued by the strategy."
+     },
+     {
+      "signature": "getTVLLimits()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x0Fe4F44beE93503346A3Ac9EE5A26b130a5796d6",
+    "name": "Strategy swETH (StrategyBaseTVLLimits)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "underlyingToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Token this strategy accepts (swETH 0xf951E335afb289353dc249e82926178EaC7DEd78 (Swell))."
+     },
+     {
+      "signature": "sharesToUnderlyingView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+     },
+     {
+      "signature": "underlyingToSharesView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert an underlying token amount to strategy shares."
+     },
+     {
+      "signature": "userUnderlyingView(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+     },
+     {
+      "signature": "totalShares()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total shares issued by the strategy."
+     },
+     {
+      "signature": "getTVLLimits()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x7CA911E83dabf90C90dD3De5411a10F1A6112184",
+    "name": "Strategy wBETH (StrategyBaseTVLLimits)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "underlyingToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Token this strategy accepts (wBETH 0xa2E3356610840701BDf5611a53974510Ae27E2e1 (Binance))."
+     },
+     {
+      "signature": "sharesToUnderlyingView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+     },
+     {
+      "signature": "underlyingToSharesView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert an underlying token amount to strategy shares."
+     },
+     {
+      "signature": "userUnderlyingView(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+     },
+     {
+      "signature": "totalShares()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total shares issued by the strategy."
+     },
+     {
+      "signature": "getTVLLimits()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x8CA7A5d6f3acd3A7A8bC468a8CD0FB14B6BD28b6",
+    "name": "Strategy sfrxETH (StrategyBaseTVLLimits)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "underlyingToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Token this strategy accepts (sfrxETH 0xac3E018457B222d93114458476f3E3416Abbe38F (Frax))."
+     },
+     {
+      "signature": "sharesToUnderlyingView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+     },
+     {
+      "signature": "underlyingToSharesView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert an underlying token amount to strategy shares."
+     },
+     {
+      "signature": "userUnderlyingView(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+     },
+     {
+      "signature": "totalShares()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total shares issued by the strategy."
+     },
+     {
+      "signature": "getTVLLimits()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xAe60d8180437b5C34bB956822ac2710972584473",
+    "name": "Strategy lsETH (StrategyBaseTVLLimits)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "underlyingToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Token this strategy accepts (LsETH 0x8c1BEd5b9a0928467c9B1341Da1D7BD5e10b6549 (Liquid Collective))."
+     },
+     {
+      "signature": "sharesToUnderlyingView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+     },
+     {
+      "signature": "underlyingToSharesView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert an underlying token amount to strategy shares."
+     },
+     {
+      "signature": "userUnderlyingView(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+     },
+     {
+      "signature": "totalShares()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total shares issued by the strategy."
+     },
+     {
+      "signature": "getTVLLimits()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x298aFB19A105D59E74658C4C334Ff360BadE6dd2",
+    "name": "Strategy mETH (StrategyBaseTVLLimits)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "underlyingToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "Token this strategy accepts (mETH 0xd5F7838F5C461fefF7FE49ea5ebaF7728bB0ADfa (Mantle))."
+     },
+     {
+      "signature": "sharesToUnderlyingView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert strategy shares to underlying token amount (base units). Shares are not 1:1 with tokens for rebasing tokens such as stETH."
+     },
+     {
+      "signature": "underlyingToSharesView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Convert an underlying token amount to strategy shares."
+     },
+     {
+      "signature": "userUnderlyingView(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Underlying token value of a staker's deposit shares (ignores slashing; use DelegationManager.getWithdrawableShares for what can be withdrawn)."
+     },
+     {
+      "signature": "totalShares()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total shares issued by the strategy."
+     },
+     {
+      "signature": "getTVLLimits()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns (maxPerDeposit, maxTotalDeposits) in underlying base units. Both were type(uint256).max (no cap) on 2026-11-25; the docs say the TVL-limit feature has never been used, but governance could set caps and deposits above them revert."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xaCB55C530Acdb2849e6d4f36992Cd8c9D50ED8F7",
+    "name": "EigenStrategy (EIGEN)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "underlyingToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "bEIGEN (0x83E9115d334D248Ce39a6f36144aEaB5b3456e75). The strategy also accepts EIGEN: depositIntoStrategy(EigenStrategy, EIGEN, amount) unwraps EIGEN 1:1 to bEIGEN; on completion pass EIGEN (or bEIGEN) as the token to receive."
+     },
+     {
+      "signature": "sharesToUnderlyingView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Shares to bEIGEN amount (1:1 on 2026-11-25)."
+     },
+     {
+      "signature": "underlyingToSharesView(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "bEIGEN/EIGEN amount to shares."
+     },
+     {
+      "signature": "userUnderlyingView(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Underlying value of a staker's shares."
+     },
+     {
+      "signature": "totalShares()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total shares."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x5e4C39Ad7A3E881585e383dB9827EB4811f6F647",
+    "name": "StrategyFactory",
+    "role": "factory",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "deployedStrategies(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Strategy deployed by the factory for a token (zero if none). Use this to find the strategy for tokens other than the LSTs listed here; the LST strategies above were deployed before the factory and are not returned here."
+     },
+     {
+      "signature": "deployNewStrategy(address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionlessly deploy and whitelist a StrategyBase for an ERC-20 (once per token; blacklisted tokens revert)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xec53bF9167f50cDEB3Ae105f56099aaaB9061F83",
+    "name": "EIGEN",
+    "role": "token",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "EIGEN balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender (e.g. StrategyManager before depositIntoStrategy into the EIGEN strategy)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer EIGEN."
+     },
+     {
+      "signature": "wrap(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Wrap bEIGEN into EIGEN 1:1 (approve EIGEN to pull bEIGEN first)."
+     },
+     {
+      "signature": "unwrap(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Unwrap EIGEN into bEIGEN 1:1."
+     },
+     {
+      "signature": "delegate(address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Delegate ERC20Votes voting power."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x83E9115d334D248Ce39a6f36144aEaB5b3456e75",
+    "name": "bEIGEN (Backing Eigen)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "bEIGEN balance (18 decimals). bEIGEN backs EIGEN 1:1 and is the underlying token of the EIGEN strategy; most users hold EIGEN instead."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [],
+  "actions": [
+   {
+    "name": "restake an LST",
+    "description": "Deposit e.g. stETH or rETH into its EigenLayer strategy.",
+    "how": "token.approve(StrategyManager, amount); StrategyManager.depositIntoStrategy(strategy, token, amount). Pick the strategy whose underlyingToken() is the token (list above, or StrategyFactory.deployedStrategies(token) for other ERC-20s). Check strategyIsWhitelistedForDeposit and getTVLLimits first. Deposits earn rewards only once delegated to an operator."
+   },
+   {
+    "name": "restake EIGEN",
+    "description": "Deposit EIGEN into the EIGEN strategy.",
+    "how": "EIGEN.approve(StrategyManager, amount); StrategyManager.depositIntoStrategy(0xaCB55C530Acdb2849e6d4f36992Cd8c9D50ED8F7, EIGEN, amount)."
+   },
+   {
+    "name": "delegate to an operator",
+    "description": "Delegate all restaked assets to one operator.",
+    "how": "Check DelegationManager.isOperator(op) and delegationApprover(op). If the approver is the zero address call delegateTo(op, (\"0x\", 0), 0x0000000000000000000000000000000000000000000000000000000000000000); otherwise obtain the approver's signature and salt from the operator."
+   },
+   {
+    "name": "withdraw (unstake)",
+    "description": "Queue then complete a withdrawal back to tokens.",
+    "how": "getWithdrawableShares/getDeposits to size it; DelegationManager.queueWithdrawals([{strategies, depositShares, __deprecated_withdrawer: staker}]); wait until block > startBlock + minWithdrawalDelayBlocks() (100800 blocks, ~14 days); read getQueuedWithdrawals(staker) and call completeQueuedWithdrawal(withdrawal, [underlyingToken per strategy], true)."
+   },
+   {
+    "name": "switch operator",
+    "description": "Move delegation to another operator.",
+    "how": "DelegationManager.redelegate(newOperator, sig, salt) (or undelegate then delegateTo). This queues withdrawals for all shares; after ~14 days complete them with receiveAsTokens=false to restake as shares with the new operator."
+   },
+   {
+    "name": "claim rewards",
+    "description": "Claim AVS/EIGEN rewards.",
+    "how": "Build the RewardsMerkleClaim with the EigenLayer app or the official eigenlayer CLI (rewards claim) against getCurrentClaimableDistributionRoot(); verify with RewardsCoordinator.checkClaim(claim); then processClaim(claim, recipient)."
+   }
+  ],
+  "risks": [
+   "Withdrawals take 100800 blocks (~14 days) from queueing (minWithdrawalDelayBlocks, read 2026-11-25); there is no instant exit except selling a liquid restaking token elsewhere.",
+   "Slashing is live: operators allocate stake to AVS operator sets in the AllocationManager and can be slashed; slashing reduces delegated stakers' withdrawable shares, including shares in the withdrawal queue until the delay ends. Slashed funds can be burned or, for redistributable operator sets, redistributed.",
+   "Delegation is all-or-nothing and undelegating (or being force-undelegated by the operator) queues withdrawals for all shares.",
+   "Strategy deposit caps: the LST strategies have per-deposit and total TVL limits (getTVLLimits); unlimited on 2026-11-25 but governance can set them, and deposits above a cap revert. Strategies can also be removed from the deposit whitelist.",
+   "Rebasing tokens (stETH, OETH) are held as shares; token amounts returned can differ slightly from deposits by rounding.",
+   "Rewards are only claimable via merkle proofs of an off-chain calculation; roots activate 7 days after posting (activationDelay, 2026-11-25).",
+   "Core contracts are upgradeable proxies controlled by EigenLayer governance multisigs/timelocks; the pauser multisig can pause deposits, delegation and withdrawals."
+  ],
+  "notes": "All addresses are from the Mainnet Ethereum deployment table in the official Layr-Labs/eigenlayer-contracts README (main branch, mainnet on v1.13.1 at research time); all have code on-chain and their implementations are Sourcify-verified (exact match). DefiLlama lists the protocol as \"EigenCloud\" with slug eigencloud. Function semantics come from the verified implementation sources and the official docs/core/*.md in the same repo. Left out: AVSDirectory, PermissionController, EmissionsController, ReleaseManager, TaskMailbox, multichain (CrossChainRegistry, KeyRegistrar, certificate verifiers, Base destination contracts), DurationVaultStrategy beacon, EigenPod beacon and multisigs (operator/AVS/governance infrastructure, not called by restakers); the beacon-chain ETH pseudo-strategy 0xbeaC0eeEeeeeEEeEeEEEEeeEEeEeeeEeeEEBEaC0 is not a contract (README). Strategies deployed through the StrategyFactory for other tokens are discoverable with deployedStrategies(token). No official public HTTP API for rewards proofs was confirmed (docs.eigencloud.xyz returned 403 to our fetches), so offchainApis is empty; rewards proofs come from the EigenLayer app or the official CLI. docs.eigencloud.xyz is listed as the docs site from DefiLlama/search results but could not be read directly.",
+  "sources": [
+   "https://api.llama.fi/protocol/eigencloud",
+   "https://api.llama.fi/protocols",
+   "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/README.md",
+   "https://raw.githubusercontent.com/Layr-Labs/eigenlayer-contracts/main/README.md",
+   "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/docs/core/DelegationManager.md",
+   "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/docs/core/StrategyManager.md",
+   "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/docs/core/RewardsCoordinator.md",
+   "https://github.com/Layr-Labs/eigenlayer-contracts/blob/main/docs/core/AllocationManager.md",
+   "https://sourcify.dev/server/v2/contract/1/0x6a8bed4062c895130e2d09ba442d3ecead5df6c2",
+   "https://sourcify.dev/server/v2/contract/1/0xa7536c85898dc424c6bfe8592f983661f830656a",
+   "https://sourcify.dev/server/v2/contract/1/0xd22dd829779adbf3869fb224f703452f7f95e9db",
+   "https://sourcify.dev/server/v2/contract/1/0xa0673c53980665a706352412d2538ba005403c26",
+   "https://sourcify.dev/server/v2/contract/1/0xda2a68d318a571dd550f2ecbcb09bf50497e97c4",
+   "https://sourcify.dev/server/v2/contract/1/0xb427e2eb4bb33ee3f1ee72dc9e347e8625a72230",
+   "https://sourcify.dev/server/v2/contract/1/0x509aadb99487182b21ff4e9e7eb362a9ea8e8f40",
+   "https://sourcify.dev/server/v2/contract/1/0xbbc4124c74c567396181fbfbae746b80619d2b76",
+   "https://sourcify.dev/server/v2/contract/1/0x2c4a81e257381f87f5a5c4bd525116466d972e50",
+   "https://sourcify.dev/server/v2/contract/1/0xf2b225815f70c9b327dc9db758a36c92a4279b17",
+   "https://docs.eigencloud.xyz/eigenlayer/concepts/rewards/rewards-claiming-faq",
+   "https://ethereum-rpc.publicnode.com"
+  ],
+  "researchedAt": "2026-11-25"
+ },
+ {
   "slug": "ens",
   "name": "ENS (Ethereum Name Service)",
   "category": "Domains",
@@ -8102,6 +14330,1865 @@ export const PROTOCOLS: ProtocolEntry[] = [
    "https://github.com/ensdomains/ens-contracts",
    "https://api.llama.fi/protocol/ens",
    "https://defillama.com/protocol/ens"
+  ],
+  "researchedAt": "2026-11-25"
+ },
+ {
+  "slug": "ethena",
+  "name": "Ethena",
+  "category": "Basis Trading",
+  "description": "Ethena issues USDe, a synthetic dollar backed by crypto and stablecoin collateral hedged with short perpetual/futures positions, and sUSDe, an ERC-4626 vault that earns the protocol's rewards (funding, basis, staking and stablecoin yield) with an unstake cooldown. Agents can hold/transfer USDe, stake USDe into sUSDe and unstake via the cooldown, stake ENA into sENA, and bridge USDe/sUSDe/ENA as LayerZero OFTs; direct mint/redeem is only for whitelisted (KYB'd) users through Ethena's RFQ API.",
+  "website": "https://ethena.fi",
+  "docs": "https://docs.ethena.fi",
+  "defillama": "https://defillama.com/protocol/ethena",
+  "chains": [
+   "ethereum",
+   "arbitrum",
+   "base",
+   "bsc",
+   "optimism",
+   "mantle",
+   "linea",
+   "scroll",
+   "xlayer",
+   "fraxtal",
+   "mode",
+   "berachain",
+   "zksync"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3",
+    "name": "USDe (synthetic dollar)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "USDe balance (18 decimals)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "USDe supply on Ethereum (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve sUSDe 0x9D39A5DE30e57443BfF2A8307A4256c8797A3497 (to stake), the EthenaMinting contract (whitelisted redeemers) or a DEX."
+     },
+     {
+      "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "EIP-2612 permit: (owner, spender, value, deadline, v, r, s)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer USDe. Holding/transferring is permissionless; only the minter contract can mint."
+     },
+     {
+      "signature": "transferFrom(address,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Standard ERC-20 transferFrom."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497",
+    "name": "sUSDe (StakedUSDeV2, ERC-4626 with cooldown)",
+    "role": "vault",
+    "proxy": false,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake USDe for sUSDe (approve USDe to sUSDe first): (assets, receiver) -> shares. Not offered to EU/EEA residents (docs); reverts for blacklisted (fully restricted) addresses."
+     },
+     {
+      "signature": "mint(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Mint an exact number of sUSDe shares: (shares, receiver) -> assets."
+     },
+     {
+      "signature": "cooldownShares(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Start unstaking an exact number of sUSDe shares: burns them now, moves the USDe value to the USDeSilo, returns assets. Claim with unstake(receiver) once cooldowns(owner).cooldownEnd has passed. A new cooldown adds to the pending amount and resets the timer."
+     },
+     {
+      "signature": "cooldownAssets(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Start unstaking an exact USDe amount (burns the needed shares, returns shares). Same claim flow as cooldownShares."
+     },
+     {
+      "signature": "unstake(address)",
+      "kind": "write",
+      "payable": false,
+      "description": "After the cooldown ends, send all cooled-down USDe from the silo to receiver."
+     },
+     {
+      "signature": "cooldowns(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(cooldownEnd unix time, underlyingAmount USDe) pending for a user."
+     },
+     {
+      "signature": "cooldownDuration()",
+      "kind": "read",
+      "payable": false,
+      "description": "Unstake cooldown in seconds (86400 = 1 day on 2026-11-25; admin can set up to 90 days). If it is 0, redeem/withdraw work directly and the cooldown functions revert."
+     },
+     {
+      "signature": "redeem(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-4626 redeem (shares, receiver, owner). Only works when cooldownDuration() == 0; otherwise reverts (use cooldownShares + unstake)."
+     },
+     {
+      "signature": "withdraw(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-4626 withdraw (assets, receiver, owner). Only when cooldownDuration() == 0."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "USDe value of shares; convertToAssets(1e18) is the sUSDe->USDe rate (about 1.260 on 2026-11-25). Rises as rewards (paid every 8 hours) vest linearly over 8 hours; never falls by design."
+     },
+     {
+      "signature": "previewDeposit(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "sUSDe shares a deposit of assets returns now."
+     },
+     {
+      "signature": "totalAssets()",
+      "kind": "read",
+      "payable": false,
+      "description": "Vested USDe in the vault (excludes unvested rewards, see getUnvestedAmount())."
+     },
+     {
+      "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "EIP-2612 permit for sUSDe shares."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x57e114B691Db790C35207b2e685D4A43181e6061",
+    "name": "ENA (governance token)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "ENA balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve sENA 0x8bE3460A480c80728a8C4D7a5D5303c85ba7B3b9 (to stake) or a spender."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer ENA (governance token)."
+     },
+     {
+      "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "EIP-2612 permit."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x8bE3460A480c80728a8C4D7a5D5303c85ba7B3b9",
+    "name": "sENA (StakedENA, ERC-4626 with cooldown)",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake ENA for sENA (approve ENA to sENA first): (assets, receiver) -> shares."
+     },
+     {
+      "signature": "cooldownShares(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Start unstaking sENA shares; ENA goes to the silo; claim with unstake(receiver) after the cooldown."
+     },
+     {
+      "signature": "cooldownAssets(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Start unstaking an exact ENA amount."
+     },
+     {
+      "signature": "unstake(address)",
+      "kind": "write",
+      "payable": false,
+      "description": "After the cooldown, send the cooled-down ENA to receiver."
+     },
+     {
+      "signature": "cooldowns(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(cooldownEnd, underlyingAmount) pending for a user."
+     },
+     {
+      "signature": "cooldownDuration()",
+      "kind": "read",
+      "payable": false,
+      "description": "Unstake cooldown in seconds (604800 = 7 days on 2026-11-25)."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "ENA per sENA shares; convertToAssets(1e18) was about 1.018 on 2026-11-25 (rewards vest over vestingPeriod())."
+     },
+     {
+      "signature": "redeem(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "ERC-4626 redeem; only usable when cooldownDuration() == 0, otherwise use the cooldown flow."
+     },
+     {
+      "signature": "previewDeposit(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "sENA shares for a given ENA deposit."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xe3490297a08d6fC8Da46Edb7B6142E4F461b62D3",
+    "name": "EthenaMinting V2 (mint and redeem, whitelisted)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.ethena.fi/api-documentation/overview",
+    "keyFunctions": [
+     {
+      "signature": "mint((string,uint8,uint120,uint128,address,address,address,uint128,uint128),(address[],uint128[]),(uint8,bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Called only by Ethena's MINTER role, not by users: executes a user's signed Order (order_id, order_type 0=MINT, expiry, nonce, benefactor, beneficiary, collateral_asset, collateral_amount, usde_amount), a custody Route (addresses[], ratios[]) and Signature (signature_type 0=EIP712 / 1=EIP1271, bytes). Whitelisted users request an RFQ and POST the signed order to the Ethena API."
+     },
+     {
+      "signature": "redeem((string,uint8,uint120,uint128,address,address,address,uint128,uint128),(uint8,bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Called only by Ethena's REDEEMER role to execute a signed redeem order (order_type 1)."
+     },
+     {
+      "signature": "hashOrder((string,uint8,uint120,uint128,address,address,address,uint128,uint128))",
+      "kind": "read",
+      "payable": false,
+      "description": "EIP-712 hash of an order, to check what you are signing."
+     },
+     {
+      "signature": "verifyOrder((string,uint8,uint120,uint128,address,address,address,uint128,uint128),(uint8,bytes))",
+      "kind": "read",
+      "payable": false,
+      "description": "Checks an order and signature; returns the order hash or reverts."
+     },
+     {
+      "signature": "isWhitelistedBenefactor(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the address is whitelisted (on-chain) to mint/redeem directly with Ethena."
+     },
+     {
+      "signature": "setApprovedBeneficiary(address,bool)",
+      "kind": "write",
+      "payable": false,
+      "description": "A whitelisted benefactor approves (or removes) another address to receive its minted USDe / redeemed collateral. Not needed when benefactor == beneficiary."
+     },
+     {
+      "signature": "isSupportedAsset(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if a collateral asset is accepted."
+     },
+     {
+      "signature": "verifyNonce(address,uint128)",
+      "kind": "read",
+      "payable": false,
+      "description": "(sender, nonce) -> checks the nonce is unused; reverts if used."
+     },
+     {
+      "signature": "setDelegatedSigner(address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Benefactor (e.g. a smart wallet) nominates an EOA to sign orders for it; the delegate confirms with confirmDelegatedSigner(benefactor)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x73E35C5c35A274E34AdE6EB13cC7f62aEE323728",
+    "name": "USDtb PSM",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "getQuote(address,address,uint128,bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "(benefactor, collateral, amountIn, isSwapForAsset) -> (feeAmount, amountOut). Non-view in the ABI; call with eth_call."
+     },
+     {
+      "signature": "swap((bool,uint120,uint128,uint256,address,address,address,uint128,uint128))",
+      "kind": "write",
+      "payable": false,
+      "description": "Swap collateral <-> USDtb for a registered benefactor: Order(isSwapForAsset, expiry, nonce, chainId, benefactor, beneficiary, collateral, amountIn, minAmountOut). Permissioned: the benefactor must be added and enabled by Ethena."
+     },
+     {
+      "signature": "asset()",
+      "kind": "read",
+      "payable": false,
+      "description": "The PSM's asset token (USDtb)."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+    "name": "USDe (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+    "name": "sUSDe (LayerZero OFT, not a vault)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+    "name": "ENA (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+    "name": "USDe (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+    "name": "sUSDe (LayerZero OFT, not a vault)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+    "name": "ENA (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+    "name": "USDe (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+    "name": "sUSDe (LayerZero OFT, not a vault)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+    "name": "ENA (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+    "name": "USDe (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+    "name": "sUSDe (LayerZero OFT, not a vault)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+    "name": "ENA (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "mantle",
+    "chainId": 5000,
+    "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+    "name": "USDe (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "mantle",
+    "chainId": 5000,
+    "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+    "name": "sUSDe (LayerZero OFT, not a vault)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "mantle",
+    "chainId": 5000,
+    "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+    "name": "ENA (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "linea",
+    "chainId": 59144,
+    "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+    "name": "USDe (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "linea",
+    "chainId": 59144,
+    "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+    "name": "sUSDe (LayerZero OFT, not a vault)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "linea",
+    "chainId": 59144,
+    "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+    "name": "ENA (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "scroll",
+    "chainId": 534352,
+    "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+    "name": "USDe (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "scroll",
+    "chainId": 534352,
+    "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+    "name": "sUSDe (LayerZero OFT, not a vault)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "scroll",
+    "chainId": 534352,
+    "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+    "name": "ENA (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "xlayer",
+    "chainId": 196,
+    "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+    "name": "USDe (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "xlayer",
+    "chainId": 196,
+    "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+    "name": "sUSDe (LayerZero OFT, not a vault)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "xlayer",
+    "chainId": 196,
+    "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+    "name": "ENA (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "fraxtal",
+    "chainId": 252,
+    "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+    "name": "USDe (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "fraxtal",
+    "chainId": 252,
+    "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+    "name": "sUSDe (LayerZero OFT, not a vault)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "fraxtal",
+    "chainId": 252,
+    "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+    "name": "ENA (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "mode",
+    "chainId": 34443,
+    "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+    "name": "USDe (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "mode",
+    "chainId": 34443,
+    "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+    "name": "sUSDe (LayerZero OFT, not a vault)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "mode",
+    "chainId": 34443,
+    "address": "0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+    "name": "ENA (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "berachain",
+    "chainId": 80094,
+    "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+    "name": "USDe (LayerZero OFT)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "berachain",
+    "chainId": 80094,
+    "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+    "name": "sUSDe (LayerZero OFT, not a vault)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+      "kind": "read",
+      "payable": false,
+      "description": "LayerZero V2 OFT fee quote: (SendParam(dstEid, to bytes32, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd), payInLzToken=false) -> (nativeFee, lzTokenFee)."
+     },
+     {
+      "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+      "kind": "write",
+      "payable": true,
+      "description": "Bridge with LayerZero V2: (SendParam, MessagingFee(nativeFee, lzTokenFee) from quoteSend, refundAddress); pay nativeFee as msg.value."
+     }
+    ]
+   },
+   {
+    "chain": "zksync",
+    "chainId": 324,
+    "address": "0x39Fe7a0DACcE31Bd90418e3e659fb0b5f0B3Db0d",
+    "name": "USDe (zkSync Era)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     }
+    ]
+   },
+   {
+    "chain": "zksync",
+    "chainId": 324,
+    "address": "0xAD17Da2f6Ac76746EF261E835C50b2651ce36DA8",
+    "name": "sUSDe (zkSync Era)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     }
+    ]
+   },
+   {
+    "chain": "zksync",
+    "chainId": 324,
+    "address": "0x686b311F82b407f0be842652a98e5619F64cC25F",
+    "name": "ENA (zkSync Era)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.ethena.fi/technical-design/key-addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [
+   {
+    "name": "Ethena Minting API (RFQ)",
+    "url": "https://public.api.ethena.fi",
+    "auth": "signature",
+    "use": "Whitelisted users only. GET /asset-availability (pairs that can be minted/redeemed, e.g. USDT/USDe, USDC/USDe), GET /rfq?pair=USDT%2FUSDe&side=MINT|REDEEM&size=<amount>&benefactor=<address> (quote valid 15 minutes; returns collateral_amount, usde_amount, minting_contract_address, rfq_id), then sign the EIP-712 Order (order_id = rfq_id) and POST /order?signature=<hex>[&signature_type=EIP1271]; Ethena submits mint/redeem on-chain. GET /fees?benefactor=<address> returns mint/redeem fee bps. Interactive docs at https://public.api.ethena.fi/docs/. Unwhitelisted wallets get error 10.",
+    "source": "https://docs.ethena.fi/api-documentation/overview"
+   },
+   {
+    "name": "Ethena minting client SDKs",
+    "url": "https://github.com/ethena-labs/ethena-minting-client",
+    "auth": "none",
+    "use": "Official Python and TypeScript clients for the RFQ/order flow (whitelisted users).",
+    "source": "https://docs.ethena.fi/api-documentation/overview"
+   }
+  ],
+  "actions": [
+   {
+    "name": "get USDe",
+    "description": "Most users and agents cannot mint directly.",
+    "how": "Buy USDe on a DEX (Curve, Uniswap) or CEX. Direct minting is only for whitelisted benefactors: approve the collateral (USDT/USDC) to EthenaMinting 0xe3490297a08d6fC8Da46Edb7B6142E4F461b62D3, GET /rfq from https://public.api.ethena.fi, sign the EIP-712 order and POST /order; Ethena's minter calls mint() on-chain."
+   },
+   {
+    "name": "stake USDe for sUSDe",
+    "description": "Earn Ethena's rewards (Ethereum only; not offered to EU/EEA residents).",
+    "how": "USDe.approve(0x9D39A5DE30e57443BfF2A8307A4256c8797A3497, amt); sUSDe.deposit(amt, receiver). Rate: sUSDe.convertToAssets(1e18)."
+   },
+   {
+    "name": "unstake sUSDe",
+    "description": "Two-step, with cooldown.",
+    "how": "Read cooldownDuration(). If > 0 (1 day on 2026-11-25): sUSDe.cooldownShares(shares) (or cooldownAssets(usdeAmount)); wait until cooldowns(you).cooldownEnd; then sUSDe.unstake(receiver). If 0: sUSDe.redeem(shares, receiver, owner). Alternative without waiting: sell sUSDe on a DEX (price may be below its USDe value)."
+   },
+   {
+    "name": "stake ENA for sENA",
+    "description": "Governance alignment and sENA rewards.",
+    "how": "ENA.approve(0x8bE3460A480c80728a8C4D7a5D5303c85ba7B3b9, amt); sENA.deposit(amt, receiver). Unstake: cooldownShares(shares), wait cooldownDuration() (7 days on 2026-11-25), unstake(receiver)."
+   },
+   {
+    "name": "bridge USDe / sUSDe / ENA",
+    "description": "LayerZero V2 OFTs on L2s.",
+    "how": "On an L2, token.quoteSend(SendParam(dstEid, bytes32(to), amountLD, minAmountLD, 0x, 0x, 0x), false) then token.send(SendParam, fee, refund) with msg.value = nativeFee. From Ethereum, use the official Ethena bridge in the app (the Ethereum-side OFT adapter addresses are not on the key-addresses page, see notes)."
+   }
+  ],
+  "risks": [
+   "Funding-rate risk: backing is hedged with short perps/futures; when funding is negative Ethena pays it. The Reserve Fund is meant to absorb negative-revenue periods (revenue share to it is 0% currently per docs), and backing is shifted toward liquid stablecoins when funding is low. sUSDe rewards can drop to zero but are never negative by design.",
+   "Custodial / exchange risk: backing assets sit with off-exchange settlement custodians (e.g. Copper Clearloop) and positions on centralized exchanges; custodian or exchange failure can disrupt mint/redeem and may impair backing.",
+   "USDe is not a fiat-backed stablecoin. Only whitelisted, KYB'd entities can mint/redeem directly (RFQ, per-block limits, a stable delta limit); everyone else relies on secondary-market liquidity, which can trade below $1 in stress.",
+   "sUSDe unstaking needs a cooldown (1 day on 2026-11-25; admin can raise it to 90 days). During the cooldown the USDe sits in the USDeSilo 0x7FC7c91D556B400AFa565013E3F32055a0713425 and earns nothing.",
+   "sUSDe has a blacklist: Ethena can fully restrict sanctioned/high-risk addresses and redistribute their sUSDe (limited to sUSDe). L2 OFTs also have blacklist functions.",
+   "Restricted users: Ethena's Terms bar Prohibited Persons, including US persons and residents of listed sanctioned jurisdictions (e.g. Russia, Iran, North Korea, Cuba, Syria), and sUSDe is not offered to EU/EEA residents.",
+   "Admin control: contracts are owned by a 5/11 Ethena dev multisig that sets parameters (cooldown, limits, roles); sENA is an upgradeable proxy.",
+   "L2 sUSDe is a bridged OFT, not a vault: staking/unstaking only happens on Ethereum. Bridging adds LayerZero risk."
+  ],
+  "notes": "Addresses are from Ethena's Key Addresses page (https://docs.ethena.fi/technical-design/key-addresses) and the Minting API page (EthenaMinting V2 0xe3490297...; V1 0x2cc440b721d2cafd6d64908d6d8c4acc57f8afc3 was replaced on 2024-07-08 and is left out). The staking contract and the sUSDe token are the same address. The key-addresses page says ENA, USDe and sUSDe use the same addresses on 'most L2s' except Solana, zkSync and Zircuit; I checked bytecode on each included chain on 2026-11-25. ENA has no code at 0x58538e6A46E07434d7E7375Bc268D3cb839C0133 on Berachain, so Berachain lists only USDe and sUSDe. Blast was left out because no public RPC answered; Manta, Metis, Kava, Morph, Swell, Zircuit and Tempo (USDe 0x20c0000000000000000000002F52D5CC21A3207B, sUSDe 0x20C000000000000000000000Bd95bFB69fBE6Ce3 with separate OFT contracts) were not checked and are left out; Solana, TON and Aptos addresses are on the same page but are non-EVM. The Ethereum-side LayerZero OFT adapters are not listed on any official page I found, so they are left out. rsENA 0xc65433845ecd16688eda196497fa9130d6c47bd8 (a Mellow restaking vault) is listed on the key-addresses page but not included since it is a Mellow/Symbiotic product. USDtb is now issued by Anchorage Digital Bank (docs.usdtb.money, which did not load); only the USDtb PSM appears on Ethena's address list, so the USDtb token itself is not listed (PSM.asset() returns it). The PSM swap is permissioned (benefactors added by Ethena). No USDe depeg event with dates is documented on the official docs pages read, so none is cited. DefiLlama tracks Ethena as a parent with sub-listings (Ethena USDe, USDtb, tsUSDe); slug 'ethena' is the parent page.",
+  "sources": [
+   "https://defillama.com/protocol/ethena",
+   "https://api.llama.fi/protocol/ethena",
+   "https://api.llama.fi/protocol/ethena-usde",
+   "https://docs.ethena.fi/llms.txt",
+   "https://docs.ethena.fi/technical-design/key-addresses",
+   "https://docs.ethena.fi/technical-design/key-addresses.md",
+   "https://docs.ethena.fi/api-documentation/overview",
+   "https://docs.ethena.fi/technical-design/staking-usde",
+   "https://docs.ethena.fi/technical-design/staking-usde/staking-key-functions",
+   "https://docs.ethena.fi/technical-design/staking-usde/user-security-measures",
+   "https://docs.ethena.fi/technical-design/minting-usde",
+   "https://docs.ethena.fi/technical-design/minting-usde/mint-and-redeem-key-functions",
+   "https://docs.ethena.fi/technical-design/minting-usde/mint-and-redeem-contract-v2",
+   "https://docs.ethena.fi/overview/ena",
+   "https://docs.ethena.fi/overview/usdtb",
+   "https://docs.ethena.fi/protocol-overview/risks",
+   "https://docs.ethena.fi/protocol-overview/risks/funding-risk",
+   "https://docs.ethena.fi/protocol-overview/risks/custodial-risk",
+   "https://docs.ethena.fi/protocol-overview/reserve-fund",
+   "https://docs.ethena.fi/protocol-overview/rewards-mechanism",
+   "https://docs.ethena.fi/resources/terms-of-service",
+   "https://docs.ethena.fi/resources/faq",
+   "https://sourcify.dev/server/v2/contract/1/0x4c9EDD5852cd905f086C759E8383e09bff1E68B3",
+   "https://sourcify.dev/server/v2/contract/1/0x9D39A5DE30e57443BfF2A8307A4256c8797A3497",
+   "https://sourcify.dev/server/v2/contract/1/0x57e114B691Db790C35207b2e685D4A43181e6061",
+   "https://sourcify.dev/server/v2/contract/1/0x8bE3460A480c80728a8C4D7a5D5303c85ba7B3b9",
+   "https://sourcify.dev/server/v2/contract/1/0x7fD57b46aE1a7b14f6940508381877Ee03e1018B",
+   "https://sourcify.dev/server/v2/contract/1/0xe3490297a08d6fC8Da46Edb7B6142E4F461b62D3",
+   "https://sourcify.dev/server/v2/contract/1/0x73E35C5c35A274E34AdE6EB13cC7f62aEE323728",
+   "https://sourcify.dev/server/v2/contract/42161/0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+   "https://sourcify.dev/server/v2/contract/42161/0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2",
+   "https://sourcify.dev/server/v2/contract/42161/0x58538e6A46E07434d7E7375Bc268D3cb839C0133",
+   "https://eth.drpc.org",
+   "https://arb1.arbitrum.io/rpc",
+   "https://mainnet.base.org",
+   "https://bsc-dataseed.binance.org",
+   "https://mainnet.optimism.io",
+   "https://rpc.mantle.xyz",
+   "https://rpc.linea.build",
+   "https://rpc.scroll.io",
+   "https://rpc.xlayer.tech",
+   "https://rpc.frax.com",
+   "https://mainnet.mode.network",
+   "https://rpc.berachain.com",
+   "https://mainnet.era.zksync.io"
   ],
   "researchedAt": "2026-11-25"
  },
@@ -12223,6 +20310,248 @@ export const PROTOCOLS: ProtocolEntry[] = [
    "https://defillama.com/protocol/inverse-finance",
    "https://defillama.com/protocol/inverse-finance-firm",
    "https://ethereum-rpc.publicnode.com"
+  ],
+  "researchedAt": "2026-11-25"
+ },
+ {
+  "slug": "jupiter-aggregator",
+  "name": "Jupiter Aggregator",
+  "category": "DEX Aggregator",
+  "description": "Solana's main swap aggregator. An agent asks Jupiter's Swap API for a quote and a ready-to-sign transaction (GET https://api.jup.ag/swap/v2/order with taker), signs it with the user's key and either POSTs it to /swap/v2/execute (Jupiter lands it) or, for custom transactions, gets raw instructions from /swap/v2/build and sends them itself. On-chain the swap runs through the Jupiter Aggregator v6 program.",
+  "website": "https://jup.ag",
+  "docs": "https://developers.jup.ag/docs",
+  "defillama": "https://defillama.com/protocol/jupiter-aggregator",
+  "chains": [
+   "solana"
+  ],
+  "vm": "solana",
+  "agentAccess": "both",
+  "contracts": [
+   {
+    "chain": "solana",
+    "chainId": null,
+    "address": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+    "name": "Jupiter Aggregator v6 program",
+    "role": "router",
+    "proxy": null,
+    "source": "https://developers.jup.ag/docs/swap/routing/rfq/v2/streaming",
+    "keyFunctions": [
+     {
+      "signature": "route(route_plan: Vec<RoutePlanStep>, in_amount: u64, quoted_out_amount: u64, slippage_bps: u16, platform_fee_bps: u8)",
+      "kind": "write",
+      "payable": true,
+      "description": "ExactIn swap along route_plan (each step: swap variant + percent + input/output index). Fails if output < quoted_out_amount reduced by slippage_bps. Built by the Swap API (/swap/v1/swap or /swap/v2/build); do not hand-encode the route plan or the per-DEX remaining accounts."
+     },
+     {
+      "signature": "shared_accounts_route(id: u8, route_plan: Vec<RoutePlanStep>, in_amount: u64, quoted_out_amount: u64, slippage_bps: u16, platform_fee_bps: u8)",
+      "kind": "write",
+      "payable": true,
+      "description": "Same as route but uses Jupiter's shared program-owned intermediate token accounts (id selects the program authority), so the user needs no intermediate ATAs."
+     },
+     {
+      "signature": "exact_out_route(route_plan: Vec<RoutePlanStep>, out_amount: u64, quoted_in_amount: u64, slippage_bps: u16, platform_fee_bps: u8)",
+      "kind": "write",
+      "payable": true,
+      "description": "ExactOut swap: receive exactly out_amount, spending at most quoted_in_amount plus slippage. Only via Swap API V1 /quote?swapMode=ExactOut (V2 /order supports ExactIn only)."
+     },
+     {
+      "signature": "shared_accounts_exact_out_route(id: u8, route_plan: Vec<RoutePlanStep>, out_amount: u64, quoted_in_amount: u64, slippage_bps: u16, platform_fee_bps: u8)",
+      "kind": "write",
+      "payable": true,
+      "description": "ExactOut variant using shared accounts."
+     },
+     {
+      "signature": "route_with_token_ledger(route_plan: Vec<RoutePlanStep>, quoted_out_amount: u64, slippage_bps: u16, platform_fee_bps: u8) / shared_accounts_route_with_token_ledger(id: u8, ...)",
+      "kind": "write",
+      "payable": true,
+      "description": "Swap the amount recorded by a prior set_token_ledger instruction in the same tx (input = balance change), for composing after another instruction whose output amount is unknown in advance."
+     },
+     {
+      "signature": "route_v2(in_amount: u64, quoted_out_amount: u64, slippage_bps: u16, platform_fee_bps: u16, positive_slippage_bps: u16, route_plan: Vec<RoutePlanStepV2>)",
+      "kind": "write",
+      "payable": true,
+      "description": "Newer route instruction in the on-chain IDL (u16 platform fee, positive-slippage capture). Variants: shared_accounts_route_v2(id, ...), exact_out_route_v2(out_amount, quoted_in_amount, ...), shared_accounts_exact_out_route_v2. Emitted by current API versions; use the API output as-is."
+     },
+     {
+      "signature": "route_with_attestation(in_amount: u64, quoted_out_amount: u64, slippage_bps: u16, platform_fee_bps: u16, positive_slippage_bps: u16, route_plan: Vec<RoutePlanStepV2>, attestation: [u8; 74])",
+      "kind": "write",
+      "payable": true,
+      "description": "Route variant carrying a 74-byte attestation (also shared_accounts_route_with_attestation). Present in the on-chain IDL; used by Jupiter's own routing (e.g. RFQ fills inside Metis routes). Not meant to be built by hand."
+     },
+     {
+      "signature": "set_token_ledger() / create_token_ledger()",
+      "kind": "write",
+      "payable": false,
+      "description": "Record a token account balance in a token ledger account before *_with_token_ledger routes."
+     },
+     {
+      "signature": "close_wsol_token_account() / create_token_account(bump: u8)",
+      "kind": "write",
+      "payable": false,
+      "description": "Helper instructions the API adds for wrapping/unwrapping SOL and creating token accounts."
+     }
+    ]
+   },
+   {
+    "chain": "solana",
+    "chainId": null,
+    "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+    "name": "JUP token (SPL mint)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.jup.ag/user-docs/more/jup-token/faq",
+    "keyFunctions": [
+     {
+      "signature": "SPL Token transfer / transferChecked (Token program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA)",
+      "kind": "write",
+      "payable": false,
+      "description": "JUP is a classic SPL token with 6 decimals; mint authority and freeze authority are both null (checked on-chain 2026-11-25). Move it with the SPL Token program between associated token accounts."
+     },
+     {
+      "signature": "Mint account (getAccountInfo / getTokenSupply)",
+      "kind": "read",
+      "payable": false,
+      "description": "Read supply and decimals (6)."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [
+   {
+    "name": "Swap API V2: GET /order (Meta-Aggregator quote + transaction)",
+    "url": "https://api.jup.ag/swap/v2/order",
+    "auth": "none",
+    "use": "Recommended path. Query: inputMint, outputMint, amount (input base units, e.g. lamports; ExactIn only), taker (wallet that signs; omit for a quote only, then transaction is null). Optional: slippageBps (0-10000; omit to let Jupiter's RTSE choose), receiver (different wallet to receive output), referralAccount + referralFee (50-255 bps), payer (integrator pays gas; disables Dflow/OKX), priorityFeeLamports, jitoTipLamports, broadcastFeeType (maxCap|exactFee), excludeRouters (metis,jupiterz,dflow,okx), excludeDexes (Metis only), maxSupportedTransactionVersion ('0'|'1'). Response: transaction (base64 unsigned versioned tx), requestId, inAmount, outAmount, otherAmountThreshold, slippageBps, priceImpactPct, routePlan, router, feeBps, feeMint, gasless, errorCode/errorMessage. Keyless works at 0.5 RPS; send x-api-key for higher limits. SOL is wrapped/unwrapped automatically; use mint So11111111111111111111111111111111111111112 for SOL.",
+    "source": "https://raw.githubusercontent.com/jup-ag/docs/main/openapi-spec/swap/v2/swap.yaml"
+   },
+   {
+    "name": "Swap API V2: POST /execute (managed landing)",
+    "url": "https://api.jup.ag/swap/v2/execute",
+    "auth": "none",
+    "use": "Body JSON {signedTransaction: base64 of the /order transaction after the taker signs it, requestId: from /order, lastValidBlockHeight?}. Jupiter lands the tx (priority fee set for you, polls confirmation). Response: status (Success|Failed), signature, code, totalInputAmount, totalOutputAmount, inputAmountResult, outputAmountResult, error. Separate rate-limit bucket (keyless 20 RPS, free 50, paid 100). Do not modify the /order transaction before signing (JupiterZ RFQ transactions cannot be modified).",
+    "source": "https://developers.jup.ag/docs/swap/order-and-execute"
+   },
+   {
+    "name": "Swap API V2: GET /build (Router path, raw instructions)",
+    "url": "https://api.jup.ag/swap/v2/build",
+    "auth": "none",
+    "use": "For custom transactions / CPI. Query: inputMint, outputMint, amount, taker (all required); slippageBps (default 50, or 'rtse'), mode=fast, dexes / excludeDexes, platformFeeBps + feeAccount, maxAccounts (default 64), maxBytes, payer, wrapAndUnwrapSol (default true), destinationTokenAccount / nativeDestinationAccount, blockhashSlotsToExpiry (default 150), tipAmount (for tx.jup.ag), computeUnitPricePercentile (medium|high|veryHigh|0-10000), forJitoBundle, transactionVersion ('0'|'1'). Returns quote plus computeBudgetInstructions, setupInstructions, swapInstruction, cleanupInstruction, otherInstructions, tipInstruction and addressesByLookupTableAddress; you assemble a v0 tx, sign, and send via your own RPC or tx.jup.ag. Metis routing only, no Jupiter swap fee.",
+    "source": "https://raw.githubusercontent.com/jup-ag/docs/main/openapi-spec/swap/v2/swap.yaml"
+   },
+   {
+    "name": "Swap API V1 (Metis): GET /quote, POST /swap, POST /swap-instructions",
+    "url": "https://api.jup.ag/swap/v1",
+    "auth": "none",
+    "use": "Older two-step flow, still documented and live but superseded by V2. GET /quote?inputMint&outputMint&amount&slippageBps (default 50)&swapMode (ExactIn|ExactOut)&dexes&excludeDexes&restrictIntermediateTokens&onlyDirectRoutes&maxAccounts&platformFeeBps -> quoteResponse. POST /swap {quoteResponse, userPublicKey, wrapAndUnwrapSol (default true), dynamicComputeUnitLimit, prioritizationFeeLamports ({priorityLevelWithMaxLamports:{priorityLevel:'veryHigh',maxLamports:N}} or {jitoTipLamports:N}), feeAccount, destinationTokenAccount, payer} -> {swapTransaction (base64 versioned tx), lastValidBlockHeight, prioritizationFeeLamports}; deserialize, sign, send via your RPC. POST /swap-instructions takes the same body and returns the instructions separately. Use V1 only if you need ExactOut.",
+    "source": "https://raw.githubusercontent.com/jup-ag/docs/main/openapi-spec/swap/v1/swap.yaml"
+   },
+   {
+    "name": "Program ID to Label",
+    "url": "https://api.jup.ag/swap/v2/program-id-to-label",
+    "auth": "none",
+    "use": "Map of DEX program ids to labels (for dexes/excludeDexes and for identifying the failing program in a swap error).",
+    "source": "https://developers.jup.ag/docs/api-reference/swap/program-id-to-label"
+   },
+   {
+    "name": "Transaction submission (tx.jup.ag)",
+    "url": "https://tx.jup.ag",
+    "auth": "api-key",
+    "use": "Send-only Solana RPC-compatible endpoint (sendTransaction) that lands any signed transaction through Jupiter's landing infrastructure; requires x-api-key and a SOL tip (min 0.001 SOL; /build tipAmount adds it). Not needed for /order + /execute.",
+    "source": "https://developers.jup.ag/docs/transaction/submit"
+   },
+   {
+    "name": "Tokens API V2",
+    "url": "https://api.jup.ag/tokens/v2/search",
+    "auth": "none",
+    "use": "GET ?query=<symbol|name|mint> resolves a ticker to mints with isVerified, organicScore, audit flags (mint/freeze authority, isSus), decimals, tokenProgram, liquidity. Use it to pick the right mint and screen out fakes before swapping.",
+    "source": "https://developers.jup.ag/docs/tokens/index"
+   },
+   {
+    "name": "Price API V3",
+    "url": "https://api.jup.ag/price/v3",
+    "auth": "none",
+    "use": "GET ?ids=<comma-separated mints, max 50> -> usdPrice, decimals, priceChange24h, liquidity. Tokens without a reliable price are omitted.",
+    "source": "https://developers.jup.ag/docs/price/index"
+   },
+   {
+    "name": "API keys and plans (Developer Platform)",
+    "url": "https://developers.jup.ag/portal",
+    "auth": "api-key",
+    "use": "Create an API key (format jup_...) and pass it as the x-api-key header on api.jup.ag. Tiers: Keyless 0.5 RPS (no sign-up), Free 1 RPS, Developer $25/mo 10 RPS, Launch $100/mo 50 RPS, Pro $500/mo 150 RPS; limits per organisation, 60 s sliding window. The old free host lite-api.jup.ag is being phased out in favour of keyless api.jup.ag; ultra-api.jup.ag (Ultra) moved to api.jup.ag/swap/v2 with identical /order and /execute.",
+    "source": "https://developers.jup.ag/docs/portal/rate-limits"
+   }
+  ],
+  "actions": [
+   {
+    "name": "swap (recommended)",
+    "description": "Swap an exact input amount of one Solana token for another at the best price",
+    "how": "1) GET https://api.jup.ag/swap/v2/order?inputMint=..&outputMint=..&amount=<base units>&taker=<wallet> (optional slippageBps). 2) Check outAmount, priceImpactPct, feeBps and that transaction is non-empty (else read errorMessage). 3) base64-decode transaction to a VersionedTransaction, sign with the taker key (do not alter it). 4) POST https://api.jup.ag/swap/v2/execute {signedTransaction: base64, requestId}. 5) Check status == 'Success' and signature."
+   },
+   {
+    "name": "quote only",
+    "description": "Get a price quote without a wallet",
+    "how": "GET /swap/v2/order without taker; read outAmount, priceImpactPct, routePlan, router."
+   },
+   {
+    "name": "custom swap transaction",
+    "description": "Compose the swap with your own instructions or CPI",
+    "how": "GET /swap/v2/build?inputMint&outputMint&amount&taker&slippageBps; build a v0 message from computeBudgetInstructions + setupInstructions + swapInstruction + cleanupInstruction + otherInstructions with the returned address lookup tables and a fresh blockhash; sign and send via your RPC (or tx.jup.ag with tipAmount). The swapInstruction targets program JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4."
+   },
+   {
+    "name": "legacy swap (V1)",
+    "description": "Quote + swap returning a serialized transaction",
+    "how": "GET https://api.jup.ag/swap/v1/quote?inputMint&outputMint&amount&slippageBps=50, then POST /swap/v1/swap {quoteResponse, userPublicKey, wrapAndUnwrapSol: true, dynamicComputeUnitLimit: true, prioritizationFeeLamports: {priorityLevelWithMaxLamports: {priorityLevel: 'veryHigh', maxLamports: 1000000}}}; deserialize swapTransaction (base64 VersionedTransaction), sign, sendRawTransaction via your RPC and confirm before lastValidBlockHeight."
+   },
+   {
+    "name": "resolve token",
+    "description": "Find the correct mint for a ticker",
+    "how": "GET https://api.jup.ag/tokens/v2/search?query=<ticker>; prefer isVerified tokens with high organicScore and liquidity; confirm the mint with the user."
+   }
+  ],
+  "risks": [
+   "Scam and copycat tokens: anyone can create a token with any name/symbol; always swap by mint address, check isVerified / organicScore / audit flags from the Tokens API, and confirm with the user.",
+   "Slippage and price impact: quotes move quickly; set slippageBps deliberately for illiquid tokens (or let RTSE choose on /order), check priceImpactPct and otherAmountThreshold, and get a fresh order right before signing. Transactions expire with the blockhash (~150 slots, about 1 minute).",
+   "Routes can go through many third-party DEX programs; a failure or exploit in one pool affects that swap. Jupiter's listing rules decide which markets are routable (new markets get short instant-routing grace periods).",
+   "API dependency: keyless access is limited to 0.5 RPS (429 above it, per organisation, 60 s sliding window); production needs an x-api-key. lite-api.jup.ag is being retired and ultra-api.jup.ag replaced by api.jup.ag/swap/v2.",
+   "Fees: /order charges a Jupiter platform fee by pair (0 bps on pegged/Jupiter tokens up to about 10 bps on most pairs; shown in feeBps/feeMint); /build has no Jupiter fee.",
+   "Never sign a transaction returned by a non-official host; Jupiter's APIs live on api.jup.ag (and tx.jup.ag for submission). Verify that the transaction's swap instruction targets the Jupiter v6 program.",
+   "Jupiter programs are upgradeable by Jupiter; the IDL has gained new route instructions (route_v2, *_with_attestation) over time, so build from current API output rather than a cached IDL."
+  ],
+  "notes": "DefiLlama slug 'jupiter-aggregator' (parent 'jupiter'; siblings include Jupiter Perpetual Exchange, Jupiter Lend, Jupiter DCA/Limit, Jupiter Staked SOL, JupUSD). Program id JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 is named as 'the Jupiter v6 swap aggregator program' on Jupiter's dev docs (RFQ v2 streaming page) and declared in jup-ag/jupiter-cpi (src/lib.rs); confirmed executable on mainnet (BPF upgradeable). Instruction names and args come from the program's on-chain Anchor IDL (fetched 2026-11-25); the older IDL in jup-ag/jupiter-cpi lacks the v2/attestation variants. Related Jupiter products (not separate contracts here): Jupiter Lend program ids from developers.jup.ag/docs/lend/architecture: Liquidity jupeiUmn818Jg1ekPURTpr4mFo29p46vygyykFJ3wZC, Lending/Earn jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9, Vaults/Borrow jupr81YtYssSyPt8jbnGuiWon5f6x9TcDEFxYe3Bdzi (plus Earn Rewards jup7TthsMgcR9Y3L277b8Eo9uboVSmu1utkuXHNUKar and Borrow Oracle jupnw4B6Eqs7ft6rxpzYLJZYSnrpRgPcr589n5Kv4oc per developers.jup.ag/docs/jupusd/juiced); Lend Earn API at api.jup.ag/lend/v1/earn/*. Jupiter Perps: the dev docs (developers.jup.ag/docs/perps/*) say the Perps API is a work in progress and only link to the Perpetuals program on Solscan (PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu, executable on mainnet) and the single JLP Pool account 5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq without a plain statement of the id, so Perps is not listed as a contract. JLP mint left out: no official Jupiter page found that states the JLP mint address (only third-party sites). The Ultra Swap API is not a separate product any more: Jupiter's docs say Ultra users move to /swap/v2/order + /execute with identical parameters. Other Jupiter APIs (Trigger limit orders/DCA, Recurring, Prediction, Studio, Lock) are documented at developers.jup.ag/docs; Jupiter also runs a hosted Trading MCP at https://mcp.jup.ag.",
+  "sources": [
+   "https://api.llama.fi/protocol/jupiter-aggregator",
+   "https://api.llama.fi/protocol/jupiter",
+   "https://dev.jup.ag/llms.txt",
+   "https://dev.jup.ag/llms-full.txt",
+   "https://developers.jup.ag/docs/swap/index",
+   "https://developers.jup.ag/docs/swap/order-and-execute",
+   "https://developers.jup.ag/docs/swap/build",
+   "https://developers.jup.ag/docs/api-reference/swap/order",
+   "https://developers.jup.ag/docs/api-reference/swap/build",
+   "https://developers.jup.ag/docs/api-reference/swap/program-id-to-label",
+   "https://developers.jup.ag/docs/swap/migration/metis-to-meta-aggregator",
+   "https://developers.jup.ag/docs/swap/migration/metis-to-build",
+   "https://developers.jup.ag/docs/swap/migration/ultra-to-order",
+   "https://developers.jup.ag/docs/swap/routing/rfq/v2/streaming",
+   "https://developers.jup.ag/docs/portal/rate-limits",
+   "https://developers.jup.ag/docs/portal/plans",
+   "https://developers.jup.ag/docs/portal/migration",
+   "https://developers.jup.ag/docs/transaction/submit",
+   "https://developers.jup.ag/docs/tokens/index",
+   "https://developers.jup.ag/docs/price/index",
+   "https://developers.jup.ag/docs/lend/architecture",
+   "https://developers.jup.ag/docs/jupusd/juiced",
+   "https://developers.jup.ag/docs/perps/index",
+   "https://developers.jup.ag/docs/perps/custody-account",
+   "https://developers.jup.ag/docs/perps/pool-account",
+   "https://docs.jup.ag/llms-full.txt",
+   "https://docs.jup.ag/user-docs/more/jup-token/faq",
+   "https://raw.githubusercontent.com/jup-ag/docs/main/openapi-spec/swap/v2/swap.yaml",
+   "https://raw.githubusercontent.com/jup-ag/docs/main/openapi-spec/swap/v1/swap.yaml",
+   "https://github.com/jup-ag/jupiter-cpi",
+   "https://raw.githubusercontent.com/jup-ag/jupiter-cpi/main/src/lib.rs",
+   "https://raw.githubusercontent.com/jup-ag/jupiter-cpi/main/idl.json",
+   "https://api.mainnet-beta.solana.com"
   ],
   "researchedAt": "2026-11-25"
  },
@@ -17525,6 +25854,983 @@ export const PROTOCOLS: ProtocolEntry[] = [
   "researchedAt": "2026-11-25"
  },
  {
+  "slug": "morpho",
+  "name": "Morpho",
+  "category": "Lending",
+  "description": "Permissionless lending: Morpho Blue is one immutable contract holding isolated variable-rate markets (one loan token, one collateral token, an oracle, an IRM and a fixed LLTV each); curated ERC-4626 vaults (Vault V1 'MetaMorpho' and Vault V2) spread deposits across markets. Agents can lend or borrow directly in a market, deposit into a vault, use Bundles for one-transaction flows, and read everything via the public Morpho Read API.",
+  "website": "https://morpho.org",
+  "docs": "https://docs.morpho.org",
+  "defillama": "https://defillama.com/protocol/morpho",
+  "chains": [
+   "ethereum",
+   "base",
+   "arbitrum",
+   "optimism",
+   "polygon",
+   "unichain",
+   "avalanche",
+   "bnb"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+    "name": "Morpho (Morpho Blue singleton, variable-rate markets)",
+    "role": "pool",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "supply((address,address,address,address,uint256),uint256,uint256,address,bytes)",
+      "kind": "write",
+      "payable": false,
+      "description": "Lend the loan token to one market: (marketParams, assets, shares, onBehalf, data). Set exactly one of assets/shares (other 0); data = empty bytes (non-empty triggers an onMorphoSupply callback). approve(Morpho, assets) on the loan token first. MarketParams = (loanToken, collateralToken, oracle, irm, lltv); lltv scaled by 1e18 (e.g. 860000000000000000 = 86%). Get it from idToMarketParams(marketId) or the Read API."
+     },
+     {
+      "signature": "withdraw((address,address,address,address,uint256),uint256,uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw lent assets: (marketParams, assets, shares, onBehalf, receiver). One of assets/shares non-zero; to exit fully pass shares = position(id,user).supplyShares. Reverts if the market lacks liquidity (utilisation 100%). Caller must be onBehalf or authorized by it."
+     },
+     {
+      "signature": "supplyCollateral((address,address,address,address,uint256),uint256,address,bytes)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit collateral (not lent out, earns no interest): (marketParams, assets, onBehalf, data=empty). approve(Morpho) on the collateral token first."
+     },
+     {
+      "signature": "borrow((address,address,address,address,uint256),uint256,uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Borrow the loan token: (marketParams, assets, shares, onBehalf, receiver). Position LTV must stay below the market's LLTV (collateral valued with the market oracle). Caller must be onBehalf or authorized (setAuthorization)."
+     },
+     {
+      "signature": "repay((address,address,address,address,uint256),uint256,uint256,address,bytes)",
+      "kind": "write",
+      "payable": false,
+      "description": "Repay debt: (marketParams, assets, shares, onBehalf, data=empty). To repay fully pass shares = position(id,user).borrowShares (assets would leave dust as interest accrues). approve(Morpho) on the loan token first; anyone can repay for anyone."
+     },
+     {
+      "signature": "withdrawCollateral((address,address,address,address,uint256),uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw collateral: (marketParams, assets, onBehalf, receiver). Reverts if the position would become unhealthy."
+     },
+     {
+      "signature": "position(bytes32,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(marketId, user) -> (supplyShares, borrowShares, collateral). Collateral in token units; convert shares to assets with market(): assets = shares * (totalAssets + 1) / (totalShares + 1e6) (round up for borrow)."
+     },
+     {
+      "signature": "market(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "marketId -> (totalSupplyAssets, totalSupplyShares, totalBorrowAssets, totalBorrowShares, lastUpdate, fee). Values exclude interest accrued since lastUpdate; call accrueInterest or use the Read API for live numbers."
+     },
+     {
+      "signature": "idToMarketParams(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "marketId -> (loanToken, collateralToken, oracle, irm, lltv). marketId = keccak256(abi.encode(marketParams))."
+     },
+     {
+      "signature": "setAuthorization(address,bool)",
+      "kind": "write",
+      "payable": false,
+      "description": "Let another address (e.g. a bundler or manager contract) manage your positions: borrow / withdraw / withdrawCollateral on your behalf. Revoke with false."
+     },
+     {
+      "signature": "isAuthorized(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(authorizer, authorized) -> bool."
+     },
+     {
+      "signature": "accrueInterest((address,address,address,address,uint256))",
+      "kind": "write",
+      "payable": false,
+      "description": "Accrue interest on a market so market()/position() reads are up to date."
+     },
+     {
+      "signature": "liquidate((address,address,address,address,uint256),address,uint256,uint256,bytes)",
+      "kind": "write",
+      "payable": false,
+      "description": "Liquidate an unhealthy borrower (LTV > LLTV): (marketParams, borrower, seizedAssets, repaidShares, data). Set one of seizedAssets/repaidShares. Liquidation incentive depends on LLTV (max 15%)."
+     },
+     {
+      "signature": "flashLoan(address,uint256,bytes)",
+      "kind": "write",
+      "payable": false,
+      "description": "Free flash loan of any token Morpho holds: (token, assets, data); caller must implement onMorphoFlashLoan and approve repayment."
+     },
+     {
+      "signature": "createMarket((address,address,address,address,uint256))",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless market creation with a governance-enabled IRM and LLTV. Markets are immutable once created."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC",
+    "name": "AdaptiveCurveIrm (governance-approved interest rate model)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xA1D94F746dEfa1928926b84fB2596c06926C0405",
+    "name": "VaultV2Factory (Morpho Vault V2)",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "createVaultV2(address,address,bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deploy a Morpho Vault V2: (owner, asset, salt). For curators."
+     },
+     {
+      "signature": "isVaultV2(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the address is a Vault V2 deployed by this factory. Verify a vault with this before depositing."
+     },
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "[Called on a Vault V2, not on the factory] ERC-4626 deposit: (assets, onBehalf). approve(vault) first. Reverts if a gate blocks the caller."
+     },
+     {
+      "signature": "withdraw(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "[On a Vault V2] Withdraw an exact asset amount: (assets, receiver, onBehalf). Served from idle assets and the liquidity adapter; reverts if not enough liquidity (use forceDeallocate or VaultExitBundlesV1)."
+     },
+     {
+      "signature": "redeem(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "[On a Vault V2] Burn shares: (shares, receiver, onBehalf)."
+     },
+     {
+      "signature": "previewRedeem(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "[On a Vault V2] Assets returned for shares now. Note: Vault V2 maxDeposit/maxMint/maxWithdraw/maxRedeem always return 0 by design (gates make them unpredictable), so do not use them to size withdrawals; use previewRedeem and the Read API's withdrawable_assets."
+     },
+     {
+      "signature": "totalAssets()",
+      "kind": "read",
+      "payable": false,
+      "description": "[On a Vault V2] Total assets under management."
+     },
+     {
+      "signature": "forceDeallocate(address,bytes,uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "[On a Vault V2] Non-custodial exit: (adapter, data, assets, onBehalf) pulls assets out of an adapter into idle so they can be withdrawn, paying the adapter's forceDeallocatePenalty in shares."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x1897A8997241C1cD4bD0698647e4EB7213535c24",
+    "name": "MetaMorpho Factory V1.1 (Morpho Vault V1)",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "createMetaMorpho(address,uint256,address,string,string,bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deploy a Vault V1 (MetaMorpho v1.1): (initialOwner, initialTimelock, asset, name, symbol, salt). For curators; agents normally only deposit into existing vaults."
+     },
+     {
+      "signature": "isMetaMorpho(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the address is a vault created by this factory. Use it to verify a vault before depositing."
+     },
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "[Called on a Vault V1 created by this factory, not on the factory] ERC-4626 deposit: (assets, receiver). approve(vault, assets) on the vault asset first. Assets are supplied to the curator's Morpho Blue markets following the supply queue."
+     },
+     {
+      "signature": "withdraw(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "[On a Vault V1] ERC-4626 withdraw an exact asset amount: (assets, receiver, owner). Limited by liquidity in the underlying markets."
+     },
+     {
+      "signature": "redeem(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "[On a Vault V1] Burn shares for assets: (shares, receiver, owner). Use balanceOf(you) as shares to exit fully."
+     },
+     {
+      "signature": "maxWithdraw(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "[On a Vault V1] Max assets the owner can withdraw now (bounded by underlying market liquidity)."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "[On a Vault V1] Asset value of shares (share price)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xA9c3D3a366466Fa809d1Ae982Fb2c46E5fC41101",
+    "name": "MetaMorpho Factory [OLD] (Vault V1.0)",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "isMetaMorpho(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True for Vault V1.0 vaults created by this older factory."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x00b8e1509398ED692C3F326CbAf1694F9A881e27",
+    "name": "Blue Public Allocator (Vault V2)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "reallocate(address,address,(address,address,address,address,uint256),address,(address,address,address,address,uint256),uint128,uint64)",
+      "kind": "write",
+      "payable": false,
+      "description": "Move a Vault V2's liquidity between Blue markets so you can borrow/withdraw where liquidity is short: (vault, deallocateAdapter, deallocateMarketParams, allocateAdapter, allocateMarketParams, assets, penalty). Pass penalty = vaultData(vault).penalty; if non-zero, approve this contract for the penalty amount in the vault asset first. Subject to the vault's caps set in this contract."
+     },
+     {
+      "signature": "allocateFromIdle(address,address,(address,address,address,address,uint256),uint128,uint64)",
+      "kind": "write",
+      "payable": false,
+      "description": "Allocate a Vault V2's idle assets to a market: (vault, adapter, marketParams, assets, penalty). Only if vaultData(vault).canPullFromIdle."
+     },
+     {
+      "signature": "vaultData(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "vault -> (canPullFromIdle, penalty). penalty is WAD-scaled (1e18 = 100%)."
+     },
+     {
+      "signature": "absoluteCap(address,bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "(vault, allocationId) -> cap for allocations through the Public Allocator; allocationId = keccak256(abi.encode(\"this/marketParams\", adapter, marketParams))."
+     },
+     {
+      "signature": "canPullFromMarket(address,bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "(vault, allocationId) -> whether liquidity may be pulled from that market."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x38B0C12AB81976e9417D4ebfe2A34DB6DF22e6AD",
+    "name": "BlueBundlesV1 (one-tx Morpho Blue actions)",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "blueBundlesV1Supply((address,address,address,address,uint256),uint256,(uint8,bytes),uint256,address,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Supply loan assets to a market in one tx: (marketParams, assets, loanTokenPermit, referralFeePct, referralFeeRecipient, deadline). loanTokenPermit empty (kind 0, data 0x) = you approved this contract beforehand; otherwise an ERC-2612 or Permit2 signature. referralFeePct WAD-scaled (0 = none). Payable per ABI."
+     },
+     {
+      "signature": "blueBundlesV1SupplyCollateralAndBorrow((address,address,address,address,uint256),uint256,uint256,uint256,(uint8,bytes),((uint8,bytes32,bytes32),uint256,uint256),(address,address,(address,address,address,address,uint256),bool,address,(address,address,address,address,uint256),uint128,uint64)[],uint256,address,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "One-click borrow: (marketParams, collateralAssets, borrowAssets, maxLtv, collateralPermit, signedAuthorization, reallocations, referralFeePct, referralFeeRecipient, deadline). Reverts if resulting LTV > maxLtv (WAD). signedAuthorization = Morpho setAuthorizationWithSig for this contract (empty signature if already authorized). reallocations = optional Public Allocator moves to source liquidity."
+     },
+     {
+      "signature": "blueBundlesV1RepayAndWithdrawCollateral((address,address,address,address,uint256),uint256,uint256,uint256,uint256,uint256,(uint8,bytes),((uint8,bytes32,bytes32),uint256,uint256),uint256,address,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "(marketParams, repayAssets, repayShares, maxRepayAssets, collateralAssets, maxLtv, loanTokenPermit, signedAuthorization, referralFeePct, referralFeeRecipient, deadline). Repay by assets or shares (one of them), then withdraw collateral, checking maxLtv."
+     },
+     {
+      "signature": "blueBundlesV1Withdraw((address,address,address,address,uint256),uint256,uint256,((uint8,bytes32,bytes32),uint256,uint256),(address,address,(address,address,address,address,uint256),bool,address,(address,address,address,address,uint256),uint128,uint64)[],uint256,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(marketParams, withdrawAssets, withdrawShares, signedAuthorization, reallocations, referralFeePct, referralFeeRecipient, deadline). Withdraw lent assets, optionally pulling public-allocator liquidity first."
+     },
+     {
+      "signature": "blueBundlesV1MigrateBorrowPosition((address,address,address,address,uint256),(address,address,address,address,uint256),uint256,((uint8,bytes32,bytes32),uint256,uint256),(address,address,(address,address,address,address,uint256),bool,address,(address,address,address,address,uint256),uint128,uint64)[],uint256,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Move a whole borrow position (collateral + debt) to another market with the same loan/collateral tokens: (sourceMarketParams, destMarketParams, maxLtv, signedAuthorization, reallocations, referralFeePct, referralFeeRecipient, deadline)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x02912516d49dE997db75B9D7858faAE59209650B",
+    "name": "VaultBundlesV1 (one-tx vault deposit/withdraw/migrate)",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "vaultBundlesV1Deposit(address,uint256,uint256,(uint8,bytes),uint256,address,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "Deposit into a Vault V1 or V2: (vault, assets, maxSharePriceE27, assetPermit, referralFeePct, referralFeeRecipient, deadline). maxSharePriceE27 = slippage guard on share price (assets per share scaled 1e27). Empty permit = prior ERC-20 approval to this contract."
+     },
+     {
+      "signature": "vaultBundlesV1Withdraw(address,uint256,uint256,(uint256,uint256,uint256,uint8,bytes32,bytes32),uint256,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(vault, assets, shares, sharesPermit, referralFeePct, referralFeeRecipient, deadline). Withdraw by assets or shares; needs a share allowance to this contract or an ERC-2612 share permit."
+     },
+     {
+      "signature": "vaultBundlesV1Migrate(address,address,uint256,uint256,uint256,(uint256,uint256,uint256,uint8,bytes32,bytes32),uint256,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "(sourceVault, destVault, assetsWithdrawn, sharesRedeemed, destMaxSharePriceE27, sharesPermit, referralFeePct, referralFeeRecipient, deadline). E.g. Vault V1 to its V2 successor in one tx."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xaf85aF286637A033BE7d59ED8cC566afa3309B02",
+    "name": "VaultExitBundlesV1 (exits from illiquid vaults)",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "vaultExitBundlesV1ForceWithdrawVaultV2(address,address,uint256,uint256,(uint256,uint256,uint256,uint8,bytes32,bytes32),uint256,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Exit an illiquid Vault V2 whose underlying markets are liquid, paying the force-deallocate penalty (idle and liquidity-adapter assets first, penalty-free)."
+     },
+     {
+      "signature": "vaultExitBundlesV1InKindRedemptionVaultV2(address,address,(address,address,address,address,uint256)[],uint256,(uint256,uint256,uint256,uint8,bytes32,bytes32),uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw idle assets and take the rest in kind (as Morpho Blue supply positions) from an illiquid Vault V2."
+     },
+     {
+      "signature": "vaultExitBundlesV1InKindRedemptionVaultV1(address,(address,address,address,address,uint256)[],uint256,(uint256,uint256,uint256,uint8,bytes32,bytes32),uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Redeem in kind from an illiquid Vault V1."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x6566194141eefa99Af43Bb5Aa71460Ca2Dc90245",
+    "name": "Bundler3 (DEPRECATED, replaced by Bundles)",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x4A6c312ec70E8747a587EE860a0353cd42Be0aE0",
+    "name": "EthereumGeneralAdapter1 (Bundler3 adapter, DEPRECATED)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x471686c42792F93528B000beF54bC10E3aa2045f",
+    "name": "Midnight (Morpho Midnight fixed-rate, fixed-term order-book markets)",
+    "role": "pool",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x58D97B57BB95320F9a05dC918Aef65434969c2B2",
+    "name": "MORPHO token (wrapped, transferable)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "MORPHO balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer MORPHO."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender."
+     },
+     {
+      "signature": "delegate(address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Delegate on-chain voting power."
+     },
+     {
+      "signature": "delegatee(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Current delegatee of an account."
+     },
+     {
+      "signature": "delegatedVotingPower(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Voting power delegated to an account."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x9D03bb2092270648d7480049d0E58d2FcF0E5123",
+    "name": "MORPHO wrapper (legacy MORPHO -> MORPHO 1:1)",
+    "role": "other",
+    "proxy": null,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": [
+     {
+      "signature": "depositFor(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Wrap legacy MORPHO (0x9994E35Db50125E0DF82e4c2dde62496CE330999, non-transferable) into the new MORPHO: (account, amount); approve the wrapper on the legacy token first."
+     },
+     {
+      "signature": "withdrawTo(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Unwrap back to legacy MORPHO."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+    "name": "Morpho (Morpho Blue singleton) - same interface as the Ethereum entry",
+    "role": "pool",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x46415998764C29aB2a25CbeA6254146D50D22687",
+    "name": "AdaptiveCurveIrm",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x4501125508079A99ebBebCE205DeC9593C2b5857",
+    "name": "VaultV2Factory - same interface as the Ethereum entry",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xFf62A7c278C62eD665133147129245053Bbf5918",
+    "name": "MetaMorpho Factory V1.1 - same interface as the Ethereum entry",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xA9c3D3a366466Fa809d1Ae982Fb2c46E5fC41101",
+    "name": "MetaMorpho Factory [OLD] (Vault V1.0)",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xAED282B8aD9257BB1272e93aE63A32A53621e412",
+    "name": "Blue Public Allocator (Vault V2) - same interface as the Ethereum entry",
+    "role": "other",
+    "proxy": null,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x4D28D900e381eCE4B351302f1Abe588496793A2b",
+    "name": "BlueBundlesV1 - same interface as the Ethereum entry",
+    "role": "router",
+    "proxy": null,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x2B08A911f48dE25A7e305D910Afb5597aBE8ea7B",
+    "name": "VaultBundlesV1 - same interface as the Ethereum entry",
+    "role": "router",
+    "proxy": null,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xE52E169C342C096C4949ABb944DC9f30E3F5Ea84",
+    "name": "VaultExitBundlesV1 - same interface as the Ethereum entry",
+    "role": "router",
+    "proxy": null,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x6BFd8137e702540E7A42B74178A4a49Ba43920C4",
+    "name": "Bundler3 (DEPRECATED, replaced by Bundles)",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xb98c948CFA24072e58935BC004a8A7b376AE746A",
+    "name": "GeneralAdapter1 (Bundler3 adapter, DEPRECATED)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xAdedD8ab6dE832766Fedf0FaC4992E5C4D3EA18A",
+    "name": "Midnight (fixed-rate markets)",
+    "role": "pool",
+    "proxy": null,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xBAa5CC21fd487B8Fcc2F632f3F4E8D37262a0842",
+    "name": "MORPHO token (Base)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x6c247b1F6182318877311737BaC0844bAa518F5e",
+    "name": "Morpho (Morpho Blue singleton; address differs from Ethereum/Base) - same interface as the Ethereum entry",
+    "role": "pool",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x6b46fa3cc9EBF8aB230aBAc664E37F2966Bf7971",
+    "name": "VaultV2Factory - same interface as the Ethereum entry",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x878988f5f561081deEa117717052164ea1Ef0c82",
+    "name": "MetaMorpho Factory V1.1 - same interface as the Ethereum entry",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x85b66Fe31e6788E5a6825EAe689f4c6c38AF3704",
+    "name": "Blue Public Allocator (Vault V2) - same interface as the Ethereum entry",
+    "role": "other",
+    "proxy": null,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0xce95AfbB8EA029495c66020883F87aaE8864AF92",
+    "name": "Morpho (Morpho Blue singleton; address differs from Ethereum/Base) - same interface as the Ethereum entry",
+    "role": "pool",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x6128b680b277Bf4Df80DFE9D8c55A498660870ef",
+    "name": "VaultV2Factory - same interface as the Ethereum entry",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x3Bb6A6A0Bc85b367EFE0A5bAc81c5E52C892839a",
+    "name": "MetaMorpho Factory V1.1 - same interface as the Ethereum entry",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0xc6945A915Bb7e2A365469f120A33D2FA42951cF3",
+    "name": "Blue Public Allocator (Vault V2) - same interface as the Ethereum entry",
+    "role": "other",
+    "proxy": null,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0x1bF0c2541F820E775182832f06c0B7Fc27A25f67",
+    "name": "Morpho (Morpho Blue singleton; address differs from Ethereum/Base) - same interface as the Ethereum entry",
+    "role": "pool",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0xC11a53eE9B1eCc7a068D8e40F8F17926584F97Cf",
+    "name": "VaultV2Factory - same interface as the Ethereum entry",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0xa9c87daB340631C34BB738625C70499e29ddDC98",
+    "name": "MetaMorpho Factory V1.1 - same interface as the Ethereum entry",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0xAb06a92cd253Bc12Dec8f719a693a6b472CCDfF4",
+    "name": "Blue Public Allocator (Vault V2) - same interface as the Ethereum entry",
+    "role": "other",
+    "proxy": null,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "unichain",
+    "chainId": 130,
+    "address": "0x8f5ae9CddB9f68de460C77730b018Ae7E04a140A",
+    "name": "Morpho (Morpho Blue singleton; address differs from Ethereum/Base) - same interface as the Ethereum entry",
+    "role": "pool",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "unichain",
+    "chainId": 130,
+    "address": "0xC9b34c108014B44e5a189A830e7e04c56704a0c9",
+    "name": "VaultV2Factory - same interface as the Ethereum entry",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "unichain",
+    "chainId": 130,
+    "address": "0xe9EdE3929F43a7062a007C3e8652e4ACa610Bdc0",
+    "name": "MetaMorpho Factory V1.1 - same interface as the Ethereum entry",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "unichain",
+    "chainId": 130,
+    "address": "0x2b7Bf2f2027bcfE3A1F6Bc93EA80220a883a6851",
+    "name": "Blue Public Allocator (Vault V2) - same interface as the Ethereum entry",
+    "role": "other",
+    "proxy": null,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "avalanche",
+    "chainId": 43114,
+    "address": "0x895383274303AA19fe978AFB4Ac55C7f094f982C",
+    "name": "Morpho (Morpho Blue singleton; address differs from Ethereum/Base) - same interface as the Ethereum entry",
+    "role": "pool",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "avalanche",
+    "chainId": 43114,
+    "address": "0xf7b1d9e43BAeA3705f2B303693766ACbcfec6A55",
+    "name": "VaultV2Factory - same interface as the Ethereum entry",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "avalanche",
+    "chainId": 43114,
+    "address": "0x1cc30758C8c406D0Bc463Ee89613bA21A2576662",
+    "name": "Blue Public Allocator (Vault V2) - same interface as the Ethereum entry",
+    "role": "other",
+    "proxy": null,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "bnb",
+    "chainId": 56,
+    "address": "0x01b0Bd309AA75547f7a37Ad7B1219A898E67a83a",
+    "name": "Morpho (Morpho Blue singleton; address differs from Ethereum/Base) - same interface as the Ethereum entry",
+    "role": "pool",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "bnb",
+    "chainId": 56,
+    "address": "0x29955201601630f686beAF47b0B03be7b86d160F",
+    "name": "VaultV2Factory - same interface as the Ethereum entry",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "bnb",
+    "chainId": 56,
+    "address": "0x92983687e672cA6d96530f9Dbe11a196cE905d72",
+    "name": "MetaMorpho Factory V1.1 - same interface as the Ethereum entry",
+    "role": "factory",
+    "proxy": false,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "bnb",
+    "chainId": 56,
+    "address": "0x0254e254f50fD4c4A8F38fAAB735487FD5Fe1BD5",
+    "name": "Blue Public Allocator (Vault V2) - same interface as the Ethereum entry",
+    "role": "other",
+    "proxy": null,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x40BD670A58238e6E230c430BBb5cE6ec0d40df48",
+    "name": "MORPHO token (Arbitrum)",
+    "role": "token",
+    "proxy": null,
+    "source": "https://docs.morpho.org/developers/contracts/addresses",
+    "keyFunctions": []
+   }
+  ],
+  "offchainApis": [
+   {
+    "name": "Morpho Read API",
+    "url": "https://api.morpho.org",
+    "auth": "none",
+    "use": "REST reads for agents and apps: /v0/blue/markets (list, filter by chain_id), /v0/blue/markets/{market}/state, /liquidity, /public-allocator-vaults, /users/{address}/position; /v0/vaults-v1 and /v0/vaults-v2 lists, /v1/vaults-v2/{vault}/state (total_assets, share_price_ray, withdrawable_assets), /v0/vaults-v2/{vault}/allocations, user positions, /v0/tokens/{token}/price, /v0/oracles/{oracle}/state, Midnight books. Rate-limited without a key; OpenAPI at https://docs.morpho.org/openapi.json.",
+    "source": "https://docs.morpho.org/api"
+   },
+   {
+    "name": "Morpho Actions API",
+    "url": "https://private.api.morpho.org",
+    "auth": "api-key",
+    "use": "Builds transaction calls (supply, borrow, vault deposit, etc.) for the user's wallet to sign. API key in the x-api-key header; action requests to api.morpho.org are refused (403).",
+    "source": "https://docs.morpho.org/api"
+   },
+   {
+    "name": "Morpho GraphQL API (legacy)",
+    "url": "https://api.morpho.org/graphql",
+    "auth": "none",
+    "use": "Legacy GraphQL for markets, vaults and positions. Shuts down on January 29, 2027; use the Read API instead.",
+    "source": "https://docs.morpho.org/developers/api/migrate-from-graphql"
+   }
+  ],
+  "actions": [
+   {
+    "name": "find markets / vaults",
+    "description": "Discover markets and vaults (they are not listed one by one here)",
+    "how": "Read API GET https://api.morpho.org/v0/blue/markets?chain_id=1 or /v0/vaults-v2 (listed vaults). On-chain: CreateMarket events on Morpho give marketParams; idToMarketParams(id) returns them; VaultV2Factory.isVaultV2(addr) / MetaMorpho factory isMetaMorpho(addr) verify a vault is genuine."
+   },
+   {
+    "name": "lend in a market",
+    "description": "Supply the loan token to one Morpho Blue market",
+    "how": "approve(Morpho, amount) on the loan token; Morpho.supply(marketParams, amount, 0, you, 0x). Or BlueBundlesV1.blueBundlesV1Supply(...)."
+   },
+   {
+    "name": "borrow",
+    "description": "Borrow against collateral in one market",
+    "how": "approve(Morpho) on collateral; Morpho.supplyCollateral(marketParams, collAmount, you, 0x); then Morpho.borrow(marketParams, amount, 0, you, you). Keep LTV well under LLTV. One tx: BlueBundlesV1.blueBundlesV1SupplyCollateralAndBorrow with a maxLtv guard (needs Morpho authorization for the bundle, by setAuthorization or signedAuthorization)."
+   },
+   {
+    "name": "repay and withdraw collateral",
+    "description": "Close a loan",
+    "how": "approve(Morpho) on the loan token; Morpho.repay(marketParams, 0, position(id,you).borrowShares, you, 0x); Morpho.withdrawCollateral(marketParams, position.collateral, you, you)."
+   },
+   {
+    "name": "deposit into a vault",
+    "description": "Earn curated yield",
+    "how": "Verify the vault with VaultV2Factory.isVaultV2 or isMetaMorpho; approve(vault, amount) on its asset(); vault.deposit(amount, you). Exit: vault.redeem(shares, you, you). Or VaultBundlesV1.vaultBundlesV1Deposit with a maxSharePriceE27 slippage guard."
+   },
+   {
+    "name": "exit an illiquid Vault V2",
+    "description": "Get funds out when the vault's liquidity is allocated",
+    "how": "VaultExitBundlesV1.vaultExitBundlesV1ForceWithdrawVaultV2 (pays the forceDeallocate penalty) or vaultExitBundlesV1InKindRedemptionVaultV2 (take Blue supply positions in kind)."
+   },
+   {
+    "name": "source extra liquidity",
+    "description": "Borrow more than a market currently holds",
+    "how": "Check /v0/blue/markets/{id}/public-allocator-vaults, then BluePublicAllocator.reallocate(...) or pass reallocations to a BlueBundlesV1 entrypoint."
+   }
+  ],
+  "risks": [
+   "Liquidation: if a borrower's LTV (debt / collateral valued by the market's oracle) exceeds the market's immutable LLTV, anyone can liquidate it and seize collateral with an incentive of up to 15% (MAX_LIQUIDATION_INCENTIVE_FACTOR 1.15; the incentive is larger for lower LLTVs).",
+   "Oracle risk: each market's oracle is fixed at creation and anyone can create markets with any oracle; a wrong or manipulable oracle can cause unfair liquidations or bad debt. Morpho's docs say no oracle is immune to manipulation; check the oracle (Read API /v0/oracles/{oracle}/state) before using a market.",
+   "Bad debt is realised immediately and socialised to that market's lenders (and to vaults allocated there). Markets are isolated, so losses stay in the affected market.",
+   "Liquidity risk: lenders can only withdraw what is not borrowed; at 100% utilisation withdrawals revert until borrowers repay (the AdaptiveCurveIrm raises rates sharply to restore liquidity).",
+   "Curator risk (vaults): Vault V1 curators/allocators and Vault V2 Owner/Curator/Allocators/Sentinels decide which markets and adapters the vault uses; a bad allocation means losses for depositors. Most risk-increasing changes are timelocked, gates can block deposits/withdrawals, and fees are capped (Vault V2: performance <= 50%, management <= 5%/yr). Check the vault's curator, timelock and allocations before depositing.",
+   "Vault V2 maxDeposit/maxMint/maxWithdraw/maxRedeem always return 0 by design; integrations that rely on these ERC-4626 limits will think the vault is closed.",
+   "Counterparty risk on assets: centralised loan or collateral tokens can be frozen or blacklisted by their issuer.",
+   "Smart-contract risk: Morpho Blue and the vault contracts are immutable (no admin upgrade); governance (MORPHO holders) can only enable new IRMs/LLTVs and set a fee switch (capped at 25% of interest). Bundler3 and its adapters are deprecated in favour of Bundles; existing deployments stay live but the Morpho app no longer uses them."
+  ],
+  "notes": "Slug: DefiLlama lists Morpho as a parent protocol (api.llama.fi/protocol/morpho) whose main child is 'Morpho Blue' (slug morpho-blue), plus Morpho Midnight and the retired Morpho Optimizers; this file covers the Morpho family. All addresses are from the official docs page https://docs.morpho.org/developers/contracts/addresses (raw markdown at https://docs.morpho.org/developers/contracts/addresses.md) and every one was checked to have contract code (eth_getCode). The Morpho Blue singleton is 0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb only on Ethereum and Base; on other chains it has a different address (listed). keyFunctions are given once on the Ethereum entries; same-named contracts elsewhere share the interface. Vault ERC-4626 functions are shown on the factory entries, marked '[On a Vault ...]', because individual vaults are not listed: find them with the Read API (/v0/vaults-v1, /v0/vaults-v2) and verify with isMetaMorpho / isVaultV2. Morpho is on about 40 chains (HyperEVM, Katana, Monad, Sonic, World Chain, Plasma, Sei, Stable, Tempo, Robinhood Chain, etc.); those, plus ChainlinkOracleV2 factories, MorphoRegistry, Vault V2 adapter factories, Universal Rewards Distributors, Bundler3 migration/Paraswap adapters, MidnightBundles, Midnight ratifiers/periphery and the legacy Morpho Optimizers, are on the addresses page but not listed here. The Vault V1 PublicAllocator is intentionally omitted: the docs say retired Vault V1 allocator addresses are left out and integrators should use the Vault V2 Blue Public Allocator. Midnight (fixed-rate, fixed-term order-book markets) is listed on Ethereum and Base without keyFunctions because its interface (offers, ratifiers, callbacks) is complex; use MidnightBundlesV2 and the Midnight docs (https://docs.morpho.org/developers/midnight/resources/all). Legacy MORPHO 0x9994E35Db50125E0DF82e4c2dde62496CE330999 is not transferable; only wrapped MORPHO is. Signatures come from Sourcify full/partial matches (Morpho, factories, Public Allocator, Bundles, MORPHO implementation) and morpho-org GitHub sources (vault-v2 IVaultV2/IERC4626, VaultV2.sol, metamorpho IMetaMorpho). No dated security incidents are included because none were found on an official Morpho page during research.",
+  "sources": [
+   "https://defillama.com/protocol/morpho",
+   "https://api.llama.fi/protocol/morpho",
+   "https://api.llama.fi/protocol/morpho-blue",
+   "https://docs.morpho.org/llms.txt",
+   "https://docs.morpho.org/developers/contracts/addresses",
+   "https://docs.morpho.org/developers/contracts/addresses.md",
+   "https://docs.morpho.org/developers/contracts/bundles",
+   "https://docs.morpho.org/learn/concepts/bundles",
+   "https://docs.morpho.org/developers/contracts/blue-public-allocator",
+   "https://docs.morpho.org/api",
+   "https://docs.morpho.org/developers/api/migrate-from-graphql",
+   "https://docs.morpho.org/learn/resources/risks",
+   "https://docs.morpho.org/learn/concepts/blue",
+   "https://docs.morpho.org/learn/governance/organization",
+   "https://github.com/morpho-org/morpho-blue/blob/main/src/libraries/ConstantsLib.sol",
+   "https://docs.morpho.org/learn/concepts/vault-v2",
+   "https://docs.morpho.org/learn/governance/morpho-token",
+   "https://sourcify.dev/server/v2/contract/1/0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+   "https://sourcify.dev/server/v2/contract/1/0x1897A8997241C1cD4bD0698647e4EB7213535c24",
+   "https://sourcify.dev/server/v2/contract/1/0xA1D94F746dEfa1928926b84fB2596c06926C0405",
+   "https://sourcify.dev/server/v2/contract/1/0x00b8e1509398ED692C3F326CbAf1694F9A881e27",
+   "https://sourcify.dev/server/v2/contract/1/0x38B0C12AB81976e9417D4ebfe2A34DB6DF22e6AD",
+   "https://sourcify.dev/server/v2/contract/1/0x02912516d49dE997db75B9D7858faAE59209650B",
+   "https://sourcify.dev/server/v2/contract/1/0xaf85aF286637A033BE7d59ED8cC566afa3309B02",
+   "https://sourcify.dev/server/v2/contract/1/0x9D03bb2092270648d7480049d0E58d2FcF0E5123",
+   "https://github.com/morpho-org/vault-v2/blob/main/src/interfaces/IVaultV2.sol",
+   "https://github.com/morpho-org/vault-v2/blob/main/src/interfaces/IERC4626.sol",
+   "https://github.com/morpho-org/vault-v2/blob/main/src/VaultV2.sol",
+   "https://github.com/morpho-org/vault-v2/blob/main/src/VaultV2Factory.sol",
+   "https://github.com/morpho-org/metamorpho/blob/main/src/interfaces/IMetaMorpho.sol"
+  ],
+  "researchedAt": "2026-11-25"
+ },
+ {
   "slug": "olympus-dao",
   "name": "Olympus DAO",
   "category": "Reserve Currency",
@@ -19808,6 +29114,2189 @@ export const PROTOCOLS: ProtocolEntry[] = [
   "researchedAt": "2026-11-24"
  },
  {
+  "slug": "pendle",
+  "name": "Pendle",
+  "category": "Yield",
+  "description": "Pendle splits yield-bearing assets (stETH, sUSDe, USDe, etc.) into PT (fixed yield, redeemable 1:1 for the accounting asset at maturity) and YT (all variable yield and points until maturity), traded in a PT/SY AMM. Agents can buy/sell PT and YT, add/remove liquidity, and mint/redeem through PendleRouter V4, ideally with calldata built by Pendle's Hosted SDK (Convert API); PENDLE can be staked into sPENDLE on Ethereum.",
+  "website": "https://pendle.finance",
+  "docs": "https://docs.pendle.finance",
+  "defillama": "https://defillama.com/protocol/pendle",
+  "chains": [
+   "ethereum",
+   "arbitrum",
+   "base",
+   "bsc",
+   "optimism",
+   "sonic",
+   "hyperevm",
+   "mantle",
+   "berachain",
+   "monad",
+   "plasma",
+   "xlayer",
+   "robinhood"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+    "name": "PendleRouter V4 (PendleRouterV4)",
+    "role": "router",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/1-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+     },
+     {
+      "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+     },
+     {
+      "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+     },
+     {
+      "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+     },
+     {
+      "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+     },
+     {
+      "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+     },
+     {
+      "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+     },
+     {
+      "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": false,
+      "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+     },
+     {
+      "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+     },
+     {
+      "signature": "swapExactTokenForPtSimple(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Simplified buy-PT without ApproxParams or limit orders: (receiver, market, minPtOut, TokenInput input). Uses more gas for the on-chain search; no limit-order fills."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x263833d47eA3fA4a30f269323aba6a107f9eB14C",
+    "name": "PendleRouterStatic (off-chain previews)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/1-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+     },
+     {
+      "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+     },
+     {
+      "signature": "swapExactTokenForYtStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview buying YT: (market, tokenIn, amountTokenIn) -> (netYtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...)."
+     },
+     {
+      "signature": "swapExactYtForTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview selling YT: (market, exactYtIn, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+     },
+     {
+      "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+     },
+     {
+      "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+     },
+     {
+      "signature": "redeemPyToTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview PT+YT (or post-expiry PT) redemption: (YT, netPYToRedeem, tokenOut) -> netTokenOut."
+     },
+     {
+      "signature": "getPtToAssetRate(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+     },
+     {
+      "signature": "getLpToAssetRate(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Spot LP price in the accounting asset (1e18 scale) for a market."
+     },
+     {
+      "signature": "getTokensInOut(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+     },
+     {
+      "signature": "getUserMarketInfo(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(market, user) -> the user's LP, PT, YT balances and claimable rewards in that market (non-view in ABI; call with eth_call)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x6d247b1c044fA1E22e6B04fA9F71Baf99EB29A9f",
+    "name": "PendleMarketFactoryV6 (current market factory)",
+    "role": "factory",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/1-core.json",
+    "keyFunctions": [
+     {
+      "signature": "isValidMarket(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the address is a market created by this factory. Check this before trusting a market address you did not get from the Pendle API. Older markets belong to older factories (marketFactoryV3..V5, listed in the same deployments file)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x808507121B80c02388fAd14726482e061B8da827",
+    "name": "PENDLE token",
+    "role": "token",
+    "proxy": false,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/1-core.json",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "PENDLE balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve sPENDLE (to stake) or the router."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer PENDLE."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x999999999991E178D52Cd95AFd4b00d066664144",
+    "name": "sPENDLE (staked PENDLE, replaces vePENDLE)",
+    "role": "staking",
+    "proxy": true,
+    "source": "https://docs.pendle.finance/pendle-v2-dev/Contracts/sPENDLE",
+    "keyFunctions": [
+     {
+      "signature": "stake(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake PENDLE 1:1 for sPENDLE (approve sPENDLE for PENDLE first). sPENDLE does not grow in value; it gives voting power and a pro-rata share of reward distributions if you meet the active-participation criteria."
+     },
+     {
+      "signature": "cooldown(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Start the fee-free unstake: puts amount of sPENDLE in cooldown (cooldownDuration(), 14 days on 2026-11-25)."
+     },
+     {
+      "signature": "finalizeCooldown()",
+      "kind": "write",
+      "payable": false,
+      "description": "After the cooldown ends, receive the PENDLE. Returns amount."
+     },
+     {
+      "signature": "cancelCooldown()",
+      "kind": "write",
+      "payable": false,
+      "description": "Cancel the cooldown and get the sPENDLE back."
+     },
+     {
+      "signature": "instantUnstake(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Unstake immediately for a fee (instantUnstakeFeeRate(), 5% per docs): returns (amountAfterFee, fee)."
+     },
+     {
+      "signature": "cooldownDuration()",
+      "kind": "read",
+      "payable": false,
+      "description": "Cooldown in seconds (returned 1209600 = 14 days on 2026-11-25)."
+     },
+     {
+      "signature": "instantUnstakeFeeRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "Instant-unstake fee, 1e18 = 100% (5e16 = 5%)."
+     },
+     {
+      "signature": "userCooldown(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "(cooldownStart, amount) of a user's pending cooldown."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "sPENDLE balance."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+    "name": "PendleRouter V4 (same address as Ethereum)",
+    "role": "router",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/42161-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+     },
+     {
+      "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+     },
+     {
+      "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+     },
+     {
+      "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+     },
+     {
+      "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+     },
+     {
+      "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+     },
+     {
+      "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+     },
+     {
+      "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": false,
+      "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+     },
+     {
+      "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+     },
+     {
+      "signature": "swapExactTokenForPtSimple(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Simplified buy-PT without ApproxParams or limit orders: (receiver, market, minPtOut, TokenInput input). Uses more gas for the on-chain search; no limit-order fills."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0xAdB09F65bd90d19e3148D9ccb693F3161C6DB3E8",
+    "name": "PendleRouterStatic (off-chain previews)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/42161-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+     },
+     {
+      "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+     },
+     {
+      "signature": "swapExactTokenForYtStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview buying YT: (market, tokenIn, amountTokenIn) -> (netYtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...)."
+     },
+     {
+      "signature": "swapExactYtForTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview selling YT: (market, exactYtIn, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+     },
+     {
+      "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+     },
+     {
+      "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+     },
+     {
+      "signature": "redeemPyToTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview PT+YT (or post-expiry PT) redemption: (YT, netPYToRedeem, tokenOut) -> netTokenOut."
+     },
+     {
+      "signature": "getPtToAssetRate(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+     },
+     {
+      "signature": "getTokensInOut(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x49F2f7002669E0e4425Fa0203975625Ab4af3143",
+    "name": "PendleMarketFactoryV6 (current market factory)",
+    "role": "factory",
+    "proxy": null,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/42161-core.json",
+    "keyFunctions": [
+     {
+      "signature": "isValidMarket(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the address is a market created by this factory. Check this before trusting a market address you did not get from the Pendle API. Older markets belong to older factories (marketFactoryV3..V5, listed in the same deployments file)."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x0c880f6761F1af8d9Aa9C466984b80DAb9a8c9e8",
+    "name": "PENDLE token",
+    "role": "token",
+    "proxy": null,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/42161-core.json",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer PENDLE."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+    "name": "PendleRouter V4 (same address as Ethereum)",
+    "role": "router",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/8453-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+     },
+     {
+      "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+     },
+     {
+      "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+     },
+     {
+      "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+     },
+     {
+      "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+     },
+     {
+      "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+     },
+     {
+      "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+     },
+     {
+      "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": false,
+      "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+     },
+     {
+      "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+     },
+     {
+      "signature": "swapExactTokenForPtSimple(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Simplified buy-PT without ApproxParams or limit orders: (receiver, market, minPtOut, TokenInput input). Uses more gas for the on-chain search; no limit-order fills."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xB4205a645c7e920BD8504181B1D7f2c5C955C3e7",
+    "name": "PendleRouterStatic (off-chain previews)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/8453-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+     },
+     {
+      "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+     },
+     {
+      "signature": "swapExactTokenForYtStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview buying YT: (market, tokenIn, amountTokenIn) -> (netYtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...)."
+     },
+     {
+      "signature": "swapExactYtForTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview selling YT: (market, exactYtIn, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+     },
+     {
+      "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+     },
+     {
+      "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+     },
+     {
+      "signature": "redeemPyToTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview PT+YT (or post-expiry PT) redemption: (YT, netPYToRedeem, tokenOut) -> netTokenOut."
+     },
+     {
+      "signature": "getPtToAssetRate(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+     },
+     {
+      "signature": "getTokensInOut(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x81E80A50E56d10C501fF17B5Fe2F662bd9EA4590",
+    "name": "PendleMarketFactoryV6 (current market factory)",
+    "role": "factory",
+    "proxy": null,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/8453-core.json",
+    "keyFunctions": [
+     {
+      "signature": "isValidMarket(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the address is a market created by this factory. Check this before trusting a market address you did not get from the Pendle API. Older markets belong to older factories (marketFactoryV3..V5, listed in the same deployments file)."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xA99F6e6785Da0F5d6fB42495Fe424BCE029Eeb3E",
+    "name": "PENDLE token",
+    "role": "token",
+    "proxy": null,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/8453-core.json",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer PENDLE."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+    "name": "PendleRouter V4 (same address as Ethereum)",
+    "role": "router",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/56-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+     },
+     {
+      "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+     },
+     {
+      "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+     },
+     {
+      "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+     },
+     {
+      "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+     },
+     {
+      "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+     },
+     {
+      "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+     },
+     {
+      "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": false,
+      "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+     },
+     {
+      "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+     },
+     {
+      "signature": "swapExactTokenForPtSimple(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Simplified buy-PT without ApproxParams or limit orders: (receiver, market, minPtOut, TokenInput input). Uses more gas for the on-chain search; no limit-order fills."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x2700ADB035F82a11899ce1D3f1BF8451c296eABb",
+    "name": "PendleRouterStatic (off-chain previews)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/56-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+     },
+     {
+      "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+     },
+     {
+      "signature": "swapExactTokenForYtStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview buying YT: (market, tokenIn, amountTokenIn) -> (netYtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...)."
+     },
+     {
+      "signature": "swapExactYtForTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview selling YT: (market, exactYtIn, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+     },
+     {
+      "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+     },
+     {
+      "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+     },
+     {
+      "signature": "redeemPyToTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview PT+YT (or post-expiry PT) redemption: (YT, netPYToRedeem, tokenOut) -> netTokenOut."
+     },
+     {
+      "signature": "getPtToAssetRate(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+     },
+     {
+      "signature": "getTokensInOut(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0x80cE46449DF1c977f6ba60495125ce282F83DdFB",
+    "name": "PendleMarketFactoryV6 (current market factory)",
+    "role": "factory",
+    "proxy": null,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/56-core.json",
+    "keyFunctions": [
+     {
+      "signature": "isValidMarket(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "True if the address is a market created by this factory. Check this before trusting a market address you did not get from the Pendle API. Older markets belong to older factories (marketFactoryV3..V5, listed in the same deployments file)."
+     }
+    ]
+   },
+   {
+    "chain": "bsc",
+    "chainId": 56,
+    "address": "0xb3Ed0A426155B79B898849803E3B36552f7ED507",
+    "name": "PENDLE token",
+    "role": "token",
+    "proxy": null,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/56-core.json",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer PENDLE."
+     }
+    ]
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+    "name": "PendleRouter V4 (same address as Ethereum)",
+    "role": "router",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/10-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+     },
+     {
+      "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+     },
+     {
+      "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+     },
+     {
+      "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+     },
+     {
+      "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+     },
+     {
+      "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+     },
+     {
+      "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+     },
+     {
+      "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": false,
+      "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+     },
+     {
+      "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+     }
+    ]
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x704478Dd72FD7F9B83d1F1e0fc18C14B54F034d0",
+    "name": "PendleRouterStatic (off-chain previews)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/10-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+     },
+     {
+      "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+     },
+     {
+      "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+     },
+     {
+      "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+     },
+     {
+      "signature": "getPtToAssetRate(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+     },
+     {
+      "signature": "getTokensInOut(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+     }
+    ]
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0xBC7B1Ff1c6989f006a1185318eD4E7b5796e66E1",
+    "name": "PENDLE token",
+    "role": "token",
+    "proxy": null,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/10-core.json",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer PENDLE."
+     }
+    ]
+   },
+   {
+    "chain": "sonic",
+    "chainId": 146,
+    "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+    "name": "PendleRouter V4 (same address as Ethereum)",
+    "role": "router",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/146-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+     },
+     {
+      "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+     },
+     {
+      "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+     },
+     {
+      "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+     },
+     {
+      "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+     },
+     {
+      "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+     },
+     {
+      "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+     },
+     {
+      "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": false,
+      "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+     },
+     {
+      "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+     }
+    ]
+   },
+   {
+    "chain": "sonic",
+    "chainId": 146,
+    "address": "0x0013ACc071f732fd6BF8210AB46A3794a7D8945e",
+    "name": "PendleRouterStatic (off-chain previews)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/146-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+     },
+     {
+      "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+     },
+     {
+      "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+     },
+     {
+      "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+     },
+     {
+      "signature": "getPtToAssetRate(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+     },
+     {
+      "signature": "getTokensInOut(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+     }
+    ]
+   },
+   {
+    "chain": "sonic",
+    "chainId": 146,
+    "address": "0xf1eF7d2D4C0c881cd634481e0586ed5d2871A74B",
+    "name": "PENDLE token",
+    "role": "token",
+    "proxy": null,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/146-core.json",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer PENDLE."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+    "name": "PendleRouter V4 (same address as Ethereum)",
+    "role": "router",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/999-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+     },
+     {
+      "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+     },
+     {
+      "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+     },
+     {
+      "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+     },
+     {
+      "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+     },
+     {
+      "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+     },
+     {
+      "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+     },
+     {
+      "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": false,
+      "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+     },
+     {
+      "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0x6813d43782395A1F2AAb42f39aeEDE03ac655e09",
+    "name": "PendleRouterStatic (off-chain previews)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/999-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+     },
+     {
+      "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+     },
+     {
+      "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+     },
+     {
+      "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+     },
+     {
+      "signature": "getPtToAssetRate(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+     },
+     {
+      "signature": "getTokensInOut(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+     }
+    ]
+   },
+   {
+    "chain": "hyperevm",
+    "chainId": 999,
+    "address": "0xD6Eb81136884713E843936843E286FD2a85A205A",
+    "name": "PENDLE token",
+    "role": "token",
+    "proxy": null,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/999-core.json",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer PENDLE."
+     }
+    ]
+   },
+   {
+    "chain": "mantle",
+    "chainId": 5000,
+    "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+    "name": "PendleRouter V4 (same address as Ethereum)",
+    "role": "router",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/5000-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+     },
+     {
+      "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+     },
+     {
+      "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+     },
+     {
+      "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+     },
+     {
+      "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+     },
+     {
+      "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+     },
+     {
+      "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+     },
+     {
+      "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": false,
+      "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+     },
+     {
+      "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+     }
+    ]
+   },
+   {
+    "chain": "mantle",
+    "chainId": 5000,
+    "address": "0xCAd502Bb55d1A3F79952F969BFF3f011CF30a94a",
+    "name": "PendleRouterStatic (off-chain previews)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/5000-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+     },
+     {
+      "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+     },
+     {
+      "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+     },
+     {
+      "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+     },
+     {
+      "signature": "getPtToAssetRate(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+     },
+     {
+      "signature": "getTokensInOut(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+     }
+    ]
+   },
+   {
+    "chain": "mantle",
+    "chainId": 5000,
+    "address": "0xd27B18915e7acc8FD6Ac75DB6766a80f8D2f5729",
+    "name": "PENDLE token",
+    "role": "token",
+    "proxy": null,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/5000-core.json",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer PENDLE."
+     }
+    ]
+   },
+   {
+    "chain": "berachain",
+    "chainId": 80094,
+    "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+    "name": "PendleRouter V4 (same address as Ethereum)",
+    "role": "router",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/80094-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+     },
+     {
+      "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+     },
+     {
+      "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+     },
+     {
+      "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+     },
+     {
+      "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+     },
+     {
+      "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+     },
+     {
+      "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+     },
+     {
+      "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": false,
+      "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+     },
+     {
+      "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+     }
+    ]
+   },
+   {
+    "chain": "berachain",
+    "chainId": 80094,
+    "address": "0x6813d43782395A1F2AAb42f39aeEDE03ac655e09",
+    "name": "PendleRouterStatic (off-chain previews)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/80094-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+     },
+     {
+      "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+     },
+     {
+      "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+     },
+     {
+      "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+     },
+     {
+      "signature": "getPtToAssetRate(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+     },
+     {
+      "signature": "getTokensInOut(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+     }
+    ]
+   },
+   {
+    "chain": "berachain",
+    "chainId": 80094,
+    "address": "0xFf9c599D51C407A45D631c6e89cB047Efb88AeF6",
+    "name": "PENDLE token",
+    "role": "token",
+    "proxy": null,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/80094-core.json",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer PENDLE."
+     }
+    ]
+   },
+   {
+    "chain": "monad",
+    "chainId": 143,
+    "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+    "name": "PendleRouter V4 (same address as Ethereum)",
+    "role": "router",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/143-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+     },
+     {
+      "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+     },
+     {
+      "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+     },
+     {
+      "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+     },
+     {
+      "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+     },
+     {
+      "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+     },
+     {
+      "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+     },
+     {
+      "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": false,
+      "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+     },
+     {
+      "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+     }
+    ]
+   },
+   {
+    "chain": "monad",
+    "chainId": 143,
+    "address": "0x6813d43782395A1F2AAb42f39aeEDE03ac655e09",
+    "name": "PendleRouterStatic (off-chain previews)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/143-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+     },
+     {
+      "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+     },
+     {
+      "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+     },
+     {
+      "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+     },
+     {
+      "signature": "getPtToAssetRate(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+     },
+     {
+      "signature": "getTokensInOut(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+     }
+    ]
+   },
+   {
+    "chain": "monad",
+    "chainId": 143,
+    "address": "0x5E49E1f85813F2B65858860A3FA231b4186f2e0E",
+    "name": "PENDLE token",
+    "role": "token",
+    "proxy": null,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/143-core.json",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer PENDLE."
+     }
+    ]
+   },
+   {
+    "chain": "plasma",
+    "chainId": 9745,
+    "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+    "name": "PendleRouter V4 (same address as Ethereum)",
+    "role": "router",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/9745-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+     },
+     {
+      "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+     },
+     {
+      "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+     },
+     {
+      "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+     },
+     {
+      "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+     },
+     {
+      "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+     },
+     {
+      "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+     },
+     {
+      "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": false,
+      "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+     },
+     {
+      "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+     }
+    ]
+   },
+   {
+    "chain": "plasma",
+    "chainId": 9745,
+    "address": "0x6813d43782395A1F2AAb42f39aeEDE03ac655e09",
+    "name": "PendleRouterStatic (off-chain previews)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/9745-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+     },
+     {
+      "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+     },
+     {
+      "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+     },
+     {
+      "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+     },
+     {
+      "signature": "getPtToAssetRate(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+     },
+     {
+      "signature": "getTokensInOut(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+     }
+    ]
+   },
+   {
+    "chain": "plasma",
+    "chainId": 9745,
+    "address": "0x17Bac5F906c9A0282aC06a59958D85796c831f24",
+    "name": "PENDLE token",
+    "role": "token",
+    "proxy": null,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/9745-core.json",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer PENDLE."
+     }
+    ]
+   },
+   {
+    "chain": "xlayer",
+    "chainId": 196,
+    "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+    "name": "PendleRouter V4 (same address as Ethereum)",
+    "role": "router",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/196-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+     },
+     {
+      "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+     },
+     {
+      "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+     },
+     {
+      "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+     },
+     {
+      "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+     },
+     {
+      "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+     },
+     {
+      "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+     },
+     {
+      "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": false,
+      "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+     },
+     {
+      "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+     }
+    ]
+   },
+   {
+    "chain": "xlayer",
+    "chainId": 196,
+    "address": "0x6813d43782395A1F2AAb42f39aeEDE03ac655e09",
+    "name": "PendleRouterStatic (off-chain previews)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/196-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+     },
+     {
+      "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+     },
+     {
+      "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+     },
+     {
+      "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+     },
+     {
+      "signature": "getPtToAssetRate(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+     },
+     {
+      "signature": "getTokensInOut(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+     }
+    ]
+   },
+   {
+    "chain": "xlayer",
+    "chainId": 196,
+    "address": "0x5E49E1f85813F2B65858860A3FA231b4186f2e0E",
+    "name": "PENDLE token",
+    "role": "token",
+    "proxy": null,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/196-core.json",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer PENDLE."
+     }
+    ]
+   },
+   {
+    "chain": "robinhood",
+    "chainId": 4663,
+    "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+    "name": "PendleRouter V4 (same address as Ethereum)",
+    "role": "router",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/4663-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy PT (fixed yield) with a token: (receiver, market, minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit). Returns (netPtOut, netSyFee, netSyInterm). Approve the router for tokenIn first. TokenInput = (tokenIn, netTokenIn, tokenMintSy, pendleSwap, swapData(swapType uint8, extRouter, extCalldata, needScale)). Without an aggregator: tokenIn = tokenMintSy = a token the SY accepts (SY.getTokensIn()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false). For native ETH use tokenIn = 0x0 and send msg.value. Default ApproxParams (createDefaultApproxParams()): (guessMin=0, guessMax=type(uint256).max, guessOffchain=0, maxIteration=256, eps=1e14); the Hosted SDK instead returns a tight off-chain guess that uses much less gas. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns)."
+     },
+     {
+      "signature": "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell PT for a token before maturity: (receiver, market, exactPtIn, TokenOutput output, LimitOrderData limit). Approve PT to the router. TokenOutput = (tokenOut, minTokenOut, tokenRedeemSy, pendleSwap, swapData). Without an aggregator: tokenOut = tokenRedeemSy = a token the SY redeems to (SY.getTokensOut()), pendleSwap = 0x0, swapData = (0, 0x0, 0x, false); minTokenOut is your slippage floor. Empty limit orders: LimitOrderData = (limitRouter=0x0000000000000000000000000000000000000000, epsSkipMarket=0, normalFills=[], flashFills=[], optData=0x) (what createEmptyLimitOrderData() returns). After expiry use redeemPyToToken instead."
+     },
+     {
+      "signature": "swapExactTokenForYt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Buy YT (leveraged variable yield, worth 0 at maturity): (receiver, market, minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit). Same struct rules as swapExactTokenForPt."
+     },
+     {
+      "signature": "swapExactYtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Sell YT for a token: (receiver, market, exactYtIn, TokenOutput output, LimitOrderData limit). Approve YT to the router."
+     },
+     {
+      "signature": "addLiquiditySingleToken(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": true,
+      "description": "Zap one token into a market's LP: (receiver, market, minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit). Returns (netLpOut, netSyFee, netSyInterm). Use default ApproxParams and empty LimitOrderData if not using the SDK."
+     },
+     {
+      "signature": "removeLiquiditySingleToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))",
+      "kind": "write",
+      "payable": false,
+      "description": "Exit LP to one token: (receiver, market, netLpToRemove, TokenOutput output, LimitOrderData limit). Approve the LP (market) token to the router first."
+     },
+     {
+      "signature": "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": true,
+      "description": "Mint equal amounts of PT and YT from a token: (receiver, YT, minPyOut, TokenInput input). Returns (netPyOut, netSyInterm)."
+     },
+     {
+      "signature": "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))",
+      "kind": "write",
+      "payable": false,
+      "description": "Redeem PT+YT (equal amounts, any time) or PT alone after expiry for a token: (receiver, YT, netPyIn, TokenOutput output). Note: the last tuple is the TokenOutput struct (same layout as TokenInput). Approve PT (and YT before expiry) to the router."
+     },
+     {
+      "signature": "redeemDueInterestAndRewards(address,address[],address[],address[])",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued YT interest, SY/YT/LP rewards (e.g. PENDLE incentives) for user: (user, sys[], yts[], markets[]). Pass empty arrays for types you do not hold."
+     }
+    ]
+   },
+   {
+    "chain": "robinhood",
+    "chainId": 4663,
+    "address": "0x6813d43782395A1F2AAb42f39aeEDE03ac655e09",
+    "name": "PendleRouterStatic (off-chain previews)",
+    "role": "other",
+    "proxy": true,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/4663-core.json",
+    "keyFunctions": [
+     {
+      "signature": "swapExactTokenForPtStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview buying PT: (market, tokenIn, amountTokenIn) -> (netPtOut, netSyMinted, netSyFee, priceImpact, exchangeRateAfter, ...). Use netPtOut minus slippage as minPtOut. Off-chain use only (docs: not for fund-sensitive on-chain logic)."
+     },
+     {
+      "signature": "swapExactPtForTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview selling PT: (market, exactPtIn, tokenOut) -> (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)."
+     },
+     {
+      "signature": "addLiquiditySingleTokenStatic(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview a single-token LP zap: (market, tokenIn, netTokenIn) -> (netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter, ...)."
+     },
+     {
+      "signature": "removeLiquiditySingleTokenStatic(address,uint256,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Preview LP exit: (market, netLpToRemove, tokenOut) -> (netTokenOut, netSyFee, priceImpact, ...)."
+     },
+     {
+      "signature": "getPtToAssetRate(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Spot PT price in the SY's accounting asset (1e18 = 1:1) for a market; 1 - rate shows the discount behind the implied APY."
+     },
+     {
+      "signature": "getTokensInOut(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "For an SY, YT/PT or market: (tokensIn[], tokensOut[]) the SY can be minted from / redeemed to (valid tokenMintSy / tokenRedeemSy values)."
+     }
+    ]
+   },
+   {
+    "chain": "robinhood",
+    "chainId": 4663,
+    "address": "0x5E49E1f85813F2B65858860A3FA231b4186f2e0E",
+    "name": "PENDLE token",
+    "role": "token",
+    "proxy": null,
+    "source": "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/4663-core.json",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "PENDLE balance (18 decimals). Bridged representation of the Ethereum PENDLE token (Pendle deploys it per chain; see the deployments file)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer PENDLE."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [
+   {
+    "name": "Pendle Hosted SDK - Convert API (v3, recommended)",
+    "url": "https://api-v2.pendle.finance/core/v3/sdk/{chainId}/convert",
+    "auth": "none",
+    "use": "POST JSON {receiver, slippage (0-1, 0.01 = 1%), inputs:[{token, amount}], outputs:[address], enableAggregator?, aggregators?, additionalData?}. One endpoint for every action: token->PT/YT (swap), PT/YT->token, token->LP (add liquidity), LP->token, token->[PT,YT] (mint), [PT,YT] or PT after expiry->token (redeem), token<->SY, LP->LP (transfer liquidity), PT->PT (roll over). Response: action, requiredApprovals [{token, amount}] (approve these to tx.to first), routes[] sorted by output; routes[0].tx = {to (PendleRouter V4), data (ready calldata), from, value}, routes[0].outputs, routes[0].contractParamInfo (method + decoded params, including ApproxParams and limit-order fills), routes[0].data.priceImpact. Tested 2026-11-25: USDe->PT-USDe on chain 1 returned swapExactTokenForPt calldata to 0x888888888889758F76e7103c6CbF23ABbF58F946. Amounts in wei. Rate limit 200 computing units/minute and 200,000/week per IP; each aggregator adds CU.",
+    "source": "https://docs.pendle.finance/pendle-v2-dev/Backend/HostedSdk"
+   },
+   {
+    "name": "Pendle Hosted SDK - Convert API (v2 GET)",
+    "url": "https://api-v2.pendle.finance/core/v2/sdk/{chainId}/convert",
+    "auth": "none",
+    "use": "Same as v3 with query params tokensIn, amountsIn, tokensOut (comma-separated), receiver, slippage, enableAggregator, aggregators (kyberswap, okx, 0x), additionalData=impliedApy,effectiveApy. Marked deprecated in the API overview; use v3 for new code.",
+    "source": "https://docs.pendle.finance/pendle-v2-dev/Backend/ApiOverview"
+   },
+   {
+    "name": "Pendle markets API",
+    "url": "https://api-v2.pendle.finance/core/v2/markets/all",
+    "auth": "none",
+    "use": "Discover markets across all chains (paginate with skip, limit <= 100; filter e.g. chainId). Each market gives address (market/LP), pt, yt, sy (as '<chainId>-<address>'), expiry, underlyingAsset, inputTokens/outputTokens and details (impliedApy, liquidity, totalTvl, aggregatedApy, ptRoi). Also GET /v1/assets/all, GET /v1/prices/assets, GET /v3/{chainId}/markets/{address}/historical-data.",
+    "source": "https://docs.pendle.finance/pendle-v2-dev/Backend/ApiOverview"
+   },
+   {
+    "name": "sPENDLE API",
+    "url": "https://api-v2.pendle.finance/core/v1/spendle/data",
+    "auth": "none",
+    "use": "sPENDLE staking stats; GET /v1/spendle/{address} for per-user reward data.",
+    "source": "https://docs.pendle.finance/pendle-v2-dev/Backend/ApiOverview"
+   },
+   {
+    "name": "Pendle API reference (Swagger)",
+    "url": "https://api-v2.pendle.finance/core/docs",
+    "auth": "none",
+    "use": "Interactive reference with the CU cost of each endpoint and the list of supported aggregators.",
+    "source": "https://docs.pendle.finance/pendle-v2-dev/Backend/ApiOverview"
+   }
+  ],
+  "actions": [
+   {
+    "name": "find a market",
+    "description": "Get the market, PT, YT and SY addresses for an asset and expiry.",
+    "how": "GET https://api-v2.pendle.finance/core/v2/markets/all?chainId=<id>&limit=100 (page with skip). Strip the '<chainId>-' prefix from pt/yt/sy. On-chain, market.readTokens() returns (SY, PT, YT), market.expiry() the unix maturity and market.isExpired() whether it has matured; MarketFactoryV6.isValidMarket(market) confirms a V6 market. Pick a market whose expiry has not passed."
+   },
+   {
+    "name": "buy PT (lock a fixed yield) - recommended path",
+    "description": "Swap a token for PT via the Hosted SDK.",
+    "how": "POST https://api-v2.pendle.finance/core/v3/sdk/<chainId>/convert with {receiver, slippage: 0.005, inputs:[{token: tokenIn, amount: wei}], outputs:[PT]}; for any token not accepted by the SY add enableAggregator: true. Approve each requiredApprovals token to routes[0].tx.to (PendleRouter 0x888888888889758F76e7103c6CbF23ABbF58F946), then send routes[0].tx (to, data, value). The PT matures to 1 accounting-asset unit; hold to expiry for the quoted fixed APY (data.impliedApy with additionalData)."
+   },
+   {
+    "name": "buy PT on-chain without the API",
+    "description": "Build swapExactTokenForPt yourself.",
+    "how": "Preview with RouterStatic.swapExactTokenForPtStatic(market, tokenIn, amount) -> netPtOut. Approve the router, then router.swapExactTokenForPt(receiver, market, minPtOut = netPtOut*(1-slippage), ApproxParams(0, 2^256-1, 0, 256, 1e14), TokenInput(tokenIn, amount, tokenIn, 0x0, (0, 0x0, 0x, false)), LimitOrderData(0x0, 0, [], [], 0x)). tokenIn must be in SY.getTokensIn()."
+   },
+   {
+    "name": "sell PT / YT before maturity",
+    "description": "Exit a PT or YT position to a token.",
+    "how": "Convert API with inputs [{token: PT or YT, amount}] and outputs [tokenOut]; or router.swapExactPtForToken / swapExactYtForToken(receiver, market, amountIn, TokenOutput(tokenOut, minOut, tokenOut, 0x0, (0, 0x0, 0x, false)), empty LimitOrderData) after approving the PT/YT to the router."
+   },
+   {
+    "name": "redeem PT at maturity",
+    "description": "Turn matured PT into the underlying.",
+    "how": "After market.isExpired(): Convert API inputs [{token: PT, amount}] outputs [token]; or router.redeemPyToToken(receiver, YT, ptAmount, TokenOutput(...)) after approving PT. No protocol fee after maturity. Before maturity redemption needs equal PT and YT."
+   },
+   {
+    "name": "buy YT (long yield / points)",
+    "description": "Leveraged exposure to the underlying APY and points until maturity.",
+    "how": "Convert API with outputs [YT], or router.swapExactTokenForYt(receiver, market, minYtOut, default ApproxParams, TokenInput, empty LimitOrderData). Claim yield with router.redeemDueInterestAndRewards(user, [], [YT], []) or the YT's own redeemDueInterestAndRewards(user, true, true)."
+   },
+   {
+    "name": "provide liquidity",
+    "description": "Zap one token into a Pendle pool (LP earns swap fees, PT fixed yield, underlying yield and PENDLE incentives).",
+    "how": "Convert API outputs [market address] (outputs [market, YT] for zero-price-impact 'keep YT' mode); or router.addLiquiditySingleToken(receiver, market, minLpOut, default ApproxParams, TokenInput, empty LimitOrderData). Exit with inputs [market] outputs [token] or router.removeLiquiditySingleToken. Claim PENDLE with router.redeemDueInterestAndRewards(user, [], [], [market])."
+   },
+   {
+    "name": "stake PENDLE (sPENDLE)",
+    "description": "Ethereum only.",
+    "how": "PENDLE.approve(0x999999999991E178D52Cd95AFd4b00d066664144, amt); sPENDLE.stake(amt). Unstake: cooldown(amt), wait 14 days, finalizeCooldown(); or instantUnstake(amt) with a 5% fee."
+   }
+  ],
+  "risks": [
+   "PT is a zero-coupon claim: it redeems 1:1 for the accounting asset (the asset in brackets, e.g. PT-ezETH (ETH) redeems 1 ETH worth of ezETH, not 1 ezETH) only at maturity. Selling before maturity is at market price, which moves with the implied APY: if implied APY rises after you buy, the PT price falls and you show a loss until maturity.",
+   "YT value decays toward 0 and is exactly 0 at maturity. You profit only if the yield (and points) collected exceeds the implied APY paid; if the underlying yield drops or points disappoint, YT can lose most or all of its value.",
+   "Every market has an expiry. After expiry you cannot buy PT/YT in it; unredeemed matured PT and LP keep accruing, but that yield and those points are redirected to the Pendle treasury, so redeem promptly.",
+   "PT/YT inherit all risks of the underlying yield-bearing asset and its SY wrapper (depeg, hack, slashing, issuer freezes). Newer SY contracts are upgradable proxies controlled by Pendle governance.",
+   "Swap fees scale with time to maturity (Fee Tier / 365 x days to maturity); large trades have price impact. Set minPtOut / minTokenOut / slippage; the Convert API's slippage parameter does this.",
+   "Pendle charges 5% of all YT yield (including points).",
+   "PendleRouter V4 is an upgradeable diamond (EIP-2535) controlled by Pendle; block explorers do not show its full ABI (use IPAllActionV3).",
+   "RouterStatic results are previews for off-chain use; Pendle says not to use it for fund-sensitive on-chain logic.",
+   "sPENDLE: 14-day cooldown to unstake fee-free, or 5% fee for instant unstake; rewards require meeting active-participation criteria."
+  ],
+  "notes": "Markets (PT/YT/SY/LP) are created continuously and expire, so this file lists none: discover them with GET https://api-v2.pendle.finance/core/v2/markets/all or in the Pendle app (market page > contract addresses). Each market address is also its LP token. All core addresses come from the official deployments folder https://github.com/pendle-finance/pendle-core-v2-public/tree/main/deployments (files <chainId>-core.json, cited per contract), which the docs Deployments page points to. PendleRouter V4 0x888888888889758F76e7103c6CbF23ABbF58F946 is the same on every chain listed; older routers V1 0x41FAD93F225b5C1C95f2445A5d7fcB85bA46713f, V2 0x0000000001e4ef00d069e71d6ba041b0a16f7ea0 and V3 0x00000000005BBB0EF59571E58418F9a4357b68A0 still work but should not be used. Market factory: V6 is the current one (late 2025); earlier markets were created by marketFactory/V3/V4/V5 (addresses in the same file). The limit-order router is 0x000000000000c9B3E2C3Ec88B1B4c0cD853f4321 on Ethereum (field limitRouter). vePENDLE 0x4f30A9D41B80ecC5B94306AB4364951AE3170210 is listed under 'deprecated' in 1-core.json and was replaced by sPENDLE, so it is not included. Chains: the docs Deployments page lists Ethereum, Optimism, BNB, Sonic, HyperEVM, Mantle, Base, Arbitrum, Berachain, Monad, Katana and Ink; Katana (747474) and Ink (57073) files contain no router/market contracts (cross-chain PT infrastructure only), so they are left out. Plasma (9745), X Layer (196) and Robinhood Chain (4663) have full core files in the GitHub folder (and DefiLlama TVL) and are included. Unichain (130) and Tempo (4217) files have no RouterStatic/market factory and Avalanche (43114) has none of these, so they are left out. Market factories and RouterStatic are included only where listed above; for other chains the MarketFactoryV6 address is in that chain's file (key marketFactoryV6). For secondary chains PENDLE is the bridged token deployed by Pendle. Boros (Pendle's funding-rate trading venue on Arbitrum) is a separate product and not covered here. Bytecode was confirmed on every listed address via eth_getCode on 2026-11-25; router selectors were checked against the Ethereum facet bytecode.",
+  "sources": [
+   "https://defillama.com/protocol/pendle",
+   "https://api.llama.fi/protocol/pendle",
+   "https://docs.pendle.finance/llms.txt",
+   "https://docs.pendle.finance/llms-full.txt",
+   "https://docs.pendle.finance/pendle-v2-dev/Deployments",
+   "https://docs.pendle.finance/pendle-v2-dev/Backend/HostedSdk",
+   "https://docs.pendle.finance/pendle-v2-dev/Backend/ApiOverview",
+   "https://docs.pendle.finance/pendle-v2-dev/Backend/RouterStatic",
+   "https://docs.pendle.finance/pendle-v2-dev/Contracts/PendleRouter/PendleRouterOverview",
+   "https://docs.pendle.finance/pendle-v2-dev/Contracts/PendleRouter/ContractIntegrationGuide",
+   "https://docs.pendle.finance/pendle-v2-dev/Contracts/sPENDLE",
+   "https://docs.pendle.finance/pendle-v2/ProtocolMechanics/YieldTokenization/PT",
+   "https://docs.pendle.finance/pendle-v2/ProtocolMechanics/YieldTokenization/YT",
+   "https://docs.pendle.finance/pendle-v2/ProtocolMechanics/Mechanisms/Fees",
+   "https://github.com/pendle-finance/pendle-core-v2-public/tree/main/deployments",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/1-core.json",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/42161-core.json",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/8453-core.json",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/56-core.json",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/10-core.json",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/146-core.json",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/999-core.json",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/5000-core.json",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/80094-core.json",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/143-core.json",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/9745-core.json",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/196-core.json",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/4663-core.json",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/747474-core.json",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/57073-core.json",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/130-core.json",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/deployments/4217-core.json",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/interfaces/IPAllActionV3.sol",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/interfaces/IPAllActionTypeV3.sol",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/interfaces/IPRouterStatic.sol",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/interfaces/IPActionMarketCoreStatic.sol",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/interfaces/IPActionMarketAuxStatic.sol",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/interfaces/IPActionMintRedeemStatic.sol",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/interfaces/IPActionInfoStatic.sol",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/interfaces/IPMarket.sol",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/interfaces/IPLimitRouter.sol",
+   "https://github.com/pendle-finance/pendle-core-v2-public/blob/main/contracts/router/swap-aggregator/IPSwapAggregator.sol",
+   "https://api-v2.pendle.finance/core/v2/markets/all",
+   "https://api-v2.pendle.finance/core/v3/sdk/1/convert",
+   "https://ethereum-rpc.publicnode.com",
+   "https://eth.drpc.org",
+   "https://arb1.arbitrum.io/rpc",
+   "https://mainnet.base.org",
+   "https://bsc-dataseed.binance.org",
+   "https://mainnet.optimism.io",
+   "https://rpc.soniclabs.com",
+   "https://rpc.hyperliquid.xyz/evm",
+   "https://rpc.mantle.xyz",
+   "https://rpc.berachain.com",
+   "https://rpc.monad.xyz",
+   "https://rpc.plasma.to",
+   "https://rpc.xlayer.tech",
+   "https://rpc.mainnet.chain.robinhood.com",
+   "https://chainid.network/chains_mini.json"
+  ],
+  "researchedAt": "2026-11-25"
+ },
+ {
   "slug": "polymarket",
   "name": "Polymarket",
   "category": "Prediction Market",
@@ -21365,6 +32854,777 @@ export const PROTOCOLS: ProtocolEntry[] = [
    "https://sourcify.dev/server/v2/contract/1/0x1f7e86e15f5098ba6c0b59f1792af22167d01728",
    "https://sourcify.dev/server/v2/contract/42161/0x766a4df76cb091c41de22f75b6bd6733fb730357",
    "https://sourcify.dev/server/v2/contract/56/0xfde1366f26cc3621d944afbc96177a90f2849d26"
+  ],
+  "researchedAt": "2026-11-25"
+ },
+ {
+  "slug": "rocket-pool",
+  "name": "Rocket Pool",
+  "category": "Liquid Staking",
+  "description": "Decentralised Ethereum liquid staking: deposit ETH into the RocketDepositPool for non-rebasing rETH (its ETH value rises via the exchange rate), redeem rETH with burn() when the protocol has ETH collateral, or trade it on DEXs. rETH and RPL are bridged to Arbitrum, Optimism, Base, Polygon and more.",
+  "website": "https://rocketpool.net",
+  "docs": "https://docs.rocketpool.net",
+  "defillama": "https://defillama.com/protocol/rocket-pool",
+  "chains": [
+   "ethereum",
+   "arbitrum",
+   "optimism",
+   "base",
+   "polygon"
+  ],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x1d8f8f00cfa6758d7bE78336684788Fb0ee0Fa46",
+    "name": "RocketStorage",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+    "keyFunctions": [
+     {
+      "signature": "getAddress(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "Resolve the CURRENT address of any Rocket Pool contract: key = keccak256(abi.encodePacked(\"contract.address\", name)), e.g. name \"rocketDepositPool\", \"rocketTokenRETH\", \"rocketNetworkBalances\", \"rocketDAOProtocolSettingsDeposit\". RocketStorage never changes address; other contracts are replaced on upgrades, so resolve them here before use."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xCE15294273CFb9D9b628F4D61636623decDF4fdC",
+    "name": "RocketDepositPool (v1.4, Saturn 1)",
+    "role": "staking",
+    "proxy": false,
+    "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+    "keyFunctions": [
+     {
+      "signature": "deposit()",
+      "kind": "write",
+      "payable": true,
+      "description": "Stake ETH (msg.value, wei) and mint rETH to msg.sender. rETH out = getRethValue(msg.value - fee), fee = msg.value * getDepositFee() / 1e18 (0.05% on 2026-11-25). Reverts if deposits are disabled, msg.value < getMinimumDeposit() (0.01 ETH on 2026-11-25) or the deposit exceeds getMaximumDepositAmount(). Only the current deposit pool accepts deposits (older versions revert): resolve via RocketStorage first."
+     },
+     {
+      "signature": "getMaximumDepositAmount()",
+      "kind": "read",
+      "payable": false,
+      "description": "Largest ETH deposit (wei) accepted right now (0 if deposits disabled). About 6.02M ETH on 2026-11-25 (maximumDepositPoolSize 6,000,000 ETH plus queue capacity), so the pool was far from full."
+     },
+     {
+      "signature": "getBalance()",
+      "kind": "read",
+      "payable": false,
+      "description": "ETH held by the deposit pool (wei)."
+     },
+     {
+      "signature": "getExcessBalance()",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit pool ETH not needed for the validator queue (wei); this is the part usable for rETH burns. 0 on 2026-11-25."
+     },
+     {
+      "signature": "getUserBalance()",
+      "kind": "read",
+      "payable": false,
+      "description": "int256: user portion of the pool balance (negative when node operator bonds exceed it)."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Contract version (4 on 2026-11-25)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xae78736Cd615f374D3085123A210448E74Fc6393",
+    "name": "rETH (RocketTokenRETH)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+    "keyFunctions": [
+     {
+      "signature": "getExchangeRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "ETH value of 1 rETH (18 decimals); about 1.1764 on 2026-11-25. Updated by the Oracle DAO via RocketNetworkBalances (roughly daily), not per block."
+     },
+     {
+      "signature": "getEthValue(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "ETH (wei) backing an rETH amount at the current rate."
+     },
+     {
+      "signature": "getRethValue(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "rETH amount for an ETH amount (wei) at the current rate (before the deposit fee)."
+     },
+     {
+      "signature": "burn(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Redeem rETH for ETH at getEthValue(amount); ETH is sent to msg.sender. Reverts with \"Insufficient ETH balance for exchange\" unless getTotalCollateral() >= getEthValue(amount). Collateral was ~0 ETH on 2026-11-25, so burning was effectively unavailable; sell on a DEX instead."
+     },
+     {
+      "signature": "getTotalCollateral()",
+      "kind": "read",
+      "payable": false,
+      "description": "ETH available for burns (wei) = rETH contract balance + deposit pool excess balance."
+     },
+     {
+      "signature": "getCollateralRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "Share of rETH supply backed by ETH held in the rETH contract (1e18 = 100%)."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "rETH balance (18 decimals). rETH is non-rebasing: value grows via the exchange rate."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer rETH."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender (EigenLayer StrategyManager, DEX router, RocketSwapRouter)."
+     },
+     {
+      "signature": "transferFrom(address,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer with allowance."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total rETH supply on Ethereum."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x1D9F14C6Bfd8358b589964baD8665AdD248E9473",
+    "name": "RocketNetworkBalances",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+    "keyFunctions": [
+     {
+      "signature": "getTotalETHBalance()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total ETH backing rETH as last reported by the Oracle DAO (wei)."
+     },
+     {
+      "signature": "getTotalRETHSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "rETH supply used for the rate (wei)."
+     },
+     {
+      "signature": "getBalancesBlock()",
+      "kind": "read",
+      "payable": false,
+      "description": "Block the current balances were calculated at."
+     },
+     {
+      "signature": "getBalancesTimestamp()",
+      "kind": "read",
+      "payable": false,
+      "description": "Timestamp of the last balances update."
+     },
+     {
+      "signature": "getETHUtilizationRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "Fraction of ETH that is staking (1e18 = 100%)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x227BE8dD01DF8ad9BED0178e4F8cEC2996C5c365",
+    "name": "RocketDAOProtocolSettingsDeposit",
+    "role": "other",
+    "proxy": false,
+    "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+    "keyFunctions": [
+     {
+      "signature": "getDepositEnabled()",
+      "kind": "read",
+      "payable": false,
+      "description": "True if deposit() is open (true on 2026-11-25)."
+     },
+     {
+      "signature": "getMinimumDeposit()",
+      "kind": "read",
+      "payable": false,
+      "description": "Minimum deposit in wei (1e16 = 0.01 ETH on 2026-11-25)."
+     },
+     {
+      "signature": "getMaximumDepositPoolSize()",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit pool cap in wei (6,000,000 ETH on 2026-11-25)."
+     },
+     {
+      "signature": "getDepositFee()",
+      "kind": "read",
+      "payable": false,
+      "description": "Deposit fee as a fraction of 1e18 (5e14 = 0.05% on 2026-11-25)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x16D5A408e807db8eF7c578279BEeEe6b228f1c1C",
+    "name": "RocketSwapRouter",
+    "role": "router",
+    "proxy": false,
+    "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+    "keyFunctions": [
+     {
+      "signature": "optimiseSwapTo(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Call with eth_call only (not on-chain): (ETH amount, steps ~10) returns (uint256[2] portions [uniswap, balancer], uint256 amountOut) for swapTo."
+     },
+     {
+      "signature": "swapTo(uint256,uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": true,
+      "description": "ETH -> rETH with ETH value: (uniswapPortion, balancerPortion, minTokensOut, idealTokensOut). Uses the deposit pool when its rate gives at least idealTokensOut and there is room, the rest via Uniswap/Balancer; reverts if rETH received < minTokensOut."
+     },
+     {
+      "signature": "optimiseSwapFrom(uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "eth_call only: (rETH amount, steps) returns portions and expected ETH out for swapFrom."
+     },
+     {
+      "signature": "swapFrom(uint256,uint256,uint256,uint256,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "rETH -> ETH: (uniswapPortion, balancerPortion, minTokensOut, idealTokensOut, rETH amount in). Approve rETH to the router first. Burns via rETH when collateral exists and the protocol rate >= idealTokensOut, otherwise swaps on Uniswap/Balancer; sends ETH to msg.sender; reverts below minTokensOut."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xD33526068D116cE69F19A9ee46F0bd304F21A51f",
+    "name": "RPL (RocketTokenRPL)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "RPL balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer RPL."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender (e.g. a DEX router)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply on this chain."
+     },
+     {
+      "signature": "swapTokens(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Swap legacy fixed-supply RPL (0xB4EFd85c19999D84251304bDA99E90B92300Bd93) 1:1 for current RPL (approve the legacy token first)."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8",
+    "name": "rETH (bridged, Arbitrum)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "rETH balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer rETH."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender (e.g. a DEX router)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply on this chain."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0xB766039cc6DB368759C1E56B79AFfE831d0Cc507",
+    "name": "RPL (bridged, Arbitrum)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "RPL balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer RPL."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender (e.g. a DEX router)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply on this chain."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x7EcCBbd05830EdF593d30005B8F69E965AF4D59f",
+    "name": "RocketPriceOracle (rETH rate, Arbitrum)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/rocket-pool/rocketpool-arbitrum-oracle",
+    "keyFunctions": [
+     {
+      "signature": "rate()",
+      "kind": "read",
+      "payable": false,
+      "description": "rETH/ETH exchange rate relayed from Ethereum (ETH per 1 rETH, 18 decimals). Bridged rETH has no getExchangeRate(); use this. Updated by Rocket Pool's price messenger over the Arbitrum bridge."
+     },
+     {
+      "signature": "lastUpdated()",
+      "kind": "read",
+      "payable": false,
+      "description": "Unix timestamp of the last rate update; check freshness before relying on rate()."
+     }
+    ]
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x9Bcef72be871e61ED4fBbc7630889beE758eb81D",
+    "name": "rETH (bridged, Optimism)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "rETH balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer rETH."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender (e.g. a DEX router)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply on this chain."
+     }
+    ]
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0xC81D1F0EB955B0c020E5d5b264E1FF72c14d1401",
+    "name": "RPL (bridged, Optimism)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "RPL balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer RPL."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender (e.g. a DEX router)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply on this chain."
+     }
+    ]
+   },
+   {
+    "chain": "optimism",
+    "chainId": 10,
+    "address": "0x1a8F81c256aee9C640e14bB0453ce247ea0DFE6F",
+    "name": "RocketPriceOracle (rETH rate, Optimism)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/rocket-pool/rocketpool-ovm-oracle",
+    "keyFunctions": [
+     {
+      "signature": "rate()",
+      "kind": "read",
+      "payable": false,
+      "description": "rETH/ETH exchange rate relayed from Ethereum (ETH per 1 rETH, 18 decimals). Bridged rETH has no getExchangeRate(); use this. Updated by Rocket Pool's price messenger over the Optimism bridge."
+     },
+     {
+      "signature": "lastUpdated()",
+      "kind": "read",
+      "payable": false,
+      "description": "Unix timestamp of the last rate update; check freshness before relying on rate()."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0xB6fe221Fe9EeF5aBa221c348bA20A1Bf5e73624c",
+    "name": "rETH (bridged, Base)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "rETH balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer rETH."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender (e.g. a DEX router)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply on this chain."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x1f73EAf55d696BFFA9b0EA16fa987B93b0f4d302",
+    "name": "RPL (bridged, Base)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "RPL balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer RPL."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender (e.g. a DEX router)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply on this chain."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x658843BB859B7b85cEAb5cF77167e3F0a78dFE7f",
+    "name": "RocketPriceOracle (rETH rate, Base)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/rocket-pool/rocketpool-ovm-oracle",
+    "keyFunctions": [
+     {
+      "signature": "rate()",
+      "kind": "read",
+      "payable": false,
+      "description": "rETH/ETH exchange rate relayed from Ethereum (ETH per 1 rETH, 18 decimals). Bridged rETH has no getExchangeRate(); use this. Updated by Rocket Pool's price messenger over the Base bridge."
+     },
+     {
+      "signature": "lastUpdated()",
+      "kind": "read",
+      "payable": false,
+      "description": "Unix timestamp of the last rate update; check freshness before relying on rate()."
+     }
+    ]
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0x0266F4F08D82372CF0FcbCCc0Ff74309089c74d1",
+    "name": "rETH (bridged, Polygon PoS)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "rETH balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer rETH."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender (e.g. a DEX router)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply on this chain."
+     }
+    ]
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0x7205705771547cF79201111B4bd8aaF29467b9eC",
+    "name": "RPL (bridged, Polygon PoS)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.rocketpool.net/protocol/contracts-integrations",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "RPL balance (18 decimals)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer RPL."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender (e.g. a DEX router)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total supply on this chain."
+     }
+    ]
+   },
+   {
+    "chain": "polygon",
+    "chainId": 137,
+    "address": "0x594Fb75D3dc2DFa0150Ad03F99F97817747dd4E1",
+    "name": "RocketPriceOracle (rETH rate, Polygon PoS)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://github.com/rocket-pool/rocketpool-polygon-oracle",
+    "keyFunctions": [
+     {
+      "signature": "rate()",
+      "kind": "read",
+      "payable": false,
+      "description": "rETH/ETH exchange rate relayed from Ethereum (ETH per 1 rETH, 18 decimals). Bridged rETH has no getExchangeRate(); use this. Updated by Rocket Pool's price messenger over the Polygon PoS bridge."
+     },
+     {
+      "signature": "lastUpdated()",
+      "kind": "read",
+      "payable": false,
+      "description": "Unix timestamp of the last rate update; check freshness before relying on rate()."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [
+   {
+    "name": "Rocket Pool stats payload",
+    "url": "https://api.rocketpool.net/api/mainnet/payload",
+    "auth": "none",
+    "use": "Protocol stats used by rocketpool.net: rethAPR (percent, e.g. \"1.849\" = 1.85%), depositPoolBalance, rethCollateral (ETH available for burns), megapool queue sizes, ethStakingTotal, RPL price. Read-only.",
+    "source": "https://rocketpool.net"
+   }
+  ],
+  "actions": [
+   {
+    "name": "stake ETH for rETH",
+    "description": "Mint rETH from ETH at the protocol rate.",
+    "how": "Resolve the deposit pool: RocketStorage.getAddress(keccak256(abi.encodePacked(\"contract.address\",\"rocketDepositPool\"))) (0xCE15294273CFb9D9b628F4D61636623decDF4fdC on 2026-11-25). Check amount <= getMaximumDepositAmount() and >= getMinimumDeposit(); call deposit() with ETH value. Expected rETH = rETH.getRethValue(amount * (1 - 0.0005))."
+   },
+   {
+    "name": "redeem rETH (burn)",
+    "description": "Redeem rETH for ETH directly from the protocol.",
+    "how": "Check rETH.getTotalCollateral() >= rETH.getEthValue(amount); then rETH.burn(amount). If collateral is insufficient (the usual case, ~0 on 2026-11-25), sell instead."
+   },
+   {
+    "name": "sell rETH",
+    "description": "Exit rETH via DEX liquidity.",
+    "how": "On Ethereum: rETH.approve(RocketSwapRouter, amount); eth_call optimiseSwapFrom(amount, 10) for portions; swapFrom(portions[0], portions[1], minOut, idealOut, amount). Or use any DEX/aggregator (docs mention CoW Swap, Balancer, Uniswap). On L2s swap on a DEX; compare against the L2 RocketPriceOracle.rate()."
+   },
+   {
+    "name": "buy rETH via router",
+    "description": "Get rETH through the best of deposit pool and DEXs.",
+    "how": "eth_call RocketSwapRouter.optimiseSwapTo(amount, 10); swapTo(portions[0], portions[1], minOut, idealOut) with ETH value."
+   },
+   {
+    "name": "restake rETH on EigenLayer",
+    "description": "Deposit rETH into the EigenLayer rETH strategy.",
+    "how": "rETH.approve(EigenLayer StrategyManager 0x858646372CC42E1A627fcE94aa7A7033e7CF075A, amount); StrategyManager.depositIntoStrategy(0x1BeE69b7dFFfA4E2d53C2a2Df135C388AD25dCD2, rETH, amount). See the eigencloud entry."
+   },
+   {
+    "name": "value rETH",
+    "description": "Get ETH value of rETH.",
+    "how": "Ethereum: rETH.getEthValue(amount) or getExchangeRate(). L2s: RocketPriceOracle.rate() * amount / 1e18 (check lastUpdated())."
+   }
+  ],
+  "risks": [
+   "Deposit pool cap: deposit() reverts when the amount exceeds getMaximumDepositAmount() or deposits are disabled; the cap was 6,000,000 ETH (plenty of room) on 2026-11-25 but is set by the pDAO.",
+   "rETH burn needs ETH collateral: burn() only works up to getTotalCollateral() (rETH contract balance + deposit pool excess). Collateral was ~0 on 2026-11-25, so exits generally go through DEX liquidity and can trade below the protocol rate.",
+   "Deposits pay a 0.05% fee (getDepositFee) and mint at the Oracle DAO rate.",
+   "Node operator risk: ETH is run by permissionless node operators (megapools/minipools) who bond their own ETH; slashing or poor performance beyond the bond can reduce rETH backing.",
+   "Oracle DAO risk: the rETH rate and balances are reported by the Oracle DAO (trusted node set) about daily; a wrong or stale report affects mint/burn prices.",
+   "Upgrades: contracts are replaced (not proxied) through pDAO/oDAO governance; always resolve addresses from RocketStorage. rETH and RPL token contracts are not upgradeable.",
+   "L2 rETH/RPL are bridged tokens (Arbitrum and Polygon versions are bridge proxies); there is no deposit or burn on L2s, and their value depends on the canonical bridges. L2 rates come from Rocket Pool price oracles updated via bridge messages."
+  ],
+  "notes": "RocketStorage, rETH, RPL and the deposit pool addresses are from the official docs Contracts & Integrations page (list dated 11/11/2026). RocketDepositPool, rocketTokenRETH, rocketTokenRPL, rocketNetworkBalances and rocketDAOProtocolSettingsDeposit were also resolved on 2026-11-25 by calling RocketStorage.getAddress(keccak256(abi.encodePacked(\"contract.address\", name))) on-chain, and matched the docs (deposit pool v1.4 / Saturn 1, version() = 4). RocketSwapRouter is listed on the docs page but is not registered in RocketStorage (docs footnote). L2 rETH/RPL addresses are from the docs token table; L2 RocketPriceOracle addresses are from the official rocket-pool oracle repos (README deployment tables); all were checked for code and returned current rates on 2026-11-25. Also officially listed but left out to keep scope: rETH on zkSync Era (0x32Fd44bB869620C0EF993754c8a00Be67C464806), Scroll (0x53878B874283351D26d206FA512aEcE1Bef6C0dD), Unichain (0x94Cac393f3444cEf63a651FfC18497E7e8bd036a), Starknet, RPL on zkSync, the L1 price messengers and Balancer rate providers (Optimism 0x658843BB859B7b85cEAb5cF77167e3F0a78dFE7f, Base 0x039f7205c2cba4535c2575123ac3d657263892c4, Arbitrum 0xd4E96eF8eee8678dBFf4d535E033Ed1a4F7605b7, Polygon 0xA73ec45Fe405B5BFCdC0bF4cbc9014Bb32a01cd2; getRate() returns the same rate), and node-operator, megapool and DAO contracts. The via-l2 guide still says only Optimism and Arbitrum are supported for L2 swaps, while the contracts page lists more chains. api.rocketpool.net/api/mainnet/payload is the endpoint the official rocketpool.net site loads (seen in its JS bundle); /api/mainnet/apr on the same host returns only yearlyAPR but was not seen referenced by the site. Signatures come from Sourcify-verified sources.",
+  "sources": [
+   "https://api.llama.fi/protocol/rocket-pool",
+   "https://docs.rocketpool.net/llms.txt",
+   "https://docs.rocketpool.net/protocol/contracts-integrations",
+   "https://docs.rocketpool.net/protocol/contracts-integrations.md",
+   "https://docs.rocketpool.net/protocol/contracts-usage.md",
+   "https://docs.rocketpool.net/liquid-staking/via-rp.md",
+   "https://docs.rocketpool.net/liquid-staking/via-l2.md",
+   "https://docs.rocketpool.net/liquid-staking/overview.md",
+   "https://github.com/rocket-pool/rocketpool-ovm-oracle",
+   "https://raw.githubusercontent.com/rocket-pool/rocketpool-ovm-oracle/master/README.md",
+   "https://github.com/rocket-pool/rocketpool-arbitrum-oracle",
+   "https://raw.githubusercontent.com/rocket-pool/rocketpool-arbitrum-oracle/master/README.md",
+   "https://github.com/rocket-pool/rocketpool-polygon-oracle",
+   "https://raw.githubusercontent.com/rocket-pool/rocketpool-polygon-oracle/master/README.md",
+   "https://rocketpool.net",
+   "https://rocketpool.net/static/js/index.ce0c1f4acb.js",
+   "https://api.rocketpool.net/api/mainnet/payload",
+   "https://sourcify.dev/server/v2/contract/1/0xCE15294273CFb9D9b628F4D61636623decDF4fdC",
+   "https://sourcify.dev/server/v2/contract/1/0xae78736Cd615f374D3085123A210448E74Fc6393",
+   "https://sourcify.dev/server/v2/contract/1/0x1d8f8f00cfa6758d7bE78336684788Fb0ee0Fa46",
+   "https://sourcify.dev/server/v2/contract/1/0x1D9F14C6Bfd8358b589964baD8665AdD248E9473",
+   "https://sourcify.dev/server/v2/contract/1/0xD33526068D116cE69F19A9ee46F0bd304F21A51f",
+   "https://sourcify.dev/server/v2/contract/1/0x227BE8dD01DF8ad9BED0178e4F8cEC2996C5c365",
+   "https://sourcify.dev/server/v2/contract/1/0x16D5A408e807db8eF7c578279BEeEe6b228f1c1C",
+   "https://sourcify.dev/server/v2/contract/10/0x1a8F81c256aee9C640e14bB0453ce247ea0DFE6F",
+   "https://sourcify.dev/server/v2/contract/42161/0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8",
+   "https://sourcify.dev/server/v2/contract/137/0x0266F4F08D82372CF0FcbCCc0Ff74309089c74d1",
+   "https://ethereum-rpc.publicnode.com",
+   "https://arb1.arbitrum.io/rpc",
+   "https://mainnet.optimism.io",
+   "https://mainnet.base.org",
+   "https://polygon-rpc.com"
   ],
   "researchedAt": "2026-11-25"
  },
@@ -22953,6 +35213,1168 @@ export const PROTOCOLS: ProtocolEntry[] = [
    "https://sourcify.dev/server/files/any/1/0x6bf7788EAA948d9fFBA7E9bb386E2D3c9810e0fc",
    "https://api.llama.fi/protocol/sierra-protocol",
    "https://defillama.com/protocol/sierra-protocol"
+  ],
+  "researchedAt": "2026-11-25"
+ },
+ {
+  "slug": "sky",
+  "name": "Sky (formerly MakerDAO)",
+  "category": "CDP",
+  "description": "Issuer of the USDS and DAI stablecoins. Agents can convert DAI<->USDS 1:1, swap USDC<->USDS/DAI 1:1 through the LitePSM, earn the Sky Savings Rate with sUSDS (ERC-4626) or the DSR with sDAI, upgrade MKR to SKY, stake USDS for token rewards, and use bridged USDS/sUSDS plus the Spark PSM3 on Base and Arbitrum.",
+  "website": "https://sky.money",
+  "docs": "https://developers.skyeco.com",
+  "defillama": "https://defillama.com/protocol/sky",
+  "chains": [
+   "ethereum",
+   "base",
+   "arbitrum"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xdC035D45d973E3EC169d2276DDab16f1e407384F",
+    "name": "USDS (Sky Dollar)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://chainlog.sky.money/api/mainnet/active.json",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "USDS balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender for USDS. Spenders: sUSDS 0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD for deposit, DaiUsds converter 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A for usdsToDai, LitePSM wrapper 0xA188EEC8F81263234dA3622A406892F3D630f98c for buyGem, USDS->SKY/SPK farms for stake."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer USDS (base units, 18 decimals)."
+     },
+     {
+      "signature": "allowance(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Current allowance (owner, spender)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total USDS supply on this chain."
+     },
+     {
+      "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "EIP-2612 gasless approval (owner, spender, value, deadline, v, r, s). Also supports EIP-1271 contract signatures."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD",
+    "name": "sUSDS (Savings USDS, ERC-4626)",
+    "role": "vault",
+    "proxy": true,
+    "source": "https://chainlog.sky.money/api/mainnet/active.json",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit USDS (assets, 18 decimals) and mint sUSDS shares to receiver. Approve USDS to sUSDS first. No fees."
+     },
+     {
+      "signature": "deposit(uint256,address,uint16)",
+      "kind": "write",
+      "payable": false,
+      "description": "Same as deposit with a uint16 referral code (emits a Referral event)."
+     },
+     {
+      "signature": "mint(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Mint an exact number of sUSDS shares, pulling the needed USDS."
+     },
+     {
+      "signature": "redeem(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn sUSDS shares (shares, receiver, owner) and receive USDS. No lockup, no fee."
+     },
+     {
+      "signature": "withdraw(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw an exact USDS amount (assets, receiver, owner), burning the needed shares."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "USDS value of a share amount, computed in real time even if drip() has not been called recently."
+     },
+     {
+      "signature": "convertToShares(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Shares for a USDS amount."
+     },
+     {
+      "signature": "previewRedeem(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Exact USDS out for redeeming shares."
+     },
+     {
+      "signature": "ssr()",
+      "kind": "read",
+      "payable": false,
+      "description": "Sky Savings Rate as a per-second factor in RAY (1e27). APY = (ssr/1e27)^31536000 - 1. At research time 1000000001182641576793209935 (about 3.8% APY)."
+     },
+     {
+      "signature": "chi()",
+      "kind": "read",
+      "payable": false,
+      "description": "Rate accumulator (RAY, uint192); chi/1e27 = USDS per sUSDS as of last drip (about 1.1175 at research time)."
+     },
+     {
+      "signature": "totalAssets()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total USDS backing all sUSDS."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "sUSDS share balance (18 decimals)."
+     },
+     {
+      "signature": "asset()",
+      "kind": "read",
+      "payable": false,
+      "description": "Underlying asset: USDS 0xdC035D45d973E3EC169d2276DDab16f1e407384F."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+    "name": "DAI (MCD_DAI)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://chainlog.sky.money/api/mainnet/active.json",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "DAI balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender for DAI. Spenders: DaiUsds converter 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A for daiToUsds, LitePSM 0xf6e72Db5454dd049d0788e411b06CfAF16853042 for buyGem, sDAI 0x83F20F44975D03b1b09e64809B757c47f942BEeA for deposit."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer DAI (base units, 18 decimals)."
+     },
+     {
+      "signature": "allowance(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Current allowance (owner, spender)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total DAI supply on this chain."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A",
+    "name": "DaiUsds converter (DAI_USDS)",
+    "role": "exchange",
+    "proxy": false,
+    "source": "https://chainlog.sky.money/api/mainnet/active.json",
+    "keyFunctions": [
+     {
+      "signature": "daiToUsds(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Convert DAI to USDS 1:1 (usr = USDS recipient, wad = DAI amount, 18 decimals). Approve DAI to this contract first. No fee, no limit; fees cannot be enabled on this route."
+     },
+     {
+      "signature": "usdsToDai(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Convert USDS to DAI 1:1 (usr = DAI recipient, wad, 18 decimals). Approve USDS to this contract first."
+     },
+     {
+      "signature": "dai()",
+      "kind": "read",
+      "payable": false,
+      "description": "DAI address."
+     },
+     {
+      "signature": "usds()",
+      "kind": "read",
+      "payable": false,
+      "description": "USDS address."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x56072C95FAA701256059aa122697B133aDEd9279",
+    "name": "SKY (governance token, MCD_GOV)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://chainlog.sky.money/api/mainnet/active.json",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "SKY balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender for SKY."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer SKY (base units, 18 decimals)."
+     },
+     {
+      "signature": "allowance(address,address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Current allowance (owner, spender)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total SKY supply on this chain."
+     },
+     {
+      "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+      "kind": "write",
+      "payable": false,
+      "description": "EIP-2612 gasless approval."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2",
+    "name": "MKR (legacy governance token)",
+    "role": "token",
+    "proxy": false,
+    "source": "https://chainlog.sky.money/api/mainnet/active.json",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "MKR balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve MKR. Not needed for MkrSky.mkrToSky: the converter burns MKR directly from msg.sender (MKR burn permission)."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer MKR."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xA1Ea1bA18E88C381C724a75F23a130420C403f9a",
+    "name": "MkrSky converter V2 (MKR_SKY, one-way)",
+    "role": "exchange",
+    "proxy": false,
+    "source": "https://developers.skyeco.com/guides/sky/token-governance-upgrade/key-info/",
+    "keyFunctions": [
+     {
+      "signature": "mkrToSky(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Convert MKR to SKY one-way (usr = SKY recipient, mkrAmt, 18 decimals). Gross SKY = mkrAmt * 24000; a fee (Delayed Upgrade Penalty) is deducted: net = gross - gross*fee/1e18. fee() was 5e16 (5%) at research time. Burns MKR from msg.sender and transfers SKY from the converter's pre-funded balance. There is no SKY->MKR route."
+     },
+     {
+      "signature": "rate()",
+      "kind": "read",
+      "payable": false,
+      "description": "Fixed conversion rate: 24000 SKY per MKR."
+     },
+     {
+      "signature": "fee()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current penalty in WAD (1e18 = 100%); governance can change it via file('fee')."
+     },
+     {
+      "signature": "take()",
+      "kind": "read",
+      "payable": false,
+      "description": "Accumulated SKY fees held for governance."
+     },
+     {
+      "signature": "mkr()",
+      "kind": "read",
+      "payable": false,
+      "description": "MKR address."
+     },
+     {
+      "signature": "sky()",
+      "kind": "read",
+      "payable": false,
+      "description": "SKY address."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xf6e72Db5454dd049d0788e411b06CfAF16853042",
+    "name": "LitePSM USDC-A (LitePSM-DAI-USDC, MCD_LITE_PSM_USDC_A)",
+    "role": "exchange",
+    "proxy": false,
+    "source": "https://developers.skyeco.com/guides/psm/litepsm/",
+    "keyFunctions": [
+     {
+      "signature": "sellGem(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "USDC -> DAI. Args (usr = DAI recipient, gemAmt in USDC units, 6 decimals). Returns DAI out (18 decimals) = gemAmt*1e12 minus tin fee. Approve USDC to THIS LitePSM contract (it pulls USDC with transferFrom into its pocket); unlike the legacy PSM there is no separate GemJoin, and gemJoin() returns the LitePSM itself for backward compatibility. Limited by the DAI balance held by the LitePSM (see rush/fill)."
+     },
+     {
+      "signature": "buyGem(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "DAI -> USDC. Args (usr = USDC recipient, gemAmt in USDC units, 6 decimals). Pulls gemAmt*1e12 DAI plus tout fee from msg.sender: approve DAI to this contract. Limited by the USDC held in pocket()."
+     },
+     {
+      "signature": "tin()",
+      "kind": "read",
+      "payable": false,
+      "description": "Fee on sellGem in WAD (1e18 = 100%). 0 at research time. type(uint256).max (HALTED) means sellGem is halted."
+     },
+     {
+      "signature": "tout()",
+      "kind": "read",
+      "payable": false,
+      "description": "Fee on buyGem in WAD. 0 at research time. HALTED (uint256 max) means buyGem is halted."
+     },
+     {
+      "signature": "pocket()",
+      "kind": "read",
+      "payable": false,
+      "description": "Address holding the USDC (0x37305B1cD40574E4C5Ce33f8e8306Be057fD7341 at research time). USDC.balanceOf(pocket) = max buyGem size."
+     },
+     {
+      "signature": "buf()",
+      "kind": "read",
+      "payable": false,
+      "description": "Target DAI buffer kept pre-minted in the LitePSM (8e26 = 800M DAI at research time)."
+     },
+     {
+      "signature": "rush()",
+      "kind": "read",
+      "payable": false,
+      "description": "DAI that fill() could add now; if > 0, call fill() to raise the DAI balance before a large sellGem."
+     },
+     {
+      "signature": "fill()",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless: mint DAI into the LitePSM up to buf. Can be batched between sellGem calls for large swaps."
+     },
+     {
+      "signature": "gem()",
+      "kind": "read",
+      "payable": false,
+      "description": "USDC address."
+     },
+     {
+      "signature": "dai()",
+      "kind": "read",
+      "payable": false,
+      "description": "DAI address."
+     },
+     {
+      "signature": "to18ConversionFactor()",
+      "kind": "read",
+      "payable": false,
+      "description": "1e12 (USDC 6 decimals -> 18)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xA188EEC8F81263234dA3622A406892F3D630f98c",
+    "name": "LitePSMWrapper-USDS-USDC (UsdsPsmWrapper)",
+    "role": "exchange",
+    "proxy": false,
+    "source": "https://developers.skyeco.com/guides/psm/litepsm/",
+    "keyFunctions": [
+     {
+      "signature": "sellGem(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "USDC -> USDS 1:1 minus tin. Args (usr = USDS recipient, gemAmt in USDC units, 6 decimals). Approve USDC to this wrapper. Routes through the LitePSM by converting DAI to USDS internally; same liquidity limits as the LitePSM."
+     },
+     {
+      "signature": "buyGem(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "USDS -> USDC. Args (usr = USDC recipient, gemAmt in USDC units, 6 decimals). Pulls gemAmt*1e12 + tout fee in USDS from msg.sender: approve USDS to this wrapper."
+     },
+     {
+      "signature": "tin()",
+      "kind": "read",
+      "payable": false,
+      "description": "Fee on sellGem (WAD), read from the LitePSM. 0 at research time."
+     },
+     {
+      "signature": "tout()",
+      "kind": "read",
+      "payable": false,
+      "description": "Fee on buyGem (WAD), read from the LitePSM. 0 at research time."
+     },
+     {
+      "signature": "psm()",
+      "kind": "read",
+      "payable": false,
+      "description": "Underlying LitePSM 0xf6e72Db5454dd049d0788e411b06CfAF16853042."
+     },
+     {
+      "signature": "pocket()",
+      "kind": "read",
+      "payable": false,
+      "description": "Where USDC liquidity sits (from the LitePSM)."
+     },
+     {
+      "signature": "gemJoin()",
+      "kind": "read",
+      "payable": false,
+      "description": "Returns the wrapper itself (backward compatibility: approve the wrapper)."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x0650CAF159C5A49f711e8169D4336ECB9b950275",
+    "name": "USDS -> SKY Staking Rewards (REWARDS_USDS_SKY)",
+    "role": "staking",
+    "proxy": false,
+    "source": "https://chainlog.sky.money/api/mainnet/active.json",
+    "keyFunctions": [
+     {
+      "signature": "stake(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake USDS (18 decimals). Approve USDS to this farm first. Rewards accrue in SKY."
+     },
+     {
+      "signature": "stake(uint256,uint16)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake with a uint16 referral code."
+     },
+     {
+      "signature": "withdraw(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Unstake USDS (no lockup)."
+     },
+     {
+      "signature": "getReward()",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued SKY."
+     },
+     {
+      "signature": "exit()",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw all USDS and claim rewards."
+     },
+     {
+      "signature": "earned(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Claimable SKY (18 decimals)."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Staked USDS of an account."
+     },
+     {
+      "signature": "rewardRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "SKY per second distributed across all stakers (18 decimals)."
+     },
+     {
+      "signature": "periodFinish()",
+      "kind": "read",
+      "payable": false,
+      "description": "Unix time when the current reward period ends; rewards stop if it is not refilled. At research time periodFinish was 1769436035 (26 Jan 2026), i.e. the USDS->SKY reward stream had ended and earned() no longer grows; check periodFinish/rewardRate before staking."
+     },
+     {
+      "signature": "paused()",
+      "kind": "read",
+      "payable": false,
+      "description": "If true, new stakes are blocked (withdraw still works)."
+     },
+     {
+      "signature": "rewardsToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "SKY address."
+     },
+     {
+      "signature": "stakingToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "USDS."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x173e314C7635B45322cd8Cb14f44b312e079F3af",
+    "name": "USDS -> SPK Staking Rewards (REWARDS_USDS_SPK)",
+    "role": "staking",
+    "proxy": false,
+    "source": "https://chainlog.sky.money/api/mainnet/active.json",
+    "keyFunctions": [
+     {
+      "signature": "stake(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake USDS (18 decimals). Approve USDS to this farm first. Rewards accrue in SPK (Spark token 0xc20059e0317DE91738d13af027DfC4a50781b066)."
+     },
+     {
+      "signature": "stake(uint256,uint16)",
+      "kind": "write",
+      "payable": false,
+      "description": "Stake with a uint16 referral code."
+     },
+     {
+      "signature": "withdraw(uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Unstake USDS (no lockup)."
+     },
+     {
+      "signature": "getReward()",
+      "kind": "write",
+      "payable": false,
+      "description": "Claim accrued SPK (Spark token 0xc20059e0317DE91738d13af027DfC4a50781b066)."
+     },
+     {
+      "signature": "exit()",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw all USDS and claim rewards."
+     },
+     {
+      "signature": "earned(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Claimable SPK (Spark token 0xc20059e0317DE91738d13af027DfC4a50781b066) (18 decimals)."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Staked USDS of an account."
+     },
+     {
+      "signature": "rewardRate()",
+      "kind": "read",
+      "payable": false,
+      "description": "SPK (Spark token 0xc20059e0317DE91738d13af027DfC4a50781b066) per second distributed across all stakers (18 decimals)."
+     },
+     {
+      "signature": "periodFinish()",
+      "kind": "read",
+      "payable": false,
+      "description": "Unix time when the current reward period ends; rewards stop if it is not refilled. Weekly periods (rewardsDuration 604800); active at research time."
+     },
+     {
+      "signature": "paused()",
+      "kind": "read",
+      "payable": false,
+      "description": "If true, new stakes are blocked (withdraw still works)."
+     },
+     {
+      "signature": "rewardsToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "SPK (Spark token 0xc20059e0317DE91738d13af027DfC4a50781b066) address."
+     },
+     {
+      "signature": "stakingToken()",
+      "kind": "read",
+      "payable": false,
+      "description": "USDS."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x197E90f9FAD81970bA7976f33CbD77088E5D7cf7",
+    "name": "Pot (MCD_POT, DAI Savings Rate)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://chainlog.sky.money/api/mainnet/active.json",
+    "keyFunctions": [
+     {
+      "signature": "dsr()",
+      "kind": "read",
+      "payable": false,
+      "description": "DAI Savings Rate per second in RAY (1e27). At research time 1000000000393915525145987602 (about 1.25% APY), much lower than the SSR."
+     },
+     {
+      "signature": "chi()",
+      "kind": "read",
+      "payable": false,
+      "description": "DSR accumulator (RAY)."
+     },
+     {
+      "signature": "drip()",
+      "kind": "write",
+      "payable": false,
+      "description": "Permissionless: update chi to now."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0x83F20F44975D03b1b09e64809B757c47f942BEeA",
+    "name": "sDAI (Savings Dai, ERC-4626, issued by Spark)",
+    "role": "vault",
+    "proxy": false,
+    "source": "https://docs.spark.fi/dev/savings/sdai-token",
+    "keyFunctions": [
+     {
+      "signature": "deposit(uint256,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Deposit DAI (18 decimals) for sDAI shares; approve DAI to sDAI first. Earns the DSR via the Pot."
+     },
+     {
+      "signature": "redeem(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Burn sDAI shares (shares, receiver, owner) for DAI."
+     },
+     {
+      "signature": "withdraw(uint256,address,address)",
+      "kind": "write",
+      "payable": false,
+      "description": "Withdraw an exact DAI amount."
+     },
+     {
+      "signature": "convertToAssets(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "DAI per share amount (about 1.1834 DAI per sDAI at research time)."
+     },
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "sDAI balance."
+     }
+    ]
+   },
+   {
+    "chain": "ethereum",
+    "chainId": 1,
+    "address": "0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F",
+    "name": "Chainlog (CHANGELOG)",
+    "role": "other",
+    "proxy": false,
+    "source": "https://chainlog.sky.money/api/mainnet/active.json",
+    "keyFunctions": [
+     {
+      "signature": "getAddress(bytes32)",
+      "kind": "read",
+      "payable": false,
+      "description": "Official on-chain address registry: key as bytes32 (e.g. 'USDS', 'SUSDS', 'MCD_LITE_PSM_USDC_A'). Reverts if the key does not exist."
+     },
+     {
+      "signature": "version()",
+      "kind": "read",
+      "payable": false,
+      "description": "Current chainlog version string."
+     },
+     {
+      "signature": "count()",
+      "kind": "read",
+      "payable": false,
+      "description": "Number of registered keys (506 at research time); iterate with get(uint256) -> (bytes32 key, address)."
+     },
+     {
+      "signature": "get(uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Key and address at an index."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x820C137fa70C8691f0e44Dc420a5e53c168921Dc",
+    "name": "USDS (bridged, SkyLink)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://developers.skyeco.com/guides/skylink/base-eth-native-bridge/",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender, e.g. the Spark PSM3 0x1601843c5E9bC251A3272907010AFa41Fa18347E before swapExactIn."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer (18 decimals)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Bridged supply on this chain."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x5875eEE11Cf8398102FdAd704C9E96607675467a",
+    "name": "sUSDS (bridged, plain ERC-20, no ERC-4626)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://developers.skyeco.com/guides/skylink/base-eth-native-bridge/",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender, e.g. the Spark PSM3 0x1601843c5E9bC251A3272907010AFa41Fa18347E before swapExactIn."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer (18 decimals)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Bridged supply on this chain."
+     }
+    ]
+   },
+   {
+    "chain": "base",
+    "chainId": 8453,
+    "address": "0x1601843c5E9bC251A3272907010AFa41Fa18347E",
+    "name": "Spark PSM3 (USDC/USDS/sUSDS swaps)",
+    "role": "exchange",
+    "proxy": false,
+    "source": "https://docs.spark.fi/dev/savings/spark-psm",
+    "keyFunctions": [
+     {
+      "signature": "swapExactIn(address,address,uint256,uint256,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Swap (assetIn, assetOut, amountIn, minAmountOut, receiver, referralCode) between USDC 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 (6 decimals), USDS 0x820C137fa70C8691f0e44Dc420a5e53c168921Dc and sUSDS 0x5875eEE11Cf8398102FdAd704C9E96607675467a (18 decimals). Approve assetIn to the PSM3 first. No fee beyond gas; sUSDS priced by the cross-chain SSR rate provider."
+     },
+     {
+      "signature": "swapExactOut(address,address,uint256,uint256,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Swap for an exact amountOut (assetIn, assetOut, amountOut, maxAmountIn, receiver, referralCode)."
+     },
+     {
+      "signature": "previewSwapExactIn(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote amountOut for (assetIn, assetOut, amountIn)."
+     },
+     {
+      "signature": "previewSwapExactOut(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote amountIn for an exact amountOut."
+     },
+     {
+      "signature": "deposit(address,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "LP: deposit (asset, receiver, amount) for PSM shares."
+     },
+     {
+      "signature": "withdraw(address,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "LP: withdraw (asset, receiver, maxAssetsToWithdraw) by burning shares."
+     },
+     {
+      "signature": "pocket()",
+      "kind": "read",
+      "payable": false,
+      "description": "Holder of USDC liquidity (the PSM3 itself at research time); USDC.balanceOf(pocket) limits USDC out."
+     },
+     {
+      "signature": "totalAssets()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total value in the PSM (USD, 18 decimals)."
+     },
+     {
+      "signature": "usdc()",
+      "kind": "read",
+      "payable": false,
+      "description": "USDC address."
+     },
+     {
+      "signature": "usds()",
+      "kind": "read",
+      "payable": false,
+      "description": "USDS address."
+     },
+     {
+      "signature": "susds()",
+      "kind": "read",
+      "payable": false,
+      "description": "sUSDS address."
+     },
+     {
+      "signature": "rateProvider()",
+      "kind": "read",
+      "payable": false,
+      "description": "sUSDS/USD rate oracle (RAY)."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x6491c05A82219b8D1479057361ff1654749b876b",
+    "name": "USDS (bridged, SkyLink)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.spark.fi/dev/savings/cross-chain-tokens",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender, e.g. the Spark PSM3 0x2B05F8e1cACC6974fD79A673a341Fe1f58d27266 before swapExactIn."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer (18 decimals)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Bridged supply on this chain."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0xdDb46999F8891663a8F2828d25298f70416d7610",
+    "name": "sUSDS (bridged, plain ERC-20, no ERC-4626)",
+    "role": "token",
+    "proxy": true,
+    "source": "https://docs.spark.fi/dev/savings/cross-chain-tokens",
+    "keyFunctions": [
+     {
+      "signature": "balanceOf(address)",
+      "kind": "read",
+      "payable": false,
+      "description": "Balance (18 decimals)."
+     },
+     {
+      "signature": "approve(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Approve a spender, e.g. the Spark PSM3 0x2B05F8e1cACC6974fD79A673a341Fe1f58d27266 before swapExactIn."
+     },
+     {
+      "signature": "transfer(address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Transfer (18 decimals)."
+     },
+     {
+      "signature": "totalSupply()",
+      "kind": "read",
+      "payable": false,
+      "description": "Bridged supply on this chain."
+     }
+    ]
+   },
+   {
+    "chain": "arbitrum",
+    "chainId": 42161,
+    "address": "0x2B05F8e1cACC6974fD79A673a341Fe1f58d27266",
+    "name": "Spark PSM3 (USDC/USDS/sUSDS swaps)",
+    "role": "exchange",
+    "proxy": false,
+    "source": "https://docs.spark.fi/dev/savings/spark-psm",
+    "keyFunctions": [
+     {
+      "signature": "swapExactIn(address,address,uint256,uint256,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Swap (assetIn, assetOut, amountIn, minAmountOut, receiver, referralCode) between USDC 0xaf88d065e77c8cC2239327C5EDb3A432268e5831 (6 decimals), USDS 0x6491c05A82219b8D1479057361ff1654749b876b and sUSDS 0xdDb46999F8891663a8F2828d25298f70416d7610 (18 decimals). Approve assetIn to the PSM3 first. No fee beyond gas; sUSDS priced by the cross-chain SSR rate provider."
+     },
+     {
+      "signature": "swapExactOut(address,address,uint256,uint256,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "Swap for an exact amountOut (assetIn, assetOut, amountOut, maxAmountIn, receiver, referralCode)."
+     },
+     {
+      "signature": "previewSwapExactIn(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote amountOut for (assetIn, assetOut, amountIn)."
+     },
+     {
+      "signature": "previewSwapExactOut(address,address,uint256)",
+      "kind": "read",
+      "payable": false,
+      "description": "Quote amountIn for an exact amountOut."
+     },
+     {
+      "signature": "deposit(address,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "LP: deposit (asset, receiver, amount) for PSM shares."
+     },
+     {
+      "signature": "withdraw(address,address,uint256)",
+      "kind": "write",
+      "payable": false,
+      "description": "LP: withdraw (asset, receiver, maxAssetsToWithdraw) by burning shares."
+     },
+     {
+      "signature": "pocket()",
+      "kind": "read",
+      "payable": false,
+      "description": "Holder of USDC liquidity (the PSM3 itself at research time); USDC.balanceOf(pocket) limits USDC out."
+     },
+     {
+      "signature": "totalAssets()",
+      "kind": "read",
+      "payable": false,
+      "description": "Total value in the PSM (USD, 18 decimals)."
+     },
+     {
+      "signature": "usdc()",
+      "kind": "read",
+      "payable": false,
+      "description": "USDC address."
+     },
+     {
+      "signature": "usds()",
+      "kind": "read",
+      "payable": false,
+      "description": "USDS address."
+     },
+     {
+      "signature": "susds()",
+      "kind": "read",
+      "payable": false,
+      "description": "sUSDS address."
+     },
+     {
+      "signature": "rateProvider()",
+      "kind": "read",
+      "payable": false,
+      "description": "sUSDS/USD rate oracle (RAY)."
+     }
+    ]
+   }
+  ],
+  "offchainApis": [
+   {
+    "name": "Sky Chainlog API",
+    "url": "https://chainlog.sky.money/api/mainnet/active.json",
+    "auth": "none",
+    "use": "JSON map of every current official Ethereum contract key -> address (same data as the on-chain Chainlog 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F). Use it to resolve addresses not listed here (Vat, Jug, joins, LockstakeEngine, stUSDS, bridges).",
+    "source": "https://chainlog.sky.money/"
+   },
+   {
+    "name": "Sky Governance (vote data) API",
+    "url": "https://vote.sky.money/api",
+    "auth": "none",
+    "use": "Read-only polls, executive spells, delegates and voter data (Swagger at https://vote.sky.money/api-docs); data before 19 May 2025 is at https://vote.makerdao.com/api.",
+    "source": "https://developers.skyeco.com/guides/sky/token-governance-upgrade/vote-data-api/"
+   }
+  ],
+  "actions": [
+   {
+    "name": "DAI -> USDS",
+    "description": "Upgrade DAI to USDS 1:1, no fee.",
+    "how": "DAI.approve(0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A, wad); DaiUsds.daiToUsds(recipient, wad). Reverse: USDS.approve(converter) then usdsToDai(recipient, wad)."
+   },
+   {
+    "name": "USDC -> USDS",
+    "description": "Mint USDS with USDC at 1:1 minus tin (0 at research time).",
+    "how": "Check wrapper.tin() != uint256 max. USDC.approve(0xA188EEC8F81263234dA3622A406892F3D630f98c, amt6); wrapper.sellGem(recipient, amt6) where amt6 has 6 decimals. Receives amt6*1e12 USDS minus fee."
+   },
+   {
+    "name": "USDS -> USDC",
+    "description": "Redeem USDS for USDC 1:1 plus tout.",
+    "how": "Check USDC.balanceOf(LitePSM.pocket()) >= amt6 and tout. USDS.approve(wrapper, amt6*1e12 + fee); wrapper.buyGem(recipient, amt6)."
+   },
+   {
+    "name": "USDC <-> DAI",
+    "description": "Same as above with DAI.",
+    "how": "LitePSM 0xf6e72Db5454dd049d0788e411b06CfAF16853042: approve USDC to the LitePSM itself (not a GemJoin) then sellGem(usr, amt6); or approve DAI to the LitePSM then buyGem(usr, amt6). If sellGem fails for lack of DAI, call rush()/fill() first (permissionless)."
+   },
+   {
+    "name": "earn the Sky Savings Rate",
+    "description": "Deposit USDS into sUSDS on Ethereum.",
+    "how": "USDS.approve(sUSDS 0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD, amt); sUSDS.deposit(amt, receiver). Exit: sUSDS.redeem(shares, receiver, owner). Value: convertToAssets(shares). Rate: ssr()."
+   },
+   {
+    "name": "get sUSDS on Base/Arbitrum",
+    "description": "Swap USDC or USDS into sUSDS with the Spark PSM3.",
+    "how": "approve assetIn to PSM3 (Base 0x1601843c5E9bC251A3272907010AFa41Fa18347E, Arbitrum 0x2B05F8e1cACC6974fD79A673a341Fe1f58d27266); quote previewSwapExactIn(assetIn, sUSDS, amountIn); swapExactIn(assetIn, sUSDS, amountIn, minOut, receiver, 0). L2 sUSDS has no deposit/redeem; exit via PSM3."
+   },
+   {
+    "name": "MKR -> SKY",
+    "description": "Upgrade MKR to SKY at 1:24000 minus the Delayed Upgrade Penalty.",
+    "how": "Read MkrSky.fee(); call MkrSky 0xA1Ea1bA18E88C381C724a75F23a130420C403f9a .mkrToSky(recipient, mkrAmt). No approval needed. One-way."
+   },
+   {
+    "name": "stake USDS for rewards",
+    "description": "Stake USDS in a Sky token-rewards farm.",
+    "how": "Check farm.periodFinish() > now and rewardRate() > 0 (USDS->SPK 0x173e314C7635B45322cd8Cb14f44b312e079F3af was active at research time; USDS->SKY 0x0650CAF159C5A49f711e8169D4336ECB9b950275 had ended). USDS.approve(farm, amt); farm.stake(amt). Claim with getReward(); leave with exit()."
+   }
+  ],
+  "risks": [
+   "Governance control: Sky governance (SKY holders via executive spells) sets the SSR, DSR, PSM fees (tin/tout), farm rewards and the MKR->SKY penalty, and can halt LitePSM swaps by setting tin/tout to uint256 max. USDS, sUSDS and the bridged L2 tokens are UUPS-upgradeable proxies controlled by governance, so their logic can be changed.",
+   "LitePSM has no slippage protection: fees could change in the same block if a governance action executes first. Swaps are capped by the LitePSM DAI buffer (sellGem) and the USDC in its pocket (buyGem), and by the Spark PSM3's balances on L2.",
+   "MKR->SKY conversion is one-way and, at research time, charged a 5% Delayed Upgrade Penalty (fee() = 5e16) that governance said may increase over time; the older Sky docs token page describing a fee-free two-way converter is out of date.",
+   "USDS and DAI are backed by crypto collateral, real-world-asset vaults, USDC in the PSM and allocations to Sky 'Stars' such as Spark and Grove; a failure in collateral, USDC, or those allocations can affect the peg. Emergency shutdown is possible.",
+   "Savings rates (SSR for sUSDS, DSR for sDAI) are variable and set by governance; sDAI and sUSDS are not exchangeable 1:1 because they have different accumulated yield.",
+   "L2 USDS/sUSDS are bridged via SkyLink/canonical bridges; L2 sUSDS is a plain ERC-20 priced by a cross-chain rate oracle, and withdrawals to Ethereum through the native bridges take the rollup's challenge period (about 7 days on Arbitrum/OP Stack)."
+  ],
+  "notes": "Ethereum addresses come from the official Sky chainlog (chainlog.sky.money API, mirrored on-chain at 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F) and the Sky developer docs (LitePSM guide, token-governance-upgrade key info). Base USDS/sUSDS come from the Sky developer docs' SkyLink Base guide; Arbitrum USDS/sUSDS and both PSM3 contracts are only listed by Spark (a Sky 'Star' whose SubProxy is in the chainlog as SPARK_SUBPROXY), so Spark's docs are cited for them. sDAI is a Spark-issued wrapper of the Sky Pot (DSR) and is not in the Sky chainlog; Spark docs are cited. Every address was checked for code on its chain and wiring read on-chain (sUSDS.asset=USDS, DaiUsds dai/usds, MkrSky mkr/sky/rate=24000, LitePSM gem=USDC/dai=DAI/pocket, wrapper.psm=LitePSM, farms' staking/rewards tokens, PSM3 usdc/usds/susds on Base and Arbitrum). Signatures come from Sourcify-verified sources (DssLitePsm, UsdsPsmWrapper, DaiUsds, MkrSky, SUsds, StakingRewards, SavingsDai, PSM3). Mentioned but not listed: stUSDS (STUSDS 0x99CD4Ec3f88A45940936F469E4bB72A2A701EEB9, staked USDS with a variable rate funding SKY-backed borrowing; see developers.skyeco.com/protocol/tokens/stusds), LockstakeEngine (staking engine for SKY with borrowing and delegation; LOCKSTAKE_ENGINE in the chainlog), Vat/Jug/vault (CDP) contracts, SkyLink bridges (BASE_TOKEN_BRIDGE, ARBITRUM_TOKEN_BRIDGE, OPTIMISM_TOKEN_BRIDGE, UNICHAIN_TOKEN_BRIDGE in the chainlog), the legacy MKR->SKY converter V1, and USDS/sUSDS/PSM3 on Optimism and Unichain (listed on Spark's docs pages). Spark's own lending market (SparkLend) is a separate protocol, not part of this entry. The legacy PSM (MCD_PSM_USDC_A) with its separate GemJoin approval target is no longer in the chainlog; the LitePSM takes approvals on itself. MCD_GOV in the chainlog now points to SKY.",
+  "sources": [
+   "https://chainlog.sky.money/api/mainnet/active.json",
+   "https://chainlog.sky.money/",
+   "https://developers.skyeco.com/",
+   "https://developers.skyeco.com/guides/psm/litepsm/",
+   "https://developers.skyeco.com/guides/sky/token-governance-upgrade/key-info/",
+   "https://developers.skyeco.com/guides/sky/token-governance-upgrade/token-holders/",
+   "https://developers.skyeco.com/guides/skylink/base-eth-native-bridge/",
+   "https://developers.skyeco.com/protocol/tokens/usds/",
+   "https://developers.skyeco.com/protocol/tokens/susds/",
+   "https://developers.skyeco.com/protocol/tokens/sky/",
+   "https://developers.skyeco.com/quick-start/protocol-token-routes/",
+   "https://developers.skyeco.com/protocol/rewards/staking-rewards/",
+   "https://developers.skyeco.com/guides/sky/token-governance-upgrade/vote-data-api/",
+   "https://docs.spark.fi/dev/savings/cross-chain-tokens",
+   "https://docs.spark.fi/dev/savings/spark-psm",
+   "https://docs.spark.fi/dev/savings/sdai-token",
+   "https://docs.spark.fi/dev/savings/susds-token",
+   "https://github.com/sky-ecosystem/usds",
+   "https://github.com/sky-ecosystem/sdai/tree/susds",
+   "https://github.com/sky-ecosystem/sky",
+   "https://github.com/sky-ecosystem/endgame-toolkit/tree/master",
+   "https://github.com/sky-ecosystem/xchain-ssr-oracle",
+   "https://github.com/sky-ecosystem/arbitrum-token-bridge",
+   "https://sourcify.dev/server/v2/contract/1/0xf6e72Db5454dd049d0788e411b06CfAF16853042",
+   "https://sourcify.dev/server/v2/contract/1/0xA188EEC8F81263234dA3622A406892F3D630f98c",
+   "https://sourcify.dev/server/v2/contract/1/0xA1Ea1bA18E88C381C724a75F23a130420C403f9a",
+   "https://sourcify.dev/server/v2/contract/1/0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A",
+   "https://sourcify.dev/server/v2/contract/1/0x4e7991e5C547ce825BdEb665EE14a3274f9F61e0",
+   "https://sourcify.dev/server/v2/contract/1/0x0650CAF159C5A49f711e8169D4336ECB9b950275",
+   "https://sourcify.dev/server/v2/contract/1/0x83F20F44975D03b1b09e64809B757c47f942BEeA",
+   "https://sourcify.dev/server/v2/contract/8453/0x1601843c5E9bC251A3272907010AFa41Fa18347E",
+   "https://api.llama.fi/protocol/sky"
   ],
   "researchedAt": "2026-11-25"
  },
