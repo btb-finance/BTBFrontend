@@ -609,6 +609,8 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge, onBack }: { ini
   const [listedTokens, setListedTokens] = useState<Token[]>([]);
   const [liveBalanceTokens, setLiveBalanceTokens] = useState<Token[]>([]);
   const [loadingTokenList, setLoadingTokenList] = useState(false);
+  /** The chain whose token catalog has finished loading (or failed): a link's tokens are matched only after it. */
+  const [catalogChain, setCatalogChain] = useState<number | null>(null);
   const [balanceRefreshNonce, setBalanceRefreshNonce] = useState(0);
 
   // A linked app token is known up front, so the screen opens on it instead of waiting for the token list.
@@ -667,7 +669,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge, onBack }: { ini
   }, [chainId, setThemeChainId]);
 
   useEffect(() => {
-    if (chainId === 1) { setListedTokens([]); setLoadingTokenList(false); return; }
+    if (chainId === 1) { setListedTokens([]); setLoadingTokenList(false); setCatalogChain(1); return; }
     const controller = new AbortController();
     setLoadingTokenList(true);
     fetch(`/api/swap-tokens?chainId=${chainId}`, { signal: controller.signal })
@@ -677,7 +679,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge, onBack }: { ini
       })
       .then(body => setListedTokens(Array.isArray(body.tokens) ? body.tokens : []))
       .catch(error => { if ((error as Error).name !== 'AbortError') setListedTokens([]); })
-      .finally(() => { if (!controller.signal.aborted) setLoadingTokenList(false); });
+      .finally(() => { if (!controller.signal.aborted) { setLoadingTokenList(false); setCatalogChain(chainId); } });
     return () => controller.abort();
   }, [chainId]);
 
@@ -723,7 +725,9 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge, onBack }: { ini
   // then the initialFrom prop (portfolio "Swap" buttons), then ETH → USDC.
   const defaultsAppliedRef = useRef(false);
   useEffect(() => {
-    if (chainTokens.length === 0 || defaultsAppliedRef.current) return;
+    // Wait for this chain's catalog: matching earlier only knew ETH and USDC, so a link to any other token (AERO)
+    // fell back to a slow chain read while the URL was already rewritten to ETH.
+    if (chainTokens.length === 0 || defaultsAppliedRef.current || catalogChain !== chainId) return;
     defaultsAppliedRef.current = true;
     const sp = new URLSearchParams(initialQueryRef.current ?? '');
     const resolve = (q: string | null) => q
@@ -756,7 +760,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge, onBack }: { ini
     }
     // Runs again once the token list has loaded: on a first render it is often still empty.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chainId, chainTokens.length > 0]);
+  }, [chainId, chainTokens.length > 0, catalogChain]);
 
   // Keep the URL carrying the full pair so the current swap is always
   // shareable. replaceState (not push) — token picking shouldn't pile up
@@ -764,11 +768,13 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge, onBack }: { ini
   useEffect(() => {
     if (typeof window === 'undefined' || window.location.pathname !== '/swap') return;
     if (!defaultsAppliedRef.current) return; // don't clobber params before they're consumed
-    const next = `/swap?chain=${chainId}&from=${encodeURIComponent(fromToken.address)}&to=${encodeURIComponent(toToken.address)}`;
+    // The amount stays in the link too, so a reload or a shared link keeps it.
+    const amount = /^\d*\.?\d+$/.test(fromAmt) ? `&amount=${fromAmt}` : '';
+    const next = `/swap?chain=${chainId}&from=${encodeURIComponent(fromToken.address)}&to=${encodeURIComponent(toToken.address)}${amount}`;
     if (window.location.pathname + window.location.search !== next) {
       window.history.replaceState(null, '', next);
     }
-  }, [chainId, fromToken.address, toToken.address]);
+  }, [chainId, fromToken.address, toToken.address, fromAmt]);
 
   // Keep the selected from/to tokens in sync with the live store — balances
   // and prices arrive asynchronously, so the picked tokens must refresh too.
