@@ -98,7 +98,12 @@ function SignInner() {
             {!expired && !wrongWallet ? (
               <TxPlan txs={steps} state={state} onState={(i, s) => setState((st) => Object.assign([...st], { [i]: s }))}/>
             ) : null}
-            {!expired && !wrongWallet && <div className="ag-hint">Link valid for {left} more minute{left === 1 ? '' : 's'}.</div>}
+            {steps.length > 0 && steps.every((_, i) => state[i]?.status === 'done') ? (
+              <div className="ag-text">
+                <p><strong>All done.</strong> Tell your assistant it is done; it can check with the transaction hash{steps.length > 1 ? 'es' : ''}:</p>
+                {state.map((st, i) => st?.hash && <p key={i} style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12.5, overflowWrap: 'anywhere' }}>{st.hash}</p>)}
+              </div>
+            ) : !expired && !wrongWallet && <div className="ag-hint">Link valid for {left} more minute{left === 1 ? '' : 's'}.</div>}
           </div>
         )}
       </div>

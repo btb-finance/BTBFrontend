@@ -12,7 +12,8 @@ import { walletPositions } from './positions';
 import { buildAddLiquidity, buildSwap } from './build';
 import { abiSummary, buildTx, readContract } from './contracts';
 import { listProtocols, protocolDetail } from './registry';
-import { findToken, fullBalance, quoteSwap, tokenChainId, walletTokens } from './tokens';
+import { findToken, fullBalance, quoteSwap, tokenChainId, txStatus, walletTokens } from './tokens';
+import { lendingRates } from './lending';
 import { signLink, type SignStep } from '../signLink';
 import type { TxOut } from './build';
 
@@ -26,6 +27,9 @@ const INSTRUCTIONS = `BTB Finance: live liquidity pools across Base, Ethereum, B
 - Before suggesting a pool, check its risk grade and reasons. Treat APRs above 200 % as unlikely to last.
 - To see what a wallet holds: wallet_tokens (token balances on every main chain, with USD values; pass search to find one token) and wallet_positions (every LP position, with value, range and fees), plus auto_manage_status.
 - Tokens: find_token gives a token's contract address on a chain (never write one from memory). quote_swap prices any swap after the BTB fee, with a warning when the pool is thin.
+- To actually swap for a person: build_swap with their wallet, then give them its signLink (one link: approval if needed, then the swap). Do not stop at a quote.
+- Lending and savings: lending_rates gives live supply APYs on Aave, Compound, Morpho, Spark, Euler, Fluid and more, per chain and token. Never guess a rate.
+- After the person signs, tx_status (chain + transaction hash) says whether it confirmed and what moved.
 - This server never signs. Every build tool returns a signLink: give it to the person, it opens btb.finance with the steps to sign in their own wallet (valid 15 minutes, only for that wallet). For an action with an approval first (lend on Aave, stake, deposit), call build_tx once with steps [approve, action] so they get one link.
 - If you control a wallet yourself, build_swap (amount "max" sells the whole balance) and build_add_liquidity return unsigned transactions (approvals first, then the action) with a simulation: check it, then sign and send them in step order yourself.
 - Named protocols (Lido, Uniswap, Circle, Tether, Polymarket, Hyperliquid…): list_protocols and get_protocol give their official contracts per chain, the functions to call, APIs and risks.
@@ -414,9 +418,36 @@ export function buildServer(): McpServer {
     try { return text(await walletTokens(a)); } catch (e) { return failWith(e); }
   });
 
+  server.registerTool('lending_rates', {
+    title: 'Lending and savings rates',
+    description: 'Live supply APYs for lending a token on Aave, Compound, Morpho, Spark, Euler, Fluid, Moonwell, Venus and more, per chain, best first, with TVL and the 30-day average. Filter by token (symbol or address, "stable" for all stablecoins), chain and protocol. Use it for "where do I earn most on my USDC" and before suggesting any lending; never guess a rate.',
+    inputSchema: z.object({
+      token: z.string().optional().describe('Symbol or address, e.g. "USDC", "ETH", or "stable".'),
+      chain: z.string().optional().describe('Chain name or id. Omit for all chains.'),
+      protocol: z.string().optional().describe('e.g. "aave", "morpho", "compound".'),
+      minTvlUsd: z.number().min(0).optional().describe('Skip smaller markets. Default 1000000.'),
+      limit: z.number().int().min(1).max(50).optional().describe('Default 15.'),
+    }),
+    annotations: READ,
+  }, async (a) => {
+    try { return text(await lendingRates(a)); } catch (e) { return failWith(e); }
+  });
+
+  server.registerTool('tx_status', {
+    title: 'Transaction status',
+    description: 'Whether a transaction confirmed or failed, its fee, and the tokens that moved in and out of the sending wallet. Use it after a person signs (they can paste the hash, or the sign page shows it).',
+    inputSchema: z.object({
+      chain: z.string().describe('Chain name or id.'),
+      hash: z.string().regex(/^0x[0-9a-fA-F]{64}$/).describe('Transaction hash.'),
+    }),
+    annotations: READ,
+  }, async (a) => {
+    try { return text(await txStatus(a)); } catch (e) { return failWith(e); }
+  });
+
   server.registerTool('build_swap', {
     title: 'Build a swap (unsigned)',
-    description: 'For agents with their own wallet: the unsigned transactions to swap one token for another at the best KyberSwap price on that chain (an exact-amount approval if needed, then the swap), with the quote, price impact, BTB fee, a safety grade for the token bought and a dry run. Nothing is signed or sent: sign and send them in order yourself.',
+    description: 'A swap ready to sign: the best KyberSwap price on that chain, an exact-amount approval if needed, then the swap, with the quote, price impact, BTB fee, a safety grade for the token bought and a dry run. For a person, give them the signLink (opens btb.finance with the steps to sign in their wallet); an agent with its own wallet can sign the transactions itself. Use this, not just quote_swap, whenever someone wants to swap.',
     inputSchema: z.object({
       chain: z.string().describe('Chain name or id, e.g. "base", "ethereum", "bnb", "arbitrum", 8453.'),
       tokenIn: z.string().describe('Token to sell: its address, or "ETH" for the chain\'s native coin.'),
@@ -496,7 +527,7 @@ export function buildServer(): McpServer {
 
   server.registerTool('build_tx', {
     title: 'Build any contract call (unsigned)',
-    description: 'For agents with their own wallet: encode any write function of any contract into an unsigned transaction, with a dry run from the wallet, a gas estimate and warnings (unverified ABI, admin-only, arbitrary calls, proxies, unlimited approvals). Prefer build_swap and build_add_liquidity where they apply: they add the protocol math and approvals. Nothing is signed or sent.',
+    description: 'Turn contract calls into transactions to sign, with a dry run and warnings. When an action needs an approval first (lend on Aave, stake, deposit), pass steps: [approve on the token, then the action] in ONE call so the person gets ONE signLink for both; never build them as separate calls. Single call: address and function. Details: encode any write function of any contract into an unsigned transaction, with a dry run from the wallet, a gas estimate and warnings (unverified ABI, admin-only, arbitrary calls, proxies, unlimited approvals). Prefer build_swap and build_add_liquidity where they apply: they add the protocol math and approvals. Nothing is signed or sent.',
     inputSchema: z.object({
       chain: chainReq,
       address: z.string().optional().describe('The contract to call (one call). For several calls in order, use steps instead.'),
@@ -527,7 +558,10 @@ export function buildServer(): McpServer {
         notes: ['Sign and send in step order; a later step\'s dry run can fail only because an earlier approval is not on chain yet.', 'Nothing was signed or sent. Not financial advice.'],
       };
       const title = a.title ?? (built.length === 1 ? `Call ${built[0].function}` : `${built.length} steps on chain ${built[0].chainId}`);
-      return text(withSignLink({ ...merged, chainId: built[0].chainId, transactions }, title, a.wallet, built.map((b) => b.simulation)));
+      // An approval on its own does nothing useful: say so, so the agent rebuilds with the action in the same link.
+      const approvalOnly = built.length === 1 && /^(approve|increaseAllowance)\(/.test(built[0].function ?? '')
+        ? { approvalOnly: 'This link holds only the approval. Rebuild with steps: [this approve, the action that spends it] so the person signs both from one link.' } : {};
+      return text({ ...withSignLink({ ...merged, chainId: built[0].chainId, transactions }, title, a.wallet, built.map((b) => b.simulation)), ...approvalOnly });
     } catch (e) { return failWith(e); }
   });
 

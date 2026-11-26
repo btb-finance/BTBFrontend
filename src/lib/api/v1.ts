@@ -99,6 +99,8 @@ export const ROUTES: Route[] = [
   { method: 'GET', path: '/tokens/find', tool: 'find_token', tag: 'Tokens', summary: 'A token\'s contract address on a chain by symbol or name (q=USDC&chain=base).', rename: { q: 'query' } },
   { method: 'GET', path: '/quote', tool: 'quote_swap', tag: 'Tokens', summary: 'Live swap quote after the BTB fee, in USD, with a thin-pool warning (chain, tokenIn, tokenOut, amount).' },
   { method: 'GET', path: '/wallets/{address}/tokens', tool: 'wallet_tokens', tag: 'Wallets', summary: 'Token balances a wallet holds on every main chain, with USD values; search finds one token.', rename: { address: 'wallet' } },
+  { method: 'GET', path: '/lending', tool: 'lending_rates', tag: 'Tokens', summary: 'Live lending and savings APYs (Aave, Compound, Morpho, Spark…) by token and chain.' },
+  { method: 'GET', path: '/tx/{chain}/{hash}', tool: 'tx_status', tag: 'Wallets', summary: 'Whether a transaction confirmed, its fee, and the tokens that moved.' },
   { method: 'GET', path: '/wallets/{address}/positions', tool: 'wallet_positions', tag: 'Wallets', summary: 'Every LP position a wallet holds, with value, range and unclaimed fees.' },
   { method: 'GET', path: '/wallets/{address}/auto-manage', tool: 'auto_manage_status', tag: 'Wallets', summary: 'Positions BTB auto-manages for this wallet.' },
   { method: 'GET', path: '/auto-manage/setup', tool: 'auto_manage_setup', tag: 'Wallets', summary: 'How to turn on BTB auto-management, with the link.' },
