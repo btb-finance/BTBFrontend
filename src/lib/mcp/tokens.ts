@@ -141,7 +141,7 @@ export async function quoteSwap(a: { chain: string | number; tokenIn: string; to
     gasUsd: r2(q.gasUsd),
     route: q.route,
     ...(lossPct != null && lossPct > 5 ? { warning: `About ${lossPct}% less than the market value of what is sold: the pool is thin for this size. Suggest a smaller amount.` } : {}),
-    note: 'After the 1% BTB fee (shared with BTB users every Friday). Quotes move with the market. To swap: build_swap (agents with a wallet) or the btb.finance swap link.',
+    note: 'After the 1% BTB fee (shared with BTB users every Friday). Quotes move with the market. This is only a price: to swap for a person, call build_swap with their wallet and give them its signLink.',
     swapLink: `https://btb.finance/swap?chain=${chainId}&from=${a.tokenIn}&to=${a.tokenOut}&amount=${a.amount}`,
   };
 }
@@ -153,7 +153,7 @@ const DEFAULT_CHAINS = [1, 8453, 56, 42161, 10, 137, 130, 4663];
 /** Blockscout PRO (BLOCKSCOUT_API_KEY) indexes every token a wallet holds on these, catalog or not. */
 const BLOCKSCOUT_PRO = new Set([1, 10, 42161, 4663]);
 
-type Holding = { chainId: number; address: string; symbol: string; name: string; decimals: number; balance: string; usd: number | null; listed: boolean };
+type Holding = { chainId: number; address: string; symbol: string; name: string; decimals: number; balance: string; usd: number | null; listed: boolean; verified?: boolean };
 
 async function nativeHolding(client: PublicClient, chainId: number, wallet: Addr): Promise<Holding | null> {
   const raw = await client.getBalance({ address: wallet });
@@ -194,7 +194,7 @@ async function catalogHoldings(client: PublicClient, chainId: number, wallet: Ad
         if (r.status !== 'success' || (r.result as bigint) === 0n) return;
         const t = chunk[j];
         const balance = formatUnits(r.result as bigint, t.decimals);
-        out.push({ chainId, address: t.address, symbol: t.symbol, name: t.name, decimals: t.decimals, balance, usd: t.priceUsd ? Number(balance) * t.priceUsd : null, listed: true });
+        out.push({ chainId, address: t.address, symbol: t.symbol, name: t.name, decimals: t.decimals, balance, usd: t.priceUsd ? Number(balance) * t.priceUsd : null, listed: true, verified: t.verified });
       });
     }
   };
@@ -273,6 +273,16 @@ export async function walletTokens(a: { wallet: string; chain?: string; search?:
   holdings = holdings.filter((h) => h.usd == null ? !!a.search || h.listed : h.usd >= minUsd)
     .sort((x, y) => (y.usd ?? 0) - (x.usd ?? 0));
   const total = holdings.reduce((s, h) => s + (h.usd ?? 0), 0);
+  // Two different contracts with one symbol on one chain (Aero and Aerodrome Finance are both "AERO" on Base): say so,
+  // so an agent never quotes or swaps the wrong one.
+  const bySymbol = new Map<string, Holding[]>();
+  for (const h of holdings) {
+    if (h.address === 'ETH') continue;
+    const k = `${h.chainId}:${h.symbol.toLowerCase()}`;
+    bySymbol.set(k, [...(bySymbol.get(k) ?? []), h]);
+  }
+  const sameSymbol = [...bySymbol.values()].filter((hs) => hs.length > 1).map((hs) =>
+    `${hs.length} different tokens are called ${hs[0].symbol} on ${KYBER_CHAINS[hs[0].chainId] ?? hs[0].chainId}: ${hs.map((h) => `${h.name || h.symbol} (${h.address})`).join(' and ')}. They are separate contracts with their own prices; name each by its full name and address, and ask which one the person means before quoting or swapping.`);
   return {
     wallet,
     totalUsd: Math.round(total * 100) / 100,
@@ -280,7 +290,8 @@ export async function walletTokens(a: { wallet: string; chain?: string; search?:
     chainsRead: results.map((r) => ({ chainId: r.chainId, chain: KYBER_CHAINS[r.chainId] ?? String(r.chainId), ...(r.error ? { error: r.error } : {}), ...('partial' in r && r.partial ? { partial: 'not every listed token was checked in time; pass chain to read just this one' } : {}) })),
     notes: [
       'Balances read from chain now. "listed": in the swap catalog or a known index; unlisted tokens can be airdropped spam.',
-      'To sell a token: build_swap with amount "max" sells the whole balance.',
+      'To sell a token: build_swap with amount "max" sells the whole balance, and give the person its signLink.',
+      ...sameSymbol,
       ...(a.search && !holdings.length ? [`No "${a.search}" found on ${results.length} chains. It may be on a chain not read here: pass chain.`] : []),
     ],
   };
@@ -298,3 +309,52 @@ export async function fullBalance(chainId: number, token: string, wallet: Addr):
   return formatUnits(raw, Number(decimals));
 }
 
+
+// ---- tx_status ----
+
+const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+/** Whether a transaction landed, its fee, and the tokens that moved in or out of the sender's wallet. */
+export async function txStatus(a: { chain: string | number; hash: string }) {
+  const chainId = tokenChainId(a.chain);
+  if (!chainId) throw new Error(`Unknown chain "${a.chain}".`);
+  if (!/^0x[0-9a-fA-F]{64}$/.test(a.hash)) throw new Error('hash must be a 0x transaction hash (66 characters).');
+  const client = getChainClient(chainId)!;
+  const hash = a.hash as `0x${string}`;
+  const explorer = client.chain?.blockExplorers?.default.url;
+  const link = explorer ? `${explorer}/tx/${hash}` : null;
+  const receipt = await client.getTransactionReceipt({ hash }).catch(() => null);
+  if (!receipt) {
+    const tx = await client.getTransaction({ hash }).catch(() => null);
+    return tx
+      ? { chainId, hash, status: 'pending', note: 'Sent but not in a block yet. Check again in a few seconds.', link }
+      : { chainId, hash, status: 'not_found', note: 'No transaction with this hash on this chain. Check the chain, or that it was sent.', link };
+  }
+  const [tx, block] = await Promise.all([client.getTransaction({ hash }), client.getBlock({ blockNumber: receipt.blockNumber }).catch(() => null)]);
+  const wallet = receipt.from.toLowerCase();
+  const pad = (addr: string) => `0x${addr.slice(2).padStart(64, '0')}`.toLowerCase();
+  const moves = receipt.logs.filter((l) => l.topics[0] === TRANSFER && l.topics.length === 3
+    && (l.topics[1]?.toLowerCase() === pad(wallet) || l.topics[2]?.toLowerCase() === pad(wallet)));
+  const transfers = await Promise.all(moves.slice(0, 20).map(async (l) => {
+    const meta = await tokenMeta(client, chainId, l.address).catch(() => ({ symbol: l.address.slice(0, 8), decimals: 18 }));
+    const out = l.topics[1]?.toLowerCase() === pad(wallet);
+    return {
+      direction: out ? 'out' : 'in', token: l.address.toLowerCase(), symbol: meta.symbol,
+      amount: formatUnits(BigInt(l.data === '0x' ? 0 : l.data), meta.decimals),
+      counterparty: `0x${(out ? l.topics[2] : l.topics[1])!.slice(26)}`,
+    };
+  }));
+  const fee = receipt.gasUsed * (receipt.effectiveGasPrice ?? 0n);
+  return {
+    chainId, hash,
+    status: receipt.status === 'success' ? 'confirmed' : 'failed',
+    ...(receipt.status !== 'success' ? { note: 'The transaction reverted: nothing changed except the gas fee. Rebuild it and check the dry run.' } : {}),
+    block: Number(receipt.blockNumber),
+    time: block ? new Date(Number(block.timestamp) * 1000).toISOString() : null,
+    from: receipt.from, to: receipt.to,
+    nativeSent: tx.value > 0n ? `${formatUnits(tx.value, 18)} ${nativeSymbol(chainId)}` : null,
+    fee: `${formatUnits(fee, 18)} ${nativeSymbol(chainId)}`,
+    tokenTransfers: transfers,
+    link,
+  };
+}
