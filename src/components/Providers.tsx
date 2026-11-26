@@ -27,7 +27,8 @@ function installCachedRpcs() {
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL ?? 'https://grateful-oyster-780.convex.cloud';
 
-export function Providers({ children }: { children: ReactNode }) {
+/** `fallback`: shown for the one render before wallets start (the classic app's skeleton unless a page passes its own). */
+export function Providers({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) {
   const [convex]      = useState(() => new ConvexReactClient(CONVEX_URL));
   // The wallet config is built once, so the tested lists it uses are the ones saved on the last visit; the fresh ones
   // fetched below are saved for the next load (and already used by reads created after they arrive).
@@ -67,7 +68,7 @@ export function Providers({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
   // eslint-disable-next-line react-hooks/set-state-in-effect -- a one-time mount flag is the point
   useEffect(() => { setMounted(true); }, []);
-  if (!mounted) return <AppSkeleton/>;
+  if (!mounted) return <>{fallback ?? <AppSkeleton/>}</>;
 
   return (
     <ConvexProvider client={convex}>

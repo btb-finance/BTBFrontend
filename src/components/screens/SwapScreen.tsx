@@ -617,7 +617,8 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge, onBack }: { ini
     linkedTo && initialChain === 1 ? { ...linkedTo, chainId: 1 }
       : initialFrom ? DEFAULT_QUOTES[initialFrom.chainId ?? 1] ?? nativeEthForChain(initialFrom.chainId ?? 1) : USDC_DEFAULT
   );
-  const [fromAmt,   setFromAmt]   = useState('');
+  // ?amount= in a link (the Ask box's swap buttons) fills the amount to sell.
+  const [fromAmt,   setFromAmt]   = useState(() => { const a = urlParams.get('amount') ?? ''; return /^\d*\.?\d+$/.test(a) ? a : ''; });
   const [picker,    setPicker]    = useState<'from' | 'to' | null>(null);
   const [step,      setStep]      = useState<SwapStep>('form');
   const [quote,     setQuote]     = useState<KyberQuote | null>(null);
