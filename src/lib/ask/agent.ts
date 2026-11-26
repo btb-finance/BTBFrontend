@@ -1,4 +1,6 @@
+import { parseUnits } from 'viem';
 import { callTool, listTools, type JsonSchema } from '@/lib/api/v1';
+import { getKyberQuote } from '@/lib/kyberswap';
 
 /**
  * The Ask box: a person writes what they want in plain English, a language model picks from the same tools the BTB
@@ -33,6 +35,7 @@ export const STEP_LABELS: Record<string, string> = {
   list_protocols: 'Searched protocols',
   get_protocol: 'Read the protocol',
   find_token: 'Looked up the token',
+  quote_swap: 'Got a live quote',
 };
 
 const CHAIN_IDS = 'Ethereum 1, Base 8453, BNB Chain 56, Arbitrum 42161, Optimism 10, Polygon 137, Unichain 130, Robinhood Chain 4663';
@@ -41,7 +44,7 @@ function systemPrompt(wallet: string | null): string {
   return [
     'You are the BTB Agent inside btb.finance, a DeFi app for liquidity pools, swaps and positions across many chains. People type what they want in plain English; you work it out with your tools and answer briefly.',
     'Identity: you are the BTB Agent, built by BTB Finance. Never name an AI company or model. Only help with DeFi and the BTB app; politely decline anything else.',
-    'Tools are the source of truth. Never invent a pool, APR, price, address or number: call a tool first. Pass chain names the tools accept (base, ethereum, bnb, robinhood and so on).',
+    'Tools are the source of truth. Never invent a pool, APR, price, address or number: call a tool first. Never do your own price or USD arithmetic: quote the numbers the tools return (priceUsd, getUsd, rate). Pass chain names the tools accept (base, ethereum, bnb, robinhood and so on).',
     wallet
       ? `The person's connected wallet is ${wallet}. Use it for anything about "my" positions, wallet or holdings.`
       : 'No wallet is connected. For questions about their own positions, ask them to connect a wallet (the Connect button) or to paste an address.',
@@ -84,12 +87,88 @@ const FIND_TOKEN = {
   },
 };
 
+const QUOTE_SWAP = {
+  type: 'function',
+  function: {
+    name: 'quote_swap',
+    description: 'Live swap quote, the same the Swap screen shows (best KyberSwap route, after the 1% BTB fee): how much of tokenOut an amount of tokenIn gets, with USD value, price impact and gas. Use for "how much X do I get for Y" and for prices of tokens with no pool in the index, such as BTB.',
+    parameters: {
+      type: 'object',
+      properties: {
+        chainId: { type: 'number', description: `Chain id: ${CHAIN_IDS}` },
+        tokenIn: { type: 'string', description: '"ETH" for the native coin, else the contract address from find_token' },
+        tokenOut: { type: 'string', description: '"ETH" for the native coin, else the contract address from find_token' },
+        amount: { type: 'string', description: 'Amount of tokenIn in whole units, e.g. "1" or "0.25"' },
+      },
+      required: ['chainId', 'tokenIn', 'tokenOut', 'amount'],
+    },
+  },
+};
+
+/** Symbol and decimals of a token: ETH, then the LI.FI catalog, then the contract itself. */
+async function tokenMeta(chainId: number, token: string): Promise<{ symbol: string; decimals: number; priceUsd?: number } | null> {
+  const native = token.toUpperCase() === 'ETH';
+  if (!native && !/^0x[0-9a-fA-F]{40}$/.test(token)) return null;
+  try {
+    const r = await fetch(`https://li.quest/v1/token?chain=${chainId}&token=${native ? '0x0000000000000000000000000000000000000000' : token}`, { signal: AbortSignal.timeout(5_000) });
+    if (r.ok) {
+      const t = await r.json() as { symbol?: string; decimals?: number; priceUSD?: string };
+      const priceUsd = Number(t.priceUSD) > 0 ? Number(t.priceUSD) : undefined;
+      if (t.symbol && Number.isInteger(t.decimals)) return { symbol: t.symbol, decimals: t.decimals!, priceUsd };
+    }
+  } catch { /* fall through */ }
+  if (native) return { symbol: chainId === 56 ? 'BNB' : 'ETH', decimals: 18 };
+  // Not in the catalog: read the contract.
+  try {
+    const out = await callTool('read_contract', { chain: String(chainId), address: token, function: 'decimals' }) as { result?: unknown };
+    const d = Number(out?.result);
+    if (Number.isInteger(d)) return { symbol: token.slice(0, 8), decimals: d };
+  } catch { /* unknown */ }
+  return null;
+}
+
+async function quoteSwap(args: Record<string, unknown>): Promise<string> {
+  const chainId = Number(args.chainId);
+  const tokenIn = typeof args.tokenIn === 'string' ? args.tokenIn.trim() : '';
+  const tokenOut = typeof args.tokenOut === 'string' ? args.tokenOut.trim() : '';
+  const amount = typeof args.amount === 'string' || typeof args.amount === 'number' ? String(args.amount).trim() : '';
+  if (!DS_CHAIN[chainId]) return `Error: unknown chainId. Use one of: ${CHAIN_IDS}`;
+  if (!/^\d+(\.\d+)?$/.test(amount)) return 'Error: amount must be a plain number like "1" or "0.25"';
+  const [inM, outM] = await Promise.all([tokenMeta(chainId, tokenIn), tokenMeta(chainId, tokenOut)]);
+  if (!inM || !outM) return 'Error: pass "ETH" or a contract address from find_token for both tokens';
+  const q = await getKyberQuote(tokenIn.toUpperCase() === 'ETH' ? 'ETH' : tokenIn, tokenOut.toUpperCase() === 'ETH' ? 'ETH' : tokenOut,
+    parseUnits(amount, inM.decimals).toString(), outM.decimals, chainId, { chargeBtbFee: true, decimalsIn: inM.decimals });
+  const sellUsd = inM.priceUsd ? Number(amount) * inM.priceUsd : null;
+  const outNum = Number(q.amountOut) / 10 ** outM.decimals;
+  const getUsd = outM.priceUsd ? outNum * outM.priceUsd : q.amountOutUsd || null;
+  const lossPct = sellUsd && getUsd ? Math.round((1 - getUsd / sellUsd) * 1000) / 10 : null;
+  return JSON.stringify({
+    sellUsd: sellUsd != null ? Math.round(sellUsd * 100) / 100 : null,
+    priceUsd: { [inM.symbol]: inM.priceUsd ?? null, [outM.symbol]: outM.priceUsd ?? null },
+    ...(lossPct != null && lossPct > 5 ? { warning: `You would get about ${lossPct}% less than the market value of what you sell: the pool is thin for this size. Say this plainly and suggest a smaller amount.` } : {}),
+    sell: `${amount} ${inM.symbol}`,
+    get: `${q.amountOutFormatted} ${outM.symbol}`,
+    getUsd: getUsd != null ? Math.round(getUsd * 100) / 100 : null,
+    rate: `1 ${inM.symbol} = ${q.rate.toLocaleString('en-US', { maximumSignificantDigits: 6 })} ${outM.symbol}`,
+    priceImpactPct: q.priceImpact,
+    gasUsd: Math.round(q.gasUsd * 100) / 100,
+    route: q.route,
+    note: 'After the 1% BTB fee. The live quote on the Swap screen can move with the market.',
+  });
+}
+
 async function findToken(args: Record<string, unknown>): Promise<string> {
   const query = (typeof args.query === 'string' ? args.query : '').trim().slice(0, 60);
   const chainId = Number(args.chainId);
   const chain = DS_CHAIN[chainId];
   if (!query) return 'Error: missing query';
   if (!chain) return `Error: unknown chainId. Use one of: ${CHAIN_IDS}`;
+  // BTB Finance's own token (Ethereum only); other tokens named BTB are not it.
+  if (/^btb( finance)?$/i.test(query)) {
+    return chainId === 1
+      ? JSON.stringify({ tokens: [{ address: '0x88888888c90cd71b35830dabfd24743dbc135b51', symbol: 'BTB', name: 'BTB Finance' }] })
+      : 'BTB Finance\'s BTB is only on Ethereum (chainId 1). Any BTB on this chain is a different token.';
+  }
   // First the swap screen's own catalog (LI.FI): exact symbol on that chain, with flagged tokens refused.
   try {
     const r = await fetch(`https://li.quest/v1/token?chain=${chainId}&token=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(5_000) });
@@ -146,7 +225,7 @@ function modelTools(): Promise<unknown[]> {
   toolDefs ??= listTools().then((tools) => tools.filter((t) => !HIDDEN_TOOLS.has(t.name)).map((t) => {
     const { $schema: _drop, ...params } = t.inputSchema as JsonSchema & { $schema?: string };
     return { type: 'function', function: { name: t.name, description: (t.description ?? t.title ?? t.name).slice(0, 1000), parameters: params } } as unknown;
-  }).concat([FIND_TOKEN])).catch((e) => { toolDefs = null; throw e; });
+  }).concat([FIND_TOKEN, QUOTE_SWAP])).catch((e) => { toolDefs = null; throw e; });
   return toolDefs;
 }
 
@@ -204,7 +283,7 @@ export async function ask(message: string, history: AskTurn[], wallet: string | 
       try {
         // A slow tool must not run the whole request past the host's limit.
         const out = await Promise.race([
-          name === 'find_token' ? findToken(args) : callTool(name, args),
+          name === 'find_token' ? findToken(args) : name === 'quote_swap' ? quoteSwap(args) : callTool(name, args),
           new Promise((_, no) => setTimeout(() => no(new Error('this lookup took too long; answer without it or suggest the matching page')), Math.max(3_000, Math.min(12_000, left() - 6_000)))),
         ]);
         return (typeof out === 'string' ? out : JSON.stringify(out)).slice(0, 7_000);

@@ -52,7 +52,17 @@ export function renderReply(reply: string): { body: ReactNode; actions: Action[]
     }
   };
   for (const raw of reply.split('\n')) {
-    const line = raw.trim();
+    let line = raw.trim();
+    // Links closing a sentence ("... is $0.0000266. [Buy BTB](...)") are buttons too; the sentence stays as text.
+    const tail = line.match(/(?:\s*\[[^\]]{1,60}\]\((?:https?:\/\/[^\s)]+|\/[^\s)]*)\))+\s*$/);
+    const linksOnly = line.replace(LINK, '').replace(/[|·,\s-]/g, '') === '';
+    if (tail && tail.index! > 0 && !linksOnly) {
+      for (const m of tail[0].matchAll(LINK)) {
+        const href = safeHref(m[2]);
+        if (href && !actions.some((a) => a.href === href)) actions.push({ label: m[1], href });
+      }
+      line = line.slice(0, tail.index).trim();
+    }
     const links = [...line.matchAll(LINK)];
     // Only links (and separators like "|" or "·") on the line: buttons.
     if (links.length && line.replace(LINK, '').replace(/[|·,\s-]/g, '') === '') {
