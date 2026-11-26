@@ -56,64 +56,6 @@ async function btbBalanceAtRandomBlock(wallet: `0x${string}`): Promise<bigint | 
   return null;
 }
 
-/** Hosts the check-in widget runs on; a token minted anywhere else is refused. */
-const TURNSTILE_HOSTS = new Set(["btb.finance", "www.btb.finance"]);
-
-/**
- * The site gate's pass (src/components/HumanGate.tsx): after a visitor passes Cloudflare's check at the gate, /human
- * hands back `p1.<expiry>.<signature>`, signed with the Turnstile secret, good for 24 hours. Check-ins and XP claims
- * send it instead of running a second visible check; only this server can make one.
- */
-const PASS_MS = 24 * 60 * 60 * 1000;
-async function passSignature(secret: string, exp: number): Promise<string> {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`btb-human-pass:${exp}`)));
-  return btoa(String.fromCharCode(...sig)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-export async function issuePass(): Promise<string> {
-  const exp = Date.now() + PASS_MS;
-  return `p1.${exp}.${await passSignature(process.env.TURNSTILE_SECRET ?? "local", exp)}`;
-}
-async function passValid(secret: string, pass: string): Promise<boolean> {
-  const [, expStr, sig] = pass.split(".");
-  const exp = Number(expStr);
-  if (!Number.isFinite(exp) || exp < Date.now() || exp > Date.now() + PASS_MS + 60_000 || !sig) return false;
-  return sig === (await passSignature(secret, exp));
-}
-
-/**
- * True when `token` proves a real browser: a fresh Cloudflare Turnstile token from our site (works once), or a
- * gate pass from /human. Without TURNSTILE_SECRET (a local deployment) everything passes.
- */
-export async function humanCheck(token: string | undefined, _remoteip?: string, action = "checkin"): Promise<boolean> {
-  const secret = process.env.TURNSTILE_SECRET;
-  if (!secret) return true;
-  if (!token) return false;
-  if (token.startsWith("p1.")) {
-    if (action === "gate") return false; // a pass cannot buy another pass
-    const ok = await passValid(secret, token);
-    if (!ok) console.warn("human pass refused", JSON.stringify({ want: action }));
-    return ok;
-  }
-  try {
-    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      // No remoteip: a browser can reach Cloudflare and Convex from different addresses (IPv6 and IPv4, VPNs,
-      // iCloud Private Relay), and a mismatch made real people fail. The token alone proves the check.
-      body: new URLSearchParams({ secret, response: token }),
-      signal: AbortSignal.timeout(10_000),
-    });
-    const r = (await res.json()) as { success?: boolean; hostname?: string; action?: string; "error-codes"?: string[] };
-    const ok = !!r.success && (!r.hostname || TURNSTILE_HOSTS.has(r.hostname)) && (!r.action || r.action === action);
-    if (!ok) console.warn("human check failed", JSON.stringify({ want: action, success: r.success, hostname: r.hostname, action: r.action, errors: r["error-codes"] }));
-    return ok;
-  } catch (e) {
-    console.warn("human check error", (e as Error).message);
-    return false;
-  }
-}
-
 /**
  * Daily check-in. Reads the wallet's BTB on-chain so the holder bonus rests on
  * the chain, never on a number the client sends. A failed read still checks
@@ -122,7 +64,7 @@ export async function humanCheck(token: string | undefined, _remoteip?: string, 
 /** `needsLp`: the check-in counted (streak kept) but paid no daily XP, because the wallet has no LP worth $1 (convex/lpGate.ts). */
 export type CheckInResult = { alreadyCheckedIn: boolean; dailyXp?: number; weekMilestone?: number; holdBonus?: number; newStreak?: number; needsLp?: boolean };
 
-/** The check-in itself, after the caller has checked the address and the human proof. Shared by the action and /checkin. */
+/** The check-in itself, after the caller has checked the address. Shared by the action and /checkin. */
 export async function runCheckIn(ctx: ActionCtx, walletAddress: string): Promise<CheckInResult> {
     await loadLiveRpcs(ctx);
     const [raw, snap, gate] = await Promise.all([
@@ -142,11 +84,10 @@ export async function runCheckIn(ctx: ActionCtx, walletAddress: string): Promise
  * Remove once every visitor runs the new code.
  */
 export const checkIn = action({
-  // turnstileToken: proof from Cloudflare Turnstile that a real browser asked, so a script cannot check in a list of addresses.
+  // turnstileToken: no longer checked (the human check was removed); still accepted from pages opened before.
   args: { walletAddress: v.string(), turnstileToken: v.optional(v.string()) },
-  handler: async (ctx, { walletAddress, turnstileToken }): Promise<CheckInResult> => {
+  handler: async (ctx, { walletAddress }): Promise<CheckInResult> => {
     if (!isAddress(walletAddress)) throw new Error("Invalid wallet address");
-    if (!(await humanCheck(turnstileToken))) throw new Error("Could not confirm this browser. Refresh the page and check in again.");
     return runCheckIn(ctx, walletAddress);
   },
 });

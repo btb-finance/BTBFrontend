@@ -267,8 +267,7 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
       // invite or checked in, or anyone could farm check-ins by pasting addresses.
       (isOwn
         ? registerOrGet({ walletAddress })
-          // Already counted today (UTC day, as the server counts it): skip, so the visible human check only shows
-          // when it is actually needed.
+          // Already counted today (UTC day, as the server counts it): skip the request.
           .then(u => (u?.lastCheckIn != null && u.lastCheckIn >= Date.now() - (Date.now() % 86_400_000)
             ? null
             : checkInNow(walletAddress, pendingReferral(walletAddress))))

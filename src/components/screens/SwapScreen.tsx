@@ -1,5 +1,4 @@
 'use client';
-import { xpToken } from '../../lib/turnstile';
 import { useXpToast } from '../../lib/XpToast';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useConnection, useConfig } from 'wagmi';
@@ -920,7 +919,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge, onBack }: { ini
       setFromAmt(''); setQuote(null);
       setBalanceRefreshNonce(value => value + 1);
       // The server reads the transaction and decides the XP; no hash, no award.
-      if (address && lastHash) xpToken('Swap XP').then(turnstileToken => awardTxXp({ walletAddress: address, chainId, txHash: lastHash, kind: 'swap', turnstileToken })).then(r => showXp(r.awarded, 'Swap')).catch(() => {});
+      if (address && lastHash) awardTxXp({ walletAddress: address, chainId, txHash: lastHash, kind: 'swap' }).then(r => showXp(r.awarded, 'Swap')).catch(() => {});
     } catch (e: any) {
       setErrMsg(readableError(e, 'The swap did not go through. Try again.'));
       setStep('error');
@@ -1277,7 +1276,7 @@ function BridgeSwap({ onStandardSwap, onConnectWallet, onBack }: { onStandardSwa
       const { lastHash } = await runCalls(config, { account: address, calls, label: `Bridge ${fromToken.symbol} to ${toToken.symbol}`, track, chainId: fromChainId });
       if (lastHash) setTxHash(lastHash);
       setStep('success');
-      if (lastHash) xpToken('Cross-chain swap XP').then(turnstileToken => awardTxXp({ walletAddress: address, chainId: fromChainId, txHash: lastHash, kind: 'bridge', turnstileToken })).then(r => showXp(r.awarded, 'Cross-chain swap')).catch(() => {});
+      if (lastHash) awardTxXp({ walletAddress: address, chainId: fromChainId, txHash: lastHash, kind: 'bridge' }).then(r => showXp(r.awarded, 'Cross-chain swap')).catch(() => {});
     } catch (error) {
       const rawMessage = (error as { shortMessage?: string; message?: string }).shortMessage ?? (error as Error).message ?? 'Transfer failed';
       setErrMsg(rawMessage.toLowerCase().includes('return amount is not enough')

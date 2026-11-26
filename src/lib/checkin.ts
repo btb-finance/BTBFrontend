@@ -1,11 +1,8 @@
 'use client';
 /**
- * The daily check-in request: one POST to Convex's /checkin (convex/http.ts) with an invisible Turnstile token, a
- * random id this browser keeps, and a hash of a few browser traits. Nothing to sign. The server adds the IP (hashed)
+ * The daily check-in request: one POST to Convex's /checkin (convex/http.ts) with a random id this browser keeps, and a hash of a few browser traits. Nothing to sign. The server adds the IP (hashed)
  * and uses all of it to pay one person one share (convex/sybil.ts).
  */
-import { turnstileToken } from './turnstile';
-
 /** `needsLp`: the day counted but no daily XP was paid, because the wallet has no LP worth $1 (convex/lpGate.ts). */
 export type CheckInResult = { alreadyCheckedIn: boolean; dailyXp?: number; weekMilestone?: number; holdBonus?: number; newStreak?: number; needsLp?: boolean };
 
@@ -40,11 +37,11 @@ async function traitsHash(): Promise<string> {
 
 /** `ref`: the invite code this browser arrived with; the server links it only before the wallet's first check-in. */
 export async function checkInNow(walletAddress: string, ref?: string | null): Promise<CheckInResult> {
-  const [token, fpHash] = await Promise.all([turnstileToken('checkin'), traitsHash().catch(() => undefined)]);
+  const fpHash = await traitsHash().catch(() => undefined);
   const res = await fetch(`${SITE_URL}/checkin`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ walletAddress, turnstileToken: token, deviceId: deviceId(), fpHash, ...(ref ? { ref } : {}) }),
+    body: JSON.stringify({ walletAddress, deviceId: deviceId(), fpHash, ...(ref ? { ref } : {}) }),
     signal: AbortSignal.timeout(20_000),
   });
   const body = (await res.json().catch(() => ({}))) as CheckInResult & { error?: string };
