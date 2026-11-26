@@ -448,6 +448,28 @@ pub fn brief(p: &Pool, risk: &Risk) -> Value {
     m.insert("riskScore".into(), json!(risk.score));
     m.insert("canAddOnBtb".into(), json!(addable(p)));
     m.insert("link".into(), json!(pool_link(p)));
+    // data.ts aprContext: how much to trust the APR.
+    let apr = headline_apr(p);
+    let days = ry.and_then(|r| r.days);
+    let confidence = if p.apr_range.is_some() {
+        match (ry.is_some(), days) {
+            (true, Some(d)) if d >= 30.0 => "high",
+            (true, Some(d)) if d >= 14.0 => "medium",
+            _ => "low",
+        }
+    } else {
+        "medium"
+    };
+    m.insert("aprConfidence".into(), json!(confidence));
+    m.insert(
+        "aprNote".into(),
+        if apr > 200.0 {
+            let from = days.map(|d| format!(" from {} days of data", js_round(d))).unwrap_or_default();
+            json!(format!("Very high APR{from}: it rarely lasts. Check vsHoldPct (the result against just holding) before trusting it."))
+        } else {
+            Value::Null
+        },
+    );
     Value::Object(m)
 }
 

@@ -44,6 +44,7 @@ function SignInner() {
         setSteps(b.plan.steps.map((s): TxStep => ({
           label: s.label, chainId: b.plan!.chainId, to: s.to, data: s.data, value: s.value, fn: s.fn ?? s.label,
           dryRun: (s.dryRun as TxStep['dryRun']) ?? 'none', dryRunNote: s.dryRunNote, warnings: s.warnings ?? [],
+          ...(s.swap ? { swap: s.swap, builtAt: s.builtAt } : {}),
         })));
       })
       .catch(() => setError('No connection. Check your internet and reload.'));
@@ -96,7 +97,8 @@ function SignInner() {
             {wrongWallet && <div className="ag-error">Your connected wallet is {short(address!)}, but these steps were built for {short(plan.wallet)}. Switch to that wallet to sign.</div>}
             {!address && <div className="ag-plan-dry">Connect {short(plan.wallet)} to sign.</div>}
             {!expired && !wrongWallet ? (
-              <TxPlan txs={steps} state={state} onState={(i, s) => setState((st) => Object.assign([...st], { [i]: s }))}/>
+              <TxPlan txs={steps} state={state} onState={(i, s) => setState((st) => Object.assign([...st], { [i]: s }))}
+                onRebuilt={(i, step) => setSteps((all) => all.map((x, j) => (j === i ? step : x)))}/>
             ) : null}
             {steps.length > 0 && steps.every((_, i) => state[i]?.status === 'done') ? (
               <div className="ag-text">
