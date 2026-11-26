@@ -12,9 +12,10 @@ import { walletPositions } from './positions';
 import { buildAddLiquidity, buildSwap } from './build';
 import { abiSummary, buildTx, readContract } from './contracts';
 import { listProtocols, protocolDetail } from './registry';
-import { findToken, fullBalance, quoteSwap, tokenChainId, txStatus, walletTokens } from './tokens';
-import { lendingRates } from './lending';
+import { findToken, fullBalance, quickTokenCheck, quoteSwap, tokenChainId, txStatus, walletTokens } from './tokens';
+import { lendingRates, stakingRates } from './lending';
 import { buildLend, buildWithdraw } from './aave';
+import { buildZapLiquidity } from './zap';
 import { signLink, type SignStep } from '../signLink';
 import type { TxOut } from './build';
 
@@ -30,8 +31,11 @@ const INSTRUCTIONS = `BTB Finance: live liquidity pools across Base, Ethereum, B
 - Tokens: find_token gives a token's contract address on a chain (never write one from memory). quote_swap prices any swap after the BTB fee, with a warning when the pool is thin.
 - To actually swap for a person: build_swap with their wallet, then give them its signLink (one link: approval if needed, then the swap). Do not stop at a quote.
 - Lending and savings: lending_rates gives live supply APYs on Aave, Compound, Morpho, Spark, Euler, Fluid and more, per chain and token. Never guess a rate.
+- To add liquidity from ONE token (e.g. only USDC for a USDC-cbBTC pool): build_zap_liquidity swaps the right share and opens the position, one signLink.
 - To lend on Aave or take it back: build_lend and build_withdraw (live rate, position, health factor, the approval only when needed, one signLink). Use them instead of build_tx for Aave.
 - After the person signs, tx_status (chain + transaction hash) says whether it confirmed and what moved.
+- Staking: staking_rates gives each liquid-staking token's yield (stETH/wstETH, weETH, rETH, cbETH...). For pools holding one, that half also earns it: add it to the pool APR when comparing.
+- Token safety: when token_safety has no recent scan, quick_token_check gives a free basic check (honeypot, taxes, owner powers). find_token marks matches tradeable or not.
 - This server never signs. Every build tool returns a signLink: give it to the person, it opens btb.finance with the steps to sign in their own wallet (valid 15 minutes, only for that wallet). For an action with an approval first (lend on Aave, stake, deposit), call build_tx once with steps [approve, action] so they get one link.
 - If you control a wallet yourself, build_swap (amount "max" sells the whole balance) and build_add_liquidity return unsigned transactions (approvals first, then the action) with a simulation: check it, then sign and send them in step order yourself.
 - Named protocols (Lido, Uniswap, Circle, Tether, Polymarket, Hyperliquid…): list_protocols and get_protocol give their official contracts per chain, the functions to call, APIs and risks.
@@ -396,7 +400,7 @@ export function buildServer(): McpServer {
       // Every main chain in one call: where a token lives is often the question.
       const chains = ['ethereum', 'base', 'bnb', 'arbitrum', 'optimism', 'polygon', 'unichain', 'robinhood'];
       const found = await Promise.all(chains.map((c) => findToken(a.query, c).catch(() => null)));
-      const hits = found.flatMap((f) => (f?.tokens.length ? [{ chainId: f.chainId, tokens: f.tokens, ...(f.note ? { note: f.note } : {}) }] : []));
+      const hits = found.flatMap((f) => (f?.tokens.length ? [{ chainId: f.chainId, tokens: f.tokens, ...('note' in f && f.note ? { note: f.note } : {}) }] : []));
       return text({ query: a.query, chains: hits, ...(hits.length ? {} : { note: `No token "${a.query}" on ${chains.join(', ')}. Ask for the contract address and chain.` }) });
     } catch (e) { return failWith(e); }
   });
@@ -484,6 +488,49 @@ export function buildServer(): McpServer {
     try {
       const r = await buildWithdraw(a);
       return text(withSignLink(r, `Withdraw ${r.token.symbol} from Aave`, a.wallet, [r.simulation]));
+    } catch (e) { return failWith(e); }
+  });
+
+  server.registerTool('staking_rates', {
+    title: 'ETH staking rates',
+    description: 'What ETH earns staked through each liquid-staking token (Lido stETH/wstETH, ether.fi weETH, Rocket Pool rETH, Coinbase cbETH, Binance wBETH, Kelp, Renzo...), best first, with TVL and the 30-day average. Use it for "where do I get the best staking APR" and to add the staking yield to pools that hold these tokens.',
+    inputSchema: z.object({ token: z.string().optional().describe('Only this token or protocol, e.g. "wstETH", "rETH", "lido".') }),
+    annotations: READ,
+  }, async (a) => {
+    try { return text(await stakingRates(a)); } catch (e) { return failWith(e); }
+  });
+
+  server.registerTool('quick_token_check', {
+    title: 'Free token check',
+    description: 'A free basic safety check of any token (GoPlus): honeypot, buy and sell tax, owner can mint or change balances, blacklist, pausable transfers, proxy, verified source, holders. Use it when token_safety has no recent scan; it is not as deep as a btb.finance scan.',
+    inputSchema: z.object({
+      chain: z.string().describe('Chain name or id.'),
+      token: z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe('Token address.'),
+    }),
+    annotations: READ,
+  }, async (a) => {
+    try { return text(await quickTokenCheck(a)); } catch (e) { return failWith(e); }
+  });
+
+  server.registerTool('build_zap_liquidity', {
+    title: 'Add liquidity from one token (ready to sign)',
+    description: 'Open a concentrated-liquidity position using only ONE of the pool\'s tokens: swaps the right share into the other token at the best price, then deposits both for the chosen range, as ONE signLink (swap, approvals, deposit). A small safety margin of the other token is left in the wallet. Same pools as build_add_liquidity (Uniswap V3, PancakeSwap V3, Aerodrome Slipstream and the V3 forks btb.finance supports).',
+    inputSchema: z.object({
+      ...poolArgs,
+      token: z.string().describe('The one token you have: the pool token\'s symbol or address (wrapped symbol for ETH, e.g. WETH).'),
+      amount: z.string().regex(/^\d+(\.\d+)?$/).describe('How much of it to put in, in whole units.'),
+      wallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe('The wallet that signs.'),
+      rangePct: z.number().positive().max(500).nullable().optional().describe('Half-width of the range in %, e.g. 5. null = full range. Default 5.'),
+      slippageBps: z.number().int().min(1).max(3000).optional(),
+    }),
+    annotations: WRITE_PREP,
+  }, async (a) => {
+    const p = await poolOr(a.chain, a.pool);
+    if (!p) return fail('Pool not found. Use search_pools or top_pools to get its key.');
+    try {
+      const r = await buildZapLiquidity(p, { wallet: a.wallet as `0x${string}`, token: a.token, amount: a.amount, rangePct: a.rangePct, slippageBps: a.slippageBps });
+      const { sims, ...rest } = r as typeof r & { sims?: Sim[] };
+      return text(withSignLink(rest, `Add ${a.amount} ${a.token} to ${p.pair}`, a.wallet, sims ?? []));
     } catch (e) { return failWith(e); }
   });
 
