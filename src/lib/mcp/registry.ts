@@ -32,7 +32,14 @@ const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
 export function findProtocol(q: string): ProtocolEntry | null {
   const n = norm(q);
-  return PROTOCOLS.find((p) => norm(p.slug) === n || norm(p.name) === n) ?? null;
+  if (!n) return null;
+  const exact = PROTOCOLS.find((p) => norm(p.slug) === n || norm(p.name) === n);
+  if (exact || n.length < 3) return exact ?? null;
+  // "aave" finds Aave V3, "lido finance" finds Lido: the closest name that one starts with the other.
+  const near = PROTOCOLS
+    .filter((p) => [norm(p.slug), norm(p.name)].some((k) => k.startsWith(n) || n.startsWith(k)))
+    .sort((a, b) => Math.abs(norm(a.slug).length - n.length) - Math.abs(norm(b.slug).length - n.length));
+  return near[0] ?? null;
 }
 
 const sameChain = (a: string, b: string) => chainKey(a) === chainKey(b) || norm(a) === norm(b);

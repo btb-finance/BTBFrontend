@@ -6,6 +6,8 @@ import { Providers } from '../Providers';
 import { useChainTheme } from '@/lib/ChainThemeContext';
 import { renderReply } from './Markdown';
 import { AskFrame, Icon } from './AskFrame';
+import { TxPlan, type StepState } from './TxPlan';
+import type { TxStep } from '@/lib/ask/agent';
 
 const ConnectScreen = dynamic(() => import('../screens/ConnectScreen').then((m) => m.ConnectScreen), { ssr: false });
 
@@ -15,7 +17,7 @@ const ConnectScreen = dynamic(() => import('../screens/ConnectScreen').then((m) 
  * The classic app is untouched and one click away.
  */
 
-type Turn = { role: 'user' | 'assistant'; content: string; steps?: string[]; error?: boolean };
+type Turn = { role: 'user' | 'assistant'; content: string; steps?: string[]; error?: boolean; txs?: TxStep[]; txState?: StepState[] };
 type Chat = { id: string; title: string; at: number; turns: Turn[] };
 
 const STORE = 'btb-ask-chats-v1';
@@ -113,9 +115,9 @@ function AskInner() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ message, history, wallet }),
       });
-      const body = await res.json().catch(() => ({})) as { reply?: string; steps?: string[]; error?: string };
+      const body = await res.json().catch(() => ({})) as { reply?: string; steps?: string[]; txs?: TxStep[]; error?: string };
       const turn: Turn = body.reply
-        ? { role: 'assistant', content: body.reply, steps: body.steps ?? [] }
+        ? { role: 'assistant', content: body.reply, steps: body.steps ?? [], ...(body.txs?.length ? { txs: body.txs } : {}) }
         : { role: 'assistant', content: body.error ?? 'Something went wrong. Try again.', error: true };
       update(chatId, (c) => ({ ...c, turns: [...c.turns, turn] }));
     } catch {
@@ -196,7 +198,9 @@ function AskInner() {
           <div className="ag-thread" aria-live="polite">
             {turns.map((t, i) => t.role === 'user'
               ? <div key={i} className="ag-user">{t.content}</div>
-              : <BotTurn key={i} turn={t}/>)}
+              : <BotTurn key={i} turn={t} onStep={(n, st) => active && update(active.id, (c) => ({
+                  ...c, turns: c.turns.map((x, j) => j === i ? { ...x, txState: Object.assign([...(x.txState ?? [])], { [n]: st }) } : x),
+                }))}/>)}
             {busy && <div className="ag-thinking"><span className="ag-pulse"/>Working on it</div>}
             <div ref={endRef}/>
           </div>
@@ -217,7 +221,7 @@ function AskInner() {
   );
 }
 
-function BotTurn({ turn }: { turn: Turn }) {
+function BotTurn({ turn, onStep }: { turn: Turn; onStep: (n: number, s: StepState) => void }) {
   if (turn.error) return <div className="ag-bot"><div className="ag-error">{turn.content}</div></div>;
   const { body, actions } = renderReply(turn.content);
   return (
@@ -226,6 +230,7 @@ function BotTurn({ turn }: { turn: Turn }) {
         <div className="ag-steps">{turn.steps.map((s) => <span key={s} className="ag-step"><Icon name="check" size={12}/>{s}</span>)}</div>
       )}
       <div className="ag-text">{body}</div>
+      {turn.txs && turn.txs.length > 0 && <TxPlan txs={turn.txs} state={turn.txState ?? []} onState={onStep}/>}
       {actions.length > 0 && (
         <div className="ag-actions">
           {actions.map((a, i) => <a key={a.href} href={a.href} className={`ag-action${i === 0 ? ' primary' : ''}`}>{a.label}<Icon name="arrow" size={13}/></a>)}

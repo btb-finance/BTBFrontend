@@ -126,6 +126,26 @@
 .ag-pulse { width: 8px; height: 8px; border-radius: 999px; background: var(--ag-accent); animation: ag-pulse 1.2s ease-in-out infinite; }
 @keyframes ag-pulse { 0%, 100% { opacity: 0.25; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1); } }
 
+/* transactions to sign */
+.ag-plan { border: 1px solid var(--ag-line-strong); border-radius: 12px; overflow: hidden; }
+.ag-plan-head { display: flex; justify-content: space-between; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--ag-line); font-weight: 600; font-size: 13.5px; }
+.ag-plan-sub { color: var(--ag-dim); font-weight: 500; }
+.ag-plan-step { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--ag-line); }
+.ag-plan-step.done { opacity: 0.7; }
+.ag-plan-num { width: 24px; height: 24px; flex-shrink: 0; border-radius: 999px; border: 1px solid var(--ag-line-strong); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--ag-muted); }
+.ag-plan-step.done .ag-plan-num { color: var(--ag-accent); border-color: var(--ag-accent); }
+.ag-plan-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ag-plan-label { font-weight: 600; }
+.ag-plan-meta { font-size: 12.5px; color: var(--ag-muted); overflow-wrap: anywhere; }
+.ag-plan-meta code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.ag-plan-dry { font-size: 12px; color: var(--ag-muted); }
+.ag-plan-dry.bad { color: #FF6B7A; }
+.ag-plan-warn { font-size: 12px; color: var(--ag-dim); }
+.ag-plan-tx { font-size: 12px; color: var(--ag-accent); text-decoration: none; }
+.ag-plan-foot { padding: 10px 14px; font-size: 12px; color: var(--ag-dim); }
+.ag-action:disabled { opacity: 0.35; cursor: default; }
+button.ag-action { background: transparent; cursor: pointer; flex-shrink: 0; }
+
 /* composer */
 .ag-dock { position: sticky; bottom: 0; padding: 12px 0 20px; background: linear-gradient(to bottom, transparent, var(--ag-bg) 30%); }
 .ag-box { display: flex; align-items: flex-end; gap: 8px; border: 1px solid var(--ag-line-strong); border-radius: 14px; background: var(--ag-panel); padding: 8px 8px 8px 14px; }
