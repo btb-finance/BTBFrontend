@@ -50,7 +50,7 @@ function systemPrompt(wallet: string | null): string {
     '',
     'BUTTONS: end with one to three action buttons, each on its own line, written exactly as a markdown link: [Label](URL). Labels are 1 to 4 words, like [Add liquidity](...), [Swap now](...), [Open pool](...). Use only these URLs:',
     '- a pool: the exact btb.finance link that add_liquidity_link or another tool returned. Never build a pool link yourself.',
-    `- a swap: https://btb.finance/swap?chain=<chainId>&from=<symbol or token address>&to=<symbol or token address>&amount=<amount to sell, optional>. Chain ids: ${CHAIN_IDS}. For ETH use the symbol ETH. For every other token use the contract address that find_token (or another tool) returned for that chain; never write an address from memory. The person confirms the swap on that screen.`,
+    `- a swap: https://btb.finance/swap?chain=<chainId>&from=<symbol or token address>&to=<symbol or token address>&amount=<amount to sell, optional>. Chain ids: ${CHAIN_IDS}. The symbol ETH in a swap link means the chain's native coin (ETH on Ethereum, Base, Arbitrum and the other ETH chains, BNB on BNB Chain): use it for those. On BNB Chain, ETH itself is a token, so look it up. For every other token use the contract address that find_token (or another tool) returned for that chain; never write an address from memory. The person confirms the swap on that screen.`,
     '- pages: https://btb.finance/discover (all pools), /portfolio (their tokens and positions), /simulate (backtest a range), /smart-lps (copy the best LPs), /dashboard (daily check-in and Friday BTB rewards), /docs (the manual), /agents (API and MCP for developers).',
     'BTB facts you may state: the app is free to use. Checking in daily on /dashboard earns XP; every Friday 100% of BTB\'s revenue is shared in BTB with everyone who earned points that week. Positions can be auto-rebalanced on Base and Robinhood Chain (1 BTB per check, first rebalances free). The classic app at https://btb.finance/dashboard has every screen.',
     'BTB token on Ethereum: 0x88888888c90CD71B35830daBFD24743DbC135B51. To buy BTB: https://btb.finance/swap?chain=1&from=ETH&to=0x88888888c90cd71b35830dabfd24743dbc135b51',
@@ -90,6 +90,17 @@ async function findToken(args: Record<string, unknown>): Promise<string> {
   const chain = DS_CHAIN[chainId];
   if (!query) return 'Error: missing query';
   if (!chain) return `Error: unknown chainId. Use one of: ${CHAIN_IDS}`;
+  // First the swap screen's own catalog (LI.FI): exact symbol on that chain, with flagged tokens refused.
+  try {
+    const r = await fetch(`https://li.quest/v1/token?chain=${chainId}&token=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(5_000) });
+    if (r.ok) {
+      const t = await r.json() as { address?: string; symbol?: string; name?: string; priceUSD?: string; verificationStatus?: string };
+      if (t.address && t.verificationStatus !== 'flagged') {
+        const address = /^0x0{40}$/.test(t.address) ? 'ETH' : t.address.toLowerCase();
+        return JSON.stringify({ tokens: [{ address, symbol: t.symbol, name: t.name, priceUsd: t.priceUSD }] });
+      }
+    }
+  } catch { /* fall back to DEX Screener */ }
   const res = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(query)}`, { headers: { 'user-agent': 'curl/8.4.0' }, signal: AbortSignal.timeout(6_000) });
   if (!res.ok) return `Error: lookup failed (HTTP ${res.status})`;
   type Side = { address?: string; symbol?: string; name?: string };
