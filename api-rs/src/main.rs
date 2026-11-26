@@ -9,9 +9,12 @@
 //!   GET  /api/v1/...         REST, same paths and answers as https://btb.finance/api/v1
 //!   GET  /health
 
+mod indexers;
 mod pools;
 mod snapshot;
+mod store;
 mod tools;
+mod yields;
 
 use axum::{
     body::Bytes,
@@ -33,6 +36,9 @@ struct App {
     http: reqwest::Client,
     upstream: String,
     convex: String,
+    index: store::Index,
+    /// Steps people signed from btb.finance/sign links: link id → (step, hash, unix time). Kept one day.
+    signed: Arc<std::sync::Mutex<HashMap<String, Vec<(u32, String, i64)>>>>,
     /// Anonymous REST calls per IP per minute, counted here instead of in Convex.
     limits: Arc<std::sync::Mutex<HashMap<String, (u64, u32)>>>,
     /// The upstream connector's tools/list, kept for 10 minutes.
@@ -46,7 +52,7 @@ async fn main() {
     let upstream = std::env::var("UPSTREAM_URL").unwrap_or_else(|_| "https://btb.finance".into());
     let port: u16 = std::env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(8080);
     let http = reqwest::Client::builder().user_agent("btb-api/0.1").build().expect("http client");
-    let app = App { snap: Arc::new(RwLock::new(None)), http: http.clone(), upstream, convex: convex.clone(), limits: Arc::new(std::sync::Mutex::new(HashMap::new())), upstream_tools: Arc::new(RwLock::new(None)) };
+    let app = App { snap: Arc::new(RwLock::new(None)), http: http.clone(), upstream, convex: convex.clone(), index: store::Index::open().await, signed: Arc::new(std::sync::Mutex::new(HashMap::new())), limits: Arc::new(std::sync::Mutex::new(HashMap::new())), upstream_tools: Arc::new(RwLock::new(None)) };
     // Old minute windows are dropped every few minutes so the table stays small.
     {
         let limits = app.limits.clone();
@@ -58,13 +64,24 @@ async fn main() {
             }
         });
     }
-    snapshot::keep_fresh(app.snap.clone(), http, convex, Duration::from_secs(300));
+    snapshot::keep_fresh(app.snap.clone(), http.clone(), convex, Duration::from_secs(300));
+    // BTB's own yield index: every lending market, vault and staking token, refreshed in the background.
+    {
+        let (i, h) = (app.index.clone(), http.clone());
+        indexers::every("aave", Duration::from_secs(1800), move || { let (i, h) = (i.clone(), h.clone()); async move { indexers::aave(&i, &h).await } });
+        let (i, h) = (app.index.clone(), http.clone());
+        indexers::every("morpho", Duration::from_secs(1800), move || { let (i, h) = (i.clone(), h.clone()); async move { indexers::morpho(&i, &h).await } });
+        let (i, h) = (app.index.clone(), http);
+        indexers::every("llama", Duration::from_secs(3600), move || { let (i, h) = (i.clone(), h.clone()); async move { indexers::llama(&i, &h).await } });
+    }
 
     let router = rest_routes(Router::new())
         .route("/health", get(health))
         .route("/api/mcp", post(mcp).get(mcp_get))
         // The old btb-mcp image answered at /mcp too; existing client URLs keep working.
         .route("/mcp", post(mcp).get(mcp_get))
+        .route("/api/v1/sign-status", post(sign_report))
+        .route("/api/v1/sign-status/:id", get(sign_read))
         .fallback(forward_rest)
         .layer(tower_http::cors::CorsLayer::permissive())
         .with_state(app);
@@ -121,6 +138,7 @@ fn rest_args(tool: &str, q: &HashMap<String, String>, rename: &[(&str, &str)]) -
                     json!(v.split(',').map(str::trim).filter(|x| !x.is_empty()).collect::<Vec<_>>())
                 }
             }
+            ("compare_yield", "kinds") => json!(v.split(',').map(str::trim).filter(|x| !x.is_empty()).collect::<Vec<_>>()),
             (_, "limit" | "minTvlUsd" | "amountUsd" | "days" | "pools") => number(v),
             (_, "stableOnly") => json!(v == "true" || v == "1"),
             _ => json!(v),
@@ -134,7 +152,7 @@ async fn run_rest(app: &App, tool: &str, args: Map<String, Value>) -> Response {
     let Some(snap) = snapshot_now(app).await else {
         return rest_error(StatusCode::SERVICE_UNAVAILABLE, "warming_up", "The pool snapshot is still loading. Retry in a few seconds.");
     };
-    let ctx = tools::Ctx { snap: &snap, http: &app.http, convex: &app.convex };
+    let ctx = tools::Ctx { snap: &snap, http: &app.http, convex: &app.convex, index: &app.index };
     match tools::call(tool, &args, &ctx).await {
         Ok(v) => json_response(StatusCode::OK, &v),
         Err(tools::ToolError(msg)) => {
@@ -244,6 +262,7 @@ fn rest_routes(r: Router<App>) -> Router<App> {
     let r = route_tool!(r, "/api/v1/plan", "lp_plan", &[]);
     let r = route_tool!(r, "/api/v1/chains", "chain_summary", &[]);
     let r = route_tool!(r, "/api/v1/chains/:chain", "chain_summary", &[]);
+    let r = route_tool!(r, "/api/v1/yield", "compare_yield", &[]);
     route_tool!(r, "/api/v1/tokens/:chain/:token/safety", "token_safety", &[])
 }
 
@@ -360,7 +379,7 @@ async fn handle_rpc(app: &App, msg: Value) -> Option<Value> {
                 let args = msg["params"]["arguments"].as_object().cloned().unwrap_or_default();
                 match snapshot_now(app).await {
                     None => rpc_result(&id, text_content(&json!("The pool snapshot is still loading. Retry in a few seconds."), true)),
-                    Some(snap) => match tools::call(&name, &args, &tools::Ctx { snap: &snap, http: &app.http, convex: &app.convex }).await {
+                    Some(snap) => match tools::call(&name, &args, &tools::Ctx { snap: &snap, http: &app.http, convex: &app.convex, index: &app.index }).await {
                         Ok(v) => rpc_result(&id, text_content(&v, false)),
                         Err(tools::ToolError(m)) => rpc_result(&id, text_content(&json!(m), true)),
                     },
@@ -395,4 +414,39 @@ async fn mcp(State(app): State<App>, body: Bytes) -> Response {
             None => StatusCode::ACCEPTED.into_response(),
         },
     }
+}
+
+// ---- sign status: the sign page reports each step it sent, agents read it back (sign_status tool) ----
+
+/// POST {id, step, hash}: a step of a sign link was sent. Anyone can report; the sign_status tool checks every hash on
+/// chain (sent from the link's wallet, to the step's contract) before believing it.
+async fn sign_report(State(app): State<App>, body: Bytes) -> Response {
+    let v: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+    let id = v["id"].as_str().unwrap_or("");
+    let hash = v["hash"].as_str().unwrap_or("");
+    let step = v["step"].as_u64().unwrap_or(0) as u32;
+    let hex = |s: &str, n: usize| s.len() == n + 2 && s.starts_with("0x") && s[2..].chars().all(|c| c.is_ascii_hexdigit());
+    if !(16..=64).contains(&id.len()) || !id.chars().all(|c| c.is_ascii_hexdigit()) || !hex(hash, 64) || !(1..=10).contains(&step) {
+        return rest_error(StatusCode::BAD_REQUEST, "invalid_arguments", "Send {id, step (1-10), hash (0x + 64 hex)}.");
+    }
+    let now = chrono::Utc::now().timestamp();
+    if let Ok(mut m) = app.signed.lock() {
+        m.retain(|_, steps| steps.iter().any(|s| now - s.2 < 86_400));
+        if m.len() > 50_000 {
+            return rest_error(StatusCode::SERVICE_UNAVAILABLE, "busy", "Too many open sign links. Try again later.");
+        }
+        let steps = m.entry(id.to_lowercase()).or_default();
+        steps.retain(|s| s.0 != step);
+        steps.push((step, hash.to_lowercase(), now));
+        steps.sort_by_key(|s| s.0);
+    }
+    json_response(StatusCode::ACCEPTED, &json!({ "ok": true }))
+}
+
+async fn sign_read(State(app): State<App>, Path(id): Path<String>) -> Response {
+    let steps = app.signed.lock().ok().and_then(|m| m.get(&id.to_lowercase()).cloned()).unwrap_or_default();
+    json_response(StatusCode::OK, &json!({
+        "id": id.to_lowercase(),
+        "steps": steps.iter().map(|(s, h, t)| json!({ "step": s, "hash": h, "reportedAt": t })).collect::<Vec<_>>(),
+    }))
 }

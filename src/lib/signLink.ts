@@ -1,4 +1,4 @@
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { gunzipSync, gzipSync } from 'node:zlib';
 
 /**
@@ -20,7 +20,10 @@ export interface SignStep {
   swap?: { chainId: number; tokenIn: string; tokenOut: string; amount: string; slippageBps: number };
   builtAt?: number;
 }
-export interface SignPlan { v: 1; title: string; chainId: number; wallet: string; steps: SignStep[]; exp: number }
+export interface SignPlan { v: 1; title: string; chainId: number; wallet: string; steps: SignStep[]; exp: number; /** Lets an agent ask whether the steps were signed (sign_status). */ id?: string }
+
+/** Where the sign page reports signed steps and sign_status reads them back: BTB's API on Flux. */
+export const SIGN_STATUS_API = process.env.NEXT_PUBLIC_BTB_API ?? 'https://btbmcp.app.runonflux.io';
 
 function key(): Buffer | null {
   const secret = process.env.SIGN_LINK_SECRET ?? process.env.BTB_API_SECRET;
@@ -31,19 +34,20 @@ function key(): Buffer | null {
 const mac = (k: Buffer, body: string) => createHmac('sha256', k).update(body).digest('base64url');
 
 /** A btb.finance/sign link for these steps, or null when this server has no secret to seal it with. */
-export function signLink(p: Omit<SignPlan, 'v' | 'exp'>): string | null {
+export function signLink(p: Omit<SignPlan, 'v' | 'exp' | 'id'>): { url: string; id: string } | null {
   const k = key();
   if (!k || !p.steps.length) return null;
-  const plan: SignPlan = { v: 1, ...p, exp: Date.now() + SIGN_LINK_TTL_MS };
+  const id = randomBytes(12).toString('hex');
+  const plan: SignPlan = { v: 1, ...p, exp: Date.now() + SIGN_LINK_TTL_MS, id };
   const body = gzipSync(Buffer.from(JSON.stringify(plan))).toString('base64url');
   // In the fragment: browsers never send it to any server, so the plan stays out of request logs.
-  return `${SITE}/sign#${body}.${mac(k, body)}`;
+  return { url: `${SITE}/sign#${body}.${mac(k, body)}`, id };
 }
 
 export type OpenResult = { ok: true; plan: SignPlan } | { ok: false; reason: 'invalid' | 'expired' | 'unavailable' };
 
 /** Checks a token from a sign link and returns its plan. */
-export function openSignToken(token: string): OpenResult {
+export function openSignToken(token: string, allowExpired = false): OpenResult {
   const k = key();
   if (!k) return { ok: false, reason: 'unavailable' };
   const [body, sig] = token.trim().replace(/^#/, '').split('.');
@@ -55,6 +59,12 @@ export function openSignToken(token: string): OpenResult {
   try { plan = JSON.parse(gunzipSync(Buffer.from(body, 'base64url')).toString('utf8')) as SignPlan; }
   catch { return { ok: false, reason: 'invalid' }; }
   if (plan.v !== 1 || !Array.isArray(plan.steps)) return { ok: false, reason: 'invalid' };
-  if (Date.now() > plan.exp) return { ok: false, reason: 'expired' };
+  if (Date.now() > plan.exp && !allowExpired) return { ok: false, reason: 'expired' };
   return { ok: true, plan };
+}
+
+/** The plan inside a btb.finance/sign link (even an expired one), for checking what was signed. */
+export function planFromLink(link: string): OpenResult {
+  const token = link.includes('#') ? link.split('#')[1] : link;
+  return openSignToken(token, true);
 }

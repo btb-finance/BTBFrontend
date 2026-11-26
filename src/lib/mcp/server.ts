@@ -16,7 +16,7 @@ import { findToken, fullBalance, quickTokenCheck, quoteSwap, tokenChainId, txSta
 import { lendingRates, stakingRates } from './lending';
 import { buildLend, buildWithdraw } from './aave';
 import { buildZapLiquidity } from './zap';
-import { signLink, type SignStep } from '../signLink';
+import { SIGN_STATUS_API, planFromLink, signLink, type SignStep } from '../signLink';
 import type { TxOut } from './build';
 
 // The BTB connector: Discover's pools for any MCP client (claude.ai, Claude Code, other agents). No tool signs or
@@ -30,10 +30,10 @@ const INSTRUCTIONS = `BTB Finance: live liquidity pools across Base, Ethereum, B
 - To see what a wallet holds: wallet_tokens (token balances on every main chain, with USD values; pass search to find one token) and wallet_positions (every LP position, with value, range and fees), plus auto_manage_status.
 - Tokens: find_token gives a token's contract address on a chain (never write one from memory). quote_swap prices any swap after the BTB fee, with a warning when the pool is thin.
 - To actually swap for a person: build_swap with their wallet, then give them its signLink (one link: approval if needed, then the swap). Do not stop at a quote.
-- Lending and savings: lending_rates gives live supply APYs on Aave, Compound, Morpho, Spark, Euler, Fluid and more, per chain and token. Never guess a rate.
+- Where to earn: compare_yield ranks lending, vaults, savings, staking and stable LPs for a token in one call (with contract addresses). lending_rates gives live supply APYs on Aave, Compound, Morpho, Spark, Euler, Fluid and more, per chain and token. Never guess a rate.
 - To add liquidity from ONE token (e.g. only USDC for a USDC-cbBTC pool): build_zap_liquidity swaps the right share and opens the position, one signLink.
 - To lend on Aave or take it back: build_lend and build_withdraw (live rate, position, health factor, the approval only when needed, one signLink). Use them instead of build_tx for Aave.
-- After the person signs, tx_status (chain + transaction hash) says whether it confirmed and what moved.
+- After the person signs, sign_status(signLink) says which steps they signed and whether each confirmed (no need to ask for hashes). tx_status (chain + hash) reads any single transaction.
 - Staking: staking_rates gives each liquid-staking token's yield (stETH/wstETH, weETH, rETH, cbETH...). For pools holding one, that half also earns it: add it to the pool APR when comparing.
 - Token safety: when token_safety has no recent scan, quick_token_check gives a free basic check (honeypot, taxes, owner powers). find_token marks matches tradeable or not.
 - This server never signs. Every build tool returns a signLink: give it to the person, it opens btb.finance with the steps to sign in their own wallet (valid 15 minutes, only for that wallet). For an action with an approval first (lend on Aave, stake, deposit), call build_tx once with steps [approve, action] so they get one link.
@@ -377,7 +377,7 @@ export function buildServer(): McpServer {
     });
     const link = signLink({ title, chainId: r.chainId, wallet, steps });
     return link
-      ? { ...r, signLink: link, signLinkNote: 'For a person: give them this link. It opens btb.finance with these steps to sign in their own wallet, in order. Valid 15 minutes, only for this wallet.' }
+      ? { ...r, signLink: link.url, signLinkNote: 'For a person: give them this link. It opens btb.finance with these steps to sign in their own wallet, in order. Valid 15 minutes, only for this wallet. Afterwards, sign_status with this link tells you what they signed; no need to ask them for hashes.' }
       : r;
   };
 
@@ -532,6 +532,62 @@ export function buildServer(): McpServer {
       const { sims, ...rest } = r as typeof r & { sims?: Sim[] };
       return text(withSignLink(rest, `Add ${a.amount} ${a.token} to ${p.pair}`, a.wallet, sims ?? []));
     } catch (e) { return failWith(e); }
+  });
+
+  server.registerTool('sign_status', {
+    title: 'What was signed from a sign link',
+    description: 'After giving a person a btb.finance/sign link: which steps they have signed and whether each confirmed on chain, with the hashes and the tokens that moved. Each reported hash is checked on chain (sent from the link\'s wallet, to the step\'s contract). Call it when they say they are done, instead of asking for hashes.',
+    inputSchema: z.object({ signLink: z.string().describe('The signLink a build tool returned.') }),
+    annotations: READ,
+  }, async (a) => {
+    const opened = planFromLink(a.signLink);
+    if (!opened.ok) return fail(opened.reason === 'invalid' ? 'That is not a sign link BTB made (or it was changed).' : 'Sign links are not available on this server.');
+    const plan = opened.plan;
+    if (!plan.id) return fail('This link was made before sign tracking existed: ask the person for the transaction hash and use tx_status.');
+    const reported = await fetch(`${SIGN_STATUS_API}/api/v1/sign-status/${plan.id}`, { signal: AbortSignal.timeout(10_000) })
+      .then((r) => r.json() as Promise<{ steps?: { step: number; hash: string }[] }>).catch(() => ({ steps: [] as { step: number; hash: string }[] }));
+    const steps = await Promise.all(plan.steps.map(async (s, i) => {
+      const hash = reported.steps?.find((x) => x.step === i + 1)?.hash;
+      if (!hash) return { step: i + 1, label: s.label, status: 'not_signed_yet' };
+      try {
+        const t = await txStatus({ chain: plan.chainId, hash }) as { status: string; from?: string; to?: string | null; tokenTransfers?: unknown; link?: string | null };
+        const matches = t.from?.toLowerCase() === plan.wallet.toLowerCase() && t.to?.toLowerCase() === s.to.toLowerCase();
+        if (t.status === 'confirmed' || t.status === 'failed') {
+          return matches
+            ? { step: i + 1, label: s.label, status: t.status, hash, tokenTransfers: t.tokenTransfers, link: t.link }
+            : { step: i + 1, label: s.label, status: 'not_signed_yet', note: 'A report for this step did not match the link (other wallet or contract) and was ignored.' };
+        }
+        return { step: i + 1, label: s.label, status: t.status, hash };
+      } catch { return { step: i + 1, label: s.label, status: 'unknown', hash }; }
+    }));
+    const done = steps.every((s) => s.status === 'confirmed');
+    return text({
+      title: plan.title, wallet: plan.wallet, chainId: plan.chainId, done, steps,
+      linkExpired: Date.now() > plan.exp,
+      next: done ? 'All steps confirmed.' : steps.some((s) => s.status === 'failed') ? 'A step failed on chain: rebuild it and check the dry run.' : 'Not finished yet: the person can keep signing from the same link while it is valid.',
+    });
+  });
+
+  server.registerTool('compare_yield', {
+    title: 'Compare every way to earn on a token',
+    description: 'Every place to earn on a token, side by side, from BTB\'s own index: lending (Aave V3 read from its contracts, Compound, Fluid, Euler, Spark, Moonwell, Venus), Morpho vaults (only listed ones, with address and curator), savings, ETH staking and stable-pair liquidity pools. Ranked by base yield, with rewards apart, 1-day/7-day/30-day rates, a stability flag, TVL, the contract to deposit into and the tool that builds the deposit. Prefer it over lending_rates.',
+    inputSchema: z.object({
+      token: z.string().describe('Symbol or address, e.g. "USDC", "ETH" (includes staking), "WBTC".'),
+      chain: z.string().optional().describe('Chain name or id. Omit for all chains.'),
+      kinds: z.array(z.enum(['lend', 'vault', 'savings', 'stake', 'lp'])).optional().describe('Only these kinds. "lp" also includes pools with a volatile partner.'),
+      minTvlUsd: z.number().min(0).optional().describe('Default 1000000.'),
+      stableOnly: z.boolean().optional().describe('Only rates that held steady.'),
+      limit: z.number().int().min(1).max(50).optional().describe('Default 15.'),
+    }),
+    annotations: READ,
+  }, async (a) => {
+    // Answered by BTB's Rust index on Flux, which keeps every market warm.
+    const q = new URLSearchParams(Object.entries(a).flatMap(([k, v]) => (v == null ? [] : [[k, Array.isArray(v) ? v.join(',') : String(v)]])));
+    try {
+      const r = await fetch(`${SIGN_STATUS_API}/api/v1/yield?${q}`, { signal: AbortSignal.timeout(15_000) });
+      const body = await r.json() as unknown;
+      return r.ok ? text(body) : fail(`The yield index answered ${r.status}: ${JSON.stringify(body).slice(0, 300)}`);
+    } catch (e) { return fail(`The yield index is not reachable right now (${(e as Error).message}). lending_rates and staking_rates still work.`); }
   });
 
   server.registerTool('build_swap', {
