@@ -10,7 +10,7 @@ use serde_json::{json, Map, Value};
 
 pub struct ToolError(pub String);
 
-fn bad(msg: impl Into<String>) -> ToolError {
+pub fn bad(msg: impl Into<String>) -> ToolError {
     ToolError(format!("Input validation error: {}", msg.into()))
 }
 
@@ -120,6 +120,20 @@ pub fn definitions() -> Vec<Value> {
             "annotations": read,
         }),
         json!({
+            "name": "compare_yield",
+            "title": "Compare every way to earn on a token",
+            "description": "Every place to earn on a token, side by side: lending (Aave V3 read from its contracts, Compound, Fluid, Euler, Spark, Moonwell, Venus), Morpho vaults (only vaults Morpho lists, with address and curator), savings, ETH staking, and BTB's liquidity pools. Ranked by base yield (paid in the token itself), with rewards shown apart, 1-day and 7-day rates, a stability flag, TVL, the contract to deposit into, and which tool builds the deposit. From BTB's own index, refreshed every 30 to 60 minutes.",
+            "inputSchema": { "type": "object", "properties": {
+                "token": { "type": "string", "description": "Symbol or address, e.g. \"USDC\", \"ETH\" (includes staking), \"WBTC\"." },
+                "chain": { "type": "string", "description": CHAIN_DESC },
+                "kinds": { "type": "array", "items": { "type": "string", "enum": ["lend", "vault", "savings", "stake", "lp"] }, "description": "Only these kinds. Default all." },
+                "minTvlUsd": { "type": "number", "minimum": 0, "description": "Skip smaller markets. Default 1000000." },
+                "stableOnly": { "type": "boolean", "description": "Only markets whose rate has been steady (1 day vs 7 days, or now vs 30 days)." },
+                "limit": { "type": "integer", "minimum": 1, "maximum": 50, "description": "Default 15." }
+            }, "required": ["token"] },
+            "annotations": read,
+        }),
+        json!({
             "name": "chain_summary",
             "title": "Chain summary",
             "description": "Per chain: pool count, total TVL, median APR and TVL-weighted APR (all pools, and stable pairs only).",
@@ -133,7 +147,7 @@ pub fn has(name: &str) -> bool {
     matches!(
         name,
         "top_pools" | "search_pools" | "chain_summary" | "pool_details" | "compare_pools" | "best_pools_for" | "estimate_lp_earnings"
-            | "token_safety" | "lp_plan" | "add_liquidity_link"
+            | "token_safety" | "lp_plan" | "add_liquidity_link" | "compare_yield"
     )
 }
 
@@ -142,11 +156,12 @@ pub struct Ctx<'a> {
     pub snap: &'a Snapshot,
     pub http: &'a reqwest::Client,
     pub convex: &'a str,
+    pub index: &'a crate::store::Index,
 }
 
 // ---- arguments ----
 
-fn opt_str(a: &Map<String, Value>, k: &str) -> Result<Option<String>, ToolError> {
+pub fn opt_str(a: &Map<String, Value>, k: &str) -> Result<Option<String>, ToolError> {
     match a.get(k) {
         None | Some(Value::Null) => Ok(None),
         Some(Value::String(s)) => Ok(Some(s.clone())),
@@ -154,20 +169,20 @@ fn opt_str(a: &Map<String, Value>, k: &str) -> Result<Option<String>, ToolError>
         _ => Err(bad(format!("{k} must be a string"))),
     }
 }
-fn opt_num(a: &Map<String, Value>, k: &str) -> Result<Option<f64>, ToolError> {
+pub fn opt_num(a: &Map<String, Value>, k: &str) -> Result<Option<f64>, ToolError> {
     match a.get(k) {
         None | Some(Value::Null) => Ok(None),
         Some(v) => v.as_f64().map(Some).ok_or_else(|| bad(format!("{k} must be a number"))),
     }
 }
-fn opt_bool(a: &Map<String, Value>, k: &str) -> Result<Option<bool>, ToolError> {
+pub fn opt_bool(a: &Map<String, Value>, k: &str) -> Result<Option<bool>, ToolError> {
     match a.get(k) {
         None | Some(Value::Null) => Ok(None),
         Some(Value::Bool(b)) => Ok(Some(*b)),
         _ => Err(bad(format!("{k} must be true or false"))),
     }
 }
-fn limit(a: &Map<String, Value>, max: f64, default: usize) -> Result<usize, ToolError> {
+pub fn limit(a: &Map<String, Value>, max: f64, default: usize) -> Result<usize, ToolError> {
     match opt_num(a, "limit")? {
         None => Ok(default),
         Some(n) if n.fract() == 0.0 && (1.0..=max).contains(&n) => Ok(n as usize),
@@ -225,6 +240,7 @@ pub async fn call(name: &str, args: &Map<String, Value>, ctx: &Ctx<'_>) -> Resul
         "token_safety" => token_safety(args, ctx).await,
         "lp_plan" => lp_plan(args, snap),
         "add_liquidity_link" => add_liquidity_link(args, snap),
+        "compare_yield" => crate::yields::compare(args, ctx).await,
         _ => Err(ToolError(format!("Tool {name} not found"))),
     }
 }

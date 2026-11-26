@@ -6,6 +6,9 @@ import { Providers } from '../Providers';
 import { useChainTheme } from '@/lib/ChainThemeContext';
 import type { TxStep } from '@/lib/ask/agent';
 import type { SignPlan } from '@/lib/signLink';
+
+/** BTB's API on Flux: the sign page reports each signed step there so the agent can see it (sign_status). */
+const STATUS_API = process.env.NEXT_PUBLIC_BTB_API ?? 'https://btbmcp.app.runonflux.io';
 import { AskFrame, Icon } from './AskFrame';
 import { TxPlan, type StepState } from './TxPlan';
 
@@ -97,12 +100,18 @@ function SignInner() {
             {wrongWallet && <div className="ag-error">Your connected wallet is {short(address!)}, but these steps were built for {short(plan.wallet)}. Switch to that wallet to sign.</div>}
             {!address && <div className="ag-plan-dry">Connect {short(plan.wallet)} to sign.</div>}
             {!expired && !wrongWallet ? (
-              <TxPlan txs={steps} state={state} onState={(i, s) => setState((st) => Object.assign([...st], { [i]: s }))}
+              <TxPlan txs={steps} state={state} onState={(i, s) => {
+                  setState((st) => Object.assign([...st], { [i]: s }));
+                  // Tell the agent: report the hash once it is sent (best effort; sign_status checks it on chain).
+                  if (s.hash && plan.id && (s.status === 'confirming' || s.status === 'done')) {
+                    fetch(`${STATUS_API}/api/v1/sign-status`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: plan.id, step: i + 1, hash: s.hash }) }).catch(() => {});
+                  }
+                }}
                 onRebuilt={(i, step) => setSteps((all) => all.map((x, j) => (j === i ? step : x)))}/>
             ) : null}
             {steps.length > 0 && steps.every((_, i) => state[i]?.status === 'done') ? (
               <div className="ag-text">
-                <p><strong>All done.</strong> Tell your assistant it is done; it can check with the transaction hash{steps.length > 1 ? 'es' : ''}:</p>
+                <p><strong>All done.</strong> Your assistant can see it now: just tell it you are done. The transaction hash{steps.length > 1 ? 'es are' : ' is'} below too:</p>
                 {state.map((st, i) => st?.hash && <p key={i} style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12.5, overflowWrap: 'anywhere' }}>{st.hash}</p>)}
               </div>
             ) : !expired && !wrongWallet && <div className="ag-hint">Link valid for {left} more minute{left === 1 ? '' : 's'}.</div>}
