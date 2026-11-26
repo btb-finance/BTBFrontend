@@ -16,6 +16,7 @@ import { CONTRACTS } from '../../lib/wagmi';
 import { BEAR_NFT_ABI, BEAR_STAKING_ABI } from '../../contracts/abis';
 import { api } from '../../../convex/_generated/api';
 import { MINT_XP } from '../../../convex/xpRules';
+import { Skeleton, orSkeleton } from '../Skeleton';
 
 const ZERO = '0x0000000000000000000000000000000000000000' as `0x${string}`;
 
@@ -25,7 +26,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <Glass padding={12} radius={16} soft style={{ textAlign: 'center' }}>
       <div style={{ color: btb.textMuted, fontSize: 10, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>{label}</div>
-      <div style={{ color: btb.text, fontSize: 14, fontWeight: 800, marginTop: 4 }}>{value}</div>
+      <div style={{ color: btb.text, fontSize: 14, fontWeight: 800, marginTop: 4 }}>{orSkeleton(value)}</div>
     </Glass>
   );
 }
@@ -160,7 +161,7 @@ function MintTab({ address }: { address?: string }) {
             <ellipse cx="100" cy="102" rx="10" ry="6" fill="#0F172A"/>
           </svg>
           <div style={{ position: 'absolute', bottom: 14, left: 16, color: 'rgba(var(--fg-rgb), 0.9)', fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', textShadow: '0 1px 6px rgba(0,0,0,0.5)' }}>
-            BTB BEAR {isLoading ? '…' : `· #${minted + 1}`}
+            BTB BEAR {isLoading ? <Skeleton width="2.5em"/> : `· #${minted + 1}`}
           </div>
           {userBalance > 0 && (
             <Badge bg="rgba(var(--green-rgb), 0.2)" border="1px solid rgba(var(--green-rgb), 0.4)" color="var(--btb-green)" style={{ position: 'absolute', top: 14, right: 14, padding: '3px 8px' }}>
@@ -411,7 +412,7 @@ function StakeTab({ address }: { address?: string }) {
             <div>
               <div style={{ color: btb.textMuted, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Pending rewards</div>
               <div style={{ color: 'var(--btb-green)', fontSize: 34, fontWeight: 800, letterSpacing: -1.2, marginTop: 6 }}>
-                {isLoading ? '…' : pendingBtbb.toLocaleString('en-US', { maximumFractionDigits: 6 })}
+                {isLoading ? <Skeleton/> : pendingBtbb.toLocaleString('en-US', { maximumFractionDigits: 6 })}
               </div>
               <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2 }}>BTBB · net after 1% transfer tax</div>
             </div>

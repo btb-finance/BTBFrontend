@@ -118,3 +118,7 @@ html, body, button, input, select, textarea {
   .btb-skeleton-ad-line, .btb-skeleton-status-dot, .btb-skeleton-step { animation: none; }
   .btb-skeleton-ad-line:first-child, .btb-skeleton-step:first-child { opacity: 1; }
 }
+
+/* Loading placeholder for numbers (src/components/Skeleton.tsx): the same pulse as the screen skeletons above. */
+.btb-skel { display: inline-block; vertical-align: middle; border-radius: 6px; background: rgba(var(--fg-rgb, 255, 255, 255), 0.10); animation: btb-skeleton-pulse 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .btb-skel { animation: none; } }

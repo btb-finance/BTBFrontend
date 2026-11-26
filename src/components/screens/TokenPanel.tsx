@@ -26,6 +26,7 @@ import { LABEL_STYLE, StatTile, heroCardStyle, BigApr } from '../home/heroParts'
 import { EpochTimer } from '../home/EpochTimer';
 import { getChainClient } from '../../lib/chainClient';
 import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, BTB_PER_BONUS_XP, HOLD_BONUS_CAP, SWAP_XP, TX_XP_DAILY_CAP, SIMULATE_XP, SIMULATE_DAILY_CAP, MINT_XP, REBALANCE_XP, REFERRAL_SHARE, MIN_CLAIM_BTB, epochIdAt } from '../../../convex/xpRules';
+import { Skeleton } from '../Skeleton';
 
 const BTB_ADDRESS = CONTRACTS.BTB;
 const OPOS_ADDRESS = CONTRACTS.OPOS;
@@ -412,7 +413,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
             </div>
             <div style={{ textAlign: isMobile ? 'left' : 'right', flexShrink: 0 }}>
               <div style={LABEL_STYLE}>Est. Friday payout</div>
-              <div style={{ color: btb.text, fontSize: isMobile ? 24 : 28, fontWeight: 800, letterSpacing: -0.6, marginTop: 4 }}>{estPayout != null ? `${formatBtb(estPayout.toString()).split('.')[0]} BTB` : '...'}</div>
+              <div style={{ color: btb.text, fontSize: isMobile ? 24 : 28, fontWeight: 800, letterSpacing: -0.6, marginTop: 4 }}>{estPayout != null ? `${formatBtb(estPayout.toString()).split('.')[0]} BTB` : <Skeleton width="4.5em"/>}</div>
               <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 2 }}>{(status?.myPoints ?? 0) > 0 ? "your share of last week's pot size" : 'earn XP this week to get one'}</div>
             </div>
           </div>
@@ -496,7 +497,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
             <input value={calcStr} inputMode="decimal" aria-label="BTB held" placeholder={calcHeld.toLocaleString('en-US')} onChange={(e) => setCalcStr(e.target.value)}
               style={{ width: 150, height: 38, padding: '0 12px', borderRadius: 10, border: btb.border, background: 'transparent', color: btb.text, fontSize: 16, fontWeight: 800, fontFamily: 'inherit', outline: 'none' }}/>
             <span style={{ color: btb.textMuted, fontSize: 13, fontWeight: 700 }}>BTB, get</span>
-            <span style={{ color: btb.green, fontSize: 22, fontWeight: 800, letterSpacing: -0.4 }}>{calcWeek != null ? `≈ ${fmtBtb(calcWeek)} BTB` : '...'}</span>
+            <span style={{ color: btb.green, fontSize: 22, fontWeight: 800, letterSpacing: -0.4 }}>{calcWeek != null ? `≈ ${fmtBtb(calcWeek)} BTB` : <Skeleton width="4.5em"/>}</span>
             <span style={{ color: btb.textMuted, fontSize: 13, fontWeight: 700 }}>a week</span>
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

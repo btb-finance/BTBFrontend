@@ -108,6 +108,7 @@ import { getCachedLpPositions, setCachedLpPositions, isLpSnapshotFresh, useKryst
 import { ChainLogo } from './ChainLogo';
 import { VfatMigrate } from './VfatMigrate';
 import { useWalletSession } from '../lib/session';
+import { Skeleton, orSkeleton } from './Skeleton';
 
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
@@ -1383,19 +1384,19 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
               style={{ ...box, background: p.staked ? 'rgba(var(--amber-rgb), 0.07)' : hasFees ? 'rgba(var(--green-rgb), 0.07)' : box.background, border: p.staked ? '1px solid rgba(var(--amber-rgb), 0.22)' : hasFees ? '1px solid rgba(var(--green-rgb), 0.22)' : box.border }}>
               <div style={boxLabel}>{p.staked ? p.staked.rewardSymbol : 'Fees'}</div>
               <div style={{ ...boxValue, color: p.staked ? btb.amber : hasFees ? btb.green : btb.textDim }}>
-                {waiting ? '...' : p.staked ? fmtAmt(p.staked.earned, 18) : hasFees ? (f > 0 ? money(f) : fmtAmt(p.fees0, p.decimals0)) : 'None'}
+                {waiting ? <Skeleton/> : p.staked ? fmtAmt(p.staked.earned, 18) : hasFees ? (f > 0 ? money(f) : fmtAmt(p.fees0, p.decimals0)) : 'None'}
               </div>
             </div>
           ) : p.staked ? (
             <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: 'rgba(var(--amber-rgb), 0.07)', border: '1px solid rgba(var(--amber-rgb), 0.22)' }}>
               <div style={boxLabel}>Rewards</div>
-              <div style={{ ...boxValue, color: btb.amber }}>{waiting ? '...' : fmtAmt(p.staked.earned, 18)}</div>
+              <div style={{ ...boxValue, color: btb.amber }}>{waiting ? <Skeleton/> : fmtAmt(p.staked.earned, 18)}</div>
               <div style={{ color: 'rgba(var(--amber-rgb), 0.7)', fontSize: 11.5, marginTop: 2 }}>{p.staked.rewardSymbol} to claim</div>
             </div>
           ) : (
             <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: hasFees ? 'rgba(var(--green-rgb), 0.07)' : box.background, border: hasFees ? '1px solid rgba(var(--green-rgb), 0.22)' : box.border }}>
               <div style={boxLabel}>Unclaimed fees</div>
-              <div style={{ ...boxValue, color: hasFees && !waiting ? btb.green : btb.textDim }}>{waiting ? '...' : hasFees ? (f > 0 ? money(f) : `${fmtAmt(p.fees0, p.decimals0)} ${p.symbol0}`) : 'None yet'}</div>
+              <div style={{ ...boxValue, color: hasFees && !waiting ? btb.green : btb.textDim }}>{waiting ? <Skeleton/> : hasFees ? (f > 0 ? money(f) : `${fmtAmt(p.fees0, p.decimals0)} ${p.symbol0}`) : 'None yet'}</div>
               {hasFees && !waiting && (
                 <div style={{ color: 'rgba(var(--green-rgb), 0.75)', fontSize: 11.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {fmtAmt(p.fees0, p.decimals0)} {p.symbol0} + {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}
@@ -1695,7 +1696,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           {!isMobile && <div style={{ textAlign: 'right' }}><div style={{ color: f > 0 ? btb.green : btb.textDim, fontSize: 13.5, fontWeight: 800 }}>{f > 0 ? money(f) : (p.staked?.kind !== 'gauge' && (p.fees0 > 0n || p.fees1 > 0n)) ? 'Yes' : '0'}</div>{label('to collect')}</div>}
           {!isMobile && !tablet && <div style={{ textAlign: 'right' }}><div style={{ color: apr > 0 ? btb.green : btb.textDim, fontSize: 13.5, fontWeight: 800 }}>{apr > 0 ? `${apr.toFixed(1)}%` : '0%'}</div>{label(`${p.staked ? `${p.staked.rewardSymbol} APR` : 'fee APR'} · ${perDay(dailyOf(p))}`)}</div>}
           {!isMobile && <div style={{ textAlign: 'right' }}>
-            <div style={{ color: btb.text, fontSize: 15.5, fontWeight: 800, letterSpacing: -0.2 }}>{v > 0 ? money(v) : '...'}</div>
+            <div style={{ color: btb.text, fontSize: 15.5, fontWeight: 800, letterSpacing: -0.2 }}>{v > 0 ? money(v) : <Skeleton/>}</div>
             {a && a.totalDepositValue > 0
               ? <div style={{ color: a.pnl >= 0 ? btb.green : btb.loss, fontSize: 10.5, fontWeight: 750, marginTop: 3, whiteSpace: 'nowrap' }}>{fmtSignedMoney(a.pnl)} ({fmtSignedPercent(a.returnOnInvestment)})</div>
               : label('value')}
@@ -1727,7 +1728,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
               ].map((c) => (
                 <div key={c.label} style={{ minWidth: 0, padding: '6px 8px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.04)' }}>
                   <div style={{ color: btb.textDim, fontSize: 10, fontWeight: 750, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.label}</div>
-                  <div style={{ color: c.color, fontSize: 13.5, fontWeight: 800, marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.value}</div>
+                  <div style={{ color: c.color, fontSize: 13.5, fontWeight: 800, marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{orSkeleton(c.value)}</div>
                   {c.sub && <div style={{ color: c.sub.color, fontSize: 10, fontWeight: 750, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.sub.text}</div>}
                 </div>
               ))}
