@@ -32,6 +32,7 @@ export const STEP_LABELS: Record<string, string> = {
   read_contract: 'Called the contract',
   list_protocols: 'Searched protocols',
   get_protocol: 'Read the protocol',
+  find_token: 'Looked up the token',
 };
 
 const CHAIN_IDS = 'Ethereum 1, Base 8453, BNB Chain 56, Arbitrum 42161, Optimism 10, Polygon 137, Unichain 130, Robinhood Chain 4663';
@@ -49,7 +50,7 @@ function systemPrompt(wallet: string | null): string {
     '',
     'BUTTONS: end with one to three action buttons, each on its own line, written exactly as a markdown link: [Label](URL). Labels are 1 to 4 words, like [Add liquidity](...), [Swap now](...), [Open pool](...). Use only these URLs:',
     '- a pool: the exact btb.finance link that add_liquidity_link or another tool returned. Never build a pool link yourself.',
-    `- a swap: https://btb.finance/swap?chain=<chainId>&from=<symbol or token address>&to=<symbol or token address>&amount=<amount to sell, optional>. Chain ids: ${CHAIN_IDS}. The person confirms the swap on that screen.`,
+    `- a swap: https://btb.finance/swap?chain=<chainId>&from=<symbol or token address>&to=<symbol or token address>&amount=<amount to sell, optional>. Chain ids: ${CHAIN_IDS}. For ETH use the symbol ETH. For every other token use the contract address that find_token (or another tool) returned for that chain; never write an address from memory. The person confirms the swap on that screen.`,
     '- pages: https://btb.finance/discover (all pools), /portfolio (their tokens and positions), /simulate (backtest a range), /smart-lps (copy the best LPs), /dashboard (daily check-in and Friday BTB rewards), /docs (the manual), /agents (API and MCP for developers).',
     'BTB facts you may state: the app is free to use. Checking in daily on /dashboard earns XP; every Friday 100% of BTB\'s revenue is shared in BTB with everyone who earned points that week. Positions can be auto-rebalanced on Base and Robinhood Chain (1 BTB per check, first rebalances free). The classic app at https://btb.finance/dashboard has every screen.',
     'BTB token on Ethereum: 0x88888888c90CD71B35830daBFD24743DbC135B51. To buy BTB: https://btb.finance/swap?chain=1&from=ETH&to=0x88888888c90cd71b35830dabfd24743dbc135b51',
@@ -62,12 +63,79 @@ type ToolCall = { id?: string; type?: string; function?: { name?: string; argume
 export type AskTurn = { role: 'user' | 'assistant'; content: string };
 export type AskResult = { reply: string; steps: string[] };
 
+// ---- token lookup: the model must never write a contract address from memory ----
+
+/** DEX Screener's chain names for the chain ids swap links use. */
+const DS_CHAIN: Record<number, string> = { 1: 'ethereum', 8453: 'base', 56: 'bsc', 42161: 'arbitrum', 10: 'optimism', 137: 'polygon', 130: 'unichain', 4663: 'robinhood' };
+
+const FIND_TOKEN = {
+  type: 'function',
+  function: {
+    name: 'find_token',
+    description: 'Look up a token\'s contract address on one chain by symbol or name, with price and liquidity. Call this before any swap button for a token other than ETH, so the link carries the right address.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Symbol or name, e.g. ezETH, PEPE, cbBTC' },
+        chainId: { type: 'number', description: `Chain id: ${CHAIN_IDS}` },
+      },
+      required: ['query', 'chainId'],
+    },
+  },
+};
+
+async function findToken(args: Record<string, unknown>): Promise<string> {
+  const query = (typeof args.query === 'string' ? args.query : '').trim().slice(0, 60);
+  const chainId = Number(args.chainId);
+  const chain = DS_CHAIN[chainId];
+  if (!query) return 'Error: missing query';
+  if (!chain) return `Error: unknown chainId. Use one of: ${CHAIN_IDS}`;
+  const res = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(query)}`, { headers: { 'user-agent': 'curl/8.4.0' }, signal: AbortSignal.timeout(6_000) });
+  if (!res.ok) return `Error: lookup failed (HTTP ${res.status})`;
+  type Side = { address?: string; symbol?: string; name?: string };
+  const d = await res.json() as { pairs?: { chainId?: string; baseToken?: Side; quoteToken?: Side; priceUsd?: string; liquidity?: { usd?: number } }[] };
+  const q = query.toLowerCase();
+  const found = new Map<string, { address: string; symbol: string; name: string; liquidityUsd: number; priceUsd?: string }>();
+  for (const p of d.pairs ?? []) {
+    if (p.chainId !== chain) continue;
+    for (const [t, price] of [[p.baseToken, p.priceUsd], [p.quoteToken, undefined]] as [Side | undefined, string | undefined][]) {
+      if (!t?.address || !(t.symbol?.toLowerCase() === q || t.name?.toLowerCase() === q)) continue;
+      const k = t.address.toLowerCase();
+      const row = found.get(k) ?? { address: k, symbol: t.symbol ?? '', name: t.name ?? '', liquidityUsd: 0, priceUsd: undefined };
+      row.liquidityUsd += p.liquidity?.usd ?? 0;
+      row.priceUsd ??= price;
+      found.set(k, row);
+    }
+  }
+  const rows = [...found.values()].sort((a, b) => b.liquidityUsd - a.liquidityUsd).slice(0, 3).map((r) => ({ ...r, liquidityUsd: Math.round(r.liquidityUsd) }));
+  if (!rows.length) return `No token called "${query}" trades on chain ${chainId}. Say so; do not guess an address.`;
+  return JSON.stringify({ note: 'Use the first (most liquid) unless the person names another. Copies with tiny liquidity may be fakes.', tokens: rows });
+}
+
+/** Addresses that may appear in a link without coming from a tool. */
+const KNOWN = new Set(['0x88888888c90cd71b35830dabfd24743dbc135b51']);
+
+/**
+ * A swap link whose token address never appeared in a tool result was written from memory and may be wrong (it once
+ * sent "ezETH" to USDC's address). Such a side is dropped, so the Swap screen asks instead of picking a wrong token.
+ */
+function checkSwapLinks(reply: string, seen: string): string {
+  return reply.replace(/https:\/\/btb\.finance\/swap\?[^\s)]+/g, (link) => {
+    const u = new URL(link);
+    for (const side of ['from', 'to']) {
+      const v = u.searchParams.get(side);
+      if (v && /^0x[0-9a-fA-F]{40}$/.test(v) && !KNOWN.has(v.toLowerCase()) && !seen.includes(v.toLowerCase())) u.searchParams.delete(side);
+    }
+    return u.toString();
+  });
+}
+
 let toolDefs: Promise<unknown[]> | null = null;
 function modelTools(): Promise<unknown[]> {
   toolDefs ??= listTools().then((tools) => tools.filter((t) => !HIDDEN_TOOLS.has(t.name)).map((t) => {
     const { $schema: _drop, ...params } = t.inputSchema as JsonSchema & { $schema?: string };
-    return { type: 'function', function: { name: t.name, description: (t.description ?? t.title ?? t.name).slice(0, 1000), parameters: params } };
-  })).catch((e) => { toolDefs = null; throw e; });
+    return { type: 'function', function: { name: t.name, description: (t.description ?? t.title ?? t.name).slice(0, 1000), parameters: params } } as unknown;
+  }).concat([FIND_TOKEN])).catch((e) => { toolDefs = null; throw e; });
   return toolDefs;
 }
 
@@ -125,10 +193,10 @@ export async function ask(message: string, history: AskTurn[], wallet: string | 
       try {
         // A slow tool must not run the whole request past the host's limit.
         const out = await Promise.race([
-          callTool(name, args),
+          name === 'find_token' ? findToken(args) : callTool(name, args),
           new Promise((_, no) => setTimeout(() => no(new Error('this lookup took too long; answer without it or suggest the matching page')), Math.max(3_000, Math.min(12_000, left() - 6_000)))),
         ]);
-        return JSON.stringify(out).slice(0, 7_000);
+        return (typeof out === 'string' ? out : JSON.stringify(out)).slice(0, 7_000);
       } catch (e) {
         return `Error: ${(e as Error).message}`.slice(0, 500);
       }
@@ -139,5 +207,7 @@ export async function ask(message: string, history: AskTurn[], wallet: string | 
   if (!reply) reply = 'I could not finish that one. Try asking again, a little more specifically.';
   if (LEAK.test(reply)) reply = 'I am the BTB Agent, built by BTB Finance. Ask me about pools, swaps, tokens or your positions.';
   reply = reply.replace(/\s*[—–]\s*/g, ', ').replace(/, ,/g, ',');
+  const seen = messages.filter((m) => m.role === 'tool' || m.role === 'assistant').map((m) => m.content).join(' ').toLowerCase();
+  reply = checkSwapLinks(reply, seen);
   return { reply, steps };
 }
