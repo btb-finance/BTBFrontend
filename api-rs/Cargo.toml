@@ -1,0 +1,27 @@
+[package]
+name = "btb-api"
+version = "0.1.0"
+edition = "2021"
+description = "BTB Finance public API for agents (Rust): pool data served warm from memory."
+
+[dependencies]
+axum = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "signal"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+flate2 = "1"
+base64 = "0.22"
+regex = "1"
+anyhow = "1"
+futures = "0.3"
+indexmap = "2"
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+tower-http = { version = "0.6", features = ["cors"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
