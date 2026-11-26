@@ -249,6 +249,26 @@ export default defineSchema({
   // who asks for the same key. Filled lazily by convex/cacheFill.ts and read
   // straight from the table on every later hit until `expiresAt`.
   // Contract ABIs for the MCP connector (convex/abis.ts): one row per chain + address, kept until expiresAt.
+  // Public REST API (convex/apiGate.ts): keys, stored as SHA-256 hashes, and per-minute call counters.
+  apiKeys: defineTable({
+    hash: v.string(),
+    prefix: v.string(),       // first characters of the key, shown to its owner and used by support
+    name: v.string(),
+    contact: v.optional(v.string()),
+    tier: v.union(v.literal("free"), v.literal("partner")),
+    calls: v.float64(),
+    createdAt: v.float64(),
+    lastUsedAt: v.optional(v.float64()),
+    createdIp: v.string(),
+    disabled: v.boolean(),
+  }).index("by_hash", ["hash"]).index("by_prefix", ["prefix"]),
+
+  apiRate: defineTable({
+    bucket: v.string(),       // "key:<hash>", "ip:<address>" or "mk:<ip>:<day>" for key creation
+    windowStart: v.float64(),
+    count: v.float64(),
+  }).index("by_bucket", ["bucket"]).index("by_window", ["windowStart"]),
+
   abis: defineTable({
     key: v.string(),          // "<chainId>:<address lowercase>"
     json: v.string(),         // ResolvedAbi (src/lib/abi/resolve.ts)

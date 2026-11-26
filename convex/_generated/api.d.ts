@@ -17,6 +17,7 @@ import type * as agentChat from "../agentChat.js";
 import type * as alertMessages from "../alertMessages.js";
 import type * as alerts from "../alerts.js";
 import type * as alertsActions from "../alertsActions.js";
+import type * as apiGate from "../apiGate.js";
 import type * as autoRebalance from "../autoRebalance.js";
 import type * as autoRebalanceActions from "../autoRebalanceActions.js";
 import type * as autoRebalanceBatch from "../autoRebalanceBatch.js";
@@ -79,6 +80,7 @@ declare const fullApi: ApiFromModules<{
   alertMessages: typeof alertMessages;
   alerts: typeof alerts;
   alertsActions: typeof alertsActions;
+  apiGate: typeof apiGate;
   autoRebalance: typeof autoRebalance;
   autoRebalanceActions: typeof autoRebalanceActions;
   autoRebalanceBatch: typeof autoRebalanceBatch;

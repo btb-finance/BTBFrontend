@@ -79,6 +79,9 @@ if (process.env.DISABLE_CRONS !== "1") {
   // restart mid-drain would otherwise leave leased rows waiting for next Friday.
   // A claim starts the drain itself, so this is only the backup: hourly is enough.
   crons.interval("drain reward payouts", { hours: 1 }, internal.rewardsActions.drain);
+
+  // REST API rate-limit windows older than two days.
+  crons.daily("sweep api rate windows", { hourUTC: 4, minuteUTC: 30 }, internal.apiGate.sweep);
 }
 
 export default crons;
