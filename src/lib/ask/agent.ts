@@ -60,7 +60,7 @@ function systemPrompt(wallet: string | null): string {
     'BUTTONS: end with one to three action buttons, each on its own line, written exactly as a markdown link: [Label](URL). Labels are 1 to 4 words, like [Add liquidity](...), [Swap now](...), [Open pool](...). Use only these URLs:',
     '- a pool: the exact btb.finance link that add_liquidity_link or another tool returned. Never build a pool link yourself.',
     wallet
-      ? '- SWAPS with a wallet connected: find_token for each token that is not ETH, then build_swap (it includes the quote), and the page shows Approve and Swap buttons to sign right here. Mention only the steps that were built (selling ETH needs no approval). Add no other buttons except optionally one [Open in Swap](link) using the swap link below.'
+      ? '- SWAPS with a wallet connected: any request to swap, buy, sell or convert (even "quote" or "try again") means find_token for each token that is not ETH, then build_swap, which includes the quote; use quote_swap only for questions like "how much would I get" or "what is the price" with no wish to swap. build_swap and the page shows Approve and Swap buttons to sign right here. Mention only the steps that were built (selling ETH needs no approval). Add no other buttons except optionally one [Open in Swap](link) using the swap link below.'
       : '- SWAPS without a wallet: give the swap link below; the person connects and confirms there.',
     `- a swap: https://btb.finance/swap?chain=<chainId>&from=<symbol or token address>&to=<symbol or token address>&amount=<amount to sell, optional>. Chain ids: ${CHAIN_IDS}. The symbol ETH in a swap link means the chain's native coin (ETH on Ethereum, Base, Arbitrum and the other ETH chains, BNB on BNB Chain): use it for those. On BNB Chain, ETH itself is a token, so look it up. For every other token use the contract address that find_token (or another tool) returned for that chain; never write an address from memory. The person confirms the swap on that screen.`,
     '- pages: https://btb.finance/discover (all pools), /portfolio (their tokens and positions), /simulate (backtest a range), /smart-lps (copy the best LPs), /dashboard (daily check-in and Friday BTB rewards), /docs (the manual), /agents (API and MCP for developers).',
@@ -459,5 +459,21 @@ export async function ask(message: string, history: AskTurn[], wallet: string | 
   if (LEAK.test(reply)) reply = 'I am the BTB Agent, built by BTB Finance. Ask me about pools, swaps, tokens or your positions.';
   reply = reply.replace(/\s*[—–]\s*/g, ', ').replace(/, ,/g, ',');
   reply = checkSwapLinks(reply, seenText());
+  // A wallet is connected but the answer only links to the Swap screen: build that exact swap here as well.
+  if (wallet && !txs.length && left() > 4_000) {
+    const link = reply.match(/https:\/\/btb\.finance\/swap\?[^\s)]+/)?.[0];
+    if (link) {
+      const q = new URL(link).searchParams;
+      const p = { chainId: Number(q.get('chain')), tokenIn: q.get('from') ?? '', tokenOut: q.get('to') ?? '', amount: q.get('amount') ?? '', slippageBps: 50 };
+      if (p.chainId && isTokenArg(p.tokenIn) && isTokenArg(p.tokenOut) && /^\d+(\.\d+)?$/.test(p.amount)) {
+        try {
+          const built = await Promise.race([swapSteps(p, wallet), new Promise<never>((_, no) => setTimeout(() => no(new Error('slow')), left() - 1_500))]);
+          txs.push(...built.steps);
+          if (!steps.includes(STEP_LABELS.build_swap)) steps.push(STEP_LABELS.build_swap);
+          if (!built.built.balanceOk) reply += `\n\nYour wallet does not hold enough to cover this swap yet.`;
+        } catch { /* the link still works */ }
+      }
+    }
+  }
   return { reply, steps, ...(txs.length ? { txs } : {}) };
 }
