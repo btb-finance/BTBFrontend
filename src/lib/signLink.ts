@@ -14,7 +14,12 @@ import { gunzipSync, gzipSync } from 'node:zlib';
 export const SIGN_LINK_TTL_MS = 15 * 60_000;
 const SITE = 'https://btb.finance';
 
-export interface SignStep { label: string; to: string; data: string; value: string; fn?: string; dryRun?: string; dryRunNote?: string; warnings?: string[] }
+export interface SignStep {
+  label: string; to: string; data: string; value: string; fn?: string; dryRun?: string; dryRunNote?: string; warnings?: string[];
+  /** Swaps: rebuilt with a fresh quote when signed more than a minute after builtAt (quotes go stale in about 2 minutes). */
+  swap?: { chainId: number; tokenIn: string; tokenOut: string; amount: string; slippageBps: number };
+  builtAt?: number;
+}
 export interface SignPlan { v: 1; title: string; chainId: number; wallet: string; steps: SignStep[]; exp: number }
 
 function key(): Buffer | null {

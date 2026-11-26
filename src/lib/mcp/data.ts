@@ -213,7 +213,24 @@ export function brief(p: EarnPool, risk = poolRisk(p)) {
     riskScore: risk.score,
     canAddOnBtb: a.ok,
     link: poolLink(p),
+    ...aprContext(p),
   };
+}
+
+/**
+ * How much to trust the APR: a measured range APR over a month is solid, one over a week is a hint, an estimate is a
+ * guess. APRs above 200 % get a note, since they rarely last and often lose to holding.
+ */
+export function aprContext(p: EarnPool): { aprConfidence: 'high' | 'medium' | 'low'; aprNote: string | null } {
+  const apr = headlineApr(p);
+  const days = p.rangeYield?.days;
+  const aprConfidence = typeof p.aprRange === 'number'
+    ? (p.rangeYield && days != null ? (days >= 30 ? 'high' : days >= 14 ? 'medium' : 'low') : 'low')
+    : 'medium';
+  const aprNote = apr > 200
+    ? `Very high APR${days != null ? ` from ${Math.round(days)} days of data` : ''}: it rarely lasts. Check vsHoldPct (the result against just holding) before trusting it.`
+    : null;
+  return { aprConfidence, aprNote };
 }
 
 export const round2 = (x: number) => Math.round(x * 100) / 100;

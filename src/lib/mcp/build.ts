@@ -135,6 +135,10 @@ export async function buildSwap(a: {
         : 'No BTB fee.',
     },
     tokenOutSafety: grade ? { score: grade.score, honeypot: grade.honeypot, flags: grade.flags } : null,
+    // A small trade can lose more to gas than it is worth doing: say so before anyone signs.
+    warnings: quote.amountOutUsd > 0 && quote.gasUsd / quote.amountOutUsd > 0.05
+      ? [`Gas (about $${round2(quote.gasUsd)}) is ${Math.round((quote.gasUsd / quote.amountOutUsd) * 100)}% of what this swap returns (about $${round2(quote.amountOutUsd)}). A bigger amount, or a cheaper chain, wastes less.`]
+      : [],
     balanceOk,
     simulation: sim,
     transactions: txOut(calls, chainId, a.wallet),

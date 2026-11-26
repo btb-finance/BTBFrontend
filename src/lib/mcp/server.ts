@@ -14,6 +14,7 @@ import { abiSummary, buildTx, readContract } from './contracts';
 import { listProtocols, protocolDetail } from './registry';
 import { findToken, fullBalance, quoteSwap, tokenChainId, txStatus, walletTokens } from './tokens';
 import { lendingRates } from './lending';
+import { buildLend, buildWithdraw } from './aave';
 import { signLink, type SignStep } from '../signLink';
 import type { TxOut } from './build';
 
@@ -29,6 +30,7 @@ const INSTRUCTIONS = `BTB Finance: live liquidity pools across Base, Ethereum, B
 - Tokens: find_token gives a token's contract address on a chain (never write one from memory). quote_swap prices any swap after the BTB fee, with a warning when the pool is thin.
 - To actually swap for a person: build_swap with their wallet, then give them its signLink (one link: approval if needed, then the swap). Do not stop at a quote.
 - Lending and savings: lending_rates gives live supply APYs on Aave, Compound, Morpho, Spark, Euler, Fluid and more, per chain and token. Never guess a rate.
+- To lend on Aave or take it back: build_lend and build_withdraw (live rate, position, health factor, the approval only when needed, one signLink). Use them instead of build_tx for Aave.
 - After the person signs, tx_status (chain + transaction hash) says whether it confirmed and what moved.
 - This server never signs. Every build tool returns a signLink: give it to the person, it opens btb.finance with the steps to sign in their own wallet (valid 15 minutes, only for that wallet). For an action with an approval first (lend on Aave, stake, deposit), call build_tx once with steps [approve, action] so they get one link.
 - If you control a wallet yourself, build_swap (amount "max" sells the whole balance) and build_add_liquidity return unsigned transactions (approvals first, then the action) with a simulation: check it, then sign and send them in step order yourself.
@@ -357,7 +359,7 @@ export function buildServer(): McpServer {
   const WRITE_PREP = { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true } as const;
   /** Adds a btb.finance sign link to a build result, so any AI app can hand the person something to sign. */
   type Sim = { status: string; reason?: string } | undefined;
-  const withSignLink = <T extends { chainId: number; transactions: TxOut[] }>(r: T, title: string, wallet: string, sims: Sim[] = []) => {
+  const withSignLink = <T extends { chainId: number; transactions: TxOut[] }>(r: T, title: string, wallet: string, sims: Sim[] = [], swap?: SignStep['swap']) => {
     const steps: SignStep[] = r.transactions.map((t, i) => {
       const sim = sims[i];
       // A later step that reverts only because an earlier approval is not on chain yet is expected.
@@ -365,6 +367,8 @@ export function buildServer(): McpServer {
       return {
         label: t.label, to: t.to, data: t.data, value: t.value,
         ...(sim ? { dryRun: sim.status === 'passed' ? 'passed' : waits ? 'after-previous' : sim.status, dryRunNote: sim.reason } : { dryRun: 'none' }),
+        // The swap itself (last step) is re-quoted on the sign page if it is signed later than a minute after now.
+        ...(swap && i === r.transactions.length - 1 ? { swap, builtAt: Date.now() } : {}),
       };
     });
     const link = signLink({ title, chainId: r.chainId, wallet, steps });
@@ -383,11 +387,18 @@ export function buildServer(): McpServer {
     description: 'A token\'s contract address on one chain, by symbol, name or address, with decimals and USD price: first the swap catalog btb.finance uses (verified tokens first), then any token trading on a DEX (most liquid first). Use it before quoting, swapping or reading a balance; never write a token address from memory. "ETH" is the native coin.',
     inputSchema: z.object({
       query: z.string().describe('Symbol, name or address, e.g. "USDC", "ezETH", "PONS".'),
-      chain: z.string().describe('Chain name or id, e.g. "base", "ethereum", "bnb", "robinhood", 8453.'),
+      chain: z.string().optional().describe('Chain name or id, e.g. "base", "ethereum", "bnb", "robinhood", 8453. Omit to search every main chain at once.'),
     }),
     annotations: READ,
   }, async (a) => {
-    try { return text(await findToken(a.query, a.chain)); } catch (e) { return failWith(e); }
+    try {
+      if (a.chain) return text(await findToken(a.query, a.chain));
+      // Every main chain in one call: where a token lives is often the question.
+      const chains = ['ethereum', 'base', 'bnb', 'arbitrum', 'optimism', 'polygon', 'unichain', 'robinhood'];
+      const found = await Promise.all(chains.map((c) => findToken(a.query, c).catch(() => null)));
+      const hits = found.flatMap((f) => (f?.tokens.length ? [{ chainId: f.chainId, tokens: f.tokens, ...(f.note ? { note: f.note } : {}) }] : []));
+      return text({ query: a.query, chains: hits, ...(hits.length ? {} : { note: `No token "${a.query}" on ${chains.join(', ')}. Ask for the contract address and chain.` }) });
+    } catch (e) { return failWith(e); }
   });
 
   server.registerTool('quote_swap', {
@@ -445,6 +456,37 @@ export function buildServer(): McpServer {
     try { return text(await txStatus(a)); } catch (e) { return failWith(e); }
   });
 
+  const lendArgs = {
+    chain: z.string().describe('Chain name or id: ethereum, base, arbitrum, optimism, polygon, avalanche, bnb.'),
+    token: z.string().describe('Symbol or address, e.g. "USDC", "WETH". Aave takes the wrapped coin, not native ETH.'),
+    wallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe('The wallet that lends and signs.'),
+  };
+
+  server.registerTool('build_lend', {
+    title: 'Lend on Aave (ready to sign)',
+    description: 'Lend a token on Aave V3: the exact approval only if needed, then the supply, as ONE signLink for the person, with the live supply APY, what the amount earns a year, the wallet\'s health factor and a dry run. Use this, not build_tx, for Aave deposits.',
+    inputSchema: z.object({ ...lendArgs, amount: z.string().regex(/^(\d+(\.\d+)?|max)$/).describe('Whole units, e.g. "10", or "max" for the whole balance.') }),
+    annotations: WRITE_PREP,
+  }, async (a) => {
+    try {
+      const r = await buildLend(a);
+      const sims: Sim[] = r.transactions.map((_, i) => (i === r.transactions.length - 1 ? r.simulation : undefined));
+      return text(withSignLink(r, `Lend ${r.amount} ${r.token.symbol} on Aave`, a.wallet, sims));
+    } catch (e) { return failWith(e); }
+  });
+
+  server.registerTool('build_withdraw', {
+    title: 'Withdraw from Aave (ready to sign)',
+    description: 'Take a lent token back from Aave V3, as a signLink for the person: how much is supplied, how much can be withdrawn right now, the health factor (if the wallet borrows) and a dry run. amount "max" takes everything including interest.',
+    inputSchema: z.object({ ...lendArgs, amount: z.string().regex(/^(\d+(\.\d+)?|max)$/).describe('Whole units, or "max" for all of it.') }),
+    annotations: WRITE_PREP,
+  }, async (a) => {
+    try {
+      const r = await buildWithdraw(a);
+      return text(withSignLink(r, `Withdraw ${r.token.symbol} from Aave`, a.wallet, [r.simulation]));
+    } catch (e) { return failWith(e); }
+  });
+
   server.registerTool('build_swap', {
     title: 'Build a swap (unsigned)',
     description: 'A swap ready to sign: the best KyberSwap price on that chain, an exact-amount approval if needed, then the swap, with the quote, price impact, BTB fee, a safety grade for the token bought and a dry run. For a person, give them the signLink (opens btb.finance with the steps to sign in their wallet); an agent with its own wallet can sign the transactions itself. Use this, not just quote_swap, whenever someone wants to swap.',
@@ -469,7 +511,9 @@ export function buildServer(): McpServer {
       }
       const r = await buildSwap({ ...a, amount, wallet: a.wallet as `0x${string}`, recipient: a.recipient as `0x${string}` | undefined });
       const sims: Sim[] = r.transactions.map((_, i) => (i === r.transactions.length - 1 ? r.simulation : undefined));
-      return text(withSignLink(r, `Swap ${r.quote.amountIn} ${r.quote.symbolIn} for ${r.quote.symbolOut}`, a.wallet, sims));
+      const out = withSignLink(r, `Swap ${r.quote.amountIn} ${r.quote.symbolIn} for ${r.quote.symbolOut}`, a.wallet, sims,
+        { chainId: r.chainId, tokenIn: a.tokenIn, tokenOut: a.tokenOut, amount, slippageBps: r.quote.slippageBps });
+      return text(out);
     }
     catch (e) { return failWith(e); }
   });
