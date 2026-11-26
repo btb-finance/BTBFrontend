@@ -13,6 +13,8 @@ import { buildAddLiquidity, buildSwap } from './build';
 import { abiSummary, buildTx, readContract } from './contracts';
 import { listProtocols, protocolDetail } from './registry';
 import { findToken, fullBalance, quoteSwap, tokenChainId, walletTokens } from './tokens';
+import { signLink, type SignStep } from '../signLink';
+import type { TxOut } from './build';
 
 // The BTB connector: Discover's pools for any MCP client (claude.ai, Claude Code, other agents). No tool signs or
 // moves money. Agents with their own wallet get unsigned transactions from build_swap and build_add_liquidity and
@@ -24,7 +26,8 @@ const INSTRUCTIONS = `BTB Finance: live liquidity pools across Base, Ethereum, B
 - Before suggesting a pool, check its risk grade and reasons. Treat APRs above 200 % as unlikely to last.
 - To see what a wallet holds: wallet_tokens (token balances on every main chain, with USD values; pass search to find one token) and wallet_positions (every LP position, with value, range and fees), plus auto_manage_status.
 - Tokens: find_token gives a token's contract address on a chain (never write one from memory). quote_swap prices any swap after the BTB fee, with a warning when the pool is thin.
-- This server never signs. If you control a wallet, build_swap (amount "max" sells the whole balance) and build_add_liquidity return unsigned transactions (approvals first, then the action) with a simulation: check it, then sign and send them in step order yourself.
+- This server never signs. Every build tool returns a signLink: give it to the person, it opens btb.finance with the steps to sign in their own wallet (valid 15 minutes, only for that wallet). For an action with an approval first (lend on Aave, stake, deposit), call build_tx once with steps [approve, action] so they get one link.
+- If you control a wallet yourself, build_swap (amount "max" sells the whole balance) and build_add_liquidity return unsigned transactions (approvals first, then the action) with a simulation: check it, then sign and send them in step order yourself.
 - Named protocols (Lido, Uniswap, Circle, Tether, Polymarket, Hyperliquid…): list_protocols and get_protocol give their official contracts per chain, the functions to call, APIs and risks.
 - Any other contract: get_abi lists what it can do (verified source or decoded bytecode, proxies followed), read_contract calls a read function, build_tx turns any function into an unsigned transaction with a dry run. Integers are in base units. Heed the warnings and flags.
 - If you do not control a wallet, give the user the link from add_liquidity_link or auto_manage_setup; they review and sign on btb.finance.
@@ -348,6 +351,24 @@ export function buildServer(): McpServer {
 
   const addr = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
   const WRITE_PREP = { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true } as const;
+  /** Adds a btb.finance sign link to a build result, so any AI app can hand the person something to sign. */
+  type Sim = { status: string; reason?: string } | undefined;
+  const withSignLink = <T extends { chainId: number; transactions: TxOut[] }>(r: T, title: string, wallet: string, sims: Sim[] = []) => {
+    const steps: SignStep[] = r.transactions.map((t, i) => {
+      const sim = sims[i];
+      // A later step that reverts only because an earlier approval is not on chain yet is expected.
+      const waits = sim?.status === 'skipped' || (sim?.status === 'reverted' && i > 0);
+      return {
+        label: t.label, to: t.to, data: t.data, value: t.value,
+        ...(sim ? { dryRun: sim.status === 'passed' ? 'passed' : waits ? 'after-previous' : sim.status, dryRunNote: sim.reason } : { dryRun: 'none' }),
+      };
+    });
+    const link = signLink({ title, chainId: r.chainId, wallet, steps });
+    return link
+      ? { ...r, signLink: link, signLinkNote: 'For a person: give them this link. It opens btb.finance with these steps to sign in their own wallet, in order. Valid 15 minutes, only for this wallet.' }
+      : r;
+  };
+
   const failWith = (e: unknown) => {
     const err = e as Error & { link?: string };
     return fail(err.link ? `${err.message} Link: ${err.link}` : err.message ?? String(e));
@@ -415,7 +436,9 @@ export function buildServer(): McpServer {
         if (!id) return fail(`Unknown chain "${a.chain}".`);
         amount = await fullBalance(id, a.tokenIn, a.wallet as `0x${string}`);
       }
-      return text(await buildSwap({ ...a, amount, wallet: a.wallet as `0x${string}`, recipient: a.recipient as `0x${string}` | undefined }));
+      const r = await buildSwap({ ...a, amount, wallet: a.wallet as `0x${string}`, recipient: a.recipient as `0x${string}` | undefined });
+      const sims: Sim[] = r.transactions.map((_, i) => (i === r.transactions.length - 1 ? r.simulation : undefined));
+      return text(withSignLink(r, `Swap ${r.quote.amountIn} ${r.quote.symbolIn} for ${r.quote.symbolOut}`, a.wallet, sims));
     }
     catch (e) { return failWith(e); }
   });
@@ -435,7 +458,11 @@ export function buildServer(): McpServer {
   }, async (a) => {
     const p = await poolOr(a.chain, a.pool);
     if (!p) return fail('Pool not found. Use search_pools or top_pools to get its key.');
-    try { return text(await buildAddLiquidity(p, { wallet: a.wallet as `0x${string}`, token: a.token, amount: a.amount, rangePct: a.rangePct, slippageBps: a.slippageBps })); }
+    try {
+      const r = await buildAddLiquidity(p, { wallet: a.wallet as `0x${string}`, token: a.token, amount: a.amount, rangePct: a.rangePct, slippageBps: a.slippageBps });
+      const sims: Sim[] = r.transactions.map((_, i) => (i === r.transactions.length - 1 ? r.simulation : undefined));
+      return text(withSignLink(r, `Add liquidity to ${p.pair}`, a.wallet, sims));
+    }
     catch (e) { return failWith(e); }
   });
 
@@ -472,16 +499,36 @@ export function buildServer(): McpServer {
     description: 'For agents with their own wallet: encode any write function of any contract into an unsigned transaction, with a dry run from the wallet, a gas estimate and warnings (unverified ABI, admin-only, arbitrary calls, proxies, unlimited approvals). Prefer build_swap and build_add_liquidity where they apply: they add the protocol math and approvals. Nothing is signed or sent.',
     inputSchema: z.object({
       chain: chainReq,
-      address: z.string().describe('The contract to call.'),
-      function: fnArg,
+      address: z.string().optional().describe('The contract to call (one call). For several calls in order, use steps instead.'),
+      function: fnArg.optional(),
       args: argsArg,
       wallet: addr.describe('The wallet that will sign and send.'),
       valueEth: z.string().regex(/^\d+(\.\d+)?$/).optional().describe('Native coin to send with the call, in whole units (payable functions only).'),
+      steps: z.array(z.object({
+        address: z.string().describe('The contract to call.'),
+        function: fnArg,
+        args: argsArg,
+        valueEth: z.string().regex(/^\d+(\.\d+)?$/).optional(),
+      })).min(1).max(6).optional().describe('Several calls signed in order, e.g. [approve on the token, supply on the pool]: one signLink for all. Use instead of address/function.'),
+      title: z.string().max(80).optional().describe('What the steps do, shown on the sign page, e.g. "Lend 10 USDC on Aave".'),
     }),
     annotations: WRITE_PREP,
   }, async (a) => {
-    try { return text(await buildTx({ chain: a.chain, address: a.address, fn: a.function, args: a.args, wallet: a.wallet, valueEth: a.valueEth })); }
-    catch (e) { return failWith(e); }
+    try {
+      const calls = a.steps ?? (a.address && a.function ? [{ address: a.address, function: a.function, args: a.args, valueEth: a.valueEth }] : null);
+      if (!calls) return fail('Give address and function for one call, or steps for several.');
+      const built = [];
+      for (const c of calls) built.push(await buildTx({ chain: a.chain, address: c.address, fn: c.function, args: c.args ?? [], wallet: a.wallet, valueEth: c.valueEth }));
+      const transactions = built.flatMap((b) => b.transactions).map((t, i) => ({ ...t, step: i + 1 }));
+      const merged = built.length === 1 ? built[0] : {
+        chainId: built[0].chainId,
+        steps: built.map((b, i) => ({ step: i + 1, contract: b.contract, function: b.function, args: b.args, abiSource: b.abiSource, simulation: b.simulation, warnings: b.warnings })),
+        transactions,
+        notes: ['Sign and send in step order; a later step\'s dry run can fail only because an earlier approval is not on chain yet.', 'Nothing was signed or sent. Not financial advice.'],
+      };
+      const title = a.title ?? (built.length === 1 ? `Call ${built[0].function}` : `${built.length} steps on chain ${built[0].chainId}`);
+      return text(withSignLink({ ...merged, chainId: built[0].chainId, transactions }, title, a.wallet, built.map((b) => b.simulation)));
+    } catch (e) { return failWith(e); }
   });
 
   server.registerTool('list_protocols', {
