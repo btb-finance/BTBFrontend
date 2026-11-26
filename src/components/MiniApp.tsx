@@ -39,7 +39,6 @@ const SimulateScreen  = dynamic(() => loadScreen('simulate').then(m => m.Simulat
 const SwapScreen      = dynamic(() => loadScreen('swap').then(m => m.SwapScreen), { ssr: false, loading: ScreenLoading });
 const PortfolioScreen = dynamic(() => loadScreen('portfolio').then(m => m.PortfolioScreen), { ssr: false, loading: ScreenLoading });
 const NFTScreen       = dynamic(() => loadScreen('nft').then(m => m.NFTScreen), { ssr: false, loading: ScreenLoading });
-const StakeScreen     = dynamic(() => loadScreen('stake').then(m => m.StakeScreen), { ssr: false, loading: ScreenLoading });
 const DocsScreen      = dynamic(() => loadScreen('docs').then(m => m.DocsScreen), { ssr: false, loading: ScreenLoading });
 const AllocateScreen  = dynamic(() => loadScreen('allocate').then(m => m.AllocateScreen), { ssr: false, loading: ScreenLoading });
 const SmartLpsScreen  = dynamic(() => loadScreen('smartlps').then(m => m.SmartLpsScreen), { ssr: false, loading: ScreenLoading });
@@ -53,6 +52,12 @@ const OposSeedScreen  = dynamic(() => import('./screens/OposSeedScreen').then(m 
 const CheckinsScreen  = dynamic(() => import('./screens/CheckinsScreen').then(m => m.CheckinsScreen), { ssr: false, loading: ScreenLoading });
 const OposPairsScreen = dynamic(() => import('./screens/OposPairsScreen').then(m => m.OposPairsScreen), { ssr: false, loading: ScreenLoading });
 const AeroNudge       = dynamic(() => import('./AeroNudge').then(m => m.AeroNudge), { ssr: false });
+
+/** Reached /agent by Back or an old in-app link: the agent lives at /ask now. */
+function ToAsk() {
+  useEffect(() => { window.location.replace('/ask'); }, []);
+  return <ScreenLoading/>;
+}
 
 /** What most visitors open next from anywhere: warmed in the background. Everything else waits for a hover or tap. */
 const LIKELY_NEXT: ScreenKey[] = ['connect', 'discover', 'swap', 'portfolio', 'home'];
@@ -147,7 +152,8 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
   const navHidden = isMobile && sheetOpen;
   // Swap pins its button just above the bottom menu, so the page keeps room for both.
   const swapPinned = isMobile && screen === 'swap' && !overlay;
-  const goto = (t: Tab) => { if (t !== screen) cameFrom.current = screen; if (t === 'swap') setSwapToken(undefined); setOverlay(null); setScreen(t); syncUrl(t, null); };
+  // The Agent tab is the Ask interface now (/ask, its own page).
+  const goto = (t: Tab) => { if (t === 'stake') { window.location.assign('/ask'); return; } if (t !== screen) cameFrom.current = screen; if (t === 'swap') setSwapToken(undefined); setOverlay(null); setScreen(t); syncUrl(t, null); };
   const openOverlay = (o: Exclude<Overlay, null>) => { setOverlay(o); syncUrl(screen, o); };
   const closeOverlay = () => { setOverlay(null); syncUrl(screen, null); };
 
@@ -196,7 +202,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
                           onBack={isMobile ? () => goto(cameFrom.current === 'swap' ? 'home' : cameFrom.current) : undefined}/>;
       case 'portfolio': return <PortfolioScreen onSend={requireWallet(() => setShowSend(true))} onSwap={(t) => openSwap({ from: t })} onSimulate={openSimulate} viewAddress={effectiveAddress} onViewAddress={onViewAddress}/>;
       case 'nft':       return <NFTScreen/>;
-      case 'stake':     return <StakeScreen onGetBtb={() => openSwap({ toAddress: CONTRACTS.BTB })}/>;
+      case 'stake':     return <ToAsk/>;
       case 'allocate':  return <AllocateScreen onConnectWallet={() => setShowConnect(true)}/>;
     }
   })();
@@ -253,7 +259,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
       )}
       {/* sAERO holders: a nudge when a position could earn noticeably more. Not on Allocate itself or over a sheet. */}
       {screen !== 'allocate' && !swapPinned && !overlay && !sheetOpen && !navHidden && <AeroNudge address={isReadOnly ? undefined : effectiveAddress} onOpen={() => goto('allocate')}/>}
-      <AgentDock hidden={screen === 'stake' || !!overlay} onConnect={() => setShowConnect(true)} onGetBtb={() => openSwap({ toAddress: CONTRACTS.BTB })}/>
+      <AgentDock hidden={screen === 'stake' || !!overlay}/>
       {showReceive && <ReceiveModal address={effectiveAddress ?? '0x0000000000000000000000000000000000000000'} onClose={() => setShowReceive(false)}/>}
       {showSend    && <SendModal fromAddress={effectiveAddress ?? '0x0000000000000000000000000000000000000000'} onClose={() => { setShowSend(false); setSendToken(undefined); }} initialToken={sendToken}/>}
       {showConnect && (

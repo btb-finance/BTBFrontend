@@ -1,34 +1,18 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useScrollLock } from '../lib/useScrollLock';
 import { Portal } from './Portal';
-import { Icon } from './Icon';
 import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
-import { useTokenStore } from '../lib/TokenStore';
-import { AgentChat } from './screens/StakeScreen';
-import { AGENT_FREE_PER_DAY, AGENT_MESSAGE_BTB } from '../lib/alerts';
 
 /**
- * The agent, one tap from anywhere: a message bubble in the corner that
- * opens a side panel (desktop) or a full-height sheet (phone) with the same
- * chat as the Agent tab. Hidden on the Agent tab itself.
+ * The agent, one tap from anywhere in the classic app: a message bubble in the corner that opens the Ask interface
+ * (/ask), where people say what they want in plain English and sign the steps it builds. Hidden on the Agent tab.
  */
-export function AgentDock({ hidden, onConnect, onGetBtb }: { hidden?: boolean; onConnect: () => void; onGetBtb?: () => void }) {
+export function AgentDock({ hidden }: { hidden?: boolean }) {
   const { isMobile } = useSidebar();
-  const { walletAddress } = useTokenStore();
-  const [open, setOpen] = useState(false);
-  useScrollLock(open);
-
-  useEffect(() => {
-    if (!open) return;
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('keydown', esc);
-    return () => document.removeEventListener('keydown', esc);
-  }, [open]);
 
   // Phone: the round button shows for 5 seconds, then tucks into a slim tab on the right edge, above any
-  // bottom action bar, so it never covers a button. Scrolling tucks it at once. Tapping the tab opens the chat.
+  // bottom action bar, so it never covers a button. Scrolling tucks it at once.
   const [tucked, setTucked] = useState(false);
   if (!isMobile && tucked) setTucked(false);
   useEffect(() => {
@@ -43,57 +27,17 @@ export function AgentDock({ hidden, onConnect, onGetBtb }: { hidden?: boolean; o
   if (hidden) return null;
 
   return (
-    <>
-      <Portal>
-        <button type="button" onClick={() => setOpen((o) => !o)} aria-label={open ? 'Close the BTB Agent' : 'Ask the BTB Agent'} title="BTB Agent" style={{
+    <Portal>
+        <a href="/ask" aria-label="Ask the BTB Agent" title="Ask BTB" style={{
           position: 'fixed', right: tab ? 0 : isMobile ? 14 : 24, zIndex: 410,
           bottom: tab ? 'calc(190px + env(safe-area-inset-bottom))' : isMobile ? 'calc(78px + env(safe-area-inset-bottom))' : 24,
           width: tab ? 30 : 52, height: tab ? 48 : 52, borderRadius: tab ? '14px 0 0 14px' : 999, border: btb.border, borderRight: tab ? 'none' : btb.border, cursor: 'pointer',
           opacity: tab ? 0.9 : 1, padding: 0, transition: 'width 200ms ease, height 200ms ease, right 200ms ease, bottom 200ms ease, border-radius 200ms ease',
           background: btb.gradGreen, color: '#fff', boxShadow: '0 10px 30px rgba(0,0,0,0.35)',
-          display: open ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center',
+          display: 'flex', textDecoration: 'none', alignItems: 'center', justifyContent: 'center',
         }}>
           <svg width={tab ? 16 : 22} height={tab ? 16 : 22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a8 8 0 0 1-8 8H8l-5 3 1.5-4.5A8 8 0 1 1 21 12z"/></svg>
-        </button>
-      </Portal>
-
-      {open && (
-        <Portal>
-          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 405, background: isMobile ? 'rgba(0,0,0,0.55)' : 'transparent' }}/>
-          <div style={{
-            position: 'fixed', zIndex: 406, display: 'flex', flexDirection: 'column',
-            ...(isMobile
-              // Nearly full screen, measured on the visible height so the keyboard does not push the input away.
-              ? { left: 0, right: 0, bottom: 0, height: '94dvh', maxHeight: 'calc(100dvh - env(safe-area-inset-top, 0px))', borderRadius: '20px 20px 0 0' }
-              : { right: 24, bottom: 24, width: 'min(560px, calc(100vw - 48px))', height: 'min(860px, calc(100vh - 48px))', borderRadius: 24 }),
-            background: btb.bg, border: btb.border, boxShadow: '0 24px 60px rgba(0,0,0,0.45)', overflow: 'hidden',
-          }}>
-            {/* With a wallet the chat draws its own one-line header (title, balance, Top up, close). */}
-            {!walletAddress && <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: btb.borderSoft, flexShrink: 0 }}>
-              <div style={{ width: 30, height: 30, borderRadius: 10, background: btb.gradGreen, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="bolt" size={15} color="#fff"/>
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: btb.text, fontSize: 14, fontWeight: 800 }}>BTB Agent</div>
-                <div style={{ color: btb.textMuted, fontSize: 11 }}>{walletAddress ? `${AGENT_FREE_PER_DAY} free messages a day, then ${AGENT_MESSAGE_BTB} BTB each` : 'Connect a wallet to chat'}</div>
-              </div>
-              <div onClick={() => setOpen(false)} style={{ cursor: 'pointer', padding: 6 }}><Icon name="close" size={16} color={btb.textMuted}/></div>
-            </div>}
-            <div style={{ flex: 1, minHeight: 0, padding: '10px 12px 12px', display: 'flex', flexDirection: 'column' }}>
-              {walletAddress ? (
-                <AgentChat walletAddress={walletAddress} onGetBtb={onGetBtb} compact onClose={() => setOpen(false)}/>
-              ) : (
-                <div style={{ margin: 'auto', textAlign: 'center', color: btb.textMuted, fontSize: 13, lineHeight: 1.6, padding: 20 }}>
-                  The agent reads your holdings and positions, so it needs a wallet.
-                  <div style={{ marginTop: 14 }}>
-                    <button type="button" onClick={onConnect} style={{ height: 40, padding: '0 18px', borderRadius: 12, border: 'none', cursor: 'pointer', background: btb.gradGreen, color: '#fff', fontWeight: 700, fontFamily: 'inherit', fontSize: 13 }}>Connect wallet</button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </Portal>
-      )}
-    </>
+        </a>
+    </Portal>
   );
 }
