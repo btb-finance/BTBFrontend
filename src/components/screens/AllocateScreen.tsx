@@ -33,6 +33,7 @@ import { claimCalls, dropFailingSales, priceRewards, type RewardLine, type SellT
 import { ClaimTokenPicker, COMMON_TARGETS } from '../ClaimTokenPicker';
 import type { AllocatorSnapshot, SnapGauge } from '../../lib/aero/allocatorSnapshot';
 import type { TopAllocators } from '../../lib/aero/topAllocators';
+import { Skeleton } from '../Skeleton';
 
 const PAGE = 25;
 
@@ -40,7 +41,7 @@ const usd = (n: number) => (n >= 1000 ? `$${Math.round(n).toLocaleString('en-US'
 const num = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e4 ? `${(n / 1e3).toFixed(1)}K` : Math.round(n).toLocaleString('en-US'));
 /** Hours left, short: "under 1 h", "31 h". */
 const hrs = (sec: number) => (sec < 3600 ? 'under 1 h' : `${Math.round(sec / 3600)} h`);
-const pct = (n: number | null) => (n == null ? '...' : `${n >= 100 ? Math.round(n) : n.toFixed(1)}%`);
+const pct = (n: number | null) => (n == null ? <Skeleton width="2.2em"/> : `${n >= 100 ? Math.round(n) : n.toFixed(1)}%`);
 /** A share typed by hand: "12.5" or "12,5"; anything else counts as 0. */
 const pctOf = (s: string) => Math.max(0, parseFloat(s.replace(',', '.')) || 0);
 /** Equal shares that add up to exactly 100, to one decimal. */
@@ -468,7 +469,7 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
           <div>
             <div style={label}>{amount > 0 ? `${custom ? 'Your split' : 'Best split'} on Base for ${num(amount)} ${position ? 'sAERO' : 'AERO'}` : custom ? 'Your split' : 'Best split'}</div>
             {amount > 0 && <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
-              <span style={{ color: btb.green, fontSize: 26, fontWeight: 800, letterSpacing: -0.6 }}>{snap ? `${usd(shownUsd)}` : '...'}</span>
+              <span style={{ color: btb.green, fontSize: 26, fontWeight: 800, letterSpacing: -0.6 }}>{snap ? `${usd(shownUsd)}` : <Skeleton width="3.5em"/>}</span>
               <span style={{ color: btb.textMuted, fontSize: 13, fontWeight: 700 }}>a day</span>
               {snap && <span style={{ color: btb.green, fontSize: 12, fontWeight: 800, padding: '2px 8px', borderRadius: 8, background: 'rgba(var(--green-rgb), 0.12)' }}>{pct(aprPct(shownUsd, amount, snap.aeroUsd))} APR</span>}
             </div>}
@@ -517,7 +518,7 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
                     style={{ width: 52, height: 30, padding: '0 6px', borderRadius: 8, border: btb.border, background: 'transparent', color: btb.text, fontSize: 16, fontWeight: 800, fontFamily: 'inherit', textAlign: 'right', outline: 'none' }}/>
                   <span style={{ color: btb.textMuted, fontSize: 12.5, fontWeight: 800 }}>%</span>
                 </span>
-                <span style={{ color: btb.green, fontSize: 12.5, fontWeight: 700, width: 64, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{part && part.known ? usd(part.usdPerDay) : '...'}</span>
+                <span style={{ color: btb.green, fontSize: 12.5, fontWeight: 700, width: 64, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{part && part.known ? usd(part.usdPerDay) : <Skeleton width="2.5em"/>}</span>
                 <button type="button" onClick={() => toggleCustom(c.gauge)} aria-label="Remove" title="Remove" style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 8, border: 'none', background: 'rgba(var(--fg-rgb), 0.06)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Icon name="close" size={12} color={btb.textMuted}/>
                 </button>

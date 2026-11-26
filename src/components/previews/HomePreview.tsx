@@ -1,6 +1,6 @@
 // Server-rendered first view of Home (see ../RoutePreview.tsx): the "Holding BTB paid" card as a visitor without a
 // wallet first sees it, built from the same pieces as TokenPanel (../home). The figures load in the app, so they show
-// the same '...' the live card shows until its data arrives.
+// the same loading bars the live card shows until its data arrives.
 import { BTB_PER_BONUS_XP, epochIdAt } from '../../../convex/xpRules';
 import { Button } from '../Button';
 import { btb } from '../design-tokens';
