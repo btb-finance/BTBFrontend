@@ -9,6 +9,8 @@ const nextConfig: NextConfig = {
       { source: "/token", destination: "/", permanent: false },
       // Trading was retired; the app is about LPs. Old links land on Home.
       { source: "/trade", destination: "/", permanent: false },
+      // The agent chat moved to the Ask interface.
+      { source: "/agent", destination: "/ask", permanent: false },
       // The comparison pages live at keyword URLs; the first /vs/<slug> form is kept as a redirect.
       { source: "/vs/:slug", destination: "/:slug-alternative", permanent: true },
     ];

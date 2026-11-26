@@ -12,6 +12,7 @@ import { walletPositions } from './positions';
 import { buildAddLiquidity, buildSwap } from './build';
 import { abiSummary, buildTx, readContract } from './contracts';
 import { listProtocols, protocolDetail } from './registry';
+import { findToken, fullBalance, quoteSwap, tokenChainId, walletTokens } from './tokens';
 
 // The BTB connector: Discover's pools for any MCP client (claude.ai, Claude Code, other agents). No tool signs or
 // moves money. Agents with their own wallet get unsigned transactions from build_swap and build_add_liquidity and
@@ -21,8 +22,9 @@ const INSTRUCTIONS = `BTB Finance: live liquidity pools across Base, Ethereum, B
 - Find pools with top_pools, search_pools or best_pools_for; compare them with compare_pools; read one with pool_details.
 - APRs are yearly percentages. "measured ±5% range APR" is what a ±5 % concentrated position really earned over the last days; prefer it over base APR.
 - Before suggesting a pool, check its risk grade and reasons. Treat APRs above 200 % as unlikely to last.
-- To see what a wallet already holds, use wallet_positions (every LP position, with value, range and fees) and auto_manage_status.
-- This server never signs. If you control a wallet, build_swap and build_add_liquidity return unsigned transactions (approvals first, then the action) with a simulation: check it, then sign and send them in step order yourself.
+- To see what a wallet holds: wallet_tokens (token balances on every main chain, with USD values; pass search to find one token) and wallet_positions (every LP position, with value, range and fees), plus auto_manage_status.
+- Tokens: find_token gives a token's contract address on a chain (never write one from memory). quote_swap prices any swap after the BTB fee, with a warning when the pool is thin.
+- This server never signs. If you control a wallet, build_swap (amount "max" sells the whole balance) and build_add_liquidity return unsigned transactions (approvals first, then the action) with a simulation: check it, then sign and send them in step order yourself.
 - Named protocols (Lido, Uniswap, Circle, Tether, Polymarket, Hyperliquid…): list_protocols and get_protocol give their official contracts per chain, the functions to call, APIs and risks.
 - Any other contract: get_abi lists what it can do (verified source or decoded bytecode, proxies followed), read_contract calls a read function, build_tx turns any function into an unsigned transaction with a dry run. Integers are in base units. Heed the warnings and flags.
 - If you do not control a wallet, give the user the link from add_liquidity_link or auto_manage_setup; they review and sign on btb.finance.
@@ -351,6 +353,46 @@ export function buildServer(): McpServer {
     return fail(err.link ? `${err.message} Link: ${err.link}` : err.message ?? String(e));
   };
 
+  server.registerTool('find_token', {
+    title: 'Find a token address',
+    description: 'A token\'s contract address on one chain, by symbol, name or address, with decimals and USD price: first the swap catalog btb.finance uses (verified tokens first), then any token trading on a DEX (most liquid first). Use it before quoting, swapping or reading a balance; never write a token address from memory. "ETH" is the native coin.',
+    inputSchema: z.object({
+      query: z.string().describe('Symbol, name or address, e.g. "USDC", "ezETH", "PONS".'),
+      chain: z.string().describe('Chain name or id, e.g. "base", "ethereum", "bnb", "robinhood", 8453.'),
+    }),
+    annotations: READ,
+  }, async (a) => {
+    try { return text(await findToken(a.query, a.chain)); } catch (e) { return failWith(e); }
+  });
+
+  server.registerTool('quote_swap', {
+    title: 'Swap quote',
+    description: 'A live quote at the best KyberSwap route, after the 1% BTB fee: what an amount of one token gets of another, both sides in USD, rate, price impact, gas, and a warning when the pool is thin for the size. Read-only; use build_swap to get the transactions, or give the swapLink to a person.',
+    inputSchema: z.object({
+      chain: z.string().describe('Chain name or id.'),
+      tokenIn: z.string().describe('Token sold: address from find_token, or "ETH" for the native coin.'),
+      tokenOut: z.string().describe('Token bought: address, or "ETH".'),
+      amount: z.string().regex(/^\d+(\.\d+)?$/).describe('Amount of tokenIn in whole units, e.g. "1" or "0.25".'),
+    }),
+    annotations: READ,
+  }, async (a) => {
+    try { return text(await quoteSwap(a)); } catch (e) { return failWith(e); }
+  });
+
+  server.registerTool('wallet_tokens', {
+    title: 'Wallet token balances',
+    description: 'The tokens a wallet holds, read from chain now, on Ethereum, Base, BNB Chain, Arbitrum, Optimism, Polygon, Unichain and Robinhood Chain (or one chain), with USD values, newest-listed tokens included. Pass search (a symbol, name or address) to find one token across chains, e.g. before "sell all my X". Public data, read-only. Takes up to about 15 seconds.',
+    inputSchema: z.object({
+      wallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe('The wallet address.'),
+      chain: z.string().optional().describe('Only this chain (faster).'),
+      search: z.string().optional().describe('Only this token: symbol, name or address.'),
+      minUsd: z.number().min(0).optional().describe('Hide holdings worth less than this. Default 0.'),
+    }),
+    annotations: READ,
+  }, async (a) => {
+    try { return text(await walletTokens(a)); } catch (e) { return failWith(e); }
+  });
+
   server.registerTool('build_swap', {
     title: 'Build a swap (unsigned)',
     description: 'For agents with their own wallet: the unsigned transactions to swap one token for another at the best KyberSwap price on that chain (an exact-amount approval if needed, then the swap), with the quote, price impact, BTB fee, a safety grade for the token bought and a dry run. Nothing is signed or sent: sign and send them in order yourself.',
@@ -358,14 +400,23 @@ export function buildServer(): McpServer {
       chain: z.string().describe('Chain name or id, e.g. "base", "ethereum", "bnb", "arbitrum", 8453.'),
       tokenIn: z.string().describe('Token to sell: its address, or "ETH" for the chain\'s native coin.'),
       tokenOut: z.string().describe('Token to buy: its address, or "ETH" for the native coin.'),
-      amount: z.string().regex(/^\d+(\.\d+)?$/).describe('Amount of tokenIn in whole units, e.g. "250" or "0.5".'),
+      amount: z.string().regex(/^(\d+(\.\d+)?|max)$/).describe('Amount of tokenIn in whole units, e.g. "250" or "0.5", or "max" for the wallet\'s whole balance of a token (not the native coin, which also pays gas).'),
       wallet: addr.describe('The wallet that signs and pays.'),
       recipient: addr.optional().describe('Who receives tokenOut. Default: wallet.'),
       slippageBps: z.number().int().min(1).max(3000).optional().describe('Slippage tolerance in bps. Default 50 (0.5%).'),
     }),
     annotations: WRITE_PREP,
   }, async (a) => {
-    try { return text(await buildSwap({ ...a, wallet: a.wallet as `0x${string}`, recipient: a.recipient as `0x${string}` | undefined })); }
+    try {
+      let amount = a.amount;
+      if (amount === 'max') {
+        if (/^eth$/i.test(a.tokenIn)) return fail('"max" is for tokens: the native coin also pays gas, so give an amount.');
+        const id = tokenChainId(a.chain);
+        if (!id) return fail(`Unknown chain "${a.chain}".`);
+        amount = await fullBalance(id, a.tokenIn, a.wallet as `0x${string}`);
+      }
+      return text(await buildSwap({ ...a, amount, wallet: a.wallet as `0x${string}`, recipient: a.recipient as `0x${string}` | undefined }));
+    }
     catch (e) { return failWith(e); }
   });
 

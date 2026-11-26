@@ -100,3 +100,34 @@ export const sweep = internalMutation({
     return old.length;
   },
 });
+
+/** Questions to the Ask box (src/app/api/ask) per IP: it runs a language model, so the caps are lower than the API's. */
+export const ASK_LIMITS = { perMinute: 8, perDay: 60 } as const;
+
+/** Counts one question from an IP against its minute and day buckets. */
+export const askHit = mutation({
+  args: { secret: v.string(), ip: v.string() },
+  handler: async (ctx, { secret, ip }) => {
+    checkSecret(secret);
+    const now = Date.now();
+    const windows = [
+      { bucket: `ask:${ip}`, start: now - (now % WINDOW_MS), limit: ASK_LIMITS.perMinute },
+      { bucket: `askd:${ip}`, start: now - (now % 86_400_000), limit: ASK_LIMITS.perDay },
+    ];
+    const rows = await Promise.all(windows.map((w) => ctx.db.query("apiRate").withIndex("by_bucket", (q) => q.eq("bucket", w.bucket)).unique()));
+    for (let i = 0; i < windows.length; i++) {
+      const row = rows[i];
+      if (row && row.windowStart === windows[i].start && row.count >= windows[i].limit) {
+        return { ok: false as const, reason: i === 0 ? "minute" as const : "day" as const };
+      }
+    }
+    for (let i = 0; i < windows.length; i++) {
+      const row = rows[i];
+      const w = windows[i];
+      if (!row) await ctx.db.insert("apiRate", { bucket: w.bucket, windowStart: w.start, count: 1 });
+      else if (row.windowStart !== w.start) await ctx.db.patch(row._id, { windowStart: w.start, count: 1 });
+      else await ctx.db.patch(row._id, { count: row.count + 1 });
+    }
+    return { ok: true as const };
+  },
+});

@@ -120,12 +120,15 @@ export async function buildSwap(a: {
   };
   calls.push(swapCall);
   const sim = balanceOk ? await simulate(client, a.wallet, swapCall, blockedBy) : { status: 'skipped' as const, reason: 'The wallet does not hold enough of tokenIn.' };
-  const grade = outNative ? null : await tokenGrade(chainId, a.tokenOut);
+  const [grade, symbolOut] = await Promise.all([
+    outNative ? null : tokenGrade(chainId, a.tokenOut),
+    outNative ? 'ETH' : client.readContract({ address: a.tokenOut as Addr, abi: erc20Abi, functionName: 'symbol' }).then(String).catch(() => '?'),
+  ]);
 
   return {
     chainId, wallet: a.wallet, recipient,
     quote: {
-      amountIn: a.amount, amountOut: quote.amountOutFormatted, amountOutRaw: quote.amountOut, amountOutUsd: round2(quote.amountOutUsd),
+      amountIn: a.amount, symbolIn, amountOut: quote.amountOutFormatted, symbolOut, amountOutRaw: quote.amountOut, amountOutUsd: round2(quote.amountOutUsd),
       priceImpactPct: round2(quote.priceImpact), gasUsd: round2(quote.gasUsd), route: quote.route, slippageBps,
       btbFeePct: MCP_SWAP_FEE_BPS / 100, btbFeeNote: MCP_SWAP_FEE_BPS > 0
         ? `${MCP_SWAP_FEE_BPS / 100}% of the output goes to BTB and is shared with BTB users every Friday. Already deducted from amountOut.`
