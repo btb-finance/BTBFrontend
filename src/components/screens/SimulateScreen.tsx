@@ -1,5 +1,5 @@
 'use client';
-import { xpToken, xpDoneToday, markXpDone } from '../../lib/turnstile';
+import { xpDoneToday, markXpDone } from '../../lib/xpDay';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useConfig, useConnection } from 'wagmi';
 import { useAction } from 'convex/react';
@@ -1011,7 +1011,7 @@ function CrossChainResearch({ chains, isMobile }: {
         const chainName = chains.find(chain => chain.id === selectedChainId)?.name ?? 'chain';
         const key = `${address.toLowerCase()}:chain:${selectedChainId}`;
         if (xpDoneToday(key)) continue;
-        xpToken('Simulate XP').then(turnstileToken => awardSimulateXp({ walletAddress: address, kind: 'chain', chainId: selectedChainId, turnstileToken }))
+        awardSimulateXp({ walletAddress: address, kind: 'chain', chainId: selectedChainId })
           .then(r => { if (r.ok || r.needsLp) markXpDone(key); if (r.needsLp) needsLpNote(); showXp(r.awarded, `${chainName} research`); }).catch(() => {});
       }
     }
@@ -1521,7 +1521,7 @@ export function SimulateScreen() {
     if (!sheetFee || !address) return;
     const key = `${address.toLowerCase()}:pool`;
     if (xpDoneToday(key)) return;
-    xpToken('Simulate XP').then(turnstileToken => awardSimulateXp({ walletAddress: address, kind: 'pool', turnstileToken })).then(r => { if (r.ok || r.needsLp) markXpDone(key); if (r.needsLp) needsLpNote(); showXp(r.awarded, 'Pool simulated'); }).catch(() => {});
+    awardSimulateXp({ walletAddress: address, kind: 'pool' }).then(r => { if (r.ok || r.needsLp) markXpDone(key); if (r.needsLp) needsLpNote(); showXp(r.awarded, 'Pool simulated'); }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sheetFee != null, address]);
   const appliedPair = useRef(false);

@@ -19,7 +19,6 @@ import { captureReferral } from '../lib/referral';
 import { TokenStoreProvider, Token } from '../lib/TokenStore';
 import { usePreloadBear } from '../lib/preloadBear';
 import { SidebarProvider, useSidebar } from '../lib/SidebarContext';
-import { warmTurnstile } from '../lib/turnstile';
 
 function ScreenLoadingFor({ screen }: { screen?: string }) {
   // The visit's first screen keeps showing its server-rendered preview while its chunk loads (./RoutePreview).
@@ -80,8 +79,6 @@ function useWarmScreens(current: Tab) {
       loadScreen(key).catch(() => {}).finally(() => afterLoadIdle(next));
     };
     const t = window.setTimeout(() => afterLoadIdle(next), 2500);
-    // The human check's script, once the page is idle, so a check-in or XP claim does not wait for it to download.
-    afterLoadIdle(warmTurnstile);
     return () => { cancelled = true; window.clearTimeout(t); };
     // Only the screen the visit started on matters; later tabs are warmed by the nav on hover/touch.
     // eslint-disable-next-line react-hooks/exhaustive-deps

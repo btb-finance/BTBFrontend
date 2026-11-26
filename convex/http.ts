@@ -7,7 +7,7 @@ import { httpRouter } from "convex/server";
 import { isAddress } from "viem";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { humanCheck, issuePass, runCheckIn } from "./checkInActions";
+import { runCheckIn } from "./checkInActions";
 
 const ORIGINS = new Set(["https://btb.finance", "https://www.btb.finance", "http://localhost:3000"]);
 const cors = (req: Request): Record<string, string> => {
@@ -43,11 +43,8 @@ http.route({
     const wallet = body.walletAddress ?? "";
     if (!isAddress(wallet)) return json(req, { error: "Invalid wallet address" }, 400);
     const ip = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
-    if (!(await humanCheck(body.turnstileToken, ip || undefined))) {
-      return json(req, { error: "Could not confirm this browser. Refresh the page and check in again." }, 403);
-    }
     try {
-      // An invite link counts only here, behind the human check, so a script cannot register addresses under a code.
+      // An invite link counts only with a check-in, and only before the wallet's first (convex/users.ts linkInvite).
       if (body.ref) await ctx.runMutation(internal.users.linkInvite, { walletAddress: wallet, ref: String(body.ref).slice(0, 64) });
       const result = await runCheckIn(ctx, wallet);
       await ctx.runMutation(internal.sybil.recordSignal, {
@@ -65,19 +62,10 @@ http.route({
 });
 
 /**
- * The site gate (src/components/HumanGate.tsx): every visitor passes Cloudflare's check once a day before the site
- * shows. This confirms the token on the server, so a pass is only granted for a real check.
+ * The old site gate's endpoint. The gate and Cloudflare's check are gone; pages opened before that still call this,
+ * so it always lets them through. Safe to delete after a few days.
  */
 http.route({ path: "/human", method: "OPTIONS", handler: httpAction(async (_ctx, req) => new Response(null, { status: 204, headers: cors(req) })) });
-http.route({
-  path: "/human",
-  method: "POST",
-  handler: httpAction(async (_ctx, req) => {
-    const body = (await req.json().catch(() => ({}))) as { turnstileToken?: string };
-    const ip = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
-    const ok = await humanCheck(body.turnstileToken, ip || undefined, "gate");
-    return json(req, ok ? { ok: true, pass: await issuePass() } : { ok: false, error: "Could not confirm this browser. Try again." }, ok ? 200 : 403);
-  }),
-});
+http.route({ path: "/human", method: "POST", handler: httpAction(async (_ctx, req) => json(req, { ok: true })) });
 
 export default http;

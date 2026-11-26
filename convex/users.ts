@@ -13,7 +13,7 @@ const MS_PER_DAY = 86_400_000;
  * Returns existing profile if already registered.
  */
 export const registerOrGet = mutation({
-  // `ref` is ignored: an invite now links in the human-checked check-in (linkInvite), so a script cannot farm it here.
+  // `ref` is ignored: an invite links only with a real check-in (linkInvite), never by registering an address.
   // The argument stays so pages still open from before keep working.
   args: { walletAddress: v.string(), ref: v.optional(v.string()) },
   handler: async (ctx, { walletAddress }) => {
@@ -189,7 +189,7 @@ export const creditTxXp = internalMutation({
 });
 
 /**
- * Links a new wallet to the invite code it arrived with. Called only from /checkin after the human check passed.
+ * Links a new wallet to the invite code it arrived with. Called only from /checkin, before the first check-in.
  * Only before the wallet's first check-in, and never moves a wallet that already has an inviter.
  */
 export const linkInvite = internalMutation({

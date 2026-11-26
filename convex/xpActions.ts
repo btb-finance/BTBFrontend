@@ -5,7 +5,6 @@ import { erc20Abi, erc721Abi, isAddress, isHash, parseEventLogs } from "viem";
 import { getChainClient } from "../src/lib/chainClient";
 import { CONTRACTS } from "../src/lib/contractAddresses";
 import { SWAP_XP, MINT_XP } from "./xpRules";
-import { humanCheck } from "./checkInActions";
 import { loadLiveRpcs } from "./liveRpcs";
 import { lpGate } from "./lpGate";
 
@@ -23,9 +22,8 @@ type Result = { ok: boolean; awarded: number; reason?: string };
  */
 export const awardTxXp = action({
   args: { walletAddress: v.string(), chainId: v.float64(), txHash: v.string(), kind: v.union(v.literal("swap"), v.literal("bridge"), v.literal("mint")), turnstileToken: v.optional(v.string()) },
-  handler: async (ctx, { walletAddress, chainId, txHash, kind, turnstileToken }): Promise<Result> => {
+  handler: async (ctx, { walletAddress, chainId, txHash, kind }): Promise<Result> => {
     if (!isAddress(walletAddress) || !isHash(txHash)) return { ok: false, awarded: 0, reason: "bad input" };
-    if (!(await humanCheck(turnstileToken, undefined, "xp"))) return { ok: false, awarded: 0, reason: "human check failed" };
     await loadLiveRpcs(ctx);
     const wallet = walletAddress.toLowerCase();
     const client = getChainClient(chainId);
@@ -72,9 +70,8 @@ export const awardTxXp = action({
  */
 export const awardSimulateXp = action({
   args: { walletAddress: v.string(), kind: v.union(v.literal("pool"), v.literal("chain")), chainId: v.optional(v.float64()), turnstileToken: v.optional(v.string()) },
-  handler: async (ctx, { turnstileToken, ...a }): Promise<{ ok: boolean; awarded: number; needsLp?: boolean }> => {
+  handler: async (ctx, { turnstileToken: _unused, ...a }): Promise<{ ok: boolean; awarded: number; needsLp?: boolean }> => {
     if (!isAddress(a.walletAddress)) return { ok: false, awarded: 0 };
-    if (!(await humanCheck(turnstileToken, undefined, "xp"))) return { ok: false, awarded: 0 };
     await loadLiveRpcs(ctx);
     const gate = await lpGate(ctx, a.walletAddress);
     if (!gate.ok) return { ok: false, awarded: 0, needsLp: true };
