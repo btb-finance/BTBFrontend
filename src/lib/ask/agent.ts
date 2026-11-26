@@ -1,6 +1,4 @@
-import { parseUnits } from 'viem';
 import { callTool, listTools, type JsonSchema } from '@/lib/api/v1';
-import { getKyberQuote } from '@/lib/kyberswap';
 
 /**
  * The Ask box: a person writes what they want in plain English, a language model picks from the same tools the BTB
@@ -32,6 +30,7 @@ export const STEP_LABELS: Record<string, string> = {
   lp_plan: 'Built an LP plan',
   add_liquidity_link: 'Prepared the deposit',
   wallet_positions: 'Read your positions',
+  wallet_tokens: 'Checked your tokens',
   auto_manage_status: 'Checked auto-management',
   auto_manage_setup: 'Looked up auto-management',
   get_abi: 'Read the contract',
@@ -60,6 +59,9 @@ function systemPrompt(wallet: string | null): string {
     'BUTTONS: end with one to three action buttons, each on its own line, written exactly as a markdown link: [Label](URL). Labels are 1 to 4 words, like [Add liquidity](...), [Swap now](...), [Open pool](...). Use only these URLs:',
     '- a pool: the exact btb.finance link that add_liquidity_link or another tool returned. Never build a pool link yourself.',
     wallet
+      ? '- "Sell all my X" or "my X": call wallet_tokens with search X to see which chain it is on and how much; then build_swap with amount "max" on that chain. Never assume the chain.'
+      : '',
+    wallet
       ? '- SWAPS with a wallet connected: any request to swap, buy, sell or convert (even "quote" or "try again") means find_token for each token that is not ETH, then build_swap, which includes the quote; use quote_swap only for questions like "how much would I get" or "what is the price" with no wish to swap. build_swap and the page shows Approve and Swap buttons to sign right here. Mention only the steps that were built (selling ETH needs no approval). Add no other buttons except optionally one [Open in Swap](link) using the swap link below.'
       : '- SWAPS without a wallet: give the swap link below; the person connects and confirms there.',
     `- a swap: https://btb.finance/swap?chain=<chainId>&from=<symbol or token address>&to=<symbol or token address>&amount=<amount to sell, optional>. Chain ids: ${CHAIN_IDS}. The symbol ETH in a swap link means the chain's native coin (ETH on Ethereum, Base, Arbitrum and the other ETH chains, BNB on BNB Chain): use it for those. On BNB Chain, ETH itself is a token, so look it up. For every other token use the contract address that find_token (or another tool) returned for that chain; never write an address from memory. The person confirms the swap on that screen.`,
@@ -87,141 +89,7 @@ export type TxStep = {
 export type SwapParams = { chainId: number; tokenIn: string; tokenOut: string; amount: string; slippageBps: number };
 export type AskResult = { reply: string; steps: string[]; txs?: TxStep[] };
 
-// ---- token lookup: the model must never write a contract address from memory ----
-
-/** DEX Screener's chain names for the chain ids swap links use. */
-const DS_CHAIN: Record<number, string> = { 1: 'ethereum', 8453: 'base', 56: 'bsc', 42161: 'arbitrum', 10: 'optimism', 137: 'polygon', 130: 'unichain', 4663: 'robinhood' };
-
-const FIND_TOKEN = {
-  type: 'function',
-  function: {
-    name: 'find_token',
-    description: 'Look up a token\'s contract address on one chain by symbol or name, with price and liquidity. Call this before any swap button for a token other than ETH, so the link carries the right address.',
-    parameters: {
-      type: 'object',
-      properties: {
-        query: { type: 'string', description: 'Symbol or name, e.g. ezETH, PEPE, cbBTC' },
-        chainId: { type: 'number', description: `Chain id: ${CHAIN_IDS}` },
-      },
-      required: ['query', 'chainId'],
-    },
-  },
-};
-
-const QUOTE_SWAP = {
-  type: 'function',
-  function: {
-    name: 'quote_swap',
-    description: 'Live swap quote, the same the Swap screen shows (best KyberSwap route, after the 1% BTB fee): how much of tokenOut an amount of tokenIn gets, with USD value, price impact and gas. Use for "how much X do I get for Y" and for prices of tokens with no pool in the index, such as BTB.',
-    parameters: {
-      type: 'object',
-      properties: {
-        chainId: { type: 'number', description: `Chain id: ${CHAIN_IDS}` },
-        tokenIn: { type: 'string', description: '"ETH" for the native coin, else the contract address from find_token' },
-        tokenOut: { type: 'string', description: '"ETH" for the native coin, else the contract address from find_token' },
-        amount: { type: 'string', description: 'Amount of tokenIn in whole units, e.g. "1" or "0.25"' },
-      },
-      required: ['chainId', 'tokenIn', 'tokenOut', 'amount'],
-    },
-  },
-};
-
-/** Symbol and decimals of a token: ETH, then the LI.FI catalog, then the contract itself. */
-async function tokenMeta(chainId: number, token: string): Promise<{ symbol: string; decimals: number; priceUsd?: number } | null> {
-  const native = token.toUpperCase() === 'ETH';
-  if (!native && !/^0x[0-9a-fA-F]{40}$/.test(token)) return null;
-  try {
-    const r = await fetch(`https://li.quest/v1/token?chain=${chainId}&token=${native ? '0x0000000000000000000000000000000000000000' : token}`, { signal: AbortSignal.timeout(5_000) });
-    if (r.ok) {
-      const t = await r.json() as { symbol?: string; decimals?: number; priceUSD?: string };
-      const priceUsd = Number(t.priceUSD) > 0 ? Number(t.priceUSD) : undefined;
-      if (t.symbol && Number.isInteger(t.decimals)) return { symbol: t.symbol, decimals: t.decimals!, priceUsd };
-    }
-  } catch { /* fall through */ }
-  if (native) return { symbol: chainId === 56 ? 'BNB' : 'ETH', decimals: 18 };
-  // Not in the catalog: read the contract.
-  try {
-    const out = await callTool('read_contract', { chain: String(chainId), address: token, function: 'decimals' }) as { result?: unknown };
-    const d = Number(out?.result);
-    if (Number.isInteger(d)) return { symbol: token.slice(0, 8), decimals: d };
-  } catch { /* unknown */ }
-  return null;
-}
-
-async function quoteSwap(args: Record<string, unknown>): Promise<string> {
-  const chainId = Number(args.chainId);
-  const tokenIn = typeof args.tokenIn === 'string' ? args.tokenIn.trim() : '';
-  const tokenOut = typeof args.tokenOut === 'string' ? args.tokenOut.trim() : '';
-  const amount = typeof args.amount === 'string' || typeof args.amount === 'number' ? String(args.amount).trim() : '';
-  if (!DS_CHAIN[chainId]) return `Error: unknown chainId. Use one of: ${CHAIN_IDS}`;
-  if (!/^\d+(\.\d+)?$/.test(amount)) return 'Error: amount must be a plain number like "1" or "0.25"';
-  const [inM, outM] = await Promise.all([tokenMeta(chainId, tokenIn), tokenMeta(chainId, tokenOut)]);
-  if (!inM || !outM) return 'Error: pass "ETH" or a contract address from find_token for both tokens';
-  const q = await getKyberQuote(tokenIn.toUpperCase() === 'ETH' ? 'ETH' : tokenIn, tokenOut.toUpperCase() === 'ETH' ? 'ETH' : tokenOut,
-    parseUnits(amount, inM.decimals).toString(), outM.decimals, chainId, { chargeBtbFee: true, decimalsIn: inM.decimals });
-  const sellUsd = inM.priceUsd ? Number(amount) * inM.priceUsd : null;
-  const outNum = Number(q.amountOut) / 10 ** outM.decimals;
-  const getUsd = outM.priceUsd ? outNum * outM.priceUsd : q.amountOutUsd || null;
-  const lossPct = sellUsd && getUsd ? Math.round((1 - getUsd / sellUsd) * 1000) / 10 : null;
-  return JSON.stringify({
-    sellUsd: sellUsd != null ? Math.round(sellUsd * 100) / 100 : null,
-    priceUsd: { [inM.symbol]: inM.priceUsd ?? null, [outM.symbol]: outM.priceUsd ?? null },
-    ...(lossPct != null && lossPct > 5 ? { warning: `You would get about ${lossPct}% less than the market value of what you sell: the pool is thin for this size. Say this plainly and suggest a smaller amount.` } : {}),
-    sell: `${amount} ${inM.symbol}`,
-    get: `${q.amountOutFormatted} ${outM.symbol}`,
-    getUsd: getUsd != null ? Math.round(getUsd * 100) / 100 : null,
-    rate: `1 ${inM.symbol} = ${q.rate.toLocaleString('en-US', { maximumSignificantDigits: 6 })} ${outM.symbol}`,
-    priceImpactPct: q.priceImpact,
-    gasUsd: Math.round(q.gasUsd * 100) / 100,
-    route: q.route,
-    note: 'After the 1% BTB fee. The live quote on the Swap screen can move with the market.',
-  });
-}
-
-async function findToken(args: Record<string, unknown>): Promise<string> {
-  const query = (typeof args.query === 'string' ? args.query : '').trim().slice(0, 60);
-  const chainId = Number(args.chainId);
-  const chain = DS_CHAIN[chainId];
-  if (!query) return 'Error: missing query';
-  if (!chain) return `Error: unknown chainId. Use one of: ${CHAIN_IDS}`;
-  // BTB Finance's own token (Ethereum only); other tokens named BTB are not it.
-  if (/^btb( finance)?$/i.test(query)) {
-    return chainId === 1
-      ? JSON.stringify({ tokens: [{ address: '0x88888888c90cd71b35830dabfd24743dbc135b51', symbol: 'BTB', name: 'BTB Finance', decimals: 18 }] })
-      : 'BTB Finance\'s BTB is only on Ethereum (chainId 1). Any BTB on this chain is a different token.';
-  }
-  // First the swap screen's own catalog (LI.FI): exact symbol on that chain, with flagged tokens refused.
-  try {
-    const r = await fetch(`https://li.quest/v1/token?chain=${chainId}&token=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(5_000) });
-    if (r.ok) {
-      const t = await r.json() as { address?: string; symbol?: string; name?: string; decimals?: number; priceUSD?: string; verificationStatus?: string };
-      if (t.address && t.verificationStatus !== 'flagged') {
-        const address = /^0x0{40}$/.test(t.address) ? 'ETH' : t.address.toLowerCase();
-        return JSON.stringify({ tokens: [{ address, symbol: t.symbol, name: t.name, decimals: t.decimals, priceUsd: t.priceUSD }] });
-      }
-    }
-  } catch { /* fall back to DEX Screener */ }
-  const res = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(query)}`, { headers: { 'user-agent': 'curl/8.4.0' }, signal: AbortSignal.timeout(6_000) });
-  if (!res.ok) return `Error: lookup failed (HTTP ${res.status})`;
-  type Side = { address?: string; symbol?: string; name?: string };
-  const d = await res.json() as { pairs?: { chainId?: string; baseToken?: Side; quoteToken?: Side; priceUsd?: string; liquidity?: { usd?: number } }[] };
-  const q = query.toLowerCase();
-  const found = new Map<string, { address: string; symbol: string; name: string; liquidityUsd: number; priceUsd?: string }>();
-  for (const p of d.pairs ?? []) {
-    if (p.chainId !== chain) continue;
-    for (const [t, price] of [[p.baseToken, p.priceUsd], [p.quoteToken, undefined]] as [Side | undefined, string | undefined][]) {
-      if (!t?.address || !(t.symbol?.toLowerCase() === q || t.name?.toLowerCase() === q)) continue;
-      const k = t.address.toLowerCase();
-      const row = found.get(k) ?? { address: k, symbol: t.symbol ?? '', name: t.name ?? '', liquidityUsd: 0, priceUsd: undefined };
-      row.liquidityUsd += p.liquidity?.usd ?? 0;
-      row.priceUsd ??= price;
-      found.set(k, row);
-    }
-  }
-  const rows = [...found.values()].sort((a, b) => b.liquidityUsd - a.liquidityUsd).slice(0, 3).map((r) => ({ ...r, liquidityUsd: Math.round(r.liquidityUsd) }));
-  if (!rows.length) return `No token called "${query}" trades on chain ${chainId}. Say so; do not guess an address.`;
-  return JSON.stringify({ note: 'Use the first (most liquid) unless the person names another. Copies with tiny liquidity may be fakes.', tokens: rows });
-}
+// Token lookup, quotes and balances are BTB connector tools (src/lib/mcp/tokens.ts), shared with every outside agent.
 
 /** Addresses that may appear in a link without coming from a tool. */
 const KNOWN = new Set(['0x88888888c90cd71b35830dabfd24743dbc135b51']);
@@ -260,7 +128,7 @@ function allModelTools(): Promise<unknown[]> {
       return { type: 'function', function: { name: t.name, description: 'Build one transaction for the connected wallet to sign: any write function of a contract, with a dry run. The page shows it to the person as a numbered step button.', parameters: params } } as unknown;
     }
     return { type: 'function', function: { name: t.name, description: (t.description ?? t.title ?? t.name).slice(0, 1000), parameters: params } } as unknown;
-  }).concat([FIND_TOKEN, QUOTE_SWAP])).catch((e) => { toolDefs = null; throw e; });
+  })).catch((e) => { toolDefs = null; throw e; });
   return toolDefs;
 }
 /** build_tx only with a connected wallet to build for. */
@@ -274,7 +142,7 @@ const isTokenArg = (v: string) => /^eth$/i.test(v) || /^0x[0-9a-fA-F]{40}$/.test
 
 type BuiltSwap = {
   chainId: number; balanceOk: boolean;
-  quote: { amountIn: string; amountOut: string; amountOutUsd: number; priceImpactPct: number; gasUsd: number; route: string };
+  quote: { amountIn: string; symbolIn: string; amountOut: string; symbolOut: string; amountOutUsd: number; priceImpactPct: number; gasUsd: number; route: string };
   tokenOutSafety: { score: number; honeypot: boolean; flags: string[] } | null;
   simulation: { status: 'passed' | 'reverted' | 'skipped'; reason?: string };
   transactions: { to: string; data: string; value: string; label: string }[];
@@ -285,16 +153,13 @@ export async function swapSteps(p: SwapParams, wallet: string): Promise<{ steps:
   const built = await callTool('build_swap', {
     chain: String(p.chainId), tokenIn: p.tokenIn, tokenOut: p.tokenOut, amount: p.amount, wallet, slippageBps: p.slippageBps,
   }) as BuiltSwap;
-  const [inM, outM] = await Promise.all([tokenMeta(p.chainId, p.tokenIn), tokenMeta(p.chainId, p.tokenOut)]);
-  const symIn = inM?.symbol ?? 'tokens';
-  const symOut = outM?.symbol ?? '';
   const n = built.transactions.length;
   const now = Date.now();
   const steps = built.transactions.map((t, i): TxStep => {
     const last = i === n - 1;
     const sim = built.simulation;
     return {
-      label: last ? `Swap ${p.amount} ${symIn} for ${built.quote.amountOut} ${symOut}`.trim() : t.label.replace(/ for the KyberSwap router$/, ''),
+      label: last ? `Swap ${built.quote.amountIn} ${built.quote.symbolIn} for ${built.quote.amountOut} ${built.quote.symbolOut}` : t.label.replace(/ for the KyberSwap router$/, ''),
       chainId: built.chainId, to: t.to, data: t.data, value: t.value,
       fn: last ? `KyberSwap via ${built.quote.route}` : 'approve(address,uint256)',
       // Skipped with a balance means it waits for the approval; skipped without one means the wallet is short.
@@ -318,7 +183,7 @@ async function buildSwapStep(args: Record<string, unknown>, wallet: string, seen
   for (const t of [tokenIn, tokenOut]) {
     if (!/^eth$/i.test(t) && !KNOWN.has(t.toLowerCase()) && !seen.includes(t.toLowerCase())) return 'Error: that token address did not come from a tool. Look it up with find_token first.';
   }
-  if (!/^\d+(\.\d+)?$/.test(amount)) return 'Error: amount must be a plain number like "1" or "0.25".';
+  if (!/^(\d+(\.\d+)?|max)$/.test(amount)) return 'Error: amount must be a plain number like "1" or "0.25", or "max" for the whole balance of a token.';
   // The model may ask for more slippage, never past 3%.
   const slippageBps = Math.min(300, Math.max(10, Number(args.slippageBps) || 50));
   const { steps, built } = await swapSteps({ chainId, tokenIn, tokenOut, amount, slippageBps }, wallet);
@@ -436,8 +301,7 @@ export async function ask(message: string, history: AskTurn[], wallet: string | 
       try {
         // A slow tool must not run the whole request past the host's limit.
         const out = await Promise.race([
-          name === 'find_token' ? findToken(args) : name === 'quote_swap' ? quoteSwap(args)
-            : name === 'build_tx' ? buildStep(args, wallet!, seenText(), txs)
+          name === 'build_tx' ? buildStep(args, wallet!, seenText(), txs)
             : name === 'build_swap' ? buildSwapStep(args, wallet!, seenText(), txs) : callTool(name, args),
           new Promise((_, no) => setTimeout(() => no(new Error('this lookup took too long; answer without it or suggest the matching page')), Math.max(3_000, Math.min(12_000, left() - 6_000)))),
         ]);
