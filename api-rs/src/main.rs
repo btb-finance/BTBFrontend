@@ -5,7 +5,7 @@
 //! forwarded to the TypeScript connector (UPSTREAM_URL, default https://btb.finance), so this server always offers
 //! the whole API while parts move over one at a time. It holds no secrets.
 //!
-//!   POST /api/mcp            MCP (Streamable HTTP, JSON responses)
+//!   POST /api/mcp (or /mcp)  MCP (Streamable HTTP, JSON responses)
 //!   GET  /api/v1/...         REST, same paths and answers as https://btb.finance/api/v1
 //!   GET  /health
 
@@ -63,6 +63,8 @@ async fn main() {
     let router = rest_routes(Router::new())
         .route("/health", get(health))
         .route("/api/mcp", post(mcp).get(mcp_get))
+        // The old btb-mcp image answered at /mcp too; existing client URLs keep working.
+        .route("/mcp", post(mcp).get(mcp_get))
         .fallback(forward_rest)
         .layer(tower_http::cors::CorsLayer::permissive())
         .with_state(app);
