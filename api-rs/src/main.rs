@@ -1,6 +1,7 @@
 //! BTB Finance API for agents, in Rust, built to run long-lived on Flux with its data warm in memory.
 //!
-//! Moved here so far: top_pools, search_pools, chain_summary (src/tools.rs). Every other tool and REST path is
+//! Moved here so far (src/tools.rs): the pool tools (top_pools, search_pools, chain_summary, pool_details, compare_pools,
+//! best_pools_for, estimate_lp_earnings, lp_plan, add_liquidity_link) and token_safety. Every other tool and REST path is
 //! forwarded to the TypeScript connector (UPSTREAM_URL, default https://btb.finance), so this server always offers
 //! the whole API while parts move over one at a time. It holds no secrets.
 //!
@@ -31,6 +32,7 @@ struct App {
     snap: snapshot::Shared,
     http: reqwest::Client,
     upstream: String,
+    convex: String,
     /// The upstream connector's tools/list, kept for 10 minutes.
     upstream_tools: Arc<RwLock<Option<(std::time::Instant, Vec<Value>)>>>,
 }
@@ -42,16 +44,12 @@ async fn main() {
     let upstream = std::env::var("UPSTREAM_URL").unwrap_or_else(|_| "https://btb.finance".into());
     let port: u16 = std::env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(8080);
     let http = reqwest::Client::builder().user_agent("btb-api/0.1").build().expect("http client");
-    let app = App { snap: Arc::new(RwLock::new(None)), http: http.clone(), upstream, upstream_tools: Arc::new(RwLock::new(None)) };
+    let app = App { snap: Arc::new(RwLock::new(None)), http: http.clone(), upstream, convex: convex.clone(), upstream_tools: Arc::new(RwLock::new(None)) };
     snapshot::keep_fresh(app.snap.clone(), http, convex, Duration::from_secs(300));
 
-    let router = Router::new()
+    let router = rest_routes(Router::new())
         .route("/health", get(health))
         .route("/api/mcp", post(mcp).get(mcp_get))
-        .route("/api/v1/pools", get(rest_top).post(rest_top_post))
-        .route("/api/v1/pools/search", get(rest_search).post(rest_search_post))
-        .route("/api/v1/chains", get(rest_chains))
-        .route("/api/v1/chains/:chain", get(rest_chain))
         .fallback(forward_rest)
         .layer(tower_http::cors::CorsLayer::permissive())
         .with_state(app);
@@ -91,17 +89,25 @@ async fn health(State(app): State<App>) -> Response {
 
 // ---- REST ----
 
-/// Query strings → typed arguments, as src/lib/api/v1.ts coerces them for these tools.
-fn rest_args(q: &HashMap<String, String>, rename: &[(&str, &str)]) -> Map<String, Value> {
+/// Query strings → typed arguments, as src/lib/api/v1.ts coerces them from each tool's schema.
+fn rest_args(tool: &str, q: &HashMap<String, String>, rename: &[(&str, &str)]) -> Map<String, Value> {
     let mut m = Map::new();
     for (k, v) in q {
         if k == "api_key" {
             continue;
         }
         let name = rename.iter().find(|(from, _)| from == k).map(|(_, to)| *to).unwrap_or(k.as_str());
-        let val = match name {
-            "limit" | "minTvlUsd" => v.parse::<f64>().map(|n| pools::num(n)).unwrap_or_else(|_| json!(v)),
-            "stableOnly" => json!(v == "true" || v == "1"),
+        let number = |v: &str| v.parse::<f64>().ok().filter(|n| n.is_finite()).map(pools::num).unwrap_or_else(|| json!(v));
+        let val = match (tool, name) {
+            ("compare_pools", "pools") => {
+                if v.trim_start().starts_with('[') {
+                    serde_json::from_str(v).unwrap_or_else(|_| json!(v))
+                } else {
+                    json!(v.split(',').map(str::trim).filter(|x| !x.is_empty()).collect::<Vec<_>>())
+                }
+            }
+            (_, "limit" | "minTvlUsd" | "amountUsd" | "days" | "pools") => number(v),
+            (_, "stableOnly") => json!(v == "true" || v == "1"),
             _ => json!(v),
         };
         m.insert(name.to_string(), val);
@@ -113,11 +119,14 @@ async fn run_rest(app: &App, tool: &str, args: Map<String, Value>) -> Response {
     let Some(snap) = snapshot_now(app).await else {
         return rest_error(StatusCode::SERVICE_UNAVAILABLE, "warming_up", "The pool snapshot is still loading. Retry in a few seconds.");
     };
-    match tools::call(tool, &args, &snap) {
+    let ctx = tools::Ctx { snap: &snap, http: &app.http, convex: &app.convex };
+    match tools::call(tool, &args, &ctx).await {
         Ok(v) => json_response(StatusCode::OK, &v),
         Err(tools::ToolError(msg)) => {
-            let code = if msg.starts_with("Input validation error") { "invalid_arguments" } else { "tool_error" };
-            rest_error(StatusCode::BAD_REQUEST, code, &msg)
+            // The same codes the TypeScript API gives (src/lib/api/v1.ts callTool).
+            let not_found = msg.contains("not found") || msg.contains("Not found");
+            let code = if not_found { "not_found" } else if msg.starts_with("Input validation error") { "invalid_arguments" } else { "tool_error" };
+            rest_error(if not_found { StatusCode::NOT_FOUND } else { StatusCode::BAD_REQUEST }, code, &msg)
         }
     }
 }
@@ -126,31 +135,47 @@ fn body_args(body: &Bytes) -> Map<String, Value> {
     serde_json::from_slice::<Value>(body).ok().and_then(|v| v.as_object().cloned()).unwrap_or_default()
 }
 
-async fn rest_top(State(app): State<App>, Query(q): Query<HashMap<String, String>>) -> Response {
-    run_rest(&app, "top_pools", rest_args(&q, &[])).await
-}
-async fn rest_top_post(State(app): State<App>, Query(q): Query<HashMap<String, String>>, body: Bytes) -> Response {
-    let mut a = rest_args(&q, &[]);
-    a.extend(body_args(&body));
-    run_rest(&app, "top_pools", a).await
-}
-async fn rest_search(State(app): State<App>, Query(q): Query<HashMap<String, String>>) -> Response {
-    run_rest(&app, "search_pools", rest_args(&q, &[("q", "query")])).await
-}
-async fn rest_search_post(State(app): State<App>, Query(q): Query<HashMap<String, String>>, body: Bytes) -> Response {
-    let mut a = rest_args(&q, &[("q", "query")]);
-    for (k, v) in body_args(&body) {
-        a.insert(if k == "q" { "query".into() } else { k }, v);
+/// One REST route: path parameters, then the query string, then (POST) the JSON body, as the TypeScript API merges them.
+async fn rest(app: App, tool: &'static str, rename: &'static [(&'static str, &'static str)], path: HashMap<String, String>, q: HashMap<String, String>, body: Option<Bytes>) -> Response {
+    let mut a = rest_args(tool, &q, rename);
+    for (k, v) in path {
+        a.insert(k, json!(v));
     }
-    run_rest(&app, "search_pools", a).await
+    if let Some(b) = body {
+        for (k, v) in body_args(&b) {
+            let name = rename.iter().find(|(from, _)| *from == k).map(|(_, to)| to.to_string()).unwrap_or(k);
+            a.insert(name, v);
+        }
+    }
+    run_rest(&app, tool, a).await
 }
-async fn rest_chains(State(app): State<App>, Query(q): Query<HashMap<String, String>>) -> Response {
-    run_rest(&app, "chain_summary", rest_args(&q, &[])).await
+
+macro_rules! route_tool {
+    ($router:expr, $path:literal, $tool:literal, $rename:expr) => {
+        $router.route(
+            $path,
+            get(|State(app): State<App>, Path(p): Path<HashMap<String, String>>, Query(q): Query<HashMap<String, String>>| async move {
+                rest(app, $tool, $rename, p, q, None).await
+            })
+            .post(|State(app): State<App>, Path(p): Path<HashMap<String, String>>, Query(q): Query<HashMap<String, String>>, body: Bytes| async move {
+                rest(app, $tool, $rename, p, q, Some(body)).await
+            }),
+        )
+    };
 }
-async fn rest_chain(State(app): State<App>, Path(chain): Path<String>, Query(q): Query<HashMap<String, String>>) -> Response {
-    let mut a = rest_args(&q, &[]);
-    a.insert("chain".into(), json!(chain));
-    run_rest(&app, "chain_summary", a).await
+
+fn rest_routes(r: Router<App>) -> Router<App> {
+    let r = route_tool!(r, "/api/v1/pools", "top_pools", &[]);
+    let r = route_tool!(r, "/api/v1/pools/search", "search_pools", &[("q", "query")]);
+    let r = route_tool!(r, "/api/v1/pools/best", "best_pools_for", &[]);
+    let r = route_tool!(r, "/api/v1/pools/compare", "compare_pools", &[]);
+    let r = route_tool!(r, "/api/v1/pools/:chain/:pool", "pool_details", &[]);
+    let r = route_tool!(r, "/api/v1/pools/:chain/:pool/earnings", "estimate_lp_earnings", &[]);
+    let r = route_tool!(r, "/api/v1/pools/:chain/:pool/link", "add_liquidity_link", &[]);
+    let r = route_tool!(r, "/api/v1/plan", "lp_plan", &[]);
+    let r = route_tool!(r, "/api/v1/chains", "chain_summary", &[]);
+    let r = route_tool!(r, "/api/v1/chains/:chain", "chain_summary", &[]);
+    route_tool!(r, "/api/v1/tokens/:chain/:token/safety", "token_safety", &[])
 }
 
 /// Anything not moved yet: the same request to the TypeScript server, answer passed through.
@@ -266,7 +291,7 @@ async fn handle_rpc(app: &App, msg: Value) -> Option<Value> {
                 let args = msg["params"]["arguments"].as_object().cloned().unwrap_or_default();
                 match snapshot_now(app).await {
                     None => rpc_result(&id, text_content(&json!("The pool snapshot is still loading. Retry in a few seconds."), true)),
-                    Some(snap) => match tools::call(&name, &args, &snap) {
+                    Some(snap) => match tools::call(&name, &args, &tools::Ctx { snap: &snap, http: &app.http, convex: &app.convex }).await {
                         Ok(v) => rpc_result(&id, text_content(&v, false)),
                         Err(tools::ToolError(m)) => rpc_result(&id, text_content(&json!(m), true)),
                     },
