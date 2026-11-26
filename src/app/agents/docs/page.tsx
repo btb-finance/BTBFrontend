@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { buildMetadata } from '@/lib/seo/metadata';
 import { listTools, MCP_PUBLIC_URL, TOOL_GROUPS } from '@/lib/mcp/catalog';
 import { MCP_SWAP_FEE_BPS } from '@/lib/mcp/build';
+import { ROUTES } from '@/lib/api/v1';
 import { AgentsShell, styles } from '../shell';
 
 export const metadata: Metadata = buildMetadata({
@@ -21,6 +22,21 @@ const JSON_CONFIG = `{
   }
 }`;
 
+const API = 'https://btb.finance/api/v1';
+
+const REST_CURL = `curl -s '${API}/pools?chain=base&maxRisk=B&limit=5'
+
+curl -s -X POST ${API}/build/swap \\
+  -H 'content-type: application/json' \\
+  -H 'authorization: Bearer <your key>' \\
+  -d '{"chain":"base","tokenIn":"ETH","amount":"0.1",
+       "tokenOut":"0x833589fCD6eDb6E08f4c7C32D04c4E3a2a1B2913",
+       "wallet":"0xYourWallet"}'`;
+
+const KEY_CURL = `curl -s -X POST ${API}/keys \\
+  -H 'content-type: application/json' \\
+  -d '{"name":"my-agent","contact":"you@example.com"}'`;
+
 const CURL = `curl -s ${MCP_PUBLIC_URL} \\
   -H 'content-type: application/json' \\
   -H 'accept: application/json, text/event-stream' \\
@@ -35,7 +51,7 @@ export default async function DocsPage() {
       <p style={styles.eyebrow}>Docs</p>
       <h1 style={styles.h1}>Connect your agent</h1>
       <p style={styles.lead}>
-        BTB is a remote MCP server over Streamable HTTP. No sign-up and no API key: point your client at the URL below.
+        BTB is a remote MCP server over Streamable HTTP. No sign-up and no API key: point your client at the URL below. Prefer plain HTTP? See the <a href="#rest-api" style={styles.link}>REST API</a>.
       </p>
       <code style={styles.code}>{MCP_PUBLIC_URL}</code>
 
@@ -53,6 +69,28 @@ export default async function DocsPage() {
       <p style={styles.body}>Any MCP SDK works. Or call it directly with JSON-RPC:</p>
       <code style={styles.code}>{CURL}</code>
 
+      <h2 id="rest-api" style={styles.h2}>REST API</h2>
+      <p style={styles.body}>
+        Every tool is also plain JSON over HTTP at <code style={styles.inlineCode}>{API}</code>, with the same answers as the MCP server.
+        The OpenAPI spec at <a href={`${API}/openapi.json`} style={styles.link}>{`${API}/openapi.json`}</a> works with SDK generators and
+        function-calling agents. Any tool can also be called by name: <code style={styles.inlineCode}>POST /api/v1/tools/&lt;name&gt;</code> with its arguments as the body.
+      </p>
+      <code style={styles.code}>{REST_CURL}</code>
+      <ul style={{ ...styles.muted, paddingLeft: 18, margin: '12px 0 0' }}>
+        {ROUTES.map((r) => (
+          <li key={`${r.method} ${r.path}`} style={{ marginBottom: 4 }}>
+            <code style={styles.inlineCode}>{`${r.method} ${r.path}`}</code>: {r.summary}
+          </li>
+        ))}
+      </ul>
+      <h3 style={{ ...styles.h3, marginTop: 20 }}>Keys and limits</h3>
+      <p style={styles.body}>
+        No key needed for 20 calls a minute per IP. A free key gives 120 a minute: create one below, keep it (it is shown once), and send it as
+        {' '}<code style={styles.inlineCode}>Authorization: Bearer &lt;key&gt;</code> or <code style={styles.inlineCode}>X-API-Key</code>.
+        Every answer carries <code style={styles.inlineCode}>X-RateLimit-Remaining</code>; a 429 says when to retry. <code style={styles.inlineCode}>GET /api/v1/keys/me</code> shows your usage.
+      </p>
+      <code style={styles.code}>{KEY_CURL}</code>
+
       <h2 style={styles.h2}>How a transaction works</h2>
       <ol style={{ ...styles.body, paddingLeft: 20 }}>
         <li style={{ marginBottom: 8 }}>Your agent calls a build tool (<code style={styles.inlineCode}>build_swap</code>, <code style={styles.inlineCode}>build_add_liquidity</code> or <code style={styles.inlineCode}>build_tx</code>) with its own wallet address.</li>
@@ -69,7 +107,7 @@ export default async function DocsPage() {
         <li style={{ marginBottom: 8 }}>Reading is free: pools, protocols, ABIs, contract reads and wallet positions.</li>
         <li style={{ marginBottom: 8 }}>Swaps built by <code style={styles.inlineCode}>build_swap</code> carry a {feePct}% BTB fee on the output, shown in every quote. It is shared with BTB users every Friday.</li>
         <li style={{ marginBottom: 8 }}><code style={styles.inlineCode}>build_tx</code> and <code style={styles.inlineCode}>build_add_liquidity</code> add no fee.</li>
-        <li style={{ marginBottom: 8 }}>Heavy automated use may be rate limited. Paid plans with higher limits are coming.</li>
+        <li style={{ marginBottom: 8 }}>REST API: 20 calls a minute per IP without a key, 120 with a free key. Higher limits for partners on request.</li>
       </ul>
 
       <h2 style={styles.h2}>Tool reference</h2>
