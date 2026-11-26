@@ -13,6 +13,23 @@ const PROJECTS: Record<string, string> = {
   'sparklend': 'SparkLend', 'spark-savings': 'Spark Savings', 'euler-v2': 'Euler', 'fluid-lending': 'Fluid', 'moonwell-lending': 'Moonwell',
   'venus-core-pool': 'Venus', 'silo-v2': 'Silo', 'kamino-lend': 'Kamino',
 };
+/** Liquid staking: project → the token it pays in and the names that token trades under (wrapped forms earn the same). */
+const STAKING: Record<string, { name: string; token: string; aliases: string[] }> = {
+  'lido': { name: 'Lido', token: 'stETH', aliases: ['steth', 'wsteth'] },
+  'ether.fi-stake': { name: 'ether.fi', token: 'weETH', aliases: ['eeth', 'weeth'] },
+  'binance-staked-eth': { name: 'Binance', token: 'wBETH', aliases: ['wbeth'] },
+  'rocket-pool': { name: 'Rocket Pool', token: 'rETH', aliases: ['reth'] },
+  'coinbase-wrapped-staked-eth': { name: 'Coinbase', token: 'cbETH', aliases: ['cbeth'] },
+  'kelp': { name: 'Kelp', token: 'rsETH', aliases: ['rseth', 'wrseth'] },
+  'liquid-collective': { name: 'Liquid Collective', token: 'LsETH', aliases: ['lseth'] },
+  'meth-protocol': { name: 'Mantle', token: 'mETH', aliases: ['meth', 'cmeth'] },
+  'stakewise-v3': { name: 'StakeWise', token: 'osETH', aliases: ['oseth'] },
+  'renzo': { name: 'Renzo', token: 'ezETH', aliases: ['ezeth'] },
+  'frax-ether': { name: 'Frax', token: 'sfrxETH', aliases: ['sfrxeth', 'frxeth'] },
+  'swell-liquid-staking': { name: 'Swell', token: 'swETH', aliases: ['sweth'] },
+  'stader': { name: 'Stader', token: 'ETHx', aliases: ['ethx'] },
+};
+
 /** The BTB protocol registry slug for each, when it has the contracts (get_protocol, then build_tx). */
 const REGISTRY: Record<string, string> = { 'aave-v3': 'aave-v3', 'morpho-blue': 'morpho' };
 
@@ -27,8 +44,8 @@ function feed(): Promise<Row[]> {
   if (!cache || Date.now() - cache.at > TTL_MS) {
     const rows = fetch(FEED, { signal: AbortSignal.timeout(20_000) })
       .then((r) => { if (!r.ok) throw new Error(`rates feed ${r.status}`); return r.json() as Promise<{ data: Row[] }>; })
-      // Single-asset supply markets of the lending projects only: about 1,700 of the feed's 15,000 rows.
-      .then((b) => b.data.filter((p) => PROJECTS[p.project] && p.exposure === 'single' && typeof p.apy === 'number'));
+      // Single-asset rows of the lending and liquid-staking projects only: about 1,800 of the feed's 15,000.
+      .then((b) => b.data.filter((p) => (PROJECTS[p.project] || STAKING[p.project]) && p.exposure === 'single' && typeof p.apy === 'number'));
     cache = { at: Date.now(), rows };
     rows.catch(() => { if (cache?.rows === rows) cache = null; });
   }
@@ -41,7 +58,7 @@ const chainNorm = (c: string) => CHAIN_ALIASES[norm(c)] ?? norm(c);
 const r2 = (x: number | null | undefined) => (x == null ? null : Math.round(x * 100) / 100);
 
 export async function lendingRates(a: { token?: string; chain?: string; protocol?: string; minTvlUsd?: number; limit?: number }) {
-  const rows = await feed();
+  const rows = (await feed()).filter((p) => PROJECTS[p.project]);
   const token = a.token?.trim().toLowerCase();
   const chain = a.chain ? chainNorm(a.chain) : null;
   const proto = a.protocol ? norm(a.protocol) : null;
@@ -68,6 +85,38 @@ export async function lendingRates(a: { token?: string; chain?: string; protocol
       'Supply APY: what lending the token earns now, variable. Rewards (if any) are paid in another token and can stop.',
       'To lend for a person: get_protocol(registry) for the official contract on that chain, then build_tx with steps [approve on the token, the supply call] and give them the signLink.',
       'Source: DefiLlama yields, refreshed about hourly. Markets under the TVL floor are left out (minTvlUsd, default 1000000). Not financial advice.',
+    ],
+  };
+}
+
+/**
+ * What ETH earns staked, per liquid-staking token, best first. Wrapped forms earn the same yield (wstETH is stETH,
+ * weETH is eETH), so a pool holding one of them earns that yield on that half on top of its trading fees.
+ */
+export async function stakingRates(a: { token?: string }) {
+  const rows = await feed();
+  const want = a.token?.trim().toLowerCase();
+  const best = new Map<string, Row>();
+  for (const p of rows) {
+    const s = STAKING[p.project];
+    if (!s || !s.aliases.includes(p.symbol.toLowerCase())) continue;
+    // One row per project: the deepest market is the protocol's own staking rate.
+    const had = best.get(p.project);
+    if (!had || p.tvlUsd > had.tvlUsd) best.set(p.project, p);
+  }
+  const list = [...best.entries()]
+    .map(([project, p]) => ({ project, p, s: STAKING[project] }))
+    .filter(({ s }) => !want || s.aliases.includes(want) || s.token.toLowerCase() === want || norm(s.name).startsWith(norm(want)))
+    .sort((x, y) => (y.p.apy ?? 0) - (x.p.apy ?? 0));
+  return {
+    count: list.length,
+    staking: list.map(({ p, s }) => ({
+      protocol: s.name, token: s.token, alsoTradesAs: s.aliases.filter((x) => x !== s.token.toLowerCase()),
+      stakingApyPct: r2(p.apy), avg30dApyPct: r2(p.apyMean30d), tvlUsd: Math.round(p.tvlUsd),
+    })),
+    notes: [
+      'A pool with one of these tokens (wstETH-WETH, weETH-ETH...) earns the token\'s staking APY on that half, on top of the pool APR the pool tools show.',
+      'Restaking tokens (ezETH, rsETH, weETH) add restaking risk on top of staking. Source: DefiLlama yields. Not financial advice.',
     ],
   };
 }

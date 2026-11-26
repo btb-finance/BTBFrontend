@@ -61,14 +61,14 @@ export async function findToken(query: string, chain: string | number) {
   const list = await catalog(chainId);
   const exact = list.filter((t) => t.address === lower || t.symbol.toLowerCase() === lower || t.name.toLowerCase() === lower)
     .sort((a, b) => Number(b.verified) - Number(a.verified));
-  if (exact.length) return { chainId, tokens: exact.slice(0, 3).map((t) => ({ ...t, source: 'catalog' })) };
+  if (exact.length) return withTradeable(chainId, { chainId, tokens: exact.slice(0, 3).map((t) => ({ ...t, source: 'catalog' })) });
   // 2. LI.FI's single lookup (also knows tokens outside the bulk list).
   try {
     const r = await fetch(`https://li.quest/v1/token?chain=${chainId}&token=${encodeURIComponent(q)}`, { signal: AbortSignal.timeout(5_000) });
     if (r.ok) {
       const t = await r.json() as { address?: string; symbol?: string; name?: string; decimals?: number; priceUSD?: string; verificationStatus?: string };
       if (t.address && t.verificationStatus !== 'flagged' && !/^0x0{40}$/.test(t.address)) {
-        return { chainId, tokens: [{ address: t.address.toLowerCase(), symbol: t.symbol, name: t.name, decimals: t.decimals, priceUsd: Number(t.priceUSD) || undefined, source: 'lifi' }] };
+        return withTradeable(chainId, { chainId, tokens: [{ address: t.address.toLowerCase(), symbol: t.symbol, name: t.name, decimals: t.decimals, priceUsd: Number(t.priceUSD) || undefined, source: 'lifi' }] });
       }
     }
   } catch { /* next source */ }
@@ -93,10 +93,64 @@ export async function findToken(query: string, chain: string | number) {
       }
       const rows = [...found.values()].sort((a, b) => b.liquidityUsd - a.liquidityUsd).slice(0, 3)
         .map((r) => ({ ...r, liquidityUsd: Math.round(r.liquidityUsd), source: 'dexscreener' }));
-      if (rows.length) return { chainId, tokens: rows, note: 'Not in the swap catalog: the most liquid match is first; copies with tiny liquidity may be fakes.' };
+      if (rows.length) return withTradeable(chainId, { chainId, tokens: rows, note: 'Not in the swap catalog: the most liquid match is first; copies with tiny liquidity may be fakes.' });
     }
   }
   return { chainId, tokens: [], note: `No token "${q}" found on chain ${chainId}. Do not guess an address; ask for the contract address.` };
+}
+
+/**
+ * Marks each match tradeable or not: whether the swap aggregator finds a route selling it for the native coin. Two
+ * tokens can share a name and only one trade (Robinhood Chain's two USDGs), so this is checked before anyone quotes.
+ */
+async function withTradeable<T extends { chainId: number; tokens: { address: string; decimals?: number }[] }>(chainId: number, r: T): Promise<T> {
+  if (!KYBER_CHAINS[chainId]) return r;
+  const tokens = await Promise.all(r.tokens.map(async (t) => {
+    if (!/^0x[0-9a-f]{40}$/i.test(t.address)) return t;
+    const ok = await Promise.race([
+      getKyberQuote(t.address, 'ETH', (10n ** BigInt(t.decimals ?? 18)).toString(), 18, chainId).then((q) => BigInt(q.amountOut || '0') > 0n).catch(() => false),
+      new Promise<null>((done) => setTimeout(() => done(null), 4_000)),
+    ]);
+    return ok === null ? t : { ...t, tradeable: ok };
+  }));
+  return { ...r, tokens };
+}
+
+// ---- quick_token_check (free) ----
+
+/** A free basic safety check from GoPlus: honeypot, taxes, owner powers. Not as deep as a paid btb.finance scan. */
+export async function quickTokenCheck(a: { chain: string | number; token: string }) {
+  const chainId = tokenChainId(a.chain);
+  if (!chainId) throw new Error(`Unknown chain "${a.chain}".`);
+  if (!/^0x[0-9a-fA-F]{40}$/.test(a.token)) throw new Error('token must be a 0x address (find_token gives it).');
+  const token = a.token.toLowerCase();
+  const r = await fetch(`https://api.gopluslabs.io/api/v1/token_security/${chainId}?contract_addresses=${token}`, { signal: AbortSignal.timeout(10_000) });
+  const body = await r.json().catch(() => null) as { code?: number; result?: Record<string, Record<string, unknown>> } | null;
+  const x = body?.result?.[token];
+  if (!x) return { chainId, token, checked: false, note: 'No free check available for this token or chain. A full scan on btb.finance covers more.', scanLink: `https://btb.finance/scan?token=${token}` };
+  const yes = (k: string) => x[k] === '1';
+  const pct = (k: string) => (typeof x[k] === 'string' && x[k] !== '' ? Math.round(Number(x[k]) * 10_000) / 100 : null);
+  const flags = [
+    yes('is_honeypot') && 'honeypot: it cannot be sold',
+    yes('cannot_sell_all') && 'cannot sell the whole balance',
+    yes('is_mintable') && 'owner can mint more',
+    yes('owner_change_balance') && 'owner can change balances',
+    yes('hidden_owner') && 'hidden owner',
+    yes('is_blacklisted') && 'has a blacklist',
+    yes('transfer_pausable') && 'transfers can be paused',
+    yes('slippage_modifiable') && 'tax can be changed',
+    yes('is_proxy') && 'upgradeable proxy',
+    x.is_open_source === '0' && 'source code not verified',
+  ].filter(Boolean) as string[];
+  const buy = pct('buy_tax'), sell = pct('sell_tax');
+  if ((buy ?? 0) > 10 || (sell ?? 0) > 10) flags.push(`high tax (buy ${buy ?? 0}%, sell ${sell ?? 0}%)`);
+  return {
+    chainId, token, checked: true, source: 'GoPlus (free basic check)',
+    symbol: x.token_symbol ?? null, honeypot: yes('is_honeypot'), buyTaxPct: buy, sellTaxPct: sell,
+    holders: x.holder_count ? Number(x.holder_count) : null, openSource: x.is_open_source === '1',
+    flags, verdict: flags.length === 0 ? 'no red flags in the basic check' : `${flags.length} warning${flags.length > 1 ? 's' : ''}`,
+    note: 'Basic and free. token_safety or a btb.finance scan also checks holders, liquidity locks and flows.',
+  };
 }
 
 // ---- quote_swap ----
