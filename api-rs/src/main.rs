@@ -33,6 +33,8 @@ struct App {
     http: reqwest::Client,
     upstream: String,
     convex: String,
+    /// Anonymous REST calls per IP per minute, counted here instead of in Convex.
+    limits: Arc<std::sync::Mutex<HashMap<String, (u64, u32)>>>,
     /// The upstream connector's tools/list, kept for 10 minutes.
     upstream_tools: Arc<RwLock<Option<(std::time::Instant, Vec<Value>)>>>,
 }
@@ -44,7 +46,18 @@ async fn main() {
     let upstream = std::env::var("UPSTREAM_URL").unwrap_or_else(|_| "https://btb.finance".into());
     let port: u16 = std::env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(8080);
     let http = reqwest::Client::builder().user_agent("btb-api/0.1").build().expect("http client");
-    let app = App { snap: Arc::new(RwLock::new(None)), http: http.clone(), upstream, convex: convex.clone(), upstream_tools: Arc::new(RwLock::new(None)) };
+    let app = App { snap: Arc::new(RwLock::new(None)), http: http.clone(), upstream, convex: convex.clone(), limits: Arc::new(std::sync::Mutex::new(HashMap::new())), upstream_tools: Arc::new(RwLock::new(None)) };
+    // Old minute windows are dropped every few minutes so the table stays small.
+    {
+        let limits = app.limits.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(300)).await;
+                let now = minute_now();
+                limits.lock().map(|mut m| m.retain(|_, (w, _)| *w + 1 >= now)).ok();
+            }
+        });
+    }
     snapshot::keep_fresh(app.snap.clone(), http, convex, Duration::from_secs(300));
 
     let router = rest_routes(Router::new())
@@ -135,8 +148,62 @@ fn body_args(body: &Bytes) -> Map<String, Value> {
     serde_json::from_slice::<Value>(body).ok().and_then(|v| v.as_object().cloned()).unwrap_or_default()
 }
 
+/// Calls a minute per IP without an API key, the same as btb.finance/api/v1.
+const ANON_PER_MINUTE: u32 = 20;
+
+fn minute_now() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() / 60).unwrap_or(0)
+}
+
+fn client_ip(h: &HeaderMap) -> String {
+    let get = |k: &str| h.get(k).and_then(|v| v.to_str().ok()).map(|s| s.split(',').next().unwrap_or("").trim().to_string());
+    get("cf-connecting-ip").or_else(|| get("x-forwarded-for")).or_else(|| get("x-real-ip")).filter(|s| !s.is_empty()).unwrap_or_else(|| "unknown".into())
+}
+
+fn has_api_key(h: &HeaderMap, q: &HashMap<String, String>) -> bool {
+    h.contains_key("authorization") || h.contains_key("x-api-key") || q.contains_key("api_key")
+}
+
+/// Counts one anonymous call; Err(seconds to wait) once the IP is over its minute's limit.
+fn take_anon(app: &App, ip: &str) -> Result<(u32, u64), u64> {
+    let now = minute_now();
+    let mut m = app.limits.lock().map_err(|_| 1u64)?;
+    let e = m.entry(ip.to_string()).or_insert((now, 0));
+    if e.0 != now {
+        *e = (now, 0);
+    }
+    if e.1 >= ANON_PER_MINUTE {
+        let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+        return Err(60 - secs % 60);
+    }
+    e.1 += 1;
+    Ok((ANON_PER_MINUTE - e.1, (now + 1) * 60))
+}
+
 /// One REST route: path parameters, then the query string, then (POST) the JSON body, as the TypeScript API merges them.
-async fn rest(app: App, tool: &'static str, rename: &'static [(&'static str, &'static str)], path: HashMap<String, String>, q: HashMap<String, String>, body: Option<Bytes>) -> Response {
+/// Calls with an API key go to btb.finance, where keys live (Convex), so this server holds no secrets.
+async fn rest(app: App, tool: &'static str, rename: &'static [(&'static str, &'static str)], path: HashMap<String, String>, q: HashMap<String, String>, body: Option<Bytes>, headers: HeaderMap, method: axum::http::Method, uri: axum::http::Uri) -> Response {
+    if has_api_key(&headers, &q) {
+        return forward_rest(State(app), method, uri, headers, body.unwrap_or_default()).await;
+    }
+    let (remaining, reset) = match take_anon(&app, &client_ip(&headers)) {
+        Ok(x) => x,
+        Err(wait) => {
+            let mut r = rest_error(StatusCode::TOO_MANY_REQUESTS, "rate_limited", &format!("Limit of {ANON_PER_MINUTE} calls a minute reached. Retry in {wait}s, or get a free key (POST /api/v1/keys) for 120 a minute."));
+            r.headers_mut().insert("retry-after", wait.into());
+            r.headers_mut().insert("x-ratelimit-limit", ANON_PER_MINUTE.into());
+            r.headers_mut().insert("x-ratelimit-remaining", 0u32.into());
+            return r;
+        }
+    };
+    let mut r = rest_inner(app, tool, rename, path, q, body).await;
+    r.headers_mut().insert("x-ratelimit-limit", ANON_PER_MINUTE.into());
+    r.headers_mut().insert("x-ratelimit-remaining", remaining.into());
+    r.headers_mut().insert("x-ratelimit-reset", reset.into());
+    r
+}
+
+async fn rest_inner(app: App, tool: &'static str, rename: &'static [(&'static str, &'static str)], path: HashMap<String, String>, q: HashMap<String, String>, body: Option<Bytes>) -> Response {
     let mut a = rest_args(tool, &q, rename);
     for (k, v) in path {
         a.insert(k, json!(v));
@@ -154,11 +221,11 @@ macro_rules! route_tool {
     ($router:expr, $path:literal, $tool:literal, $rename:expr) => {
         $router.route(
             $path,
-            get(|State(app): State<App>, Path(p): Path<HashMap<String, String>>, Query(q): Query<HashMap<String, String>>| async move {
-                rest(app, $tool, $rename, p, q, None).await
+            get(|State(app): State<App>, Path(p): Path<HashMap<String, String>>, Query(q): Query<HashMap<String, String>>, h: HeaderMap, m: axum::http::Method, u: axum::http::Uri| async move {
+                rest(app, $tool, $rename, p, q, None, h, m, u).await
             })
-            .post(|State(app): State<App>, Path(p): Path<HashMap<String, String>>, Query(q): Query<HashMap<String, String>>, body: Bytes| async move {
-                rest(app, $tool, $rename, p, q, Some(body)).await
+            .post(|State(app): State<App>, Path(p): Path<HashMap<String, String>>, Query(q): Query<HashMap<String, String>>, h: HeaderMap, m: axum::http::Method, u: axum::http::Uri, body: Bytes| async move {
+                rest(app, $tool, $rename, p, q, Some(body), h, m, u).await
             }),
         )
     };
