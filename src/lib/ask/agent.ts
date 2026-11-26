@@ -14,8 +14,10 @@ import { getKyberQuote } from '@/lib/kyberswap';
 const GLM_URL = 'https://api.z.ai/api/coding/paas/v4/chat/completions';
 const GLM_MODEL = 'glm-5.3-flash';
 
-/** Swaps and LP deposits have their own screens, so people get a button there instead of raw transactions. */
-const HIDDEN_TOOLS = new Set(['build_swap', 'build_add_liquidity']);
+/** LP deposits have their own screen (range picker), so people get a button there instead of raw transactions. */
+const HIDDEN_TOOLS = new Set(['build_add_liquidity']);
+/** Tools that build transactions: only with a connected wallet, and only through the checks below. */
+const BUILD_TOOLS = new Set(['build_tx', 'build_swap']);
 
 /** What the person sees while each tool runs, and after, above the answer. */
 export const STEP_LABELS: Record<string, string> = {
@@ -39,6 +41,7 @@ export const STEP_LABELS: Record<string, string> = {
   find_token: 'Looked up the token',
   quote_swap: 'Got a live quote',
   build_tx: 'Built a transaction',
+  build_swap: 'Built the swap',
 };
 
 const CHAIN_IDS = 'Ethereum 1, Base 8453, BNB Chain 56, Arbitrum 42161, Optimism 10, Polygon 137, Unichain 130, Robinhood Chain 4663';
@@ -56,6 +59,9 @@ function systemPrompt(wallet: string | null): string {
     '',
     'BUTTONS: end with one to three action buttons, each on its own line, written exactly as a markdown link: [Label](URL). Labels are 1 to 4 words, like [Add liquidity](...), [Swap now](...), [Open pool](...). Use only these URLs:',
     '- a pool: the exact btb.finance link that add_liquidity_link or another tool returned. Never build a pool link yourself.',
+    wallet
+      ? '- SWAPS with a wallet connected: find_token for each token that is not ETH, then build_swap (it includes the quote), and the page shows Approve and Swap buttons to sign right here. Mention only the steps that were built (selling ETH needs no approval). Add no other buttons except optionally one [Open in Swap](link) using the swap link below.'
+      : '- SWAPS without a wallet: give the swap link below; the person connects and confirms there.',
     `- a swap: https://btb.finance/swap?chain=<chainId>&from=<symbol or token address>&to=<symbol or token address>&amount=<amount to sell, optional>. Chain ids: ${CHAIN_IDS}. The symbol ETH in a swap link means the chain's native coin (ETH on Ethereum, Base, Arbitrum and the other ETH chains, BNB on BNB Chain): use it for those. On BNB Chain, ETH itself is a token, so look it up. For every other token use the contract address that find_token (or another tool) returned for that chain; never write an address from memory. The person confirms the swap on that screen.`,
     '- pages: https://btb.finance/discover (all pools), /portfolio (their tokens and positions), /simulate (backtest a range), /smart-lps (copy the best LPs), /dashboard (daily check-in and Friday BTB rewards), /docs (the manual), /agents (API and MCP for developers).',
     wallet
@@ -73,8 +79,12 @@ export type AskTurn = { role: 'user' | 'assistant'; content: string };
 /** One transaction for the person's wallet, built by build_tx. */
 export type TxStep = {
   label: string; chainId: number; to: string; data: string; value: string; fn: string;
-  dryRun: 'passed' | 'after-previous' | 'reverted' | 'skipped'; dryRunNote?: string; warnings: string[];
+  dryRun: 'passed' | 'after-previous' | 'reverted' | 'skipped' | 'none'; dryRunNote?: string; warnings: string[];
+  /** Swaps: when it was built, and what to rebuild it from at signing time so the quote is fresh. */
+  builtAt?: number;
+  swap?: SwapParams;
 };
+export type SwapParams = { chainId: number; tokenIn: string; tokenOut: string; amount: string; slippageBps: number };
 export type AskResult = { reply: string; steps: string[]; txs?: TxStep[] };
 
 // ---- token lookup: the model must never write a contract address from memory ----
@@ -235,6 +245,13 @@ let toolDefs: Promise<unknown[]> | null = null;
 function allModelTools(): Promise<unknown[]> {
   toolDefs ??= listTools().then((tools) => tools.filter((t) => !HIDDEN_TOOLS.has(t.name)).map((t) => {
     const { $schema: _drop, ...params } = t.inputSchema as JsonSchema & { $schema?: string };
+    if (t.name === 'build_swap') {
+      // Always for and to the connected wallet.
+      const { wallet: _w, recipient: _r, ...props } = params.properties ?? {};
+      params.properties = props;
+      params.required = (params.required ?? []).filter((r) => r !== 'wallet');
+      return { type: 'function', function: { name: t.name, description: 'Build a swap for the connected wallet to sign right here: the exact approval if needed, then the swap at the best KyberSwap price, with the quote and a dry run. The page shows it as step buttons.', parameters: params } } as unknown;
+    }
     if (t.name === 'build_tx') {
       // The wallet is always the connected one (filled in here, never by the model); the label names the button.
       const { wallet: _w, ...props } = params.properties ?? {};
@@ -249,10 +266,69 @@ function allModelTools(): Promise<unknown[]> {
 /** build_tx only with a connected wallet to build for. */
 async function modelTools(wallet: string | null): Promise<unknown[]> {
   const all = await allModelTools();
-  return wallet ? all : all.filter((t) => (t as { function: { name: string } }).function.name !== 'build_tx');
+  return wallet ? all : all.filter((t) => !BUILD_TOOLS.has((t as { function: { name: string } }).function.name));
 }
 
 const MAX_UINT_HALF = 2n ** 255n;
+const isTokenArg = (v: string) => /^eth$/i.test(v) || /^0x[0-9a-fA-F]{40}$/.test(v);
+
+type BuiltSwap = {
+  chainId: number; balanceOk: boolean;
+  quote: { amountIn: string; amountOut: string; amountOutUsd: number; priceImpactPct: number; gasUsd: number; route: string };
+  tokenOutSafety: { score: number; honeypot: boolean; flags: string[] } | null;
+  simulation: { status: 'passed' | 'reverted' | 'skipped'; reason?: string };
+  transactions: { to: string; data: string; value: string; label: string }[];
+};
+
+/** build_swap for the wallet, as page steps. Also used to rebuild a swap with a fresh quote when it is signed. */
+export async function swapSteps(p: SwapParams, wallet: string): Promise<{ steps: TxStep[]; built: BuiltSwap }> {
+  const built = await callTool('build_swap', {
+    chain: String(p.chainId), tokenIn: p.tokenIn, tokenOut: p.tokenOut, amount: p.amount, wallet, slippageBps: p.slippageBps,
+  }) as BuiltSwap;
+  const [inM, outM] = await Promise.all([tokenMeta(p.chainId, p.tokenIn), tokenMeta(p.chainId, p.tokenOut)]);
+  const symIn = inM?.symbol ?? 'tokens';
+  const symOut = outM?.symbol ?? '';
+  const n = built.transactions.length;
+  const now = Date.now();
+  const steps = built.transactions.map((t, i): TxStep => {
+    const last = i === n - 1;
+    const sim = built.simulation;
+    return {
+      label: last ? `Swap ${p.amount} ${symIn} for ${built.quote.amountOut} ${symOut}`.trim() : t.label.replace(/ for the KyberSwap router$/, ''),
+      chainId: built.chainId, to: t.to, data: t.data, value: t.value,
+      fn: last ? `KyberSwap via ${built.quote.route}` : 'approve(address,uint256)',
+      // Skipped with a balance means it waits for the approval; skipped without one means the wallet is short.
+      dryRun: !last ? 'none' : sim.status === 'passed' ? 'passed' : n > 1 && sim.status === 'skipped' && built.balanceOk ? 'after-previous' : 'reverted',
+      dryRunNote: last ? sim.reason : undefined,
+      warnings: last && built.tokenOutSafety?.honeypot ? ['The token you buy looks like a honeypot: you may not be able to sell it.'] : [],
+      ...(last ? { builtAt: now, swap: p } : {}),
+    };
+  });
+  return { steps, built };
+}
+
+async function buildSwapStep(args: Record<string, unknown>, wallet: string, seen: string, txs: TxStep[]): Promise<string> {
+  const tokenIn = typeof args.tokenIn === 'string' ? args.tokenIn.trim() : '';
+  const tokenOut = typeof args.tokenOut === 'string' ? args.tokenOut.trim() : '';
+  const amount = typeof args.amount === 'string' || typeof args.amount === 'number' ? String(args.amount).trim() : '';
+  const chainArg = typeof args.chain === 'string' || typeof args.chain === 'number' ? String(args.chain) : '';
+  const chainId = Number(chainArg) || ({ ethereum: 1, base: 8453, bnb: 56, bsc: 56, arbitrum: 42161, optimism: 10, polygon: 137, unichain: 130, robinhood: 4663 } as Record<string, number>)[chainArg.toLowerCase().split(' ')[0]];
+  if (!chainId) return `Error: chain must be one of: ${CHAIN_IDS}`;
+  if (!isTokenArg(tokenIn) || !isTokenArg(tokenOut)) return 'Error: tokenIn and tokenOut must be "ETH" or a contract address from find_token.';
+  for (const t of [tokenIn, tokenOut]) {
+    if (!/^eth$/i.test(t) && !KNOWN.has(t.toLowerCase()) && !seen.includes(t.toLowerCase())) return 'Error: that token address did not come from a tool. Look it up with find_token first.';
+  }
+  if (!/^\d+(\.\d+)?$/.test(amount)) return 'Error: amount must be a plain number like "1" or "0.25".';
+  // The model may ask for more slippage, never past 3%.
+  const slippageBps = Math.min(300, Math.max(10, Number(args.slippageBps) || 50));
+  const { steps, built } = await swapSteps({ chainId, tokenIn, tokenOut, amount, slippageBps }, wallet);
+  txs.push(...steps);
+  return JSON.stringify({
+    built: steps.length > 1 ? `2 steps shown to the person: approve the token, then swap` : '1 step shown to the person: the swap (no approval needed)',
+    quote: built.quote, balanceOk: built.balanceOk, dryRun: built.simulation, tokenOutSafety: built.tokenOutSafety,
+    note: 'Do not paste calldata. Summarise the quote in one or two lines and mention only the steps listed in "built". If balanceOk is false, say they do not hold enough. Add no link buttons except optionally [Open in Swap](swap link).',
+  });
+}
 
 /** Runs build_tx for the connected wallet, after checks the model cannot talk its way past. */
 async function buildStep(args: Record<string, unknown>, wallet: string, seen: string, txs: TxStep[]): Promise<string> {
@@ -354,14 +430,15 @@ export async function ask(message: string, history: AskTurn[], wallet: string | 
       let args: Record<string, unknown> = {};
       try { args = JSON.parse(c.function?.arguments || '{}'); } catch { /* none */ }
       if (HIDDEN_TOOLS.has(name)) return 'Not available here: give the person a swap or pool button instead.';
-      if (name === 'build_tx' && !wallet) return 'Error: no wallet connected. Ask the person to connect one first.';
+      if (BUILD_TOOLS.has(name) && !wallet) return 'Error: no wallet connected. Ask the person to connect one first.';
       const label = STEP_LABELS[name] ?? name.replace(/_/g, ' ');
       if (!steps.includes(label)) steps.push(label);
       try {
         // A slow tool must not run the whole request past the host's limit.
         const out = await Promise.race([
           name === 'find_token' ? findToken(args) : name === 'quote_swap' ? quoteSwap(args)
-            : name === 'build_tx' ? buildStep(args, wallet!, seenText(), txs) : callTool(name, args),
+            : name === 'build_tx' ? buildStep(args, wallet!, seenText(), txs)
+            : name === 'build_swap' ? buildSwapStep(args, wallet!, seenText(), txs) : callTool(name, args),
           new Promise((_, no) => setTimeout(() => no(new Error('this lookup took too long; answer without it or suggest the matching page')), Math.max(3_000, Math.min(12_000, left() - 6_000)))),
         ]);
         return (typeof out === 'string' ? out : JSON.stringify(out)).slice(0, 7_000);
@@ -371,8 +448,9 @@ export async function ask(message: string, history: AskTurn[], wallet: string | 
     };
     // Lookups run together; transactions are built one after another so their steps keep the model's order.
     const results: string[] = new Array(calls.length);
-    await Promise.all(calls.map(async (c, i) => { if (c.function?.name !== 'build_tx') results[i] = await run(c); }));
-    for (let i = 0; i < calls.length; i++) if (calls[i].function?.name === 'build_tx') results[i] = await run(calls[i]);
+    const builds = (c: ToolCall) => BUILD_TOOLS.has(c.function?.name ?? '');
+    await Promise.all(calls.map(async (c, i) => { if (!builds(c)) results[i] = await run(c); }));
+    for (let i = 0; i < calls.length; i++) if (builds(calls[i])) results[i] = await run(calls[i]);
     calls.forEach((c, i) => messages.push({ role: 'tool', tool_call_id: c.id ?? '', content: results[i] }));
   }
   reply = reply.trim();

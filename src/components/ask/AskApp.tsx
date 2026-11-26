@@ -198,9 +198,13 @@ function AskInner() {
           <div className="ag-thread" aria-live="polite">
             {turns.map((t, i) => t.role === 'user'
               ? <div key={i} className="ag-user">{t.content}</div>
-              : <BotTurn key={i} turn={t} onStep={(n, st) => active && update(active.id, (c) => ({
-                  ...c, turns: c.turns.map((x, j) => j === i ? { ...x, txState: Object.assign([...(x.txState ?? [])], { [n]: st }) } : x),
-                }))}/>)}
+              : <BotTurn key={i} turn={t}
+                  onStep={(n, st) => active && update(active.id, (c) => ({
+                    ...c, turns: c.turns.map((x, j) => j === i ? { ...x, txState: Object.assign([...(x.txState ?? [])], { [n]: st }) } : x),
+                  }))}
+                  onRebuilt={(n, step) => active && update(active.id, (c) => ({
+                    ...c, turns: c.turns.map((x, j) => j === i && x.txs ? { ...x, txs: x.txs.map((y, k) => k === n ? step : y) } : x),
+                  }))}/>)}
             {busy && <div className="ag-thinking"><span className="ag-pulse"/>Working on it</div>}
             <div ref={endRef}/>
           </div>
@@ -221,7 +225,7 @@ function AskInner() {
   );
 }
 
-function BotTurn({ turn, onStep }: { turn: Turn; onStep: (n: number, s: StepState) => void }) {
+function BotTurn({ turn, onStep, onRebuilt }: { turn: Turn; onStep: (n: number, s: StepState) => void; onRebuilt: (n: number, step: TxStep) => void }) {
   if (turn.error) return <div className="ag-bot"><div className="ag-error">{turn.content}</div></div>;
   const { body, actions } = renderReply(turn.content);
   return (
@@ -230,10 +234,11 @@ function BotTurn({ turn, onStep }: { turn: Turn; onStep: (n: number, s: StepStat
         <div className="ag-steps">{turn.steps.map((s) => <span key={s} className="ag-step"><Icon name="check" size={12}/>{s}</span>)}</div>
       )}
       <div className="ag-text">{body}</div>
-      {turn.txs && turn.txs.length > 0 && <TxPlan txs={turn.txs} state={turn.txState ?? []} onState={onStep}/>}
+      {turn.txs && turn.txs.length > 0 && <TxPlan txs={turn.txs} state={turn.txState ?? []} onState={onStep} onRebuilt={onRebuilt}/>}
       {actions.length > 0 && (
         <div className="ag-actions">
-          {actions.map((a, i) => <a key={a.href} href={a.href} className={`ag-action${i === 0 ? ' primary' : ''}`}>{a.label}<Icon name="arrow" size={13}/></a>)}
+          {/* With steps to sign, those are the main action; links stay secondary. */}
+          {actions.map((a, i) => <a key={a.href} href={a.href} className={`ag-action${i === 0 && !turn.txs?.length ? ' primary' : ''}`}>{a.label}<Icon name="arrow" size={13}/></a>)}
         </div>
       )}
     </div>

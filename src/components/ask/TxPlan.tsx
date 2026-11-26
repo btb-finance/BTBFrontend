@@ -15,7 +15,11 @@ const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
  * Transactions the agent built (build_tx) as numbered steps. The person signs each in their own wallet, in order:
  * a step unlocks once the one before it has confirmed. Nothing is sent without their wallet's approval.
  */
-export function TxPlan({ txs, state, onState }: { txs: TxStep[]; state: StepState[]; onState: (i: number, s: StepState) => void }) {
+export function TxPlan({ txs, state, onState, onRebuilt }: {
+  txs: TxStep[]; state: StepState[]; onState: (i: number, s: StepState) => void;
+  /** A swap step was rebuilt with a fresh quote: keep the new one with the chat. */
+  onRebuilt?: (i: number, step: TxStep) => void;
+}) {
   const config = useConfig();
   const { address, chainId: walletChain } = useConnection();
   const { switchChainAsync } = useSwitchChain();
@@ -27,10 +31,18 @@ export function TxPlan({ txs, state, onState }: { txs: TxStep[]; state: StepStat
   const next = txs.findIndex((_, i) => state[i]?.status !== 'done');
 
   const sign = async (i: number) => {
-    const tx = txs[i];
+    let tx = txs[i];
     setBusy(true);
     onState(i, { status: 'signing' });
     try {
+      // A swap quote goes stale in a couple of minutes: rebuild it right before signing when it is older than one.
+      if (tx.swap && address && Date.now() - (tx.builtAt ?? 0) > 60_000) {
+        const r = await fetch('/api/ask/swap', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ swap: tx.swap, wallet: address }) });
+        const b = await r.json().catch(() => ({})) as { step?: TxStep; error?: string };
+        if (!b.step) throw new Error(b.error ?? 'Could not refresh the quote.');
+        tx = b.step;
+        onRebuilt?.(i, b.step);
+      }
       if (walletChain !== tx.chainId) await switchChainAsync({ chainId: tx.chainId });
       const hash = await sendTransactionAsync({ to: tx.to as `0x${string}`, data: tx.data as `0x${string}`, value: BigInt(tx.value || '0'), chainId: tx.chainId });
       onState(i, { status: 'confirming', hash });
@@ -64,6 +76,7 @@ export function TxPlan({ txs, state, onState }: { txs: TxStep[]; state: StepStat
                 <code>{tx.fn}</code> on {url ? <a href={`${url}/address/${tx.to}`} target="_blank" rel="noreferrer">{short(tx.to)}</a> : short(tx.to)}
                 {BigInt(tx.value || '0') > 0n && <> with {formatEther(BigInt(tx.value))} {tx.chainId === 56 ? 'BNB' : 'ETH'}</>}
               </div>
+              {tx.swap && <div className="ag-plan-dry">Quote refreshes when you sign if it is over a minute old</div>}
               <div className={`ag-plan-dry${failedDry ? ' bad' : ''}`}>
                 {tx.dryRun === 'passed' && 'Dry run passed'}
                 {tx.dryRun === 'after-previous' && `Dry run waits for step ${i}: it needs that approval on chain first`}
