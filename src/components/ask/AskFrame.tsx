@@ -13,8 +13,10 @@ const CLASSIC: { href: string; label: string; icon: IconName }[] = [
   { href: '/agents', label: 'API and MCP', icon: 'code' },
 ];
 
-export function AskFrame({ children, chatList, footer, sideOpen = false, onOpenSide, onCloseSide, onNewChat }: {
+export function AskFrame({ children, chatList, footer, sideOpen = false, onOpenSide, onCloseSide, onNewChat, title = 'Ask' }: {
   children?: ReactNode;
+  /** The top bar's heading. */
+  title?: string;
   chatList?: ReactNode[];
   footer?: ReactNode;
   sideOpen?: boolean;
@@ -54,7 +56,7 @@ export function AskFrame({ children, chatList, footer, sideOpen = false, onOpenS
       <main className="ag-main">
         <header className="ag-top">
           <button type="button" className="ag-icon-btn ag-burger" onClick={onOpenSide} aria-label="Menu"><Icon name="menu"/></button>
-          <h1>Ask</h1>
+          <h1>{title}</h1>
           <div className="ag-grow"/>
           <a className="ag-classic" href="/">Classic app</a>
         </header>
