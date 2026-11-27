@@ -16,6 +16,7 @@ import { findToken, fullBalance, quickTokenCheck, quoteSwap, tokenChainId, txSta
 import { lendingRates, stakingRates } from './lending';
 import { buildLend, buildWithdraw } from './aave';
 import { buildZapLiquidity } from './zap';
+import { bridgeStatus, buildBridge } from './bridge';
 import { SIGN_STATUS_API, planFromLink, signLink, type SignStep } from '../signLink';
 import type { TxOut } from './build';
 
@@ -31,6 +32,7 @@ const INSTRUCTIONS = `BTB Finance: live liquidity pools across Base, Ethereum, B
 - Tokens: find_token gives a token's contract address on a chain (never write one from memory). quote_swap prices any swap after the BTB fee, with a warning when the pool is thin.
 - To actually swap for a person: build_swap with their wallet, then give them its signLink (one link: approval if needed, then the swap). Do not stop at a quote.
 - Where to earn: compare_yield ranks lending, vaults, savings, staking and stable LPs for a token in one call (with contract addresses). lending_rates gives live supply APYs on Aave, Compound, Morpho, Spark, Euler, Fluid and more, per chain and token. Never guess a rate.
+- Cross-chain (sell a token on one chain, receive any token on another): build_bridge, one signLink; then bridge_status with the source hash to see it arrive.
 - To add liquidity from ONE token (e.g. only USDC for a USDC-cbBTC pool): build_zap_liquidity swaps the right share and opens the position, one signLink.
 - To lend on Aave or take it back: build_lend and build_withdraw (live rate, position, health factor, the approval only when needed, one signLink). Use them instead of build_tx for Aave.
 - After the person signs, sign_status(signLink) says which steps they signed and whether each confirmed (no need to ask for hashes). tx_status (chain + hash) reads any single transaction.
@@ -588,6 +590,38 @@ export function buildServer(): McpServer {
       const body = await r.json() as unknown;
       return r.ok ? text(body) : fail(`The yield index answered ${r.status}: ${JSON.stringify(body).slice(0, 300)}`);
     } catch (e) { return fail(`The yield index is not reachable right now (${(e as Error).message}). lending_rates and staking_rates still work.`); }
+  });
+
+  server.registerTool('build_bridge', {
+    title: 'Swap across chains (ready to sign)',
+    description: 'Sell a token on one chain and receive any token on another chain (e.g. USDC on Base to ETH on Ethereum), through LI.FI\'s best bridge and DEX route: an exact approval if needed, then the bridge transaction, as ONE signLink, with what arrives (and the minimum), fees, gas, the estimated time and a dry run. Tokens arrive in the same wallet. Use find_token for each token on its own chain first.',
+    inputSchema: z.object({
+      fromChain: z.string().describe('Chain the tokens leave, e.g. "base".'),
+      toChain: z.string().describe('Chain they arrive on, e.g. "ethereum".'),
+      tokenIn: z.string().describe('"ETH" for the native coin, or the token address on fromChain.'),
+      tokenOut: z.string().describe('"ETH" for the native coin, or the token address on toChain.'),
+      amount: z.string().regex(/^(\d+(\.\d+)?|max)$/).describe('Whole units of tokenIn, or "max" for the whole balance of a token.'),
+      wallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe('The wallet that signs; it also receives on the other chain.'),
+    }),
+    annotations: WRITE_PREP,
+  }, async (a) => {
+    try {
+      const r = await buildBridge(a);
+      const sims: Sim[] = r.transactions.map((_, i) => (i === r.transactions.length - 1 ? r.simulation : undefined));
+      return text(withSignLink(r, `Send ${r.quote.send} to ${r.quote.onChain} as ${r.quote.receive.split(' ').pop()}`, a.wallet, sims));
+    } catch (e) { return failWith(e); }
+  });
+
+  server.registerTool('bridge_status', {
+    title: 'Cross-chain transfer status',
+    description: 'Whether a cross-chain transfer (from build_bridge or any LI.FI route) arrived: pending, done with the receiving transaction and amount, or failed. Give the source transaction hash (sign_status shows it).',
+    inputSchema: z.object({
+      hash: z.string().regex(/^0x[0-9a-fA-F]{64}$/).describe('Source chain transaction hash.'),
+      fromChain: z.string().optional(), toChain: z.string().optional(),
+    }),
+    annotations: READ,
+  }, async (a) => {
+    try { return text(await bridgeStatus(a)); } catch (e) { return failWith(e); }
   });
 
   server.registerTool('build_swap', {

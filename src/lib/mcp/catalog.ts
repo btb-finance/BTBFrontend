@@ -16,7 +16,7 @@ export interface ToolInfo {
 export const TOOL_GROUPS = ['Yield, lending & staking', 'Pools & research', 'Tokens & prices', 'Wallets & positions', 'Build transactions', 'Protocols', 'Any contract'] as const;
 
 function groupFor(name: string): string {
-  if (name.startsWith('build_') || name === 'sign_status' || name === 'add_liquidity_link') return 'Build transactions';
+  if (name.startsWith('build_') || name === 'sign_status' || name === 'bridge_status' || name === 'add_liquidity_link') return 'Build transactions';
   if (['compare_yield', 'lending_rates', 'staking_rates'].includes(name)) return 'Yield, lending & staking';
   if (['find_token', 'quote_swap', 'token_safety', 'quick_token_check'].includes(name)) return 'Tokens & prices';
   if (['wallet_positions', 'wallet_tokens', 'tx_status'].includes(name) || name.startsWith('auto_manage')) return 'Wallets & positions';

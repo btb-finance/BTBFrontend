@@ -155,7 +155,7 @@ export async function quickTokenCheck(a: { chain: string | number; token: string
 
 // ---- quote_swap ----
 
-async function tokenMeta(client: PublicClient, chainId: number, token: string): Promise<{ symbol: string; decimals: number; priceUsd?: number }> {
+export async function tokenMeta(client: PublicClient, chainId: number, token: string): Promise<{ symbol: string; decimals: number; priceUsd?: number }> {
   if (token.toUpperCase() === 'ETH') {
     const eth = (await catalog(chainId)).find((t) => /^0x0{40}$|^0xe{40}$/.test(t.address));
     return { symbol: nativeSymbol(chainId), decimals: 18, priceUsd: eth?.priceUsd };
