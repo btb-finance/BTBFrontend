@@ -16,6 +16,8 @@ mod rates;
 mod registry;
 mod snapshot;
 mod store;
+mod signlink;
+mod swap;
 mod tools;
 mod txstatus;
 mod yields;
@@ -44,7 +46,8 @@ struct App {
     rates: rates::Feed,
     catalog: txstatus::Catalog,
     /// Steps people signed from btb.finance/sign links: link id → (step, hash, unix time). Kept one day.
-    signed: Arc<std::sync::Mutex<HashMap<String, Vec<(u32, String, i64)>>>>,
+    signed: Arc<signlink::Signed>,
+    tokens: swap::Catalog,
     /// Anonymous REST calls per IP per minute, counted here instead of in Convex.
     limits: Arc<std::sync::Mutex<HashMap<String, (u64, u32)>>>,
     /// The upstream connector's tools/list, kept for 10 minutes.
@@ -100,7 +103,7 @@ async fn run() {
     let upstream = std::env::var("UPSTREAM_URL").unwrap_or_else(|_| "https://btb.finance".into());
     let port: u16 = std::env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(8080);
     let http = reqwest::Client::builder().user_agent("btb-api/0.1").build().expect("http client");
-    let app = App { snap: Arc::new(RwLock::new(None)), http: http.clone(), upstream, convex: convex.clone(), index: store::Index::open().await, rates: rates::Feed::default(), catalog: txstatus::Catalog::default(), signed: Arc::new(std::sync::Mutex::new(HashMap::new())), limits: Arc::new(std::sync::Mutex::new(HashMap::new())), upstream_tools: Arc::new(RwLock::new(None)) };
+    let app = App { snap: Arc::new(RwLock::new(None)), http: http.clone(), upstream, convex: convex.clone(), index: store::Index::open().await, rates: rates::Feed::default(), catalog: txstatus::Catalog::default(), tokens: swap::Catalog::default(), signed: Arc::new(std::sync::Mutex::new(HashMap::new())), limits: Arc::new(std::sync::Mutex::new(HashMap::new())), upstream_tools: Arc::new(RwLock::new(None)) };
     // Old minute windows are dropped every few minutes so the table stays small.
     {
         let limits = app.limits.clone();
@@ -200,7 +203,7 @@ async fn run_rest(app: &App, tool: &str, args: Map<String, Value>) -> Response {
     let Some(snap) = snapshot_now(app).await else {
         return rest_error(StatusCode::SERVICE_UNAVAILABLE, "warming_up", "The pool snapshot is still loading. Retry in a few seconds.");
     };
-    let ctx = tools::Ctx { snap: &snap, http: &app.http, convex: &app.convex, index: &app.index, rates: &app.rates, catalog: &app.catalog };
+    let ctx = tools::Ctx { snap: &snap, http: &app.http, convex: &app.convex, index: &app.index, rates: &app.rates, catalog: &app.catalog, tokens: &app.tokens, signed: &app.signed };
     match tools::call(tool, &args, &ctx).await {
         Ok(v) => json_response(StatusCode::OK, &v),
         Err(tools::ToolError(msg)) => {
@@ -320,6 +323,9 @@ fn rest_routes(r: Router<App>) -> Router<App> {
     let r = route_tool!(r, "/api/v1/lending", "lending_rates", &[]);
     let r = route_tool!(r, "/api/v1/staking", "staking_rates", &[]);
     let r = route_tool!(r, "/api/v1/tx/:chain/:hash", "tx_status", &[]);
+    let r = route_tool!(r, "/api/v1/tokens/find", "find_token", &[("q", "query")]);
+    let r = route_tool!(r, "/api/v1/quote", "quote_swap", &[]);
+    let r = route_tool!(r, "/api/v1/sign/status", "sign_status", &[]);
     route_tool!(r, "/api/v1/tokens/:chain/:token/safety", "token_safety", &[])
 }
 
@@ -436,7 +442,7 @@ async fn handle_rpc(app: &App, msg: Value) -> Option<Value> {
                 let args = msg["params"]["arguments"].as_object().cloned().unwrap_or_default();
                 match snapshot_now(app).await {
                     None => rpc_result(&id, text_content(&json!("The pool snapshot is still loading. Retry in a few seconds."), true)),
-                    Some(snap) => match tools::call(&name, &args, &tools::Ctx { snap: &snap, http: &app.http, convex: &app.convex, index: &app.index, rates: &app.rates, catalog: &app.catalog }).await {
+                    Some(snap) => match tools::call(&name, &args, &tools::Ctx { snap: &snap, http: &app.http, convex: &app.convex, index: &app.index, rates: &app.rates, catalog: &app.catalog, tokens: &app.tokens, signed: &app.signed }).await {
                         Ok(v) => rpc_result(&id, text_content(&v, false)),
                         Err(tools::ToolError(m)) => rpc_result(&id, text_content(&json!(m), true)),
                     },

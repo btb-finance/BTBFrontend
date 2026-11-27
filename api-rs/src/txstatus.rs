@@ -41,6 +41,11 @@ fn chain(id: i64) -> Option<(&'static str, Option<&'static str>, &'static str)> 
     })
 }
 
+/// The public RPC for a chain.
+pub fn rpc_for(id: i64) -> Option<&'static str> {
+    chain(id).map(|c| c.0)
+}
+
 const TRANSFER: &str = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
 /// The LI.FI swap catalog per chain (symbols and decimals), kept an hour: the same list find_token reads.

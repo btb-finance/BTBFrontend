@@ -24,6 +24,8 @@ pub fn definitions() -> Vec<Value> {
     more.extend(crate::lite::definitions(&read));
     more.extend(crate::rates::definitions(&read));
     more.extend(crate::txstatus::definitions(&read));
+    more.extend(crate::swap::definitions(&read));
+    more.extend(crate::signlink::definitions(&read));
     let mut list = vec![
         json!({
             "name": "top_pools",
@@ -156,6 +158,7 @@ pub fn has(name: &str) -> bool {
             | "token_safety" | "lp_plan" | "add_liquidity_link" | "compare_yield"
             | "list_protocols" | "get_protocol" | "quick_token_check" | "bridge_status"
             | "lending_rates" | "staking_rates" | "tx_status"
+            | "find_token" | "quote_swap" | "sign_status"
     )
 }
 
@@ -167,6 +170,8 @@ pub struct Ctx<'a> {
     pub index: &'a crate::store::Index,
     pub rates: &'a crate::rates::Feed,
     pub catalog: &'a crate::txstatus::Catalog,
+    pub tokens: &'a crate::swap::Catalog,
+    pub signed: &'a crate::signlink::Signed,
 }
 
 // ---- arguments ----
@@ -258,6 +263,9 @@ pub async fn call(name: &str, args: &Map<String, Value>, ctx: &Ctx<'_>) -> Resul
         "lending_rates" => crate::rates::lending(args, ctx.rates, ctx.http).await,
         "staking_rates" => crate::rates::staking_rates(args, ctx.rates, ctx.http).await,
         "tx_status" => crate::txstatus::tx_status(args, ctx.http, ctx.catalog).await,
+        "find_token" => crate::swap::find_token(args, ctx.http, ctx.tokens).await,
+        "quote_swap" => crate::swap::quote_swap(args, ctx.http, ctx.tokens).await,
+        "sign_status" => crate::signlink::sign_status(args, ctx.http, ctx.catalog, ctx.signed).await,
         _ => Err(ToolError(format!("Tool {name} not found"))),
     }
 }
