@@ -20,7 +20,9 @@ const RISK_DESC: &str = "Worst risk grade to include (A safest). Default: all.";
 /// tools/list entries: name, title, description, JSON Schema of the arguments, hints.
 pub fn definitions() -> Vec<Value> {
     let read = json!({ "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": true });
-    vec![
+    let mut more = crate::registry::definitions(&read);
+    more.extend(crate::lite::definitions(&read));
+    let mut list = vec![
         json!({
             "name": "top_pools",
             "title": "Top liquidity pools",
@@ -140,7 +142,9 @@ pub fn definitions() -> Vec<Value> {
             "inputSchema": { "type": "object", "properties": { "chain": { "type": "string", "description": CHAIN_DESC } } },
             "annotations": read,
         }),
-    ]
+    ];
+    list.extend(more);
+    list
 }
 
 pub fn has(name: &str) -> bool {
@@ -148,6 +152,7 @@ pub fn has(name: &str) -> bool {
         name,
         "top_pools" | "search_pools" | "chain_summary" | "pool_details" | "compare_pools" | "best_pools_for" | "estimate_lp_earnings"
             | "token_safety" | "lp_plan" | "add_liquidity_link" | "compare_yield"
+            | "list_protocols" | "get_protocol" | "quick_token_check" | "bridge_status"
     )
 }
 
@@ -241,6 +246,10 @@ pub async fn call(name: &str, args: &Map<String, Value>, ctx: &Ctx<'_>) -> Resul
         "lp_plan" => lp_plan(args, snap),
         "add_liquidity_link" => add_liquidity_link(args, snap),
         "compare_yield" => crate::yields::compare(args, ctx).await,
+        "list_protocols" => crate::registry::list(args),
+        "get_protocol" => crate::registry::detail(args),
+        "quick_token_check" => crate::lite::quick_token_check(args, ctx.http).await,
+        "bridge_status" => crate::lite::bridge_status(args, ctx.http).await,
         _ => Err(ToolError(format!("Tool {name} not found"))),
     }
 }

@@ -10,7 +10,9 @@
 //!   GET  /health
 
 mod indexers;
+mod lite;
 mod pools;
+mod registry;
 mod snapshot;
 mod store;
 mod tools;
@@ -157,7 +159,9 @@ async fn run_rest(app: &App, tool: &str, args: Map<String, Value>) -> Response {
         Ok(v) => json_response(StatusCode::OK, &v),
         Err(tools::ToolError(msg)) => {
             // The same codes the TypeScript API gives (src/lib/api/v1.ts callTool).
-            let not_found = msg.contains("not found") || msg.contains("Not found");
+            // src/lib/api/v1.ts callTool: /not found|not in the BTB registry|No function/i is a 404.
+            let lower = msg.to_lowercase();
+            let not_found = lower.contains("not found") || lower.contains("not in the btb registry") || lower.contains("no function");
             let code = if not_found { "not_found" } else if msg.starts_with("Input validation error") { "invalid_arguments" } else { "tool_error" };
             rest_error(if not_found { StatusCode::NOT_FOUND } else { StatusCode::BAD_REQUEST }, code, &msg)
         }
@@ -263,6 +267,10 @@ fn rest_routes(r: Router<App>) -> Router<App> {
     let r = route_tool!(r, "/api/v1/chains", "chain_summary", &[]);
     let r = route_tool!(r, "/api/v1/chains/:chain", "chain_summary", &[]);
     let r = route_tool!(r, "/api/v1/yield", "compare_yield", &[]);
+    let r = route_tool!(r, "/api/v1/protocols", "list_protocols", &[]);
+    let r = route_tool!(r, "/api/v1/protocols/:protocol", "get_protocol", &[]);
+    let r = route_tool!(r, "/api/v1/tokens/:chain/:token/quick-check", "quick_token_check", &[]);
+    let r = route_tool!(r, "/api/v1/bridge/status/:hash", "bridge_status", &[]);
     route_tool!(r, "/api/v1/tokens/:chain/:token/safety", "token_safety", &[])
 }
 
