@@ -596,9 +596,9 @@ export function buildServer(): McpServer {
 
   server.registerTool('wallet_overview', {
     title: 'Where a wallet stands, and what to do',
-    description: 'Start here when someone asks about their portfolio. One call: net worth across BTB\'s protocols (about 36 chains), liquidity pools and the wallet\'s own tokens, each counted once; warnings that need attention (Aave health factor low, pools out of range); and opportunities (idle stablecoins earning nothing, vaults well below the best rate on their chain), each with the yearly gain (on 7-day average rates, only into markets big enough to take the amount) and the exact build tool calls to act. Includes a one-line headline to show the person. Public on-chain data, read-only. Takes about 5 to 25 seconds.',
+    description: 'Start here when someone asks about their portfolio (EVM or Solana address). One call: net worth across BTB\'s protocols (about 36 chains), liquidity pools and the wallet\'s own tokens, each counted once; warnings that need attention (Aave health factor low, pools out of range); and opportunities (idle stablecoins earning nothing, vaults well below the best rate on their chain), each with the yearly gain (on 7-day average rates, only into markets big enough to take the amount) and the exact build tool calls to act. Includes a one-line headline to show the person. Public on-chain data, read-only. Takes about 5 to 25 seconds.',
     inputSchema: z.object({
-      wallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+      wallet: z.string().regex(/^(0x[0-9a-fA-F]{40}|[1-9A-HJ-NP-Za-km-z]{32,44})$/).describe('An EVM address (0x...) or a Solana address.'),
       idleMinUsd: z.number().min(0).optional().describe('Smallest idle stablecoin balance worth suggesting a move for. Default 5.'),
     }),
     annotations: READ,
@@ -614,9 +614,9 @@ export function buildServer(): McpServer {
 
   server.registerTool('wallet_portfolio', {
     title: 'Everything a wallet holds in DeFi',
-    description: 'What a wallet holds across the protocols BTB supports, on every EVM chain they run on (about 36): Aave supplied and borrowed with the health factor, Morpho and other vault shares with the underlying, liquid staking and restaking (Lido, Rocket Pool, Renzo, Origin, StakeStone), Ethena, Sky, Usual, Maple, Falcon, Inverse, Olympus and more, stablecoins and protocol tokens. Grouped by protocol with USD values, totals by kind, and which chains were scanned. LP positions are in wallet_positions. Public on-chain data, read-only; cached a minute.',
+    description: 'What a wallet holds across the protocols BTB supports, on every EVM chain they run on (about 36), or on Solana for a Solana address (SOL, tokens, Jupiter, Meteora, STKESOL, Pump coins and Pump creator fees to claim): Aave supplied and borrowed with the health factor, Morpho and other vault shares with the underlying, liquid staking and restaking (Lido, Rocket Pool, Renzo, Origin, StakeStone), Ethena, Sky, Usual, Maple, Falcon, Inverse, Olympus and more, stablecoins and protocol tokens. Grouped by protocol with USD values, totals by kind, and which chains were scanned. LP positions are in wallet_positions. Public on-chain data, read-only; cached a minute.',
     inputSchema: z.object({
-      wallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+      wallet: z.string().regex(/^(0x[0-9a-fA-F]{40}|[1-9A-HJ-NP-Za-km-z]{32,44})$/).describe('An EVM address (0x...) or a Solana address.'),
       chains: z.string().optional().describe('Optional comma-separated chains to limit the scan, e.g. "base,ethereum". Default: every chain.'),
     }),
     annotations: READ,

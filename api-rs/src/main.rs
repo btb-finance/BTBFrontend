@@ -12,6 +12,7 @@
 mod builders;
 mod indexers;
 mod overview;
+mod solana;
 mod portfolio;
 mod lite;
 mod pools;

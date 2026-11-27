@@ -368,7 +368,11 @@ fn kind_of(h: &Holding) -> &'static str {
 static CACHE: OnceLock<Mutex<HashMap<String, (Instant, Value)>>> = OnceLock::new();
 
 pub async fn wallet_portfolio(a: &Map<String, Value>, ctx: &Ctx<'_>) -> Result<Value, ToolError> {
-    let wallet = opt_str(a, "wallet")?.ok_or_else(|| bad("wallet is required"))?.to_lowercase();
+    let raw = opt_str(a, "wallet")?.ok_or_else(|| bad("wallet is required"))?;
+    if crate::solana::is_address(raw.trim()) {
+        return crate::solana::portfolio(ctx.http, raw.trim()).await.map_err(ToolError);
+    }
+    let wallet = raw.to_lowercase();
     if wallet.len() != 42 || !wallet.starts_with("0x") || !wallet[2..].chars().all(|c| c.is_ascii_hexdigit()) {
         return Err(bad("wallet must be a 0x address"));
     }
@@ -598,9 +602,9 @@ pub fn definitions(read: &Value) -> Vec<Value> {
     vec![json!({
         "name": "wallet_portfolio",
         "title": "Everything a wallet holds in DeFi",
-        "description": "What a wallet holds across the protocols BTB supports, on every EVM chain they run on (about 36): Aave supplied and borrowed with the health factor, Morpho and other vault shares with the underlying, liquid staking and restaking (Lido, Rocket Pool, Renzo, Origin, StakeStone), Ethena, Sky, Usual, Maple, Falcon, Inverse, Olympus and more, stablecoins and protocol tokens. Grouped by protocol with USD values, totals by kind, and which chains were scanned. LP positions are in wallet_positions. Remembers which protocols each wallet uses, so later looks are fast. Public on-chain data, read-only; cached a minute.",
+        "description": "What a wallet holds across the protocols BTB supports, on every EVM chain they run on (about 36), or on Solana for a Solana address (SOL, tokens, Jupiter, Meteora, STKESOL, Pump coins and Pump creator fees to claim): Aave supplied and borrowed with the health factor, Morpho and other vault shares with the underlying, liquid staking and restaking (Lido, Rocket Pool, Renzo, Origin, StakeStone), Ethena, Sky, Usual, Maple, Falcon, Inverse, Olympus and more, stablecoins and protocol tokens. Grouped by protocol with USD values, totals by kind, and which chains were scanned. LP positions are in wallet_positions. Remembers which protocols each wallet uses, so later looks are fast. Public on-chain data, read-only; cached a minute.",
         "inputSchema": { "type": "object", "properties": {
-            "wallet": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" },
+            "wallet": { "type": "string", "pattern": "^(0x[0-9a-fA-F]{40}|[1-9A-HJ-NP-Za-km-z]{32,44})$", "description": "An EVM address (0x...) or a Solana address." },
             "fresh": { "type": "boolean", "description": "Scan every protocol on every chain now instead of only what the wallet used (default false)." },
             "chains": { "type": "string", "description": "Optional comma-separated chains to limit the scan, e.g. \"base,ethereum\". Default: every chain." }
         }, "required": ["wallet"] },
