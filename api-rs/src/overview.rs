@@ -94,7 +94,10 @@ async fn best_for(ctx: &Ctx<'_>, token: &str, chain: i64) -> Vec<Value> {
 }
 
 pub async fn wallet_overview(a: &Map<String, Value>, ctx: &Ctx<'_>) -> Result<Value, ToolError> {
-    let wallet = opt_str(a, "wallet")?.ok_or_else(|| bad("wallet is required"))?;
+    let wallet = opt_str(a, "wallet")?.ok_or_else(|| bad("wallet is required"))?.trim().to_string();
+    if crate::solana::is_address(&wallet) {
+        return solana_overview(ctx, &wallet).await;
+    }
     if wallet.len() != 42 || !wallet.starts_with("0x") || !wallet[2..].chars().all(|c| c.is_ascii_hexdigit()) {
         return Err(bad("wallet must be a 0x address"));
     }
@@ -279,11 +282,52 @@ pub fn definitions(read: &Value) -> Vec<Value> {
     vec![json!({
         "name": "wallet_overview",
         "title": "Where a wallet stands, and what to do",
-        "description": "Start here when someone asks about their portfolio. One call: net worth across BTB's protocols (about 36 chains), liquidity pools and the wallet's own tokens, each counted once; warnings that need attention (Aave health factor low, pools out of range); and opportunities (idle stablecoins earning nothing, vaults well below the best rate on their chain), each with the yearly gain (on 7-day average rates, only into markets big enough to take the amount) and the exact build tool calls to act. Includes a one-line headline to show the person. Public on-chain data, read-only. Takes about 5 to 25 seconds.",
+        "description": "Start here when someone asks about their portfolio (EVM or Solana address). One call: net worth across BTB's protocols (about 36 chains), liquidity pools and the wallet's own tokens, each counted once; warnings that need attention (Aave health factor low, pools out of range); and opportunities (idle stablecoins earning nothing, vaults well below the best rate on their chain), each with the yearly gain (on 7-day average rates, only into markets big enough to take the amount) and the exact build tool calls to act. Includes a one-line headline to show the person. Public on-chain data, read-only. Takes about 5 to 25 seconds.",
         "inputSchema": { "type": "object", "properties": {
-            "wallet": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" },
+            "wallet": { "type": "string", "pattern": "^(0x[0-9a-fA-F]{40}|[1-9A-HJ-NP-Za-km-z]{32,44})$", "description": "An EVM address (0x...) or a Solana address." },
             "idleMinUsd": { "type": "number", "minimum": 0, "description": "Smallest idle stablecoin balance worth suggesting a move for. Default 5." }
         }, "required": ["wallet"] },
         "annotations": read,
     })]
+}
+
+/// A Solana wallet: net worth, Pump creator fees to claim, and idle stablecoins (no Solana build tools yet).
+async fn solana_overview(ctx: &Ctx<'_>, wallet: &str) -> Result<Value, ToolError> {
+    let p = crate::solana::portfolio(ctx.http, wallet).await.map_err(ToolError)?;
+    let protocols = f(&p["totalUsd"]);
+    let wallet_usd = f(&p["walletUsd"]);
+    let net = protocols + wallet_usd;
+    let mut opportunities = Vec::new();
+    let fees = &p["pumpCreatorFees"];
+    if f(&fees["usd"]) >= 0.5 {
+        opportunities.push(json!({
+            "type": "pump_creator_fees",
+            "message": format!("{} SOL ({}) of Pump creator fees is waiting to be claimed.", fees["sol"], money(f(&fees["usd"]))),
+            "usd": fees["usd"], "detail": fees, "act": [],
+            "howToAct": "Claim on pump.fun for now; a BTB build tool for this is coming.",
+        }));
+    }
+    for t in p["walletTokens"].as_array().into_iter().flatten() {
+        let sym = t["symbol"].as_str().unwrap_or("");
+        if is_stable(sym) && f(&t["usd"]) >= 5.0 {
+            opportunities.push(json!({
+                "type": "idle_stablecoin", "chain": "Solana", "token": sym, "amount": t["amount"], "usd": t["usd"],
+                "message": format!("{} {} on Solana earns nothing in the wallet.", t["amount"].as_str().unwrap_or(""), sym),
+                "act": [], "howToAct": "compare_yield with chain solana lists where it can earn; Solana deposit builders are coming.",
+            }));
+        }
+    }
+    let headline = format!(
+        "Net worth {} on Solana ({} in protocols, {} in the wallet). {}",
+        money(net), money(protocols), money(wallet_usd),
+        if f(&fees["usd"]) >= 0.5 { format!("{} of Pump creator fees to claim.", money(f(&fees["usd"]))) } else { "Nothing needs attention.".into() }
+    );
+    Ok(json!({
+        "wallet": wallet, "chain": "Solana", "headline": headline, "netWorthUsd": r2(net),
+        "breakdown": { "protocolsUsd": r2(protocols), "debtUsd": 0, "liquidityPoolsUsd": 0, "walletUsd": r2(wallet_usd) },
+        "warnings": [], "opportunities": opportunities,
+        "holdings": { "protocols": p["protocols"], "walletTokens": p["walletTokens"] },
+        "sources": { "solana": "ok" },
+        "howToAct": "Solana build tools (swaps, Pump launches and fee claims) are being added. Not financial advice.",
+    }))
 }
