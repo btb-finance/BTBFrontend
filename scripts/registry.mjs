@@ -3,7 +3,7 @@
 //   node scripts/registry.mjs check   validate every registry/protocols/*.json against registry/SCHEMA.md rules
 //   node scripts/registry.mjs index   regenerate src/lib/mcp/registryData.ts (the files the MCP serves)
 // `index` runs `check` first and refuses to write if a file is invalid.
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { getAddress } from 'viem';
 
@@ -50,4 +50,8 @@ if (cmd === 'index') {
     `export const PROTOCOLS: ProtocolEntry[] = ${JSON.stringify(entries, null, 1)};\n`;
   writeFileSync(OUT, body);
   console.log(`wrote ${OUT}`);
+  // The same list for the Rust API (api-rs), compiled into its binary.
+  mkdirSync('api-rs/data', { recursive: true });
+  writeFileSync('api-rs/data/registry.json', JSON.stringify(entries));
+  console.log('wrote api-rs/data/registry.json');
 }
