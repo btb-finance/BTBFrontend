@@ -80,6 +80,7 @@ function systemPrompt(wallet: string | null): string {
     wallet
       ? 'DOING THINGS ON A PROTOCOL (supply or withdraw on Aave, stake on Lido, deposit in a vault and so on): build the transactions with build_tx, and the page shows them as numbered buttons the person signs in their own wallet. Never send them to another app or tell them to do it themselves when you can build it. Be quick: in your first round call get_protocol (official contract on that chain; never use an address from memory) and find_token (the token and its decimals) together. Skip get_abi for well-known functions (ERC-20 approve, Aave supply and withdraw, Lido submit). Then, in the very next round, call build_tx for each step in order (write no text before they are built): first approve(spender, exact amount) on the token when an ERC-20 is spent, then the action. Amounts are integers in base units (100 USDC with 6 decimals is "100000000"). Never approve an unlimited amount. For Aave V3 supply the arguments are (asset, amount, onBehalfOf = the connected wallet, referralCode 0). After building, write one short line per step and do not paste calldata. A dry run that reverts only because the approval is not on chain yet is normal; say step 2 works once step 1 is confirmed. The page already shows the steps: no link buttons are needed for them.'
       : 'DOING THINGS ON A PROTOCOL (supply, stake, deposit): you can build the transactions for the person to sign, but only with a connected wallet. Ask them to connect one first (the Connect wallet button), then ask again.',
+    'When a build tool returns a signLink, end your answer with it as a button on its own line: [Sign now](the signLink exactly).',
     'BTB facts you may state: the app is free to use. Checking in daily on /dashboard earns XP; every Friday 100% of BTB\'s revenue is shared in BTB with everyone who earned points that week. Positions can be auto-rebalanced on Base and Robinhood Chain (1 BTB per check, first rebalances free). The classic app at https://btb.finance/dashboard has every screen.',
     'BTB token on Ethereum: 0x88888888c90CD71B35830daBFD24743DbC135B51. To buy BTB: https://btb.finance/swap?chain=1&from=ETH&to=0x88888888c90cd71b35830dabfd24743dbc135b51',
   ].join('\n');
@@ -149,6 +150,23 @@ async function modelTools(wallet: string | null): Promise<unknown[]> {
 }
 
 const MAX_UINT_HALF = 2n ** 255n;
+
+/** Turns a build tool's answer (transactions, dry run, signLink) into the page's sign card steps. */
+function collectSteps(out: unknown, txs: TxStep[], signLinks: string[]) {
+  const r = out as { chainId?: number; transactions?: { label: string; to: string; data: string; value: string }[]; simulation?: { status: string; reason?: string }; warnings?: string[]; signLink?: string };
+  if (!r || !Array.isArray(r.transactions) || !r.chainId) return;
+  const n = r.transactions.length;
+  r.transactions.forEach((t, i) => {
+    const last = i === n - 1;
+    const sim = last ? r.simulation : undefined;
+    txs.push({
+      label: t.label, chainId: r.chainId!, to: t.to, data: t.data, value: t.value, fn: t.label,
+      dryRun: !sim ? 'none' : sim.status === 'passed' ? 'passed' : n > 1 && sim.status !== 'reverted' ? 'after-previous' : sim.status === 'skipped' && n > 1 ? 'after-previous' : 'reverted',
+      dryRunNote: sim?.reason, warnings: last ? r.warnings ?? [] : [],
+    });
+  });
+  if (r.signLink) signLinks.push(r.signLink);
+}
 const isTokenArg = (v: string) => /^eth$/i.test(v) || /^0x[0-9a-fA-F]{40}$/.test(v);
 
 type BuiltSwap = {
@@ -279,6 +297,7 @@ export async function ask(message: string, history: AskTurn[], wallet: string | 
     { role: 'user', content: message },
   ];
   const steps: string[] = [];
+  const signLinks: string[] = [];
   let reply = '';
   let nudged = false;
   for (let round = 0; round < 5; round++) {
@@ -316,6 +335,9 @@ export async function ask(message: string, history: AskTurn[], wallet: string | 
             : name === 'build_swap' ? buildSwapStep(args, wallet!, seenText(), txs) : callTool(name, args),
           new Promise((_, no) => setTimeout(() => no(new Error('this lookup took too long; answer without it or suggest the matching page')), Math.max(3_000, Math.min(12_000, left() - 6_000)))),
         ]);
+        // Any other build tool (bridge, lend, withdraw, one-token deposit): its steps go on the page as the sign card,
+        // so signing never depends on the model remembering to paste the link.
+        if (name.startsWith('build_') && name !== 'build_tx' && name !== 'build_swap') collectSteps(out, txs, signLinks);
         return (typeof out === 'string' ? out : JSON.stringify(out)).slice(0, 7_000);
       } catch (e) {
         return `Error: ${(e as Error).message}`.slice(0, 500);
@@ -334,6 +356,8 @@ export async function ask(message: string, history: AskTurn[], wallet: string | 
   if (LEAK.test(reply)) reply = 'I am the BTB Agent, built by BTB Finance. Ask me about pools, swaps, tokens or your positions.';
   reply = reply.replace(/\s*[—–]\s*/g, ', ').replace(/, ,/g, ',');
   reply = checkSwapLinks(reply, seenText());
+  // The answer mentions signing but carries no sign link: add the button.
+  if (signLinks.length && !reply.includes('/sign#')) reply += `\n\n[Open sign page](${signLinks[signLinks.length - 1]})`;
   // A wallet is connected but the answer only links to the Swap screen: build that exact swap here as well.
   if (wallet && !txs.length && left() > 4_000) {
     const link = reply.match(/https:\/\/btb\.finance\/swap\?[^\s)]+/)?.[0];
