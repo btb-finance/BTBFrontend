@@ -21,7 +21,7 @@ const BODY = `# BTB Finance
 - Wallets: \`wallet_tokens\`, \`wallet_positions\`, \`tx_status\`.
 - Pools: \`top_pools\`, \`search_pools\`, \`best_pools_for\`, \`compare_pools\`, \`pool_details\`, \`lp_plan\`.
 - Cross-chain: \`build_bridge\` (sell any token on one chain, receive any token on another, via LI.FI), then \`bridge_status\`.
-- Build: \`build_swap\`, \`build_lend\` and \`build_withdraw\` (Aave V3), \`build_zap_liquidity\` (add liquidity from one token), \`build_add_liquidity\`, \`build_tx\` (any contract; \`steps\` for approve plus action in one link).
+- Build: \`build_swap\`, \`build_lend\` and \`build_withdraw\` (Aave V3), \`build_vault_deposit\` and \`build_vault_withdraw\` (Morpho and other ERC-4626 vaults), \`build_zap_liquidity\` (add liquidity from one token), \`build_add_liquidity\`, \`build_tx\` (any contract; \`steps\` for approve plus action in one link).
 - Protocols and contracts: \`list_protocols\`, \`get_protocol\`, \`get_abi\`, \`read_contract\`.
 
 ## Signing

@@ -45,6 +45,8 @@ export const STEP_LABELS: Record<string, string> = {
   build_lend: 'Built the deposit',
   build_withdraw: 'Built the withdrawal',
   build_zap_liquidity: 'Built the deposit',
+  build_vault_deposit: 'Built the vault deposit',
+  build_vault_withdraw: 'Built the withdrawal',
   sign_status: 'Checked what you signed',
   compare_yield: 'Compared yields',
   lending_rates: 'Checked lending rates',
@@ -77,6 +79,9 @@ function systemPrompt(wallet: string | null): string {
       : '- SWAPS without a wallet: give the swap link below; the person connects and confirms there.',
     `- a swap: https://btb.finance/swap?chain=<chainId>&from=<symbol or token address>&to=<symbol or token address>&amount=<amount to sell, optional>. Chain ids: ${CHAIN_IDS}. The symbol ETH in a swap link means the chain's native coin (ETH on Ethereum, Base, Arbitrum and the other ETH chains, BNB on BNB Chain): use it for those. On BNB Chain, ETH itself is a token, so look it up. For every other token use the contract address that find_token (or another tool) returned for that chain; never write an address from memory. The person confirms the swap on that screen.`,
     '- pages: https://btb.finance/discover (all pools), /portfolio (their tokens and positions), /simulate (backtest a range), /smart-lps (copy the best LPs), /dashboard (daily check-in and Friday BTB rewards), /docs (the manual), /agents (API and MCP for developers).',
+    wallet
+      ? 'VAULTS (Morpho, "stake" or "deposit" into a vault): compare_yield gives the vault address; then build_vault_deposit (or build_vault_withdraw) with it. Never build vault deposits with build_tx.'
+      : '',
     wallet
       ? 'DOING THINGS ON A PROTOCOL (supply or withdraw on Aave, stake on Lido, deposit in a vault and so on): build the transactions with build_tx, and the page shows them as numbered buttons the person signs in their own wallet. Never send them to another app or tell them to do it themselves when you can build it. Be quick: in your first round call get_protocol (official contract on that chain; never use an address from memory) and find_token (the token and its decimals) together. Skip get_abi for well-known functions (ERC-20 approve, Aave supply and withdraw, Lido submit). Then, in the very next round, call build_tx for each step in order (write no text before they are built): first approve(spender, exact amount) on the token when an ERC-20 is spent, then the action. Amounts are integers in base units (100 USDC with 6 decimals is "100000000"). Never approve an unlimited amount. For Aave V3 supply the arguments are (asset, amount, onBehalfOf = the connected wallet, referralCode 0). After building, write one short line per step and do not paste calldata. A dry run that reverts only because the approval is not on chain yet is normal; say step 2 works once step 1 is confirmed. The page already shows the steps: no link buttons are needed for them.'
       : 'DOING THINGS ON A PROTOCOL (supply, stake, deposit): you can build the transactions for the person to sign, but only with a connected wallet. Ask them to connect one first (the Connect wallet button), then ask again.',

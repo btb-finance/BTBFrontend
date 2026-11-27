@@ -17,6 +17,7 @@ import { lendingRates, stakingRates } from './lending';
 import { buildLend, buildWithdraw } from './aave';
 import { buildZapLiquidity } from './zap';
 import { bridgeStatus, buildBridge } from './bridge';
+import { buildVaultDeposit, buildVaultWithdraw } from './vaults';
 import { SIGN_STATUS_API, planFromLink, signLink, type SignStep } from '../signLink';
 import type { TxOut } from './build';
 
@@ -34,6 +35,7 @@ const INSTRUCTIONS = `BTB Finance: live liquidity pools across Base, Ethereum, B
 - Where to earn: compare_yield ranks lending, vaults, savings, staking and stable LPs for a token in one call (with contract addresses). lending_rates gives live supply APYs on Aave, Compound, Morpho, Spark, Euler, Fluid and more, per chain and token. Never guess a rate.
 - Cross-chain (sell a token on one chain, receive any token on another): build_bridge, one signLink; then bridge_status with the source hash to see it arrive.
 - To add liquidity from ONE token (e.g. only USDC for a USDC-cbBTC pool): build_zap_liquidity swaps the right share and opens the position, one signLink.
+- Vaults (Morpho and other ERC-4626): build_vault_deposit and build_vault_withdraw with the vault address from compare_yield; one signLink, no contract lookup.
 - To lend on Aave or take it back: build_lend and build_withdraw (live rate, position, health factor, the approval only when needed, one signLink). Use them instead of build_tx for Aave.
 - After the person signs, sign_status(signLink) says which steps they signed and whether each confirmed (no need to ask for hashes). tx_status (chain + hash) reads any single transaction.
 - Staking: staking_rates gives each liquid-staking token's yield (stETH/wstETH, weETH, rETH, cbETH...). For pools holding one, that half also earns it: add it to the pool APR when comparing.
@@ -622,6 +624,37 @@ export function buildServer(): McpServer {
     annotations: READ,
   }, async (a) => {
     try { return text(await bridgeStatus(a)); } catch (e) { return failWith(e); }
+  });
+
+  const vaultArgs = {
+    chain: z.string().describe('Chain name or id.'),
+    vault: z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe('The vault address, from compare_yield.'),
+    wallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe('The wallet that signs.'),
+  };
+
+  server.registerTool('build_vault_deposit', {
+    title: 'Deposit into a vault (ready to sign)',
+    description: 'Deposit into a Morpho vault (V1 or V2, any ERC-4626 vault Morpho knows): the exact approval only if needed, then the deposit, as ONE signLink, with the shares you get and a dry run. Fast: no contract lookup. Get the vault address from compare_yield.',
+    inputSchema: z.object({ ...vaultArgs, amount: z.string().regex(/^(\d+(\.\d+)?|max)$/).describe('Whole units of the vault\'s token, or "max" for the whole balance.') }),
+    annotations: WRITE_PREP,
+  }, async (a) => {
+    try {
+      const r = await buildVaultDeposit(a);
+      const sims: Sim[] = r.transactions.map((_, i) => (i === r.transactions.length - 1 ? r.simulation : undefined));
+      return text(withSignLink(r, `Deposit ${r.deposit} ${r.token.symbol} into ${r.vaultName}`, a.wallet, sims));
+    } catch (e) { return failWith(e); }
+  });
+
+  server.registerTool('build_vault_withdraw', {
+    title: 'Withdraw from a vault (ready to sign)',
+    description: 'Take tokens back from a Morpho vault (V1 or V2): an amount, or "max" to redeem every share including interest, as a signLink, with what the position is worth, what can be withdrawn right now and a dry run.',
+    inputSchema: z.object({ ...vaultArgs, amount: z.string().regex(/^(\d+(\.\d+)?|max)$/).describe('Whole units of the token, or "max" for everything.') }),
+    annotations: WRITE_PREP,
+  }, async (a) => {
+    try {
+      const r = await buildVaultWithdraw(a);
+      return text(withSignLink(r, `Withdraw ${r.withdraw} ${r.token.symbol} from ${r.vaultName}`, a.wallet, [r.simulation]));
+    } catch (e) { return failWith(e); }
   });
 
   server.registerTool('build_swap', {

@@ -117,6 +117,8 @@ export const ROUTES: Route[] = [
   { method: 'POST', path: '/build/withdraw', tool: 'build_withdraw', tag: 'Build', summary: 'Withdraw a lent token from Aave V3 ("max" for all), with what is withdrawable now and a signLink.' },
   { method: 'POST', path: '/build/zap', tool: 'build_zap_liquidity', tag: 'Build', summary: 'Add liquidity from one token: swap the right share, then open the position, as one signLink.' },
   { method: 'POST', path: '/sign/status', tool: 'sign_status', tag: 'Build', summary: 'Which steps of a signLink the person signed, each checked on chain. Body: {"signLink": "https://btb.finance/sign#…"}.' },
+  { method: 'POST', path: '/build/vault-deposit', tool: 'build_vault_deposit', tag: 'Build', summary: 'Deposit into a Morpho vault (ERC-4626): exact approval if needed, then the deposit, as one signLink.' },
+  { method: 'POST', path: '/build/vault-withdraw', tool: 'build_vault_withdraw', tag: 'Build', summary: 'Withdraw from a Morpho vault ("max" redeems everything), as a signLink.' },
   { method: 'POST', path: '/build/bridge', tool: 'build_bridge', tag: 'Build', summary: 'Sell a token on one chain, receive any token on another (LI.FI), as one signLink.' },
   { method: 'GET', path: '/bridge/status/{hash}', tool: 'bridge_status', tag: 'Build', summary: 'Whether a cross-chain transfer arrived, with the receiving transaction.' },
   { method: 'POST', path: '/build/tx', tool: 'build_tx', tag: 'Build', summary: 'Encode any contract function into an unsigned transaction, with a dry run and warnings.' },
