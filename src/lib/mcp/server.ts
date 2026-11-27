@@ -594,6 +594,20 @@ export function buildServer(): McpServer {
     } catch (e) { return fail(`The yield index is not reachable right now (${(e as Error).message}). lending_rates and staking_rates still work.`); }
   });
 
+  server.registerTool('build_pump_claim', {
+    title: 'Claim Pump creator fees (ready to sign)',
+    description: 'For a Pump coin creator\'s Solana wallet: one unsigned transaction that claims every creator fee waiting for it, from the bonding curve and from PumpSwap (unwrapped to SOL), with the amount, a dry run on Solana, and the transaction to sign. Free: BTB takes no fee on claims. The transaction expires about a minute after it is built. wallet_portfolio shows the fees before claiming.',
+    inputSchema: z.object({ wallet: z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/).describe('The creator\'s Solana address.') }),
+    annotations: READ,
+  }, async (a) => {
+    // Built by BTB's Rust service on Flux.
+    try {
+      const r = await fetch(`${SIGN_STATUS_API}/api/v1/solana/pump/claim`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(a), signal: AbortSignal.timeout(25_000) });
+      const body = await r.json() as unknown;
+      return r.ok ? text(body) : fail(`The Solana service answered ${r.status}: ${JSON.stringify(body).slice(0, 300)}`);
+    } catch (e) { return fail(`The Solana service is not reachable right now (${(e as Error).message}).`); }
+  });
+
   server.registerTool('wallet_overview', {
     title: 'Where a wallet stands, and what to do',
     description: 'Start here when someone asks about their portfolio (EVM or Solana address). One call: net worth across BTB\'s protocols (about 36 chains), liquidity pools and the wallet\'s own tokens, each counted once; warnings that need attention (Aave health factor low, pools out of range); and opportunities (idle stablecoins earning nothing, vaults well below the best rate on their chain), each with the yearly gain (on 7-day average rates, only into markets big enough to take the amount) and the exact build tool calls to act. Includes a one-line headline to show the person. Public on-chain data, read-only. Takes about 5 to 25 seconds.',
