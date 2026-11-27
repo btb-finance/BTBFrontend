@@ -216,16 +216,20 @@ pub struct Quote {
 /// GET to KyberSwap; refused (403/451) server requests go again through btb.finance's /api/kyber relay.
 pub async fn kyber_fetch(http: &reqwest::Client, path: &str, query: &str, body: Option<&Value>) -> Result<Value, String> {
     let url = format!("https://aggregator-api.kyberswap.com/{path}{}", if query.is_empty() { String::new() } else { format!("?{query}") });
+    let relay_ready = std::env::var("KYBER_PROXY_URL").is_ok() && std::env::var("KYBER_PROXY_SECRET").is_ok();
     let direct = match body {
         Some(b) => http.post(&url).header("x-client-id", "btb-finance").json(b),
         None => http.get(&url).header("x-client-id", "btb-finance"),
     }
     .timeout(Duration::from_secs(15))
     .send()
-    .await
-    .map_err(|e| e.to_string())?;
-    let status = direct.status().as_u16();
-    let res = if (status == 403 || status == 451) && std::env::var("KYBER_PROXY_URL").is_ok() && std::env::var("KYBER_PROXY_SECRET").is_ok() {
+    .await;
+    // Some hosts are blocked by KyberSwap (403/451) or cannot reach it at all: both go through the relay.
+    let blocked = match &direct {
+        Ok(r) => matches!(r.status().as_u16(), 403 | 451),
+        Err(_) => true,
+    };
+    let res = if blocked && relay_ready {
         http.post(std::env::var("KYBER_PROXY_URL").unwrap())
             .header("x-btb-relay-key", std::env::var("KYBER_PROXY_SECRET").unwrap())
             .json(&json!({ "path": path, "query": query, "body": body }))
@@ -234,7 +238,7 @@ pub async fn kyber_fetch(http: &reqwest::Client, path: &str, query: &str, body: 
             .await
             .map_err(|e| e.to_string())?
     } else {
-        direct
+        direct.map_err(|e| e.to_string())?
     };
     let code = res.status();
     let v: Value = res.json().await.map_err(|e| e.to_string())?;
