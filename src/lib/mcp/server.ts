@@ -29,7 +29,7 @@ const INSTRUCTIONS = `BTB Finance: live liquidity pools across Base, Ethereum, B
 - Find pools with top_pools, search_pools or best_pools_for; compare them with compare_pools; read one with pool_details.
 - APRs are yearly percentages. "measured ±5% range APR" is what a ±5 % concentrated position really earned over the last days; prefer it over base APR.
 - Before suggesting a pool, check its risk grade and reasons. Treat APRs above 200 % as unlikely to last.
-- To see what a wallet holds: wallet_portfolio first (everything it has in the protocols BTB supports, on about 36 chains: Aave supplied and borrowed with health factor, vault shares, liquid staking, Ethena, Sky, Maple and more, grouped by protocol with USD values), then wallet_tokens (token balances on every main chain, with USD values; pass search to find one token) and wallet_positions (every LP position, with value, range and fees), plus auto_manage_status.
+- When someone asks about their portfolio or what to do with it: wallet_overview first (net worth across protocols, pools and wallet, warnings, and opportunities with the exact build calls). For detail: wallet_portfolio (everything it has in the protocols BTB supports, on about 36 chains: Aave supplied and borrowed with health factor, vault shares, liquid staking, Ethena, Sky, Maple and more, grouped by protocol with USD values), then wallet_tokens (token balances on every main chain, with USD values; pass search to find one token) and wallet_positions (every LP position, with value, range and fees), plus auto_manage_status.
 - Tokens: find_token gives a token's contract address on a chain (never write one from memory). quote_swap prices any swap after the BTB fee, with a warning when the pool is thin.
 - To actually swap for a person: build_swap with their wallet, then give them its signLink (one link: approval if needed, then the swap). Do not stop at a quote.
 - Where to earn: compare_yield ranks lending, vaults, savings, staking and stable LPs for a token in one call (with contract addresses). lending_rates gives live supply APYs on Aave, Compound, Morpho, Spark, Euler, Fluid and more, per chain and token. Never guess a rate.
@@ -592,6 +592,24 @@ export function buildServer(): McpServer {
       const body = await r.json() as unknown;
       return r.ok ? text(body) : fail(`The yield index answered ${r.status}: ${JSON.stringify(body).slice(0, 300)}`);
     } catch (e) { return fail(`The yield index is not reachable right now (${(e as Error).message}). lending_rates and staking_rates still work.`); }
+  });
+
+  server.registerTool('wallet_overview', {
+    title: 'Where a wallet stands, and what to do',
+    description: 'Start here when someone asks about their portfolio. One call: net worth across BTB\'s protocols (about 36 chains), liquidity pools and the wallet\'s own tokens, each counted once; warnings that need attention (Aave health factor low, pools out of range); and opportunities (idle stablecoins earning nothing, vaults well below the best rate on their chain), each with the yearly gain (on 7-day average rates, only into markets big enough to take the amount) and the exact build tool calls to act. Includes a one-line headline to show the person. Public on-chain data, read-only. Takes about 5 to 25 seconds.',
+    inputSchema: z.object({
+      wallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+      idleMinUsd: z.number().min(0).optional().describe('Smallest idle stablecoin balance worth suggesting a move for. Default 5.'),
+    }),
+    annotations: READ,
+  }, async (a) => {
+    // Answered by BTB's Rust service on Flux.
+    const q = a.idleMinUsd != null ? `?idleMinUsd=${a.idleMinUsd}` : '';
+    try {
+      const r = await fetch(`${SIGN_STATUS_API}/api/v1/wallets/${a.wallet}/overview${q}`, { signal: AbortSignal.timeout(28_000) });
+      const body = await r.json() as unknown;
+      return r.ok ? text(body) : fail(`The overview service answered ${r.status}: ${JSON.stringify(body).slice(0, 300)}`);
+    } catch (e) { return fail(`The overview service is not reachable right now (${(e as Error).message}). wallet_portfolio, wallet_tokens and wallet_positions still work.`); }
   });
 
   server.registerTool('wallet_portfolio', {

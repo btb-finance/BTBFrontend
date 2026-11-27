@@ -98,6 +98,7 @@ export const ROUTES: Route[] = [
   { method: 'GET', path: '/tokens/{chain}/{token}/safety', tool: 'token_safety', tag: 'Tokens', summary: 'Token safety grade: honeypot, taxes, proxy, owner powers, locked liquidity.' },
   { method: 'GET', path: '/tokens/find', tool: 'find_token', tag: 'Tokens', summary: 'A token\'s contract address on a chain by symbol or name (q=USDC&chain=base).', rename: { q: 'query' } },
   { method: 'GET', path: '/quote', tool: 'quote_swap', tag: 'Tokens', summary: 'Live swap quote after the BTB fee, in USD, with a thin-pool warning (chain, tokenIn, tokenOut, amount).' },
+  { method: 'GET', path: '/wallets/{address}/overview', tool: 'wallet_overview', tag: 'Wallets', summary: 'Net worth, warnings and opportunities for a wallet, with the build calls to act on each.', rename: { address: 'wallet' } },
   { method: 'GET', path: '/wallets/{address}/portfolio', tool: 'wallet_portfolio', tag: 'Wallets', summary: 'Everything a wallet holds in the protocols BTB supports, on about 36 chains, grouped by protocol with USD values.', rename: { address: 'wallet' } },
   { method: 'GET', path: '/wallets/{address}/tokens', tool: 'wallet_tokens', tag: 'Wallets', summary: 'Token balances a wallet holds on every main chain, with USD values; search finds one token.', rename: { address: 'wallet' } },
   { method: 'GET', path: '/yield', tool: 'compare_yield', tag: 'Tokens', summary: 'Every way to earn on a token ranked side by side: lending, vaults, savings, staking, stable LPs (token=USDC&chain=base).' },
