@@ -42,7 +42,7 @@ fn chain(id: i64) -> Option<(&'static str, Option<&'static str>, &'static str)> 
         196 => ("https://rpc.xlayer.tech", Some("https://www.oklink.com/xlayer"), "OKB"),
         252 => ("https://fraxtal-rpc.publicnode.com", Some("https://fraxscan.com"), "FRAX"),
         480 => ("https://worldchain-mainnet.g.alchemy.com/public", Some("https://worldscan.org"), "ETH"),
-        1135 => ("https://lisk.drpc.org", Some("https://blockscout.lisk.com"), "ETH"),
+        1135 => ("https://lisk.gateway.tenderly.co", Some("https://blockscout.lisk.com"), "ETH"),
         1329 => ("https://sei-evm-rpc.publicnode.com", Some("https://seitrace.com"), "SEI"),
         1776 => ("https://sentry.evm-rpc.injective.network/", Some("https://blockscout.injective.network"), "INJ"),
         1868 => ("https://soneium-rpc.publicnode.com", Some("https://soneium.blockscout.com"), "ETH"),

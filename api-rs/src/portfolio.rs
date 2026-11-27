@@ -375,7 +375,8 @@ pub async fn wallet_portfolio(a: &Map<String, Value>, ctx: &Ctx<'_>) -> Result<V
     let only: Option<HashSet<i64>> = opt_str(a, "chains")?.map(|s| s.split(',').filter_map(|c| crate::lite::token_chain_id(c.trim())).collect());
     let key = format!("{wallet}|{:?}", only.as_ref().map(|s| { let mut v: Vec<_> = s.iter().collect(); v.sort(); v }));
     let cache = CACHE.get_or_init(Default::default);
-    if let Some((t, v)) = cache.lock().ok().and_then(|m| m.get(&key).cloned()) {
+    let skip_cache = flag(a, "fresh");
+    if let Some((t, v)) = cache.lock().ok().and_then(|m| m.get(&key).cloned()).filter(|_| !skip_cache) {
         if t.elapsed() < Duration::from_secs(CACHE_SECS) {
             return Ok(v);
         }
@@ -399,28 +400,97 @@ pub async fn wallet_portfolio(a: &Map<String, Value>, ctx: &Ctx<'_>) -> Result<V
         .filter(|(c, _)| only.as_ref().map(|o| o.contains(c)).unwrap_or(true))
         .collect();
 
-    let scans = join_all(by_chain.into_iter().filter(|(c, _)| crate::txstatus::rpc_for(*c).is_some()).map(|(chain, cands)| {
-        let wallet = wallet.clone();
-        async move { (chain, tokio::time::timeout(Duration::from_secs(25), scan_chain(http, chain, &wallet, cands)).await) }
-    }));
-    let aave = join_all(aave_pools.iter().map(|(c, p)| {
+    // Smart scan: a full scan the first time (and once a day), then only the tokens the wallet held, and only on
+    // chains where it sent a transaction since (its nonce moved). Chains with nothing held and no new transaction
+    // cost one nonce read.
+    let fresh = flag(a, "fresh");
+    let now = chrono::Utc::now().timestamp();
+    let mem = load_memory(ctx, &wallet).await;
+    let live: Vec<i64> = by_chain.keys().copied().filter(|c| crate::txstatus::rpc_for(*c).is_some()).collect();
+    let fetch_nonces = || {
+        let live = live.clone();
         let w = wallet.clone();
-        async move { (*c, aave_account(http, *c, p, &w).await) }
+        async move {
+            join_all(live.iter().map(|c| {
+                let w = w.clone();
+                async move { (*c, nonce(http, *c, &w).await) }
+            }))
+            .await
+            .into_iter()
+            .collect::<HashMap<i64, Option<u64>>>()
+        }
+    };
+    // With nothing remembered every chain is scanned anyway, so the nonces are read alongside the scan.
+    let nonces_first = !mem.is_empty() && !fresh;
+    let mut nonces: HashMap<i64, Option<u64>> = if nonces_first { fetch_nonces().await } else { HashMap::new() };
+    let mut plan: Vec<(i64, Vec<Candidate>, bool)> = Vec::new();
+    let mut lists: HashMap<i64, u64> = HashMap::new();
+    let mut skipped = Vec::new();
+    for (chain, cands) in by_chain {
+        if crate::txstatus::rpc_for(chain).is_none() {
+            continue;
+        }
+        let list = list_hash(&cands);
+        let known = mem.get(&chain).filter(|m| {
+            !fresh && m.list == list && now - m.scanned_at < FULL_EVERY_SECS && nonces.get(&chain).copied().flatten() == Some(m.nonce)
+        });
+        match known {
+            None => {
+                lists.insert(chain, list);
+                plan.push((chain, cands, true))
+            }
+            Some(m) => {
+                let held: Vec<Candidate> = cands.into_iter().filter(|c| m.held.contains(&c.address)).collect();
+                if held.is_empty() {
+                    skipped.push(chain);
+                } else {
+                    plan.push((chain, held, false));
+                }
+            }
+        }
+    }
+    let full_chains: HashSet<i64> = plan.iter().filter(|p| p.2).map(|p| p.0).collect();
+    let scans = join_all(plan.into_iter().map(|(chain, cands, full)| {
+        let wallet = wallet.clone();
+        async move { (chain, full, tokio::time::timeout(Duration::from_secs(25), scan_chain(http, chain, &wallet, cands)).await) }
     }));
-    let (scans, aave) = futures::join!(scans, aave);
+    let aave = join_all(
+        aave_pools
+            .iter()
+            .filter(|(c, _)| full_chains.contains(c) || mem.get(c).map(|m| m.aave).unwrap_or(false))
+            .map(|(c, p)| {
+                let w = wallet.clone();
+                async move { (*c, aave_account(http, *c, p, &w).await) }
+            }),
+    );
+    let (scans, aave, late) = futures::join!(scans, aave, async { if nonces_first { HashMap::new() } else { fetch_nonces().await } });
+    nonces.extend(late);
+    let aave_on: HashSet<i64> = aave.iter().filter(|(_, x)| x.is_some()).map(|(c, _)| *c).collect();
 
     let mut holdings = Vec::new();
     let mut scanned = Vec::new();
     let mut failed = Vec::new();
-    for (chain, r) in scans {
+    let mut quick = Vec::new();
+    let mut updates = Vec::new();
+    for (chain, full, r) in scans {
         match r {
             Ok(Ok(h)) => {
-                scanned.push(chain);
+                if full {
+                    scanned.push(chain);
+                    let held: HashSet<String> = h.iter().map(|x| x.c.address.clone()).collect();
+                    if let Some(n) = nonces.get(&chain).copied().flatten() {
+                        updates.push((chain, ChainMemory { nonce: n, held, aave: aave_on.contains(&chain), scanned_at: now, list: lists.get(&chain).copied().unwrap_or(0) }));
+                    }
+                } else {
+                    quick.push(chain);
+                }
                 holdings.extend(h);
             }
             _ => failed.push(chain),
         }
     }
+    save_memory(ctx, &wallet, updates).await;
+    let mode = if full_chains.is_empty() { "quick" } else if quick.is_empty() && skipped.is_empty() { "full" } else { "mixed" };
     // Aave aTokens are counted through the account totals, not as loose tokens.
     let mut keys: Vec<(i64, String)> = Vec::new();
     for h in &holdings {
@@ -503,7 +573,11 @@ pub async fn wallet_portfolio(a: &Map<String, Value>, ctx: &Ctx<'_>) -> Result<V
         "byKind": by_kind.into_iter().map(|(k, v)| (k.to_string(), r2(v))).collect::<Map<String, Value>>(),
         "protocols": protocols,
         "coverage": {
+            "mode": mode,
             "chainsScanned": scanned.iter().map(|c| json!({ "chainId": c, "chain": chain_label(*c) })).collect::<Vec<_>>(),
+            "chainsRechecked": quick.iter().map(|c| json!({ "chainId": c, "chain": chain_label(*c) })).collect::<Vec<_>>(),
+            "chainsSkipped": skipped.len(),
+            "howItWorks": "First look: every protocol on every chain. After that, only what the wallet held, re-scanning a chain fully when the wallet sends a transaction there, and everything once a day. Pass fresh=true to scan everything now.",
             "chainsFailed": failed.iter().chain(unavailable.iter()).map(|c| json!({ "chainId": c, "chain": chain_label(*c) })).collect::<Vec<_>>(),
             "protocolsChecked": checked_protocols.len() + usize::from(!aave_pools.is_empty() && !checked_protocols.contains("aave-v3")),
             "vaultsChecked": markets.iter().filter(|m| m.kind != "lend" && m.address.as_deref().map(|a| a.len() == 42).unwrap_or(false)).count(),
@@ -524,11 +598,118 @@ pub fn definitions(read: &Value) -> Vec<Value> {
     vec![json!({
         "name": "wallet_portfolio",
         "title": "Everything a wallet holds in DeFi",
-        "description": "What a wallet holds across the protocols BTB supports, on every EVM chain they run on (about 36): Aave supplied and borrowed with the health factor, Morpho and other vault shares with the underlying, liquid staking and restaking (Lido, Rocket Pool, Renzo, Origin, StakeStone), Ethena, Sky, Usual, Maple, Falcon, Inverse, Olympus and more, stablecoins and protocol tokens. Grouped by protocol with USD values, totals by kind, and which chains were scanned. LP positions are in wallet_positions. Public on-chain data, read-only; cached a minute.",
+        "description": "What a wallet holds across the protocols BTB supports, on every EVM chain they run on (about 36): Aave supplied and borrowed with the health factor, Morpho and other vault shares with the underlying, liquid staking and restaking (Lido, Rocket Pool, Renzo, Origin, StakeStone), Ethena, Sky, Usual, Maple, Falcon, Inverse, Olympus and more, stablecoins and protocol tokens. Grouped by protocol with USD values, totals by kind, and which chains were scanned. LP positions are in wallet_positions. Remembers which protocols each wallet uses, so later looks are fast. Public on-chain data, read-only; cached a minute.",
         "inputSchema": { "type": "object", "properties": {
             "wallet": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" },
+            "fresh": { "type": "boolean", "description": "Scan every protocol on every chain now instead of only what the wallet used (default false)." },
             "chains": { "type": "string", "description": "Optional comma-separated chains to limit the scan, e.g. \"base,ethereum\". Default: every chain." }
         }, "required": ["wallet"] },
         "annotations": read,
     })]
+}
+
+// ---- what each wallet uses, remembered ----
+
+const FULL_EVERY_SECS: i64 = 86_400;
+
+#[derive(Clone)]
+pub struct ChainMemory {
+    nonce: u64,
+    /// Candidate token addresses the wallet held at the last full scan.
+    held: HashSet<String>,
+    aave: bool,
+    scanned_at: i64,
+    /// Which candidate list the full scan used: new vaults or registry tokens on the chain mean a new full scan.
+    list: u64,
+}
+
+fn list_hash(cands: &[Candidate]) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut v: Vec<&str> = cands.iter().map(|c| c.address.as_str()).collect();
+    v.sort_unstable();
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    v.hash(&mut h);
+    h.finish()
+}
+
+fn flag(a: &Map<String, Value>, k: &str) -> bool {
+    match a.get(k) {
+        Some(Value::Bool(b)) => *b,
+        Some(Value::String(s)) => s == "true" || s == "1",
+        _ => false,
+    }
+}
+
+static MEMORY: OnceLock<Mutex<HashMap<String, HashMap<i64, ChainMemory>>>> = OnceLock::new();
+
+const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS wallet_chains (
+  wallet text NOT NULL, chain_id bigint NOT NULL, nonce bigint NOT NULL, held jsonb NOT NULL, aave boolean NOT NULL,
+  scanned_at bigint NOT NULL, list bigint NOT NULL DEFAULT 0, PRIMARY KEY (wallet, chain_id))";
+
+async fn load_memory(ctx: &Ctx<'_>, wallet: &str) -> HashMap<i64, ChainMemory> {
+    let map = MEMORY.get_or_init(Default::default);
+    if let Some(m) = map.lock().ok().and_then(|m| m.get(wallet).cloned()) {
+        return m;
+    }
+    let mut out = HashMap::new();
+    if let Some(db) = &ctx.index.db {
+        static READY: tokio::sync::OnceCell<()> = tokio::sync::OnceCell::const_new();
+        READY.get_or_init(|| async { let _ = sqlx::query(SCHEMA).execute(db).await; }).await;
+        let rows: Vec<(i64, i64, serde_json::Value, bool, i64, i64)> =
+            sqlx::query_as("SELECT chain_id, nonce, held, aave, scanned_at, list FROM wallet_chains WHERE wallet = $1").bind(wallet).fetch_all(db).await.unwrap_or_default();
+        for (chain, nonce, held, aave, scanned_at, list) in rows {
+            let held = held.as_array().into_iter().flatten().filter_map(|x| x.as_str().map(String::from)).collect();
+            out.insert(chain, ChainMemory { nonce: nonce as u64, held, aave, scanned_at, list: list as u64 });
+        }
+    }
+    if let Ok(mut m) = map.lock() {
+        m.insert(wallet.to_string(), out.clone());
+    }
+    out
+}
+
+async fn save_memory(ctx: &Ctx<'_>, wallet: &str, updates: Vec<(i64, ChainMemory)>) {
+    if updates.is_empty() {
+        return;
+    }
+    if let Ok(mut m) = MEMORY.get_or_init(Default::default).lock() {
+        let w = m.entry(wallet.to_string()).or_default();
+        for (c, mem) in &updates {
+            w.insert(*c, mem.clone());
+        }
+    }
+    if let Some(db) = &ctx.index.db {
+        let _ = sqlx::query(SCHEMA).execute(db).await;
+        for (chain, m) in updates {
+            let held: Vec<&String> = m.held.iter().collect();
+            let _ = sqlx::query(
+                "INSERT INTO wallet_chains (wallet, chain_id, nonce, held, aave, scanned_at, list) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                 ON CONFLICT (wallet, chain_id) DO UPDATE SET nonce = $3, held = $4, aave = $5, scanned_at = $6, list = $7",
+            )
+            .bind(wallet)
+            .bind(chain)
+            .bind(m.nonce as i64)
+            .bind(json!(held))
+            .bind(m.aave)
+            .bind(m.scanned_at)
+            .bind(m.list as i64)
+            .execute(db)
+            .await;
+        }
+    }
+}
+
+async fn nonce(http: &reqwest::Client, chain: i64, wallet: &str) -> Option<u64> {
+    let url = crate::txstatus::rpc_for(chain)?;
+    let v: Value = http
+        .post(url)
+        .json(&json!({ "jsonrpc": "2.0", "id": 1, "method": "eth_getTransactionCount", "params": [wallet, "latest"] }))
+        .timeout(Duration::from_secs(8))
+        .send()
+        .await
+        .ok()?
+        .json()
+        .await
+        .ok()?;
+    u64::from_str_radix(v["result"].as_str()?.trim_start_matches("0x"), 16).ok()
 }
