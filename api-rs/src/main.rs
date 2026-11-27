@@ -51,14 +51,29 @@ struct App {
     upstream_tools: Arc<RwLock<Option<(std::time::Instant, Vec<Value>)>>>,
 }
 
-/// Flux allows 20 environment variables per app, so the rest arrive bundled in one: BTB_ENV, a base64 JSON object
-/// of name → value. Each entry is set unless that name is already set on its own (a direct variable wins).
+/// Flux allows 20 environment variables per app and 400 characters per value, so the rest arrive bundled: BTB_ENV_1,
+/// BTB_ENV_2, ... joined in order are base64 of gzip-compressed JSON (name → value). Each entry is set unless that
+/// name is already set on its own (a direct variable wins).
 fn unpack_env_bundle() {
     use base64::Engine;
-    let Ok(bundle) = std::env::var("BTB_ENV") else { return };
-    let decoded = base64::engine::general_purpose::STANDARD.decode(bundle.trim()).ok().and_then(|b| serde_json::from_slice::<Map<String, Value>>(&b).ok());
-    let Some(vars) = decoded else {
-        eprintln!("BTB_ENV is set but is not base64 JSON; ignored");
+    use std::io::Read;
+    let mut joined = String::new();
+    for i in 1..=19 {
+        match std::env::var(format!("BTB_ENV_{i}")) {
+            Ok(part) => joined.push_str(part.trim()),
+            Err(_) => break,
+        }
+    }
+    if joined.is_empty() {
+        return;
+    }
+    let vars = base64::engine::general_purpose::STANDARD.decode(&joined).ok().and_then(|bytes| {
+        let mut text = String::new();
+        flate2::read::GzDecoder::new(&bytes[..]).read_to_string(&mut text).ok()?;
+        serde_json::from_str::<Map<String, Value>>(&text).ok()
+    });
+    let Some(vars) = vars else {
+        eprintln!("BTB_ENV_1..n are set but do not decode (base64 of gzip JSON); ignored");
         return;
     };
     let mut n = 0;
@@ -70,7 +85,7 @@ fn unpack_env_bundle() {
             }
         }
     }
-    eprintln!("BTB_ENV: {n} variables loaded");
+    eprintln!("BTB_ENV bundle: {n} variables loaded");
 }
 
 fn main() {
