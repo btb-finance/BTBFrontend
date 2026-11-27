@@ -24,18 +24,57 @@ const JSON_CONFIG = `{
 
 const API = 'https://btb.finance/api/v1';
 
-const REST_CURL = `curl -s '${API}/pools?chain=base&maxRisk=B&limit=5'
+const REST_CURL = `curl -s '${API}/yield?token=USDC&chain=base&limit=5'
+
+curl -s '${API}/pools?chain=base&maxRisk=B&limit=5'
 
 curl -s -X POST ${API}/build/swap \\
   -H 'content-type: application/json' \\
   -H 'authorization: Bearer <your key>' \\
   -d '{"chain":"base","tokenIn":"ETH","amount":"0.1",
-       "tokenOut":"0x833589fCD6eDb6E08f4c7C32D04c4E3a2a1B2913",
+       "tokenOut":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
        "wallet":"0xYourWallet"}'`;
 
 const KEY_CURL = `curl -s -X POST ${API}/keys \\
   -H 'content-type: application/json' \\
   -d '{"name":"my-agent","contact":"you@example.com"}'`;
+
+/** An agent with its own wallet, no human: build, check, sign each step, confirm. viem; any library works. */
+const AGENT_TS = `import { createWalletClient, createPublicClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { base } from 'viem/chains';
+
+const API = '${API}';
+// A wallet only for the agent, holding only what it may spend. Never your main wallet.
+const account = privateKeyToAccount(process.env.AGENT_KEY as \`0x\${string}\`);
+const wallet = createWalletClient({ account, chain: base, transport: http() });
+const chain = createPublicClient({ chain: base, transport: http() });
+
+async function call(path: string, body: object) {
+  const r = await fetch(API + path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer ' + process.env.BTB_KEY },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error((await r.json()).error.message);
+  return r.json();
+}
+
+// 1. Build: lend 100 USDC on Aave on Base (approval only if needed, then the supply).
+const plan = await call('/build/lend', { chain: 'base', token: 'USDC', amount: '100', wallet: account.address });
+
+// 2. Check: stop on a failed dry run (a later step may wait for an earlier approval) or any warning you do not accept.
+if (plan.simulation.status === 'reverted') throw new Error('dry run failed: ' + plan.simulation.reason);
+if (plan.warnings?.length) console.warn(plan.warnings);
+
+// 3. Sign and send each step in order, waiting for each to confirm.
+for (const tx of plan.transactions) {
+  const hash = await wallet.sendTransaction({ to: tx.to, data: tx.data, value: BigInt(tx.value) });
+  const receipt = await chain.waitForTransactionReceipt({ hash });
+  if (receipt.status !== 'success') throw new Error('step ' + tx.step + ' failed: ' + hash);
+}
+
+// 4. Confirm what moved (any hash): GET /api/v1/tx/base/<hash>`;
 
 const CURL = `curl -s ${MCP_PUBLIC_URL} \\
   -H 'content-type: application/json' \\
@@ -51,7 +90,7 @@ export default async function DocsPage() {
       <p style={styles.eyebrow}>Docs</p>
       <h1 style={styles.h1}>Connect your agent</h1>
       <p style={styles.lead}>
-        BTB is a remote MCP server over Streamable HTTP. No sign-up and no API key: point your client at the URL below. Prefer plain HTTP? See the <a href="#rest-api" style={styles.link}>REST API</a>.
+        BTB is a remote MCP server over Streamable HTTP. No sign-up and no API key: point your client at the URL below. It works in Claude, ChatGPT, Grok, Gemini, Perplexity, Le Chat and any MCP client. Prefer plain HTTP? See the <a href="#rest-api" style={styles.link}>REST API</a>; building an agent with its own wallet? See <a href="#autonomous" style={styles.link}>autonomous agents</a>.
       </p>
       <code style={styles.code}>{MCP_PUBLIC_URL}</code>
 
@@ -60,6 +99,13 @@ export default async function DocsPage() {
 
       <h2 style={styles.h2}>Claude Code</h2>
       <code style={styles.code}>{`claude mcp add --transport http btb ${MCP_PUBLIC_URL}`}</code>
+
+      <h2 style={styles.h2}>ChatGPT, Grok, Gemini, Perplexity, Le Chat</h2>
+      <p style={styles.body}>
+        ChatGPT: <strong>+ → Plugins → Add custom MCP server</strong> (paid plans). Grok: grok.com/connectors → <strong>Add a custom connector</strong>.
+        Gemini web app: add a custom app by its MCP URL (where available). Perplexity: Connectors → <strong>Add MCP connector</strong>. Le Chat: Connectors →
+        {' '}<strong>Custom MCP Connector</strong>. Paste the URL above; no sign-in needed.
+      </p>
 
       <h2 style={styles.h2}>Cursor, Windsurf and other MCP clients</h2>
       <p style={styles.body}>Add this to the client’s MCP config file (the key name varies slightly between clients):</p>
@@ -93,20 +139,38 @@ export default async function DocsPage() {
 
       <h2 style={styles.h2}>How a transaction works</h2>
       <ol style={{ ...styles.body, paddingLeft: 20 }}>
-        <li style={{ marginBottom: 8 }}>Your agent calls a build tool (<code style={styles.inlineCode}>build_swap</code>, <code style={styles.inlineCode}>build_add_liquidity</code> or <code style={styles.inlineCode}>build_tx</code>) with its own wallet address.</li>
-        <li style={{ marginBottom: 8 }}>BTB returns numbered steps: any approvals first (exact amounts only), then the action, each with <code style={styles.inlineCode}>to</code>, <code style={styles.inlineCode}>data</code>, <code style={styles.inlineCode}>value</code> and <code style={styles.inlineCode}>chainId</code>, plus a dry run of the final step.</li>
-        <li style={{ marginBottom: 8 }}>Your agent checks the simulation and warnings, then signs and sends each step in order from its own wallet.</li>
+        <li style={{ marginBottom: 8 }}>The agent calls a build tool: <code style={styles.inlineCode}>build_swap</code>, <code style={styles.inlineCode}>build_lend</code>, <code style={styles.inlineCode}>build_withdraw</code>, <code style={styles.inlineCode}>build_zap_liquidity</code>, <code style={styles.inlineCode}>build_add_liquidity</code> or <code style={styles.inlineCode}>build_tx</code> (any contract; pass <code style={styles.inlineCode}>steps</code> for approve plus action), with the wallet that will sign.</li>
+        <li style={{ marginBottom: 8 }}>BTB returns numbered steps: approvals first (exact amounts only), then the action, each with <code style={styles.inlineCode}>to</code>, <code style={styles.inlineCode}>data</code>, <code style={styles.inlineCode}>value</code> and <code style={styles.inlineCode}>chainId</code>, a dry run, warnings, and a <code style={styles.inlineCode}>signLink</code>.</li>
+        <li style={{ marginBottom: 8 }}>Then either a person signs, or the agent does (below).</li>
       </ol>
+
+      <h3 style={{ ...styles.h3, marginTop: 20 }}>A person signs (chat assistants)</h3>
       <p style={styles.body}>
-        BTB never sees a private key and never sends anything. If your agent has no wallet, use <code style={styles.inlineCode}>add_liquidity_link</code> or
-        {' '}<code style={styles.inlineCode}>auto_manage_setup</code>: they return a btb.finance link where a person reviews and signs.
+        Chat assistants (Claude, ChatGPT, Grok, Gemini) have no wallet, by design. They give the person the <code style={styles.inlineCode}>signLink</code>:
+        it opens btb.finance with the steps to sign in their own wallet, in order. Links are sealed by BTB (an edited link is refused), last 15 minutes and only
+        sign from the wallet they were built for. Afterwards the assistant calls <code style={styles.inlineCode}>sign_status</code> with the link: each signed
+        step, checked on chain, with the tokens that moved. No need to ask the person for hashes.
       </p>
+
+      <h3 id="autonomous" style={{ ...styles.h3, marginTop: 20 }}>The agent signs (autonomous agents)</h3>
+      <p style={styles.body}>
+        An agent with its own wallet, running with no human present, signs and sends the steps itself. BTB never sees the key. Give the agent a wallet of its own
+        that holds only what it may spend: a plain key on its server is simplest; a wallet service (Coinbase CDP / AgentKit, Privy or Turnkey server wallets)
+        adds spending limits and allowlists; a smart wallet with limited permissions (a Safe module, or session keys) lets a user grant narrow rights, such as
+        these contracts, up to this amount a day, until this date.
+      </p>
+      <code style={styles.code}>{AGENT_TS}</code>
+      <ul style={{ ...styles.body, paddingLeft: 20 }}>
+        <li style={{ marginBottom: 8 }}>Always stop on a failed dry run or a warning the agent does not understand. Build again rather than retrying an old step: quotes go stale in about two minutes.</li>
+        <li style={{ marginBottom: 8 }}>Approvals from BTB are always for the exact amount. Never let an agent approve an unlimited amount.</li>
+        <li style={{ marginBottom: 8 }}>Use <code style={styles.inlineCode}>compare_yield</code>, <code style={styles.inlineCode}>quote_swap</code> and <code style={styles.inlineCode}>quick_token_check</code> before deciding; they are free.</li>
+      </ul>
 
       <h2 style={styles.h2}>Fees and limits</h2>
       <ul style={{ ...styles.body, paddingLeft: 20 }}>
         <li style={{ marginBottom: 8 }}>Reading is free: pools, protocols, ABIs, contract reads and wallet positions.</li>
         <li style={{ marginBottom: 8 }}>Swaps built by <code style={styles.inlineCode}>build_swap</code> carry a {feePct}% BTB fee on the output, shown in every quote. It is shared with BTB users every Friday.</li>
-        <li style={{ marginBottom: 8 }}><code style={styles.inlineCode}>build_tx</code> and <code style={styles.inlineCode}>build_add_liquidity</code> add no fee.</li>
+        <li style={{ marginBottom: 8 }}><code style={styles.inlineCode}>build_tx</code>, <code style={styles.inlineCode}>build_lend</code>, <code style={styles.inlineCode}>build_withdraw</code> and <code style={styles.inlineCode}>build_add_liquidity</code> add no fee. <code style={styles.inlineCode}>build_zap_liquidity</code> carries the swap fee on its swap step only.</li>
         <li style={{ marginBottom: 8 }}>REST API: 20 calls a minute per IP without a key, 120 with a free key. Higher limits for partners on request.</li>
       </ul>
 
@@ -134,7 +198,7 @@ export default async function DocsPage() {
                         <li key={k} style={{ marginBottom: 4 }}>
                           <code style={styles.inlineCode}>{k}</code>
                           {(s.required ?? []).includes(k) ? <strong> required</strong> : null}
-                          {p.description ? ` — ${p.description}` : ''}
+                          {p.description ? `: ${p.description}` : ''}
                         </li>
                       ))}
                     </ul>
