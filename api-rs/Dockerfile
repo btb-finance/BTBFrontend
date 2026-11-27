@@ -7,6 +7,8 @@ FROM rust:1.89-slim-bookworm AS build
 WORKDIR /src
 COPY Cargo.toml Cargo.lock* ./
 COPY src ./src
+# The protocol registry, compiled into the binary (written by scripts/registry.mjs index).
+COPY data ./data
 RUN cargo build --release --locked || cargo build --release
 
 FROM debian:bookworm-slim
