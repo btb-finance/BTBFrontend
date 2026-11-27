@@ -30,7 +30,6 @@ export const STEP_LABELS: Record<string, string> = {
   lp_plan: 'Built an LP plan',
   add_liquidity_link: 'Prepared the deposit',
   wallet_positions: 'Read your positions',
-  wallet_tokens: 'Checked your tokens',
   auto_manage_status: 'Checked auto-management',
   auto_manage_setup: 'Looked up auto-management',
   get_abi: 'Read the contract',
@@ -41,6 +40,18 @@ export const STEP_LABELS: Record<string, string> = {
   quote_swap: 'Got a live quote',
   build_tx: 'Built a transaction',
   build_swap: 'Built the swap',
+  build_bridge: 'Built the bridge',
+  bridge_status: 'Checked the bridge',
+  build_lend: 'Built the deposit',
+  build_withdraw: 'Built the withdrawal',
+  build_zap_liquidity: 'Built the deposit',
+  sign_status: 'Checked what you signed',
+  compare_yield: 'Compared yields',
+  lending_rates: 'Checked lending rates',
+  staking_rates: 'Checked staking rates',
+  quick_token_check: 'Checked the token',
+  wallet_tokens: 'Checked your tokens',
+  tx_status: 'Checked the transaction',
 };
 
 const CHAIN_IDS = 'Ethereum 1, Base 8453, BNB Chain 56, Arbitrum 42161, Optimism 10, Polygon 137, Unichain 130, Robinhood Chain 4663';

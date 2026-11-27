@@ -13,7 +13,8 @@ function safeHref(url: string): string | null {
   if (url.startsWith('/')) return url;
   try {
     const u = new URL(url);
-    if (u.hostname === 'btb.finance' || u.hostname === 'www.btb.finance') return u.pathname + u.search;
+    // Keep the #fragment: a sign link's sealed plan lives there (btb.finance/sign#…).
+    if (u.hostname === 'btb.finance' || u.hostname === 'www.btb.finance') return u.pathname + u.search + u.hash;
   } catch { /* not a URL */ }
   return null;
 }
