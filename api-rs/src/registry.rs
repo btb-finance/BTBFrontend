@@ -6,7 +6,7 @@ use crate::tools::{bad, opt_str, ToolError};
 use serde_json::{json, Map, Value};
 use std::sync::OnceLock;
 
-fn protocols() -> &'static [Value] {
+pub fn protocols() -> &'static [Value] {
     static P: OnceLock<Vec<Value>> = OnceLock::new();
     P.get_or_init(|| serde_json::from_str(include_str!("../data/registry.json")).expect("registry.json"))
 }
