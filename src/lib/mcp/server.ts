@@ -29,7 +29,7 @@ const INSTRUCTIONS = `BTB Finance: live liquidity pools across Base, Ethereum, B
 - Find pools with top_pools, search_pools or best_pools_for; compare them with compare_pools; read one with pool_details.
 - APRs are yearly percentages. "measured ±5% range APR" is what a ±5 % concentrated position really earned over the last days; prefer it over base APR.
 - Before suggesting a pool, check its risk grade and reasons. Treat APRs above 200 % as unlikely to last.
-- To see what a wallet holds: wallet_tokens (token balances on every main chain, with USD values; pass search to find one token) and wallet_positions (every LP position, with value, range and fees), plus auto_manage_status.
+- To see what a wallet holds: wallet_portfolio first (everything it has in the protocols BTB supports, on about 36 chains: Aave supplied and borrowed with health factor, vault shares, liquid staking, Ethena, Sky, Maple and more, grouped by protocol with USD values), then wallet_tokens (token balances on every main chain, with USD values; pass search to find one token) and wallet_positions (every LP position, with value, range and fees), plus auto_manage_status.
 - Tokens: find_token gives a token's contract address on a chain (never write one from memory). quote_swap prices any swap after the BTB fee, with a warning when the pool is thin.
 - To actually swap for a person: build_swap with their wallet, then give them its signLink (one link: approval if needed, then the swap). Do not stop at a quote.
 - Where to earn: compare_yield ranks lending, vaults, savings, staking and stable LPs for a token in one call (with contract addresses). lending_rates gives live supply APYs on Aave, Compound, Morpho, Spark, Euler, Fluid and more, per chain and token. Never guess a rate.
@@ -592,6 +592,24 @@ export function buildServer(): McpServer {
       const body = await r.json() as unknown;
       return r.ok ? text(body) : fail(`The yield index answered ${r.status}: ${JSON.stringify(body).slice(0, 300)}`);
     } catch (e) { return fail(`The yield index is not reachable right now (${(e as Error).message}). lending_rates and staking_rates still work.`); }
+  });
+
+  server.registerTool('wallet_portfolio', {
+    title: 'Everything a wallet holds in DeFi',
+    description: 'What a wallet holds across the protocols BTB supports, on every EVM chain they run on (about 36): Aave supplied and borrowed with the health factor, Morpho and other vault shares with the underlying, liquid staking and restaking (Lido, Rocket Pool, Renzo, Origin, StakeStone), Ethena, Sky, Usual, Maple, Falcon, Inverse, Olympus and more, stablecoins and protocol tokens. Grouped by protocol with USD values, totals by kind, and which chains were scanned. LP positions are in wallet_positions. Public on-chain data, read-only; cached a minute.',
+    inputSchema: z.object({
+      wallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+      chains: z.string().optional().describe('Optional comma-separated chains to limit the scan, e.g. "base,ethereum". Default: every chain.'),
+    }),
+    annotations: READ,
+  }, async (a) => {
+    // Answered by BTB's Rust service on Flux, which reads every chain in parallel.
+    const q = a.chains ? `?chains=${encodeURIComponent(a.chains)}` : '';
+    try {
+      const r = await fetch(`${SIGN_STATUS_API}/api/v1/wallets/${a.wallet}/portfolio${q}`, { signal: AbortSignal.timeout(25_000) });
+      const body = await r.json() as unknown;
+      return r.ok ? text(body) : fail(`The portfolio service answered ${r.status}: ${JSON.stringify(body).slice(0, 300)}`);
+    } catch (e) { return fail(`The portfolio service is not reachable right now (${(e as Error).message}). wallet_tokens and wallet_positions still work.`); }
   });
 
   server.registerTool('build_bridge', {
