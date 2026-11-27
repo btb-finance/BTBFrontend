@@ -281,7 +281,8 @@ async fn rest(app: App, tool: &'static str, rename: &'static [(&'static str, &'s
 async fn rest_inner(app: App, tool: &'static str, rename: &'static [(&'static str, &'static str)], path: HashMap<String, String>, q: HashMap<String, String>, body: Option<Bytes>) -> Response {
     let mut a = rest_args(tool, &q, rename);
     for (k, v) in path {
-        a.insert(k, json!(v));
+        let name = rename.iter().find(|(from, _)| *from == k).map(|(_, to)| to.to_string()).unwrap_or(k);
+        a.insert(name, json!(v));
     }
     if let Some(b) = body {
         for (k, v) in body_args(&b) {
