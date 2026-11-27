@@ -26,6 +26,7 @@ pub fn definitions() -> Vec<Value> {
     more.extend(crate::txstatus::definitions(&read));
     more.extend(crate::swap::definitions(&read));
     more.extend(crate::signlink::definitions(&read));
+    more.extend(crate::builders::definitions());
     let mut list = vec![
         json!({
             "name": "top_pools",
@@ -159,6 +160,7 @@ pub fn has(name: &str) -> bool {
             | "list_protocols" | "get_protocol" | "quick_token_check" | "bridge_status"
             | "lending_rates" | "staking_rates" | "tx_status"
             | "find_token" | "quote_swap" | "sign_status"
+            | "build_swap" | "build_lend" | "build_withdraw" | "build_vault_deposit" | "build_vault_withdraw" | "build_bridge"
     )
 }
 
@@ -266,6 +268,12 @@ pub async fn call(name: &str, args: &Map<String, Value>, ctx: &Ctx<'_>) -> Resul
         "find_token" => crate::swap::find_token(args, ctx.http, ctx.tokens).await,
         "quote_swap" => crate::swap::quote_swap(args, ctx.http, ctx.tokens).await,
         "sign_status" => crate::signlink::sign_status(args, ctx.http, ctx.catalog, ctx.signed).await,
+        "build_swap" => crate::builders::build_swap(args, ctx).await,
+        "build_lend" => crate::builders::build_lend(args, ctx).await,
+        "build_withdraw" => crate::builders::build_withdraw(args, ctx).await,
+        "build_vault_deposit" => crate::builders::build_vault_deposit(args, ctx).await,
+        "build_vault_withdraw" => crate::builders::build_vault_withdraw(args, ctx).await,
+        "build_bridge" => crate::builders::build_bridge(args, ctx).await,
         _ => Err(ToolError(format!("Tool {name} not found"))),
     }
 }
@@ -369,7 +377,7 @@ fn positive(a: &Map<String, Value>, k: &str) -> Result<Option<f64>, ToolError> {
 }
 
 /// data.ts tokenGrade: the newest open scan from Convex (tokenScan:forToken), or None.
-async fn token_grade(ctx: &Ctx<'_>, chain_id: Option<i64>, token: &str) -> Option<TokenGrade> {
+pub async fn token_grade(ctx: &Ctx<'_>, chain_id: Option<i64>, token: &str) -> Option<TokenGrade> {
     let chain_id = chain_id?;
     if token.len() != 42 || !token.starts_with("0x") || !token[2..].chars().all(|c| c.is_ascii_hexdigit()) {
         return None;
