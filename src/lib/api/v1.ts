@@ -99,6 +99,7 @@ export const ROUTES: Route[] = [
   { method: 'GET', path: '/tokens/find', tool: 'find_token', tag: 'Tokens', summary: 'A token\'s contract address on a chain by symbol or name (q=USDC&chain=base).', rename: { q: 'query' } },
   { method: 'GET', path: '/quote', tool: 'quote_swap', tag: 'Tokens', summary: 'Live swap quote after the BTB fee, in USD, with a thin-pool warning (chain, tokenIn, tokenOut, amount).' },
   { method: 'GET', path: '/wallets/{address}/tokens', tool: 'wallet_tokens', tag: 'Wallets', summary: 'Token balances a wallet holds on every main chain, with USD values; search finds one token.', rename: { address: 'wallet' } },
+  { method: 'GET', path: '/yield', tool: 'compare_yield', tag: 'Tokens', summary: 'Every way to earn on a token ranked side by side: lending, vaults, savings, staking, stable LPs (token=USDC&chain=base).' },
   { method: 'GET', path: '/lending', tool: 'lending_rates', tag: 'Tokens', summary: 'Live lending and savings APYs (Aave, Compound, Morpho, Spark…) by token and chain.' },
   { method: 'GET', path: '/staking', tool: 'staking_rates', tag: 'Tokens', summary: 'ETH staking yields per liquid-staking token (stETH, weETH, rETH, cbETH...).' },
   { method: 'GET', path: '/tokens/{chain}/{token}/quick-check', tool: 'quick_token_check', tag: 'Tokens', summary: 'Free basic token safety check (honeypot, taxes, owner powers).' },
@@ -112,6 +113,10 @@ export const ROUTES: Route[] = [
   { method: 'POST', path: '/contracts/{chain}/{address}/read', tool: 'read_contract', tag: 'Contracts', summary: 'Call a read function on any contract. Body: {"function": "balanceOf", "args": ["0x…"]}.' },
   { method: 'POST', path: '/build/swap', tool: 'build_swap', tag: 'Build', summary: 'Unsigned swap transactions (approval if needed, then the swap) with a quote and a dry run.' },
   { method: 'POST', path: '/build/liquidity', tool: 'build_add_liquidity', tag: 'Build', summary: 'Unsigned transactions to open a concentrated-liquidity position, with a dry run.' },
+  { method: 'POST', path: '/build/lend', tool: 'build_lend', tag: 'Build', summary: 'Lend a token on Aave V3: the approval only if needed, then the supply, with the live rate, health factor and a signLink.' },
+  { method: 'POST', path: '/build/withdraw', tool: 'build_withdraw', tag: 'Build', summary: 'Withdraw a lent token from Aave V3 ("max" for all), with what is withdrawable now and a signLink.' },
+  { method: 'POST', path: '/build/zap', tool: 'build_zap_liquidity', tag: 'Build', summary: 'Add liquidity from one token: swap the right share, then open the position, as one signLink.' },
+  { method: 'POST', path: '/sign/status', tool: 'sign_status', tag: 'Build', summary: 'Which steps of a signLink the person signed, each checked on chain. Body: {"signLink": "https://btb.finance/sign#…"}.' },
   { method: 'POST', path: '/build/tx', tool: 'build_tx', tag: 'Build', summary: 'Encode any contract function into an unsigned transaction, with a dry run and warnings.' },
 ];
 

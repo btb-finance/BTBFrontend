@@ -13,13 +13,15 @@ export interface ToolInfo {
   inputSchema: unknown;
 }
 
-export const TOOL_GROUPS = ['Pools & research', 'Wallets & positions', 'Protocols', 'Any contract', 'Build transactions'] as const;
+export const TOOL_GROUPS = ['Yield, lending & staking', 'Pools & research', 'Tokens & prices', 'Wallets & positions', 'Build transactions', 'Protocols', 'Any contract'] as const;
 
 function groupFor(name: string): string {
-  if (name.startsWith('build_')) return 'Build transactions';
+  if (name.startsWith('build_') || name === 'sign_status' || name === 'add_liquidity_link') return 'Build transactions';
+  if (['compare_yield', 'lending_rates', 'staking_rates'].includes(name)) return 'Yield, lending & staking';
+  if (['find_token', 'quote_swap', 'token_safety', 'quick_token_check'].includes(name)) return 'Tokens & prices';
+  if (['wallet_positions', 'wallet_tokens', 'tx_status'].includes(name) || name.startsWith('auto_manage')) return 'Wallets & positions';
   if (name === 'get_abi' || name === 'read_contract') return 'Any contract';
   if (name === 'list_protocols' || name === 'get_protocol') return 'Protocols';
-  if (name === 'wallet_positions' || name.startsWith('auto_manage')) return 'Wallets & positions';
   return 'Pools & research';
 }
 
@@ -39,7 +41,8 @@ export async function listTools(): Promise<ToolInfo[]> {
     name: str(t.name),
     title: str(t.title) || str(t.name),
     description: str(t.description),
-    readOnly: (t.annotations as { readOnlyHint?: boolean } | undefined)?.readOnlyHint !== false,
+    // Build tools never send anything (so they are marked read-only for clients), but they do make transactions.
+    readOnly: !String(t.name).startsWith('build_') && (t.annotations as { readOnlyHint?: boolean } | undefined)?.readOnlyHint !== false,
     group: groupFor(String(t.name)),
     inputSchema: t.inputSchema ?? {},
   }));
