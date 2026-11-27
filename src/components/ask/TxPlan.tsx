@@ -29,6 +29,9 @@ export function TxPlan({ txs, state, onState, onRebuilt }: {
   const chainName = (id: number) => config.chains.find((c) => c.id === id)?.name ?? `chain ${id}`;
   const explorer = (id: number) => config.chains.find((c) => c.id === id)?.blockExplorers?.default.url;
   const next = txs.findIndex((_, i) => state[i]?.status !== 'done');
+  // Steps are built for one wallet (approvals, balances, dry runs): another connected account must not sign them.
+  const builtFor = txs.find((t) => t.from)?.from;
+  const wrongWallet = !!(builtFor && address && builtFor.toLowerCase() !== address.toLowerCase());
 
   const sign = async (i: number) => {
     let tx = txs[i];
@@ -44,13 +47,21 @@ export function TxPlan({ txs, state, onState, onRebuilt }: {
         onRebuilt?.(i, b.step);
       }
       if (walletChain !== tx.chainId) await switchChainAsync({ chainId: tx.chainId });
-      const hash = await sendTransactionAsync({ to: tx.to as `0x${string}`, data: tx.data as `0x${string}`, value: BigInt(tx.value || '0'), chainId: tx.chainId });
+      // Send from the connected account explicitly, so the wallet never guesses another one.
+      const hash = await sendTransactionAsync({ account: address, to: tx.to as `0x${string}`, data: tx.data as `0x${string}`, value: BigInt(tx.value || '0'), chainId: tx.chainId });
       onState(i, { status: 'confirming', hash });
       const receipt = await waitForTransactionReceipt(config, { hash, chainId: tx.chainId });
       onState(i, receipt.status === 'success' ? { status: 'done', hash } : { status: 'failed', hash, error: 'The transaction reverted on chain.' });
     } catch (e) {
       const msg = (e as { shortMessage?: string }).shortMessage ?? (e as Error).message ?? 'Failed';
-      onState(i, { status: 'failed', error: /reject|denied|cancel/i.test(msg) ? 'Cancelled in your wallet.' : msg.slice(0, 160) });
+      // EIP-1193 4100: the wallet has not let this site use this account (locked, switched, or connection gone stale).
+      const unauthorized = /not been authorized|unauthorized|4100/i.test(msg);
+      onState(i, {
+        status: 'failed',
+        error: unauthorized
+          ? `Your wallet has not allowed btb.finance to use ${address ? short(address) : 'this account'}. Open the wallet, unlock it and allow this site for that account, or use Disconnect, then Connect wallet, and sign again.`
+          : /reject|denied|cancel/i.test(msg) ? 'Cancelled in your wallet.' : msg.slice(0, 160),
+      });
     } finally {
       setBusy(false);
     }
@@ -88,13 +99,18 @@ export function TxPlan({ txs, state, onState, onRebuilt }: {
               {st.hash && url && <a className="ag-plan-tx" href={`${url}/tx/${st.hash}`} target="_blank" rel="noreferrer">View transaction</a>}
             </div>
             {st.status !== 'done' && (
-              <button type="button" className={`ag-action${isNext ? ' primary' : ''}`} disabled={!address || !isNext || busy} onClick={() => void sign(i)}>
+              <button type="button" className={`ag-action${isNext ? ' primary' : ''}`} disabled={!address || !isNext || busy || wrongWallet} onClick={() => void sign(i)}>
                 {st.status === 'signing' ? 'Confirm in wallet' : st.status === 'confirming' ? 'Confirming' : failedDry && isNext ? 'Sign anyway' : 'Sign'}
               </button>
             )}
           </div>
         );
       })}
+      {wrongWallet && (
+        <div className="ag-plan-foot ag-error">
+          These steps were built for {short(builtFor!)}, but your connected wallet is {short(address!)}. Switch to {short(builtFor!)} in your wallet (or ask again for this wallet) to sign.
+        </div>
+      )}
       <div className="ag-plan-foot">
         {address
           ? 'Built from your request. Check the amounts in your wallet before you approve; nothing is sent without it.'

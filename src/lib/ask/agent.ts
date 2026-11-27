@@ -97,6 +97,8 @@ export type TxStep = {
   /** Swaps: when it was built, and what to rebuild it from at signing time so the quote is fresh. */
   builtAt?: number;
   swap?: SwapParams;
+  /** The wallet the step was built for: only it can sign (the dry run and approvals are for this address). */
+  from?: string;
 };
 export type SwapParams = { chainId: number; tokenIn: string; tokenOut: string; amount: string; slippageBps: number };
 export type AskResult = { reply: string; steps: string[]; txs?: TxStep[] };
@@ -153,7 +155,7 @@ const MAX_UINT_HALF = 2n ** 255n;
 
 /** Turns a build tool's answer (transactions, dry run, signLink) into the page's sign card steps. */
 function collectSteps(out: unknown, txs: TxStep[], signLinks: string[]) {
-  const r = out as { chainId?: number; transactions?: { label: string; to: string; data: string; value: string }[]; simulation?: { status: string; reason?: string }; warnings?: string[]; signLink?: string };
+  const r = out as { wallet?: string; chainId?: number; transactions?: { label: string; to: string; data: string; value: string }[]; simulation?: { status: string; reason?: string }; warnings?: string[]; signLink?: string };
   if (!r || !Array.isArray(r.transactions) || !r.chainId) return;
   const n = r.transactions.length;
   r.transactions.forEach((t, i) => {
@@ -162,7 +164,7 @@ function collectSteps(out: unknown, txs: TxStep[], signLinks: string[]) {
     txs.push({
       label: t.label, chainId: r.chainId!, to: t.to, data: t.data, value: t.value, fn: t.label,
       dryRun: !sim ? 'none' : sim.status === 'passed' ? 'passed' : n > 1 && sim.status !== 'reverted' ? 'after-previous' : sim.status === 'skipped' && n > 1 ? 'after-previous' : 'reverted',
-      dryRunNote: sim?.reason, warnings: last ? r.warnings ?? [] : [],
+      dryRunNote: sim?.reason, warnings: last ? r.warnings ?? [] : [], ...(r.wallet ? { from: r.wallet } : {}),
     });
   });
   if (r.signLink) signLinks.push(r.signLink);
@@ -188,6 +190,7 @@ export async function swapSteps(p: SwapParams, wallet: string): Promise<{ steps:
     const last = i === n - 1;
     const sim = built.simulation;
     return {
+      from: wallet,
       label: last ? `Swap ${built.quote.amountIn} ${built.quote.symbolIn} for ${built.quote.amountOut} ${built.quote.symbolOut}` : t.label.replace(/ for the KyberSwap router$/, ''),
       chainId: built.chainId, to: t.to, data: t.data, value: t.value,
       fn: last ? `KyberSwap via ${built.quote.route}` : 'approve(address,uint256)',
@@ -245,7 +248,7 @@ async function buildStep(args: Record<string, unknown>, wallet: string, seen: st
   const tx = out.transactions[0];
   const afterApproval = out.simulation.status === 'reverted' && txs.some((t) => /^approve|increaseAllowance/i.test(t.fn));
   txs.push({
-    label, chainId: out.chainId, to: tx.to, data: tx.data, value: tx.value, fn: out.function,
+    from: wallet, label, chainId: out.chainId, to: tx.to, data: tx.data, value: tx.value, fn: out.function,
     dryRun: afterApproval ? 'after-previous' : out.simulation.status,
     dryRunNote: out.simulation.reason,
     // The generic "review it" line is shown once by the page itself.
@@ -326,6 +329,8 @@ export async function ask(message: string, history: AskTurn[], wallet: string | 
       try { args = JSON.parse(c.function?.arguments || '{}'); } catch { /* none */ }
       if (HIDDEN_TOOLS.has(name)) return 'Not available here: give the person a swap or pool button instead.';
       if (BUILD_TOOLS.has(name) && !wallet) return 'Error: no wallet connected. Ask the person to connect one first.';
+      // On this page only the connected wallet can sign: build for it, whatever address was typed.
+      if (wallet && name.startsWith('build_') && 'wallet' in args) args.wallet = wallet;
       const label = STEP_LABELS[name] ?? name.replace(/_/g, ' ');
       if (!steps.includes(label)) steps.push(label);
       try {
