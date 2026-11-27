@@ -51,8 +51,35 @@ struct App {
     upstream_tools: Arc<RwLock<Option<(std::time::Instant, Vec<Value>)>>>,
 }
 
-#[tokio::main]
-async fn main() {
+/// Flux allows 20 environment variables per app, so the rest arrive bundled in one: BTB_ENV, a base64 JSON object
+/// of name → value. Each entry is set unless that name is already set on its own (a direct variable wins).
+fn unpack_env_bundle() {
+    use base64::Engine;
+    let Ok(bundle) = std::env::var("BTB_ENV") else { return };
+    let decoded = base64::engine::general_purpose::STANDARD.decode(bundle.trim()).ok().and_then(|b| serde_json::from_slice::<Map<String, Value>>(&b).ok());
+    let Some(vars) = decoded else {
+        eprintln!("BTB_ENV is set but is not base64 JSON; ignored");
+        return;
+    };
+    let mut n = 0;
+    for (k, v) in vars {
+        if std::env::var_os(&k).is_none() {
+            if let Some(s) = v.as_str() {
+                std::env::set_var(&k, s);
+                n += 1;
+            }
+        }
+    }
+    eprintln!("BTB_ENV: {n} variables loaded");
+}
+
+fn main() {
+    // Before the async runtime starts any threads, so setting variables is safe.
+    unpack_env_bundle();
+    tokio::runtime::Builder::new_multi_thread().enable_all().build().expect("runtime").block_on(run());
+}
+
+async fn run() {
     tracing_subscriber::fmt().with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into())).init();
     let convex = std::env::var("CONVEX_URL").unwrap_or_else(|_| "https://grateful-oyster-780.convex.cloud".into());
     let upstream = std::env::var("UPSTREAM_URL").unwrap_or_else(|_| "https://btb.finance".into());
