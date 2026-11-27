@@ -22,6 +22,8 @@ pub fn definitions() -> Vec<Value> {
     let read = json!({ "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": true });
     let mut more = crate::registry::definitions(&read);
     more.extend(crate::lite::definitions(&read));
+    more.extend(crate::rates::definitions(&read));
+    more.extend(crate::txstatus::definitions(&read));
     let mut list = vec![
         json!({
             "name": "top_pools",
@@ -153,6 +155,7 @@ pub fn has(name: &str) -> bool {
         "top_pools" | "search_pools" | "chain_summary" | "pool_details" | "compare_pools" | "best_pools_for" | "estimate_lp_earnings"
             | "token_safety" | "lp_plan" | "add_liquidity_link" | "compare_yield"
             | "list_protocols" | "get_protocol" | "quick_token_check" | "bridge_status"
+            | "lending_rates" | "staking_rates" | "tx_status"
     )
 }
 
@@ -162,6 +165,8 @@ pub struct Ctx<'a> {
     pub http: &'a reqwest::Client,
     pub convex: &'a str,
     pub index: &'a crate::store::Index,
+    pub rates: &'a crate::rates::Feed,
+    pub catalog: &'a crate::txstatus::Catalog,
 }
 
 // ---- arguments ----
@@ -250,6 +255,9 @@ pub async fn call(name: &str, args: &Map<String, Value>, ctx: &Ctx<'_>) -> Resul
         "get_protocol" => crate::registry::detail(args),
         "quick_token_check" => crate::lite::quick_token_check(args, ctx.http).await,
         "bridge_status" => crate::lite::bridge_status(args, ctx.http).await,
+        "lending_rates" => crate::rates::lending(args, ctx.rates, ctx.http).await,
+        "staking_rates" => crate::rates::staking_rates(args, ctx.rates, ctx.http).await,
+        "tx_status" => crate::txstatus::tx_status(args, ctx.http, ctx.catalog).await,
         _ => Err(ToolError(format!("Tool {name} not found"))),
     }
 }
