@@ -29,6 +29,13 @@ pub fn definitions() -> Vec<Value> {
     more.extend(crate::builders::definitions());
     more.extend(crate::portfolio::definitions(&read));
     more.extend(crate::overview::definitions(&read));
+    more.push(json!({
+        "name": "build_pump_claim",
+        "title": "Claim Pump creator fees (ready to sign)",
+        "description": "For a Pump coin creator's Solana wallet: one unsigned transaction that claims every creator fee waiting for it, from the bonding curve and from PumpSwap (unwrapped to SOL), with the amount, a dry run on Solana, and the transaction to sign. Free: BTB takes no fee on claims. The transaction expires about a minute after it is built. wallet_portfolio shows the fees before claiming.",
+        "inputSchema": { "type": "object", "properties": { "wallet": { "type": "string", "pattern": "^[1-9A-HJ-NP-Za-km-z]{32,44}$", "description": "The creator's Solana address." } }, "required": ["wallet"] },
+        "annotations": read,
+    }));
     let mut list = vec![
         json!({
             "name": "top_pools",
@@ -162,7 +169,7 @@ pub fn has(name: &str) -> bool {
             | "list_protocols" | "get_protocol" | "quick_token_check" | "bridge_status"
             | "lending_rates" | "staking_rates" | "tx_status"
             | "find_token" | "quote_swap" | "sign_status"
-            | "wallet_portfolio" | "wallet_overview"
+            | "wallet_portfolio" | "wallet_overview" | "build_pump_claim"
             | "build_swap" | "build_lend" | "build_withdraw" | "build_vault_deposit" | "build_vault_withdraw" | "build_bridge"
     )
 }
@@ -273,6 +280,13 @@ pub async fn call(name: &str, args: &Map<String, Value>, ctx: &Ctx<'_>) -> Resul
         "sign_status" => crate::signlink::sign_status(args, ctx.http, ctx.catalog, ctx.signed).await,
         "wallet_portfolio" => crate::portfolio::wallet_portfolio(args, ctx).await,
         "wallet_overview" => crate::overview::wallet_overview(args, ctx).await,
+        "build_pump_claim" => {
+            let w = opt_str(args, "wallet")?.ok_or_else(|| bad("wallet is required"))?;
+            if !crate::solana::is_address(w.trim()) {
+                return Err(bad("wallet must be a Solana address (the coin's creator)"));
+            }
+            crate::solana::build_pump_claim(ctx.http, w.trim()).await.map_err(ToolError)
+        }
         "build_swap" => crate::builders::build_swap(args, ctx).await,
         "build_lend" => crate::builders::build_lend(args, ctx).await,
         "build_withdraw" => crate::builders::build_withdraw(args, ctx).await,

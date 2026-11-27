@@ -291,3 +291,170 @@ mod tests {
         assert!(!super::is_address("0xA6a1f137D07bE21A0BF4d15B11D295A09DF04d22"));
     }
 }
+
+// ---- building unsigned transactions ----
+
+pub struct Meta {
+    pub key: String,
+    pub signer: bool,
+    pub writable: bool,
+}
+pub fn m(key: &str, signer: bool, writable: bool) -> Meta {
+    Meta { key: key.to_string(), signer, writable }
+}
+pub struct Ix {
+    pub program: String,
+    pub accounts: Vec<Meta>,
+    pub data: Vec<u8>,
+}
+
+fn compact(n: usize, out: &mut Vec<u8>) {
+    let mut v = n;
+    loop {
+        let mut b = (v & 0x7f) as u8;
+        v >>= 7;
+        if v != 0 {
+            b |= 0x80;
+        }
+        out.push(b);
+        if v == 0 {
+            break;
+        }
+    }
+}
+
+/// A legacy transaction with one signer (the fee payer), signature left empty, as base64.
+pub fn legacy_tx(payer: &str, ixs: &[Ix], blockhash: &str) -> String {
+    // Unique accounts with merged flags; the payer first, then signers, writables, read-only, programs last.
+    let mut keys: Vec<(String, bool, bool)> = vec![(payer.to_string(), true, true)];
+    let mut upsert = |k: &str, s: bool, w: bool| {
+        if let Some(e) = keys.iter_mut().find(|e| e.0 == k) {
+            e.1 |= s;
+            e.2 |= w;
+        } else {
+            keys.push((k.to_string(), s, w));
+        }
+    };
+    for ix in ixs {
+        for a in &ix.accounts {
+            upsert(&a.key, a.signer, a.writable);
+        }
+    }
+    for ix in ixs {
+        upsert(&ix.program, false, false);
+    }
+    let rank = |e: &(String, bool, bool)| match (e.1, e.2) { (true, true) => 0, (true, false) => 1, (false, true) => 2, (false, false) => 3 };
+    let payer_entry = keys.remove(0);
+    keys.sort_by_key(|e| rank(e));
+    keys.insert(0, payer_entry);
+    let signers = keys.iter().filter(|e| e.1).count();
+    let ro_signed = keys.iter().filter(|e| e.1 && !e.2).count();
+    let ro_unsigned = keys.iter().filter(|e| !e.1 && !e.2).count();
+    let idx = |k: &str| keys.iter().position(|e| e.0 == k).unwrap() as u8;
+    let mut msg = vec![signers as u8, ro_signed as u8, ro_unsigned as u8];
+    compact(keys.len(), &mut msg);
+    for e in &keys {
+        msg.extend_from_slice(&key(&e.0));
+    }
+    msg.extend_from_slice(&key(blockhash));
+    compact(ixs.len(), &mut msg);
+    for ix in ixs {
+        msg.push(idx(&ix.program));
+        compact(ix.accounts.len(), &mut msg);
+        for a in &ix.accounts {
+            msg.push(idx(&a.key));
+        }
+        compact(ix.data.len(), &mut msg);
+        msg.extend_from_slice(&ix.data);
+    }
+    let mut tx = Vec::new();
+    compact(signers, &mut tx);
+    tx.extend(std::iter::repeat(0u8).take(64 * signers));
+    tx.extend(msg);
+    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, tx)
+}
+
+pub async fn latest_blockhash(http: &reqwest::Client) -> Result<String, String> {
+    let r = rpc(http, "getLatestBlockhash", json!([{ "commitment": "confirmed" }])).await?;
+    r["value"]["blockhash"].as_str().map(String::from).ok_or_else(|| "no blockhash".into())
+}
+
+/// Dry run on the cluster without signatures: passed, or the program's error and its last log lines.
+pub async fn simulate(http: &reqwest::Client, tx_b64: &str) -> Value {
+    match rpc(http, "simulateTransaction", json!([tx_b64, { "encoding": "base64", "sigVerify": false, "replaceRecentBlockhash": true, "commitment": "confirmed" }])).await {
+        Ok(r) => {
+            let v = &r["value"];
+            if v["err"].is_null() {
+                json!({ "status": "passed", "computeUnits": v["unitsConsumed"] })
+            } else {
+                let logs: Vec<Value> = v["logs"].as_array().cloned().unwrap_or_default();
+                let tail: Vec<Value> = logs.iter().rev().take(4).rev().cloned().collect();
+                json!({ "status": "reverted", "error": v["err"], "logs": tail })
+            }
+        }
+        Err(e) => json!({ "status": "not_run", "reason": e }),
+    }
+}
+
+const SYSTEM_PROGRAM: &str = "11111111111111111111111111111111";
+
+/// Claim every Pump creator fee the wallet has: bonding curve (SOL) and PumpSwap (wrapped SOL, unwrapped here).
+pub async fn build_pump_claim(http: &reqwest::Client, wallet: &str) -> Result<Value, String> {
+    let (curve, amm) = creator_fees(http, wallet).await?;
+    let (px, _) = llama(http, &[SOL_MINT.to_string()]).await;
+    let sol_px = px.get(SOL_MINT).copied().unwrap_or(0.0);
+    if curve + amm < 0.000_001 {
+        return Err("This wallet has no Pump creator fees to claim right now.".into());
+    }
+    let mut ixs = Vec::new();
+    let mut labels = Vec::new();
+    if curve > 0.0 {
+        let vault = pda(&[b"creator-vault", &key(wallet)], PUMP_PROGRAM);
+        let ev = pda(&[b"__event_authority"], PUMP_PROGRAM);
+        ixs.push(Ix {
+            program: PUMP_PROGRAM.into(),
+            accounts: vec![m(wallet, false, true), m(&vault, false, true), m(SYSTEM_PROGRAM, false, false), m(&ev, false, false), m(PUMP_PROGRAM, false, false)],
+            data: vec![20, 22, 86, 123, 198, 28, 219, 132],
+        });
+        labels.push(format!("Claim {curve:.6} SOL of bonding-curve creator fees"));
+    }
+    if amm > 0.0 {
+        let auth = pda(&[b"creator_vault", &key(wallet)], PUMP_AMM_PROGRAM);
+        let vault_ata = ata(&auth, SOL_MINT, TOKEN_PROGRAM);
+        let my_wsol = ata(wallet, SOL_MINT, TOKEN_PROGRAM);
+        let exists = rpc(http, "getAccountInfo", json!([my_wsol, { "encoding": "base64" }])).await.map(|r| !r["value"].is_null()).unwrap_or(false);
+        // Create the wrapped-SOL account if needed (idempotent), collect into it, then close it to unwrap to SOL.
+        ixs.push(Ix {
+            program: ATA_PROGRAM.into(),
+            accounts: vec![m(wallet, true, true), m(&my_wsol, false, true), m(wallet, false, false), m(SOL_MINT, false, false), m(SYSTEM_PROGRAM, false, false), m(TOKEN_PROGRAM, false, false)],
+            data: vec![1],
+        });
+        let ev = pda(&[b"__event_authority"], PUMP_AMM_PROGRAM);
+        ixs.push(Ix {
+            program: PUMP_AMM_PROGRAM.into(),
+            accounts: vec![
+                m(SOL_MINT, false, false), m(TOKEN_PROGRAM, false, false), m(wallet, false, false), m(&auth, false, false),
+                m(&vault_ata, false, true), m(&my_wsol, false, true), m(&ev, false, false), m(PUMP_AMM_PROGRAM, false, false),
+            ],
+            data: vec![160, 57, 89, 42, 181, 139, 43, 66],
+        });
+        if !exists {
+            ixs.push(Ix { program: TOKEN_PROGRAM.into(), accounts: vec![m(&my_wsol, false, true), m(wallet, false, true), m(wallet, true, false)], data: vec![9] });
+        }
+        labels.push(format!("Claim {amm:.6} SOL of PumpSwap creator fees{}", if exists { " (kept as wrapped SOL in your existing account)" } else { "" }));
+    }
+    let blockhash = latest_blockhash(http).await?;
+    let tx = legacy_tx(wallet, &ixs, &blockhash);
+    let sim = simulate(http, &tx).await;
+    let total = curve + amm;
+    Ok(json!({
+        "chain": "Solana", "wallet": wallet,
+        "claim": { "sol": crate::pools::num((total * 1e6).round() / 1e6), "usd": r2(total * sol_px), "bondingCurveSol": crate::pools::num((curve * 1e6).round() / 1e6), "pumpSwapSol": crate::pools::num((amm * 1e6).round() / 1e6) },
+        "btbFee": "None: claiming through BTB is free.",
+        "steps": labels,
+        "simulation": sim,
+        "transaction": { "encoding": "base64", "format": "legacy", "signer": wallet, "data": tx, "recentBlockhash": blockhash,
+            "expires": "About 60 to 90 seconds after it was built: sign and send right away, or call build_pump_claim again." },
+        "notes": ["Fees go to the creator wallet that signs. Nothing was signed or sent. A wallet-signing page for Solana on btb.finance is coming; agents with a Solana wallet can sign this transaction now."],
+    }))
+}

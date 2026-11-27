@@ -333,6 +333,7 @@ fn rest_routes(r: Router<App>) -> Router<App> {
     let r = route_tool!(r, "/api/v1/sign/status", "sign_status", &[]);
     let r = route_tool!(r, "/api/v1/wallets/:address/portfolio", "wallet_portfolio", &[("address", "wallet")]);
     let r = route_tool!(r, "/api/v1/wallets/:address/overview", "wallet_overview", &[("address", "wallet")]);
+    let r = route_tool!(r, "/api/v1/solana/pump/claim", "build_pump_claim", &[]);
     let r = route_tool!(r, "/api/v1/build/swap", "build_swap", &[]);
     let r = route_tool!(r, "/api/v1/build/lend", "build_lend", &[]);
     let r = route_tool!(r, "/api/v1/build/withdraw", "build_withdraw", &[]);
