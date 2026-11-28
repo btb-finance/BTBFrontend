@@ -1,0 +1,262 @@
+{
+  "slug": "lombard-lbtc",
+  "name": "Lombard LBTC",
+  "category": "Restaked BTC",
+  "description": "LBTC is a yield-bearing Bitcoin token backed 1:1 by native BTC. Agents can read LBTC balances and transfer or approve the token on each listed chain. Minting and redemption are handled by Lombard, not by these token contracts.",
+  "website": "https://www.lombard.finance",
+  "docs": "https://docs.lombard.finance",
+  "defillama": "https://defillama.com/protocol/lombard-lbtc",
+  "chains": [
+    "ethereum",
+    "base",
+    "bsc",
+    "avalanche"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x8236a87084f8B84306f72007F36F2618A5634494",
+      "name": "LBTC (Staked LBTC)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.lombard.finance/learn/transparency/smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send LBTC to a recipient. Amount is in base units (8 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Amount is in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount in base units."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LBTC balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total LBTC supply on this chain, in base units."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals. Returns 8 on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xecAc9C5F704e954931349Da37F60E39f515c11c1",
+      "name": "LBTC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.lombard.finance/learn/transparency/smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send LBTC to a recipient. Amount is in base units (8 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Amount is in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount in base units."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LBTC balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total LBTC supply on this chain, in base units."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals. Returns 8 on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xecAc9C5F704e954931349Da37F60E39f515c11c1",
+      "name": "LBTC (BEP-20)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.lombard.finance/learn/transparency/smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send LBTC to a recipient. Amount is in base units (8 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Amount is in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount in base units."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LBTC balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total LBTC supply on this chain, in base units."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals. Returns 8 on this chain."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0xecAc9C5F704e954931349Da37F60E39f515c11c1",
+      "name": "LBTC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.lombard.finance/learn/transparency/smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send LBTC to a recipient. Amount is in base units (8 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Amount is in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount in base units."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LBTC balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total LBTC supply on this chain, in base units."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals. Returns 8 on this chain."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "check balance",
+      "description": "Read an LBTC balance on a chain",
+      "how": "balanceOf(address) on the LBTC contract for that chain"
+    },
+    {
+      "name": "transfer",
+      "description": "Send LBTC",
+      "how": "transfer(address,uint256) on the LBTC contract for that chain, amount in 8-decimal base units"
+    },
+    {
+      "name": "approve and spend",
+      "description": "Let another contract move LBTC",
+      "how": "approve(spender, amount), then the spender calls transferFrom or pulls the allowance"
+    }
+  ],
+  "risks": [
+    "The yield strategy runs off-chain, so an on-chain balance does not show the yield.",
+    "Each chain has its own LBTC contract. Send only on the chain whose address is listed here.",
+    "Native LBTC (0xB0F70C0bD6FD87dbEb7C10dC692a2a6106817072) is a different token from the staked LBTC listed here. Confirm which one you hold before acting."
+  ],
+  "notes": "The Ethereum token is 0x8236... and Base, BSC and Avalanche use 0xecAc.... The official transparency page lists more chains (Sui, Solana, and several deprecated chains). Only EVM chains with confirmed token addresses are included. Lombard's other contracts (bridge, oracle, Bascule, consortium) are not listed because their ABIs were not confirmed. Each address was checked with eth_getCode on a public RPC.",
+  "sources": [
+    "https://docs.lombard.finance/learn/transparency/smart-contracts",
+    "https://raw.githubusercontent.com/lombard-finance/evm-smart-contracts/main/mainnet.json",
+    "https://www.lombard.finance",
+    "https://api.llama.fi/protocol/lombard-lbtc"
+  ],
+  "researchedAt": "2026-11-28"
+}

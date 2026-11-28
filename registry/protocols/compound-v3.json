@@ -1,0 +1,1681 @@
+{
+  "slug": "compound-v3",
+  "name": "Compound V3",
+  "category": "Lending",
+  "description": "Compound III (Comet) lending markets. Each market lends one base asset (USDC, WETH, USDT or USDS) and takes other assets as collateral. An agent can supply, withdraw, borrow by withdrawing past its base balance, repay by supplying, allow a manager, claim COMP rewards and read rates and positions.",
+  "website": "https://www.compound.xyz/",
+  "docs": "https://github.com/compound-finance/comet",
+  "defillama": "https://defillama.com/protocol/compound-v3",
+  "chains": [
+    "ethereum",
+    "base",
+    "arbitrum",
+    "polygon",
+    "optimism",
+    "scroll",
+    "linea",
+    "unichain"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xc3d688B66703497DAA19211EEdff47f25384cdc3",
+      "name": "Comet USDC market (Ethereum)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/compound-finance/comet/blob/main/deployments/mainnet/usdc/roots.json",
+      "keyFunctions": [
+        {
+          "signature": "supply(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply the base token (USDC) or a collateral asset. Approve the Comet contract for the token first. Amount in the token's smallest unit. Supplying the base token also repays any debt. Reverts if supply is paused or a collateral supply cap would be exceeded."
+        },
+        {
+          "signature": "supplyTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply on behalf of another account: (dst, asset, amount). Same token approval and rules as supply. The position is credited to dst."
+        },
+        {
+          "signature": "withdraw(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw the base token or a collateral asset: (asset, amount). Withdrawing more base token than the account supplies opens a borrow of the difference. Reverts if the account would be undercollateralized or the market lacks base liquidity."
+        },
+        {
+          "signature": "withdrawTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw and send the asset to another address: (to, asset, amount). Same rules as withdraw."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Base token supply balance of an account, including accrued interest, in base token units. Zero when the account has no supply."
+        },
+        {
+          "signature": "borrowBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current base token debt of an account, including accrued interest, in base token units. Zero when there is no debt."
+        },
+        {
+          "signature": "collateralBalanceOf(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral balance of an account for one asset: (account, asset), in the asset's units. Served by the extension delegate through the Comet proxy fallback."
+        },
+        {
+          "signature": "isLiquidatable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is underwater and can be absorbed by the protocol."
+        },
+        {
+          "signature": "absorb(address,address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step one: (absorber, accounts). Anyone can call it. Moves the collateral and debt of underwater accounts into protocol reserves. Accounts that are not liquidatable are skipped."
+        },
+        {
+          "signature": "buyCollateral(address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step two: buy absorbed collateral at a discount: (asset, minAmount, baseAmount, recipient). Approve the base token first and pay baseAmount. Reverts if less than minAmount of the asset would be received."
+        },
+        {
+          "signature": "quoteCollateral(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Amount of an absorbed collateral asset received for a given baseAmount in buyCollateral, after the discount."
+        },
+        {
+          "signature": "getUtilization()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current utilization of the base token, scaled by 1e18 (1e18 equals 100 percent)."
+        },
+        {
+          "signature": "getSupplyRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per second for a utilization value scaled by 1e18. Multiply by seconds per year for an APR estimate."
+        },
+        {
+          "signature": "allow(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Allow or revoke a manager that can withdraw or borrow on msg.sender's behalf: (manager, isAllowed). Use allowBySig for signed approvals."
+        },
+        {
+          "signature": "baseToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of this market's base token."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xA17581A9E3356d9A858b789D68B4d866e593aE94",
+      "name": "Comet WETH market (Ethereum)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/compound-finance/comet/blob/main/deployments/mainnet/weth/roots.json",
+      "keyFunctions": [
+        {
+          "signature": "supply(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply the base token (WETH) or a collateral asset. Approve the Comet contract for the token first. Amount in the token's smallest unit. Supplying the base token also repays any debt. Reverts if supply is paused or a collateral supply cap would be exceeded."
+        },
+        {
+          "signature": "supplyTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply on behalf of another account: (dst, asset, amount). Same token approval and rules as supply. The position is credited to dst."
+        },
+        {
+          "signature": "withdraw(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw the base token or a collateral asset: (asset, amount). Withdrawing more base token than the account supplies opens a borrow of the difference. Reverts if the account would be undercollateralized or the market lacks base liquidity."
+        },
+        {
+          "signature": "withdrawTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw and send the asset to another address: (to, asset, amount). Same rules as withdraw."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Base token supply balance of an account, including accrued interest, in base token units. Zero when the account has no supply."
+        },
+        {
+          "signature": "borrowBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current base token debt of an account, including accrued interest, in base token units. Zero when there is no debt."
+        },
+        {
+          "signature": "collateralBalanceOf(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral balance of an account for one asset: (account, asset), in the asset's units. Served by the extension delegate through the Comet proxy fallback."
+        },
+        {
+          "signature": "isLiquidatable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is underwater and can be absorbed by the protocol."
+        },
+        {
+          "signature": "absorb(address,address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step one: (absorber, accounts). Anyone can call it. Moves the collateral and debt of underwater accounts into protocol reserves. Accounts that are not liquidatable are skipped."
+        },
+        {
+          "signature": "buyCollateral(address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step two: buy absorbed collateral at a discount: (asset, minAmount, baseAmount, recipient). Approve the base token first and pay baseAmount. Reverts if less than minAmount of the asset would be received."
+        },
+        {
+          "signature": "quoteCollateral(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Amount of an absorbed collateral asset received for a given baseAmount in buyCollateral, after the discount."
+        },
+        {
+          "signature": "getUtilization()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current utilization of the base token, scaled by 1e18 (1e18 equals 100 percent)."
+        },
+        {
+          "signature": "getSupplyRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per second for a utilization value scaled by 1e18. Multiply by seconds per year for an APR estimate."
+        },
+        {
+          "signature": "allow(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Allow or revoke a manager that can withdraw or borrow on msg.sender's behalf: (manager, isAllowed). Use allowBySig for signed approvals."
+        },
+        {
+          "signature": "baseToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of this market's base token."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x3Afdc9BCA9213A35503b077a6072F3D0d5AB0840",
+      "name": "Comet USDT market (Ethereum)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/compound-finance/comet/blob/main/deployments/mainnet/usdt/roots.json",
+      "keyFunctions": [
+        {
+          "signature": "supply(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply the base token (USDT) or a collateral asset. Approve the Comet contract for the token first. Amount in the token's smallest unit. Supplying the base token also repays any debt. Reverts if supply is paused or a collateral supply cap would be exceeded."
+        },
+        {
+          "signature": "supplyTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply on behalf of another account: (dst, asset, amount). Same token approval and rules as supply. The position is credited to dst."
+        },
+        {
+          "signature": "withdraw(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw the base token or a collateral asset: (asset, amount). Withdrawing more base token than the account supplies opens a borrow of the difference. Reverts if the account would be undercollateralized or the market lacks base liquidity."
+        },
+        {
+          "signature": "withdrawTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw and send the asset to another address: (to, asset, amount). Same rules as withdraw."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Base token supply balance of an account, including accrued interest, in base token units. Zero when the account has no supply."
+        },
+        {
+          "signature": "borrowBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current base token debt of an account, including accrued interest, in base token units. Zero when there is no debt."
+        },
+        {
+          "signature": "collateralBalanceOf(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral balance of an account for one asset: (account, asset), in the asset's units. Served by the extension delegate through the Comet proxy fallback."
+        },
+        {
+          "signature": "isLiquidatable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is underwater and can be absorbed by the protocol."
+        },
+        {
+          "signature": "absorb(address,address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step one: (absorber, accounts). Anyone can call it. Moves the collateral and debt of underwater accounts into protocol reserves. Accounts that are not liquidatable are skipped."
+        },
+        {
+          "signature": "buyCollateral(address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step two: buy absorbed collateral at a discount: (asset, minAmount, baseAmount, recipient). Approve the base token first and pay baseAmount. Reverts if less than minAmount of the asset would be received."
+        },
+        {
+          "signature": "quoteCollateral(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Amount of an absorbed collateral asset received for a given baseAmount in buyCollateral, after the discount."
+        },
+        {
+          "signature": "getUtilization()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current utilization of the base token, scaled by 1e18 (1e18 equals 100 percent)."
+        },
+        {
+          "signature": "getSupplyRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per second for a utilization value scaled by 1e18. Multiply by seconds per year for an APR estimate."
+        },
+        {
+          "signature": "allow(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Allow or revoke a manager that can withdraw or borrow on msg.sender's behalf: (manager, isAllowed). Use allowBySig for signed approvals."
+        },
+        {
+          "signature": "baseToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of this market's base token."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x5D409e56D886231aDAf00c8775665AD0f9897b56",
+      "name": "Comet USDS market (Ethereum)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/compound-finance/comet/blob/main/deployments/mainnet/usds/roots.json",
+      "keyFunctions": [
+        {
+          "signature": "supply(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply the base token (USDS) or a collateral asset. Approve the Comet contract for the token first. Amount in the token's smallest unit. Supplying the base token also repays any debt. Reverts if supply is paused or a collateral supply cap would be exceeded."
+        },
+        {
+          "signature": "supplyTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply on behalf of another account: (dst, asset, amount). Same token approval and rules as supply. The position is credited to dst."
+        },
+        {
+          "signature": "withdraw(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw the base token or a collateral asset: (asset, amount). Withdrawing more base token than the account supplies opens a borrow of the difference. Reverts if the account would be undercollateralized or the market lacks base liquidity."
+        },
+        {
+          "signature": "withdrawTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw and send the asset to another address: (to, asset, amount). Same rules as withdraw."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Base token supply balance of an account, including accrued interest, in base token units. Zero when the account has no supply."
+        },
+        {
+          "signature": "borrowBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current base token debt of an account, including accrued interest, in base token units. Zero when there is no debt."
+        },
+        {
+          "signature": "collateralBalanceOf(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral balance of an account for one asset: (account, asset), in the asset's units. Served by the extension delegate through the Comet proxy fallback."
+        },
+        {
+          "signature": "isLiquidatable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is underwater and can be absorbed by the protocol."
+        },
+        {
+          "signature": "absorb(address,address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step one: (absorber, accounts). Anyone can call it. Moves the collateral and debt of underwater accounts into protocol reserves. Accounts that are not liquidatable are skipped."
+        },
+        {
+          "signature": "buyCollateral(address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step two: buy absorbed collateral at a discount: (asset, minAmount, baseAmount, recipient). Approve the base token first and pay baseAmount. Reverts if less than minAmount of the asset would be received."
+        },
+        {
+          "signature": "quoteCollateral(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Amount of an absorbed collateral asset received for a given baseAmount in buyCollateral, after the discount."
+        },
+        {
+          "signature": "getUtilization()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current utilization of the base token, scaled by 1e18 (1e18 equals 100 percent)."
+        },
+        {
+          "signature": "getSupplyRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per second for a utilization value scaled by 1e18. Multiply by seconds per year for an APR estimate."
+        },
+        {
+          "signature": "allow(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Allow or revoke a manager that can withdraw or borrow on msg.sender's behalf: (manager, isAllowed). Use allowBySig for signed approvals."
+        },
+        {
+          "signature": "baseToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of this market's base token."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xb125E6687d4313864e53df431d5425969c15Eb2F",
+      "name": "Comet USDC market (Base)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/compound-finance/comet/blob/main/deployments/base/usdc/roots.json",
+      "keyFunctions": [
+        {
+          "signature": "supply(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply the base token (USDC) or a collateral asset. Approve the Comet contract for the token first. Amount in the token's smallest unit. Supplying the base token also repays any debt. Reverts if supply is paused or a collateral supply cap would be exceeded."
+        },
+        {
+          "signature": "supplyTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply on behalf of another account: (dst, asset, amount). Same token approval and rules as supply. The position is credited to dst."
+        },
+        {
+          "signature": "withdraw(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw the base token or a collateral asset: (asset, amount). Withdrawing more base token than the account supplies opens a borrow of the difference. Reverts if the account would be undercollateralized or the market lacks base liquidity."
+        },
+        {
+          "signature": "withdrawTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw and send the asset to another address: (to, asset, amount). Same rules as withdraw."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Base token supply balance of an account, including accrued interest, in base token units. Zero when the account has no supply."
+        },
+        {
+          "signature": "borrowBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current base token debt of an account, including accrued interest, in base token units. Zero when there is no debt."
+        },
+        {
+          "signature": "collateralBalanceOf(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral balance of an account for one asset: (account, asset), in the asset's units. Served by the extension delegate through the Comet proxy fallback."
+        },
+        {
+          "signature": "isLiquidatable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is underwater and can be absorbed by the protocol."
+        },
+        {
+          "signature": "absorb(address,address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step one: (absorber, accounts). Anyone can call it. Moves the collateral and debt of underwater accounts into protocol reserves. Accounts that are not liquidatable are skipped."
+        },
+        {
+          "signature": "buyCollateral(address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step two: buy absorbed collateral at a discount: (asset, minAmount, baseAmount, recipient). Approve the base token first and pay baseAmount. Reverts if less than minAmount of the asset would be received."
+        },
+        {
+          "signature": "quoteCollateral(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Amount of an absorbed collateral asset received for a given baseAmount in buyCollateral, after the discount."
+        },
+        {
+          "signature": "getUtilization()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current utilization of the base token, scaled by 1e18 (1e18 equals 100 percent)."
+        },
+        {
+          "signature": "getSupplyRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per second for a utilization value scaled by 1e18. Multiply by seconds per year for an APR estimate."
+        },
+        {
+          "signature": "allow(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Allow or revoke a manager that can withdraw or borrow on msg.sender's behalf: (manager, isAllowed). Use allowBySig for signed approvals."
+        },
+        {
+          "signature": "baseToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of this market's base token."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x46e6b214b524310239732D51387075E0e70970bf",
+      "name": "Comet WETH market (Base)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/compound-finance/comet/blob/main/deployments/base/weth/roots.json",
+      "keyFunctions": [
+        {
+          "signature": "supply(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply the base token (WETH) or a collateral asset. Approve the Comet contract for the token first. Amount in the token's smallest unit. Supplying the base token also repays any debt. Reverts if supply is paused or a collateral supply cap would be exceeded."
+        },
+        {
+          "signature": "supplyTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply on behalf of another account: (dst, asset, amount). Same token approval and rules as supply. The position is credited to dst."
+        },
+        {
+          "signature": "withdraw(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw the base token or a collateral asset: (asset, amount). Withdrawing more base token than the account supplies opens a borrow of the difference. Reverts if the account would be undercollateralized or the market lacks base liquidity."
+        },
+        {
+          "signature": "withdrawTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw and send the asset to another address: (to, asset, amount). Same rules as withdraw."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Base token supply balance of an account, including accrued interest, in base token units. Zero when the account has no supply."
+        },
+        {
+          "signature": "borrowBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current base token debt of an account, including accrued interest, in base token units. Zero when there is no debt."
+        },
+        {
+          "signature": "collateralBalanceOf(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral balance of an account for one asset: (account, asset), in the asset's units. Served by the extension delegate through the Comet proxy fallback."
+        },
+        {
+          "signature": "isLiquidatable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is underwater and can be absorbed by the protocol."
+        },
+        {
+          "signature": "absorb(address,address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step one: (absorber, accounts). Anyone can call it. Moves the collateral and debt of underwater accounts into protocol reserves. Accounts that are not liquidatable are skipped."
+        },
+        {
+          "signature": "buyCollateral(address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step two: buy absorbed collateral at a discount: (asset, minAmount, baseAmount, recipient). Approve the base token first and pay baseAmount. Reverts if less than minAmount of the asset would be received."
+        },
+        {
+          "signature": "quoteCollateral(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Amount of an absorbed collateral asset received for a given baseAmount in buyCollateral, after the discount."
+        },
+        {
+          "signature": "getUtilization()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current utilization of the base token, scaled by 1e18 (1e18 equals 100 percent)."
+        },
+        {
+          "signature": "getSupplyRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per second for a utilization value scaled by 1e18. Multiply by seconds per year for an APR estimate."
+        },
+        {
+          "signature": "allow(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Allow or revoke a manager that can withdraw or borrow on msg.sender's behalf: (manager, isAllowed). Use allowBySig for signed approvals."
+        },
+        {
+          "signature": "baseToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of this market's base token."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x9c4ec768c28520B50860ea7a15bd7213a9fF58bf",
+      "name": "Comet USDC market (Arbitrum)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/compound-finance/comet/blob/main/deployments/arbitrum/usdc/roots.json",
+      "keyFunctions": [
+        {
+          "signature": "supply(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply the base token (USDC) or a collateral asset. Approve the Comet contract for the token first. Amount in the token's smallest unit. Supplying the base token also repays any debt. Reverts if supply is paused or a collateral supply cap would be exceeded."
+        },
+        {
+          "signature": "supplyTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply on behalf of another account: (dst, asset, amount). Same token approval and rules as supply. The position is credited to dst."
+        },
+        {
+          "signature": "withdraw(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw the base token or a collateral asset: (asset, amount). Withdrawing more base token than the account supplies opens a borrow of the difference. Reverts if the account would be undercollateralized or the market lacks base liquidity."
+        },
+        {
+          "signature": "withdrawTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw and send the asset to another address: (to, asset, amount). Same rules as withdraw."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Base token supply balance of an account, including accrued interest, in base token units. Zero when the account has no supply."
+        },
+        {
+          "signature": "borrowBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current base token debt of an account, including accrued interest, in base token units. Zero when there is no debt."
+        },
+        {
+          "signature": "collateralBalanceOf(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral balance of an account for one asset: (account, asset), in the asset's units. Served by the extension delegate through the Comet proxy fallback."
+        },
+        {
+          "signature": "isLiquidatable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is underwater and can be absorbed by the protocol."
+        },
+        {
+          "signature": "absorb(address,address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step one: (absorber, accounts). Anyone can call it. Moves the collateral and debt of underwater accounts into protocol reserves. Accounts that are not liquidatable are skipped."
+        },
+        {
+          "signature": "buyCollateral(address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step two: buy absorbed collateral at a discount: (asset, minAmount, baseAmount, recipient). Approve the base token first and pay baseAmount. Reverts if less than minAmount of the asset would be received."
+        },
+        {
+          "signature": "quoteCollateral(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Amount of an absorbed collateral asset received for a given baseAmount in buyCollateral, after the discount."
+        },
+        {
+          "signature": "getUtilization()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current utilization of the base token, scaled by 1e18 (1e18 equals 100 percent)."
+        },
+        {
+          "signature": "getSupplyRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per second for a utilization value scaled by 1e18. Multiply by seconds per year for an APR estimate."
+        },
+        {
+          "signature": "allow(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Allow or revoke a manager that can withdraw or borrow on msg.sender's behalf: (manager, isAllowed). Use allowBySig for signed approvals."
+        },
+        {
+          "signature": "baseToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of this market's base token."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x6f7D514bbD4aFf3BcD1140B7344b32f063dEe486",
+      "name": "Comet WETH market (Arbitrum)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/compound-finance/comet/blob/main/deployments/arbitrum/weth/roots.json",
+      "keyFunctions": [
+        {
+          "signature": "supply(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply the base token (WETH) or a collateral asset. Approve the Comet contract for the token first. Amount in the token's smallest unit. Supplying the base token also repays any debt. Reverts if supply is paused or a collateral supply cap would be exceeded."
+        },
+        {
+          "signature": "supplyTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply on behalf of another account: (dst, asset, amount). Same token approval and rules as supply. The position is credited to dst."
+        },
+        {
+          "signature": "withdraw(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw the base token or a collateral asset: (asset, amount). Withdrawing more base token than the account supplies opens a borrow of the difference. Reverts if the account would be undercollateralized or the market lacks base liquidity."
+        },
+        {
+          "signature": "withdrawTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw and send the asset to another address: (to, asset, amount). Same rules as withdraw."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Base token supply balance of an account, including accrued interest, in base token units. Zero when the account has no supply."
+        },
+        {
+          "signature": "borrowBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current base token debt of an account, including accrued interest, in base token units. Zero when there is no debt."
+        },
+        {
+          "signature": "collateralBalanceOf(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral balance of an account for one asset: (account, asset), in the asset's units. Served by the extension delegate through the Comet proxy fallback."
+        },
+        {
+          "signature": "isLiquidatable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is underwater and can be absorbed by the protocol."
+        },
+        {
+          "signature": "absorb(address,address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step one: (absorber, accounts). Anyone can call it. Moves the collateral and debt of underwater accounts into protocol reserves. Accounts that are not liquidatable are skipped."
+        },
+        {
+          "signature": "buyCollateral(address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step two: buy absorbed collateral at a discount: (asset, minAmount, baseAmount, recipient). Approve the base token first and pay baseAmount. Reverts if less than minAmount of the asset would be received."
+        },
+        {
+          "signature": "quoteCollateral(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Amount of an absorbed collateral asset received for a given baseAmount in buyCollateral, after the discount."
+        },
+        {
+          "signature": "getUtilization()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current utilization of the base token, scaled by 1e18 (1e18 equals 100 percent)."
+        },
+        {
+          "signature": "getSupplyRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per second for a utilization value scaled by 1e18. Multiply by seconds per year for an APR estimate."
+        },
+        {
+          "signature": "allow(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Allow or revoke a manager that can withdraw or borrow on msg.sender's behalf: (manager, isAllowed). Use allowBySig for signed approvals."
+        },
+        {
+          "signature": "baseToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of this market's base token."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xd98Be00b5D27fc98112BdE293e487f8D4cA57d07",
+      "name": "Comet USDT market (Arbitrum)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/compound-finance/comet/blob/main/deployments/arbitrum/usdt/roots.json",
+      "keyFunctions": [
+        {
+          "signature": "supply(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply the base token (USDT) or a collateral asset. Approve the Comet contract for the token first. Amount in the token's smallest unit. Supplying the base token also repays any debt. Reverts if supply is paused or a collateral supply cap would be exceeded."
+        },
+        {
+          "signature": "supplyTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply on behalf of another account: (dst, asset, amount). Same token approval and rules as supply. The position is credited to dst."
+        },
+        {
+          "signature": "withdraw(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw the base token or a collateral asset: (asset, amount). Withdrawing more base token than the account supplies opens a borrow of the difference. Reverts if the account would be undercollateralized or the market lacks base liquidity."
+        },
+        {
+          "signature": "withdrawTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw and send the asset to another address: (to, asset, amount). Same rules as withdraw."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Base token supply balance of an account, including accrued interest, in base token units. Zero when the account has no supply."
+        },
+        {
+          "signature": "borrowBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current base token debt of an account, including accrued interest, in base token units. Zero when there is no debt."
+        },
+        {
+          "signature": "collateralBalanceOf(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral balance of an account for one asset: (account, asset), in the asset's units. Served by the extension delegate through the Comet proxy fallback."
+        },
+        {
+          "signature": "isLiquidatable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is underwater and can be absorbed by the protocol."
+        },
+        {
+          "signature": "absorb(address,address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step one: (absorber, accounts). Anyone can call it. Moves the collateral and debt of underwater accounts into protocol reserves. Accounts that are not liquidatable are skipped."
+        },
+        {
+          "signature": "buyCollateral(address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step two: buy absorbed collateral at a discount: (asset, minAmount, baseAmount, recipient). Approve the base token first and pay baseAmount. Reverts if less than minAmount of the asset would be received."
+        },
+        {
+          "signature": "quoteCollateral(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Amount of an absorbed collateral asset received for a given baseAmount in buyCollateral, after the discount."
+        },
+        {
+          "signature": "getUtilization()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current utilization of the base token, scaled by 1e18 (1e18 equals 100 percent)."
+        },
+        {
+          "signature": "getSupplyRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per second for a utilization value scaled by 1e18. Multiply by seconds per year for an APR estimate."
+        },
+        {
+          "signature": "allow(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Allow or revoke a manager that can withdraw or borrow on msg.sender's behalf: (manager, isAllowed). Use allowBySig for signed approvals."
+        },
+        {
+          "signature": "baseToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of this market's base token."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xF25212E676D1F7F89Cd72fFEe66158f541246445",
+      "name": "Comet USDC market (Polygon)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/compound-finance/comet/blob/main/deployments/polygon/usdc/roots.json",
+      "keyFunctions": [
+        {
+          "signature": "supply(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply the base token (USDC) or a collateral asset. Approve the Comet contract for the token first. Amount in the token's smallest unit. Supplying the base token also repays any debt. Reverts if supply is paused or a collateral supply cap would be exceeded."
+        },
+        {
+          "signature": "supplyTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply on behalf of another account: (dst, asset, amount). Same token approval and rules as supply. The position is credited to dst."
+        },
+        {
+          "signature": "withdraw(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw the base token or a collateral asset: (asset, amount). Withdrawing more base token than the account supplies opens a borrow of the difference. Reverts if the account would be undercollateralized or the market lacks base liquidity."
+        },
+        {
+          "signature": "withdrawTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw and send the asset to another address: (to, asset, amount). Same rules as withdraw."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Base token supply balance of an account, including accrued interest, in base token units. Zero when the account has no supply."
+        },
+        {
+          "signature": "borrowBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current base token debt of an account, including accrued interest, in base token units. Zero when there is no debt."
+        },
+        {
+          "signature": "collateralBalanceOf(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral balance of an account for one asset: (account, asset), in the asset's units. Served by the extension delegate through the Comet proxy fallback."
+        },
+        {
+          "signature": "isLiquidatable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is underwater and can be absorbed by the protocol."
+        },
+        {
+          "signature": "absorb(address,address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step one: (absorber, accounts). Anyone can call it. Moves the collateral and debt of underwater accounts into protocol reserves. Accounts that are not liquidatable are skipped."
+        },
+        {
+          "signature": "buyCollateral(address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step two: buy absorbed collateral at a discount: (asset, minAmount, baseAmount, recipient). Approve the base token first and pay baseAmount. Reverts if less than minAmount of the asset would be received."
+        },
+        {
+          "signature": "quoteCollateral(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Amount of an absorbed collateral asset received for a given baseAmount in buyCollateral, after the discount."
+        },
+        {
+          "signature": "getUtilization()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current utilization of the base token, scaled by 1e18 (1e18 equals 100 percent)."
+        },
+        {
+          "signature": "getSupplyRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per second for a utilization value scaled by 1e18. Multiply by seconds per year for an APR estimate."
+        },
+        {
+          "signature": "allow(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Allow or revoke a manager that can withdraw or borrow on msg.sender's behalf: (manager, isAllowed). Use allowBySig for signed approvals."
+        },
+        {
+          "signature": "baseToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of this market's base token."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x2e44e174f7D53F0212823acC11C01A11d58c5bCB",
+      "name": "Comet USDC market (Optimism)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/compound-finance/comet/blob/main/deployments/optimism/usdc/roots.json",
+      "keyFunctions": [
+        {
+          "signature": "supply(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply the base token (USDC) or a collateral asset. Approve the Comet contract for the token first. Amount in the token's smallest unit. Supplying the base token also repays any debt. Reverts if supply is paused or a collateral supply cap would be exceeded."
+        },
+        {
+          "signature": "supplyTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply on behalf of another account: (dst, asset, amount). Same token approval and rules as supply. The position is credited to dst."
+        },
+        {
+          "signature": "withdraw(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw the base token or a collateral asset: (asset, amount). Withdrawing more base token than the account supplies opens a borrow of the difference. Reverts if the account would be undercollateralized or the market lacks base liquidity."
+        },
+        {
+          "signature": "withdrawTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw and send the asset to another address: (to, asset, amount). Same rules as withdraw."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Base token supply balance of an account, including accrued interest, in base token units. Zero when the account has no supply."
+        },
+        {
+          "signature": "borrowBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current base token debt of an account, including accrued interest, in base token units. Zero when there is no debt."
+        },
+        {
+          "signature": "collateralBalanceOf(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral balance of an account for one asset: (account, asset), in the asset's units. Served by the extension delegate through the Comet proxy fallback."
+        },
+        {
+          "signature": "isLiquidatable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is underwater and can be absorbed by the protocol."
+        },
+        {
+          "signature": "absorb(address,address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step one: (absorber, accounts). Anyone can call it. Moves the collateral and debt of underwater accounts into protocol reserves. Accounts that are not liquidatable are skipped."
+        },
+        {
+          "signature": "buyCollateral(address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step two: buy absorbed collateral at a discount: (asset, minAmount, baseAmount, recipient). Approve the base token first and pay baseAmount. Reverts if less than minAmount of the asset would be received."
+        },
+        {
+          "signature": "quoteCollateral(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Amount of an absorbed collateral asset received for a given baseAmount in buyCollateral, after the discount."
+        },
+        {
+          "signature": "getUtilization()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current utilization of the base token, scaled by 1e18 (1e18 equals 100 percent)."
+        },
+        {
+          "signature": "getSupplyRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per second for a utilization value scaled by 1e18. Multiply by seconds per year for an APR estimate."
+        },
+        {
+          "signature": "allow(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Allow or revoke a manager that can withdraw or borrow on msg.sender's behalf: (manager, isAllowed). Use allowBySig for signed approvals."
+        },
+        {
+          "signature": "baseToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of this market's base token."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0xE36A30D249f7761327fd973001A32010b521b6Fd",
+      "name": "Comet WETH market (Optimism)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/compound-finance/comet/blob/main/deployments/optimism/weth/roots.json",
+      "keyFunctions": [
+        {
+          "signature": "supply(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply the base token (WETH) or a collateral asset. Approve the Comet contract for the token first. Amount in the token's smallest unit. Supplying the base token also repays any debt. Reverts if supply is paused or a collateral supply cap would be exceeded."
+        },
+        {
+          "signature": "supplyTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply on behalf of another account: (dst, asset, amount). Same token approval and rules as supply. The position is credited to dst."
+        },
+        {
+          "signature": "withdraw(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw the base token or a collateral asset: (asset, amount). Withdrawing more base token than the account supplies opens a borrow of the difference. Reverts if the account would be undercollateralized or the market lacks base liquidity."
+        },
+        {
+          "signature": "withdrawTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw and send the asset to another address: (to, asset, amount). Same rules as withdraw."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Base token supply balance of an account, including accrued interest, in base token units. Zero when the account has no supply."
+        },
+        {
+          "signature": "borrowBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current base token debt of an account, including accrued interest, in base token units. Zero when there is no debt."
+        },
+        {
+          "signature": "collateralBalanceOf(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral balance of an account for one asset: (account, asset), in the asset's units. Served by the extension delegate through the Comet proxy fallback."
+        },
+        {
+          "signature": "isLiquidatable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is underwater and can be absorbed by the protocol."
+        },
+        {
+          "signature": "absorb(address,address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step one: (absorber, accounts). Anyone can call it. Moves the collateral and debt of underwater accounts into protocol reserves. Accounts that are not liquidatable are skipped."
+        },
+        {
+          "signature": "buyCollateral(address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step two: buy absorbed collateral at a discount: (asset, minAmount, baseAmount, recipient). Approve the base token first and pay baseAmount. Reverts if less than minAmount of the asset would be received."
+        },
+        {
+          "signature": "quoteCollateral(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Amount of an absorbed collateral asset received for a given baseAmount in buyCollateral, after the discount."
+        },
+        {
+          "signature": "getUtilization()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current utilization of the base token, scaled by 1e18 (1e18 equals 100 percent)."
+        },
+        {
+          "signature": "getSupplyRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per second for a utilization value scaled by 1e18. Multiply by seconds per year for an APR estimate."
+        },
+        {
+          "signature": "allow(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Allow or revoke a manager that can withdraw or borrow on msg.sender's behalf: (manager, isAllowed). Use allowBySig for signed approvals."
+        },
+        {
+          "signature": "baseToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of this market's base token."
+        }
+      ]
+    },
+    {
+      "chain": "scroll",
+      "chainId": 534352,
+      "address": "0xB2f97c1Bd3bf02f5e74d13f02E3e26F93D77CE44",
+      "name": "Comet USDC market (Scroll)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/compound-finance/comet/blob/main/deployments/scroll/usdc/roots.json",
+      "keyFunctions": [
+        {
+          "signature": "supply(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply the base token (USDC) or a collateral asset. Approve the Comet contract for the token first. Amount in the token's smallest unit. Supplying the base token also repays any debt. Reverts if supply is paused or a collateral supply cap would be exceeded."
+        },
+        {
+          "signature": "supplyTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply on behalf of another account: (dst, asset, amount). Same token approval and rules as supply. The position is credited to dst."
+        },
+        {
+          "signature": "withdraw(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw the base token or a collateral asset: (asset, amount). Withdrawing more base token than the account supplies opens a borrow of the difference. Reverts if the account would be undercollateralized or the market lacks base liquidity."
+        },
+        {
+          "signature": "withdrawTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw and send the asset to another address: (to, asset, amount). Same rules as withdraw."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Base token supply balance of an account, including accrued interest, in base token units. Zero when the account has no supply."
+        },
+        {
+          "signature": "borrowBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current base token debt of an account, including accrued interest, in base token units. Zero when there is no debt."
+        },
+        {
+          "signature": "collateralBalanceOf(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral balance of an account for one asset: (account, asset), in the asset's units. Served by the extension delegate through the Comet proxy fallback."
+        },
+        {
+          "signature": "isLiquidatable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is underwater and can be absorbed by the protocol."
+        },
+        {
+          "signature": "absorb(address,address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step one: (absorber, accounts). Anyone can call it. Moves the collateral and debt of underwater accounts into protocol reserves. Accounts that are not liquidatable are skipped."
+        },
+        {
+          "signature": "buyCollateral(address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step two: buy absorbed collateral at a discount: (asset, minAmount, baseAmount, recipient). Approve the base token first and pay baseAmount. Reverts if less than minAmount of the asset would be received."
+        },
+        {
+          "signature": "quoteCollateral(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Amount of an absorbed collateral asset received for a given baseAmount in buyCollateral, after the discount."
+        },
+        {
+          "signature": "getUtilization()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current utilization of the base token, scaled by 1e18 (1e18 equals 100 percent)."
+        },
+        {
+          "signature": "getSupplyRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per second for a utilization value scaled by 1e18. Multiply by seconds per year for an APR estimate."
+        },
+        {
+          "signature": "allow(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Allow or revoke a manager that can withdraw or borrow on msg.sender's behalf: (manager, isAllowed). Use allowBySig for signed approvals."
+        },
+        {
+          "signature": "baseToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of this market's base token."
+        }
+      ]
+    },
+    {
+      "chain": "linea",
+      "chainId": 59144,
+      "address": "0x8D38A3d6B3c3B7d96D6536DA7Eef94A9d7dbC991",
+      "name": "Comet USDC market (Linea)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/compound-finance/comet/blob/main/deployments/linea/usdc/roots.json",
+      "keyFunctions": [
+        {
+          "signature": "supply(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply the base token (USDC) or a collateral asset. Approve the Comet contract for the token first. Amount in the token's smallest unit. Supplying the base token also repays any debt. Reverts if supply is paused or a collateral supply cap would be exceeded."
+        },
+        {
+          "signature": "supplyTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply on behalf of another account: (dst, asset, amount). Same token approval and rules as supply. The position is credited to dst."
+        },
+        {
+          "signature": "withdraw(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw the base token or a collateral asset: (asset, amount). Withdrawing more base token than the account supplies opens a borrow of the difference. Reverts if the account would be undercollateralized or the market lacks base liquidity."
+        },
+        {
+          "signature": "withdrawTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw and send the asset to another address: (to, asset, amount). Same rules as withdraw."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Base token supply balance of an account, including accrued interest, in base token units. Zero when the account has no supply."
+        },
+        {
+          "signature": "borrowBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current base token debt of an account, including accrued interest, in base token units. Zero when there is no debt."
+        },
+        {
+          "signature": "collateralBalanceOf(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral balance of an account for one asset: (account, asset), in the asset's units. Served by the extension delegate through the Comet proxy fallback."
+        },
+        {
+          "signature": "isLiquidatable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is underwater and can be absorbed by the protocol."
+        },
+        {
+          "signature": "absorb(address,address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step one: (absorber, accounts). Anyone can call it. Moves the collateral and debt of underwater accounts into protocol reserves. Accounts that are not liquidatable are skipped."
+        },
+        {
+          "signature": "buyCollateral(address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step two: buy absorbed collateral at a discount: (asset, minAmount, baseAmount, recipient). Approve the base token first and pay baseAmount. Reverts if less than minAmount of the asset would be received."
+        },
+        {
+          "signature": "quoteCollateral(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Amount of an absorbed collateral asset received for a given baseAmount in buyCollateral, after the discount."
+        },
+        {
+          "signature": "getUtilization()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current utilization of the base token, scaled by 1e18 (1e18 equals 100 percent)."
+        },
+        {
+          "signature": "getSupplyRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per second for a utilization value scaled by 1e18. Multiply by seconds per year for an APR estimate."
+        },
+        {
+          "signature": "allow(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Allow or revoke a manager that can withdraw or borrow on msg.sender's behalf: (manager, isAllowed). Use allowBySig for signed approvals."
+        },
+        {
+          "signature": "baseToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of this market's base token."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x2c7118c4C88B9841FCF839074c26Ae8f035f2921",
+      "name": "Comet USDC market (Unichain)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/compound-finance/comet/blob/main/deployments/unichain/usdc/roots.json",
+      "keyFunctions": [
+        {
+          "signature": "supply(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply the base token (USDC) or a collateral asset. Approve the Comet contract for the token first. Amount in the token's smallest unit. Supplying the base token also repays any debt. Reverts if supply is paused or a collateral supply cap would be exceeded."
+        },
+        {
+          "signature": "supplyTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply on behalf of another account: (dst, asset, amount). Same token approval and rules as supply. The position is credited to dst."
+        },
+        {
+          "signature": "withdraw(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw the base token or a collateral asset: (asset, amount). Withdrawing more base token than the account supplies opens a borrow of the difference. Reverts if the account would be undercollateralized or the market lacks base liquidity."
+        },
+        {
+          "signature": "withdrawTo(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw and send the asset to another address: (to, asset, amount). Same rules as withdraw."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Base token supply balance of an account, including accrued interest, in base token units. Zero when the account has no supply."
+        },
+        {
+          "signature": "borrowBalanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current base token debt of an account, including accrued interest, in base token units. Zero when there is no debt."
+        },
+        {
+          "signature": "collateralBalanceOf(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral balance of an account for one asset: (account, asset), in the asset's units. Served by the extension delegate through the Comet proxy fallback."
+        },
+        {
+          "signature": "isLiquidatable(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is underwater and can be absorbed by the protocol."
+        },
+        {
+          "signature": "absorb(address,address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step one: (absorber, accounts). Anyone can call it. Moves the collateral and debt of underwater accounts into protocol reserves. Accounts that are not liquidatable are skipped."
+        },
+        {
+          "signature": "buyCollateral(address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation step two: buy absorbed collateral at a discount: (asset, minAmount, baseAmount, recipient). Approve the base token first and pay baseAmount. Reverts if less than minAmount of the asset would be received."
+        },
+        {
+          "signature": "quoteCollateral(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Amount of an absorbed collateral asset received for a given baseAmount in buyCollateral, after the discount."
+        },
+        {
+          "signature": "getUtilization()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current utilization of the base token, scaled by 1e18 (1e18 equals 100 percent)."
+        },
+        {
+          "signature": "getSupplyRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per second for a utilization value scaled by 1e18. Multiply by seconds per year for an APR estimate."
+        },
+        {
+          "signature": "allow(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Allow or revoke a manager that can withdraw or borrow on msg.sender's behalf: (manager, isAllowed). Use allowBySig for signed approvals."
+        },
+        {
+          "signature": "baseToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of this market's base token."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1B0e765F6224C21223AeA2af16c1C46E38885a40",
+      "name": "CometRewards (Ethereum)",
+      "role": "other",
+      "proxy": null,
+      "source": "https://github.com/compound-finance/comet/blob/main/deployments/mainnet/usdc/roots.json",
+      "keyFunctions": [
+        {
+          "signature": "claim(address,address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued COMP rewards for src on a Comet market: (comet, src, shouldAccrue). Anyone can call it, and the rewards are sent to src. shouldAccrue true accrues the account first. Reverts if the market has no reward config."
+        },
+        {
+          "signature": "claimTo(address,address,address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim rewards for src and send them to a receiver: (comet, src, to, shouldAccrue). The caller must have permission on src (see allow). Reverts with NotPermitted otherwise."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x123964802e6ABabBE1Bc9547D72Ef1B69B00A6b1",
+      "name": "CometRewards (Base)",
+      "role": "other",
+      "proxy": null,
+      "source": "https://github.com/compound-finance/comet/blob/main/deployments/base/usdc/roots.json",
+      "keyFunctions": [
+        {
+          "signature": "claim(address,address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued COMP rewards for src on a Comet market: (comet, src, shouldAccrue). Anyone can call it, and the rewards are sent to src. shouldAccrue true accrues the account first. Reverts if the market has no reward config."
+        },
+        {
+          "signature": "claimTo(address,address,address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim rewards for src and send them to a receiver: (comet, src, to, shouldAccrue). The caller must have permission on src (see allow). Reverts with NotPermitted otherwise."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x88730d254A2f7e6AC8388c3198aFd694bA9f7fae",
+      "name": "CometRewards (Arbitrum)",
+      "role": "other",
+      "proxy": null,
+      "source": "https://github.com/compound-finance/comet/blob/main/deployments/arbitrum/usdc/roots.json",
+      "keyFunctions": [
+        {
+          "signature": "claim(address,address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued COMP rewards for src on a Comet market: (comet, src, shouldAccrue). Anyone can call it, and the rewards are sent to src. shouldAccrue true accrues the account first. Reverts if the market has no reward config."
+        },
+        {
+          "signature": "claimTo(address,address,address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim rewards for src and send them to a receiver: (comet, src, to, shouldAccrue). The caller must have permission on src (see allow). Reverts with NotPermitted otherwise."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "supply",
+      "description": "Lend the base token or deposit collateral",
+      "how": "Approve the token, then Comet.supply(asset, amount)"
+    },
+    {
+      "name": "withdraw",
+      "description": "Withdraw lent base token or collateral",
+      "how": "Comet.withdraw(asset, amount). Use balanceOf or collateralBalanceOf for the full amount."
+    },
+    {
+      "name": "borrow",
+      "description": "Borrow the base token against collateral",
+      "how": "Comet.withdraw(baseToken, amount) for more than the account supply balance"
+    },
+    {
+      "name": "repay",
+      "description": "Repay base token debt",
+      "how": "Approve the base token, then Comet.supply(baseToken, amount). Supply slightly more than borrowBalanceOf to clear interest accrued after the read; the excess is credited as supply."
+    },
+    {
+      "name": "claim rewards",
+      "description": "Claim COMP rewards for an account",
+      "how": "CometRewards.claim(comet, account, true)"
+    },
+    {
+      "name": "delegate",
+      "description": "Let another address manage the account",
+      "how": "Comet.allow(manager, true)"
+    },
+    {
+      "name": "liquidate",
+      "description": "Absorb underwater accounts and buy the collateral",
+      "how": "Comet.absorb(absorber, [accounts]) then Comet.buyCollateral(asset, minAmount, baseAmount, recipient)"
+    }
+  ],
+  "risks": [
+    "Each market has one base asset. Lending and borrowing are both in that token, so exposure to other tokens only comes through collateral.",
+    "Withdrawing more base token than supplied silently opens a borrow. Check the amount against balanceOf first.",
+    "Underwater accounts are absorbed and their collateral is sold at a discount through buyCollateral.",
+    "Supply caps, pauses and borrow limits are set by governance per market and can change.",
+    "Rates depend on utilization and can move quickly when liquidity is low.",
+    "Price feeds set collateral values. Oracle failures affect every account in the market.",
+    "Rewards accrue separately and must be claimed."
+  ],
+  "notes": "Only markets with a deployment in the official comet repo and code on chain are listed. The same repo also has Mantle (USDe) and Ronin (WETH, WRON) markets, which are not included yet. Pick the market by chain and base asset. Rates are per second, scaled by 1e18. DefiLlama lists Mantle and Ronin for this protocol.",
+  "sources": [
+    "https://api.llama.fi/protocol/compound-v3",
+    "https://defillama.com/protocol/compound-v3",
+    "https://www.compound.xyz/",
+    "https://github.com/compound-finance/comet/tree/main/deployments",
+    "https://github.com/compound-finance/comet/blob/main/deployments/mainnet/usdc/roots.json",
+    "https://github.com/compound-finance/comet/blob/main/deployments/mainnet/weth/roots.json",
+    "https://github.com/compound-finance/comet/blob/main/deployments/mainnet/usdt/roots.json",
+    "https://github.com/compound-finance/comet/blob/main/deployments/mainnet/usds/roots.json",
+    "https://github.com/compound-finance/comet/blob/main/deployments/base/usdc/roots.json",
+    "https://github.com/compound-finance/comet/blob/main/deployments/base/weth/roots.json",
+    "https://github.com/compound-finance/comet/blob/main/deployments/arbitrum/usdc/roots.json",
+    "https://github.com/compound-finance/comet/blob/main/deployments/arbitrum/weth/roots.json",
+    "https://github.com/compound-finance/comet/blob/main/deployments/arbitrum/usdt/roots.json",
+    "https://github.com/compound-finance/comet/blob/main/deployments/polygon/usdc/roots.json",
+    "https://github.com/compound-finance/comet/blob/main/deployments/optimism/usdc/roots.json",
+    "https://github.com/compound-finance/comet/blob/main/deployments/optimism/weth/roots.json",
+    "https://github.com/compound-finance/comet/blob/main/deployments/scroll/usdc/roots.json",
+    "https://github.com/compound-finance/comet/blob/main/deployments/linea/usdc/roots.json",
+    "https://github.com/compound-finance/comet/blob/main/deployments/unichain/usdc/roots.json",
+    "https://github.com/compound-finance/comet/blob/main/contracts/CometMainInterface.sol",
+    "https://github.com/compound-finance/comet/blob/main/contracts/CometExtInterface.sol",
+    "https://github.com/compound-finance/comet/blob/main/contracts/CometExt.sol",
+    "https://github.com/compound-finance/comet/blob/main/contracts/CometRewards.sol"
+  ],
+  "researchedAt": "2026-11-28"
+}

@@ -1,0 +1,66 @@
+{
+  "slug": "veda",
+  "name": "Veda",
+  "category": "Onchain Capital Allocator",
+  "description": "BoringVault platform that runs onchain yield vaults. Users deposit into a vault through its Teller and withdraw instantly or through a queue. An agent can use the Veda API for vault data, withdraw queue reads and strategist calldata.",
+  "website": "https://veda.tech",
+  "docs": "https://docs.veda.tech",
+  "defillama": "https://defillama.com/protocol/veda",
+  "chains": [
+    "berachain",
+    "base",
+    "bsc",
+    "scroll",
+    "hyperliquid",
+    "plasma",
+    "ink",
+    "arbitrum",
+    "sonic",
+    "monad",
+    "optimism",
+    "bob",
+    "ethereum"
+  ],
+  "vm": "evm",
+  "agentAccess": "api",
+  "contracts": [],
+  "offchainApis": [
+    {
+      "name": "Veda API",
+      "url": "https://api.veda.tech",
+      "auth": "api-key",
+      "use": "List vaults for your tenant (GET /v1/vaults), read merkle roots (GET /v1/vaults/{chain}/{vault}/roots), read the withdraw queue (GET /v1/vaults/{chain}/{vault}/withdraw-queue), get swap quotes and build swap transactions (POST /v1/swap/quote, /v1/swap/market, /v1/swap/limit), and build strategist calldata (POST /v1/tx-builder/api/execute/...). Send the key as a Bearer token.",
+      "source": "https://docs.veda.tech/llms-full.txt"
+    }
+  ],
+  "actions": [
+    {
+      "name": "read withdraw queue",
+      "description": "Check pending vault withdrawal requests",
+      "how": "Call GET /v1/vaults/{chain}/{vault_address}/withdraw-queue with a bearer key. Filter by user or block when needed."
+    },
+    {
+      "name": "deposit into vault",
+      "description": "Deposit an asset and receive vault shares",
+      "how": "Use the vault Teller deposit function on the vault chain. Get the vault and Teller addresses from the Veda console or GET /v1/vaults. Approve the asset first."
+    },
+    {
+      "name": "withdraw from vault",
+      "description": "Withdraw shares instantly or through the queue",
+      "how": "Use Teller withdraw when buffer liquidity is available. Otherwise request a queued withdrawal through the BoringQueue."
+    }
+  ],
+  "risks": [
+    "Vault contracts are per vault and not published in the public docs. Verify the Teller and Accountant addresses for each vault before sending funds.",
+    "The Accountant sets the share price and can pause updates when values move outside bounds. Deposits and withdrawals can stop.",
+    "Strategists move vault funds only through Merkle verified actions. A bad Merkle root or strategist can still lose funds.",
+    "Some vaults enforce share lock periods, so a withdrawal can wait.",
+    "The API needs a key and access is granted per tenant."
+  ],
+  "notes": "Veda does not publish official contract addresses in its public docs, so none are listed. Contract roles from the docs: BoringVault holds funds, Teller handles deposits and withdrawals, Accountant publishes the exchange rate, Manager checks strategy actions against a Merkle tree, and BoringQueue handles delayed withdrawals. The chain list comes from DefiLlama and is not confirmed by Veda docs.",
+  "sources": [
+    "https://docs.veda.tech/llms-full.txt",
+    "https://defillama.com/protocol/veda"
+  ],
+  "researchedAt": "2026-11-28"
+}

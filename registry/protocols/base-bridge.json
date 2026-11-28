@@ -1,0 +1,124 @@
+{
+  "slug": "base-bridge",
+  "name": "Base Bridge",
+  "category": "Canonical Bridge",
+  "description": "The canonical bridge between Ethereum and Base. An agent deposits ETH and ERC-20 tokens to Base through the L1 Standard Bridge, and withdraws ETH and ERC-20 tokens from Base through the L2 Standard Bridge. Withdrawals are finished on Ethereum through the Optimism Portal after the challenge period.",
+  "website": "https://base.org",
+  "docs": "https://docs.base.org/base-chain/network-information/bridges-mainnet",
+  "defillama": "https://defillama.com/protocol/base-bridge",
+  "chains": ["ethereum", "base"],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x3154Cf16ccdb4C6d922629664174b904d80F2C35",
+      "name": "L1StandardBridge (Base)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://docs.base.org/chain/base-contracts",
+      "keyFunctions": [
+        {
+          "signature": "bridgeETH(uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit ETH (msg.value) from Ethereum to the caller's address on Base: (minGasLimit, extraData). minGasLimit is the gas for the L2 side. extraData is optional bytes, empty is fine."
+        },
+        {
+          "signature": "bridgeETHTo(address,uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit ETH (msg.value) from Ethereum to another address on Base: (to, minGasLimit, extraData). Same behaviour as bridgeETH with a chosen recipient."
+        },
+        {
+          "signature": "bridgeERC20(address,address,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit an ERC-20 from Ethereum to the caller on Base: (localToken, remoteToken, amount, minGasLimit, extraData). localToken is the L1 token, remoteToken is the matching L2 token on Base (zero address is not valid for a mapped token). Approve this bridge for amount first. Amount is in base units."
+        },
+        {
+          "signature": "bridgeERC20To(address,address,address,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit an ERC-20 from Ethereum to another address on Base: (localToken, remoteToken, to, amount, minGasLimit, extraData). Same approval and token mapping rules as bridgeERC20."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x49048044D57e1C92A77f79988d21Fa8fAF74E97e",
+      "name": "OptimismPortal (Base)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://docs.base.org/chain/base-contracts",
+      "keyFunctions": [
+        {
+          "signature": "depositTransaction(address,uint256,uint64,bool,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Low level deposit of ETH and an L2 call: (to, value, gasLimit, isCreation, data). The standard bridge calls this internally. Prefer L1StandardBridge unless you need a raw L2 call. Set isCreation to false for a normal call."
+        },
+        {
+          "signature": "finalizeWithdrawalTransaction((uint256,address,address,uint256,uint256,bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Finalize a withdrawal from Base on Ethereum: a tuple of (nonce, sender, target, value, gasLimit, data) as in the Base withdrawal. The withdrawal must have been proven first on this portal and the challenge period must have passed. Sends the ETH or tokens to the target."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x4200000000000000000000000000000000000010",
+      "name": "L2StandardBridge (Base predeploy)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://docs.base.org/chain/base-contracts",
+      "keyFunctions": [
+        {
+          "signature": "bridgeETH(uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Withdraw ETH (msg.value) from Base to the caller's address on Ethereum: (minGasLimit, extraData). Starts the withdrawal. It is finished on Ethereum after proving and the challenge period (see OptimismPortal finalizeWithdrawalTransaction)."
+        },
+        {
+          "signature": "withdraw(address,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Withdraw an ERC-20 from Base to the caller on Ethereum: (l2Token, amount, minGasLimit, extraData). Pass the L2 token address. Bridged tokens are burned, so no approval is needed for them. Starts the withdrawal, which is finished on Ethereum after the challenge period."
+        },
+        {
+          "signature": "withdrawTo(address,address,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Withdraw an ERC-20 from Base to another address on Ethereum: (l2Token, to, amount, minGasLimit, extraData). Same rules as withdraw."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    { "name": "deposit ETH", "description": "Bridge ETH from Ethereum to Base", "how": "Call L1StandardBridge bridgeETH(minGasLimit, extraData) with ETH as msg.value, or bridgeETHTo(to, minGasLimit, extraData) for another recipient. No claim step on Base." },
+    { "name": "deposit ERC-20", "description": "Bridge an ERC-20 from Ethereum to Base", "how": "Approve L1StandardBridge for the amount, then call bridgeERC20(l1Token, l2Token, amount, minGasLimit, extraData). The L2 token must be the mapped Base address for the L1 token." },
+    { "name": "withdraw ETH", "description": "Withdraw ETH from Base to Ethereum", "how": "On Base call L2StandardBridge bridgeETH(minGasLimit, extraData) with ETH as msg.value. On Ethereum, prove the withdrawal on OptimismPortal, wait out the challenge period, then call finalizeWithdrawalTransaction." },
+    { "name": "withdraw ERC-20", "description": "Withdraw an ERC-20 from Base to Ethereum", "how": "On Base call L2StandardBridge withdraw(l2Token, amount, minGasLimit, extraData). Then prove and finalize on Ethereum through OptimismPortal after the challenge period." }
+  ],
+  "risks": [
+    "Withdrawals to Ethereum need a prove step and a finalize step on OptimismPortal, and they only finish after the challenge period.",
+    "The L1 addresses come from the Base docs page. Base maintains its own deployment, so check the docs page again before a large transfer."
+  ],
+  "notes": "Base uses the OP Stack bridge code, so the function names match the OP Mainnet bridge (see optimism-bridge). The docs page lists the L1 contracts without the Proxy suffix, so the proxy flag is left null. Contract bytecode for the Ethereum addresses was checked with eth_getCode. Circle native USDC and other tokens may use their own bridges; only the standard bridge is listed here.",
+  "sources": [
+    "https://docs.base.org/base-chain/network-information/bridges-mainnet",
+    "https://docs.base.org/chain/base-contracts",
+    "https://docs.base.org/chain/network-information",
+    "https://raw.githubusercontent.com/ethereum-optimism/optimism/develop/packages/contracts-bedrock/src/universal/StandardBridge.sol",
+    "https://raw.githubusercontent.com/ethereum-optimism/optimism/develop/packages/contracts-bedrock/src/L1/OptimismPortal2.sol",
+    "https://raw.githubusercontent.com/ethereum-optimism/optimism/develop/packages/contracts-bedrock/src/L2/L2StandardBridge.sol",
+    "https://raw.githubusercontent.com/ethereum-optimism/optimism/develop/packages/contracts-bedrock/src/libraries/Types.sol",
+    "https://defillama.com/protocol/base-bridge"
+  ],
+  "researchedAt": "2026-11-28"
+}

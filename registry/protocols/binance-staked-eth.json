@@ -1,0 +1,121 @@
+{
+  "slug": "binance-staked-eth",
+  "name": "Binance Staked ETH (WBETH)",
+  "category": "Liquid Staking",
+  "description": "Binance ETH staking token. WBETH is a wrapped form of staked ETH whose value grows with staking rewards through a daily exchange rate. Agents can hold, send and approve WBETH on Ethereum and BNB Chain. Staking and redemption run through Binance's ETH Staking service.",
+  "website": "https://www.binance.com/en/wbeth",
+  "docs": "https://www.binance.com/en/eth2",
+  "defillama": "https://defillama.com/protocol/binance-staked-eth",
+  "chains": [
+    "ethereum",
+    "bsc"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xa2E3356610840701BDf5611a53974510Ae27E2e1",
+      "name": "WBETH (Wrapped Binance Beacon ETH)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://www.binance.com/en/square/post/461310",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "WBETH balance of an address in base units. The balance does not change with rewards; the exchange rate does."
+        },
+        {
+          "signature": "exchangeRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current WBETH exchange rate from the contract. Rewards are added here once a day, so WBETH is worth more ETH over time. Check the verified source for the scale before converting."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total WBETH in circulation, in base units."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals for WBETH base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Remaining amount a spender may pull: (owner, spender)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender to pull WBETH: (spender, amount in base units). Needed before a protocol pulls WBETH from your wallet."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send WBETH: (to, amount in base units). Reverts if the balance is too low."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Move WBETH from an owner to a recipient using an allowance: (from, to, amount in base units)."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xa2E3356610840701BDf5611a53974510Ae27E2e1",
+      "name": "WBETH (BEP-20, BNB Chain)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://www.binance.com/en/square/post/461310",
+      "keyFunctions": []
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "hold-or-send-wbeth",
+      "description": "Send WBETH on Ethereum or BNB Chain",
+      "how": "call transfer(to, amount) on 0xa2E3356610840701BDf5611a53974510Ae27E2e1 on the right chain."
+    },
+    {
+      "name": "use-wbeth-in-protocol",
+      "description": "Use WBETH as collateral or liquidity in DeFi",
+      "how": "approve(protocol, amount) on WBETH, then call that protocol's deposit function. Check the protocol's registry entry for the function."
+    },
+    {
+      "name": "stake-or-redeem",
+      "description": "Stake ETH into WBETH or redeem WBETH to ETH",
+      "how": "not a plain contract call for agents. Staking and redemption run through Binance's ETH Staking service (binance.com/en/eth2), which sets the rate and timing."
+    }
+  ],
+  "risks": [
+    "WBETH is issued by Binance. It depends on Binance's staking operations and its custody of the staked ETH. Binance can change terms.",
+    "The WBETH to ETH rate is updated once a day. Staking and redemption can be paused while the rate updates, so redemption is not always instant.",
+    "Rewards are reflected in the rate, not paid out as separate tokens. The value of WBETH in ETH depends on the current rate.",
+    "BETH and WBETH are different tokens. Conversion between them goes through Binance's own contracts and service, so check the token symbol before sending."
+  ],
+  "notes": "The Ethereum WBETH address is the same address Binance lists for BNB Chain. The token's verified source on Etherscan is a proxy with a wBETH implementation. keyFunctions were taken from that verified ABI, not from an official Binance page, so check get_abi before a write call. BNB Chain entries have no keyFunctions on purpose. Binance's conversion contract on BNB Chain (0x250632378E573c6Be1AC2f97Fcdf00515d0Aa91B) is a different contract and is not listed.",
+  "sources": [
+    "https://www.binance.com/en/square/post/461310",
+    "https://www.binance.com/en/wbeth",
+    "https://www.binance.com/en/eth2",
+    "https://www.binance.com/en/earn-faq/dark/eth-staking",
+    "https://etherscan.io/address/0xa2E3356610840701BDf5611a53974510Ae27E2e1",
+    "https://defillama.com/protocol/binance-staked-eth",
+    "https://api.llama.fi/protocol/binance-staked-eth"
+  ],
+  "researchedAt": "2026-11-28"
+}

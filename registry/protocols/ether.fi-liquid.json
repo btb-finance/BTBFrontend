@@ -1,0 +1,165 @@
+{
+  "slug": "ether.fi-liquid",
+  "name": "ether.fi Liquid",
+  "category": "Onchain Capital Allocator",
+  "description": "Liquid vaults from ether.fi, built on Veda BoringVault contracts. Users deposit ETH-family assets (eETH, weETH, WETH) or USD assets and receive vault shares. The vault strategy allocates across DeFi. Agents can deposit through the Teller, read the share price from the Accountant, and request a withdrawal through the on-chain queue.",
+  "website": "https://www.ether.fi",
+  "docs": "https://etherfi.gitbook.io/etherfi/products/liquid",
+  "defillama": "https://defillama.com/protocol/ether.fi-liquid",
+  "chains": ["ethereum"],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xf0bb20865277aBd641a307eCe5Ee04E79073416C",
+      "name": "Liquid ETH BoringVault (share token)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://etherfi.gitbook.io/etherfi/products/liquid/live-vaults/liquid-eth-vault.md",
+      "keyFunctions": [
+        { "signature": "balanceOf(address)", "kind": "read", "payable": false, "description": "Vault share balance of an account. The BoringVault is also the ERC-20 share token." },
+        { "signature": "totalSupply()", "kind": "read", "payable": false, "description": "Total vault shares outstanding." },
+        { "signature": "decimals()", "kind": "read", "payable": false, "description": "Decimals of the share token. Use it to format balances." },
+        { "signature": "name()", "kind": "read", "payable": false, "description": "Share token name." },
+        { "signature": "symbol()", "kind": "read", "payable": false, "description": "Share token symbol." },
+        { "signature": "approve(address,uint256)", "kind": "write", "payable": false, "description": "Approve a spender, such as the withdraw queue, to move shares. Needed before requestOnChainWithdraw on the queue." },
+        { "signature": "transfer(address,uint256)", "kind": "write", "payable": false, "description": "Send vault shares to another address." }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x9AA79C84b79816ab920bBcE20f8f74557B514734",
+      "name": "Liquid ETH Teller",
+      "role": "router",
+      "proxy": false,
+      "source": "https://etherfi.gitbook.io/etherfi/products/liquid/live-vaults/liquid-eth-vault.md",
+      "keyFunctions": [
+        { "signature": "deposit(address,uint256,uint256)", "kind": "write", "payable": true, "description": "Deposit depositAmount of depositAsset and mint shares to msg.sender. Approve the Teller for ERC-20 assets first. minimumMint is the slippage floor: the call reverts if fewer shares would be minted. Reverts if the asset is not supported or the caller lacks permission under the vault RolesAuthority. msg.value is for native ETH deposits only." },
+        { "signature": "depositWithPermit(address,uint256,uint256,uint256,uint8,bytes32,bytes32)", "kind": "write", "payable": false, "description": "Same as deposit, but uses an EIP-2612 permit for approval: (asset, amount, minimumMint, deadline, v, r, s). Saves one approval transaction for tokens that support permit." },
+        { "signature": "accountant()", "kind": "read", "payable": false, "description": "Returns the Accountant contract that prices shares for this vault." },
+        { "signature": "vault()", "kind": "read", "payable": false, "description": "Returns the BoringVault this Teller mints shares for." }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x0d05D94a5F1E76C18fbeB7A13d17C8a314088198",
+      "name": "Liquid ETH Accountant",
+      "role": "other",
+      "proxy": false,
+      "source": "https://etherfi.gitbook.io/etherfi/products/liquid/live-vaults/liquid-eth-vault.md",
+      "keyFunctions": [
+        { "signature": "getRate()", "kind": "read", "payable": false, "description": "Share price in the vault base asset, scaled by the Accountant decimals. Read it to value a share balance." },
+        { "signature": "getRateSafe()", "kind": "read", "payable": false, "description": "Same as getRate, but reverts if the Accountant is paused. Use it when a stale or paused price must not be used." },
+        { "signature": "getRateInQuote(address)", "kind": "read", "payable": false, "description": "Share price expressed in a quote asset, for example WETH. Argument: quote token address." },
+        { "signature": "getRateInQuoteSafe(address)", "kind": "read", "payable": false, "description": "Same as getRateInQuote, but reverts if the Accountant is paused." },
+        { "signature": "decimals()", "kind": "read", "payable": false, "description": "Decimals used by getRate and the quote functions." },
+        { "signature": "vault()", "kind": "read", "payable": false, "description": "Returns the BoringVault this Accountant prices." },
+        { "signature": "base()", "kind": "read", "payable": false, "description": "Returns the base asset the share price is quoted in." }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x0D2dF071207E18Ca8638b4f04E98c53155eC2cE0",
+      "name": "Liquid ETH BoringOnChainQueue (withdraw queue)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://etherfi.gitbook.io/etherfi/products/liquid/live-vaults/liquid-eth-vault.md",
+      "keyFunctions": [
+        { "signature": "requestOnChainWithdraw(address,uint128,uint16,uint24)", "kind": "write", "payable": false, "description": "Request a withdrawal: (asset, amountOfShares, discount, secondsToDeadline). The queue takes the shares, so approve the queue for the shares first. A solver fills the request later. Returns a request id (bytes32). Check the queue status before relying on timing." },
+        { "signature": "boringVault()", "kind": "read", "payable": false, "description": "Returns the BoringVault whose shares this queue accepts." }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x08c6F91e2B681FaF5e17227F2a44C307b3C1364C",
+      "name": "Liquid USD BoringVault (share token)",
+      "role": "vault",
+      "proxy": false,
+      "source": "https://etherfi.gitbook.io/etherfi/products/liquid/live-vaults/liquid-usd-vault.md",
+      "keyFunctions": [
+        { "signature": "balanceOf(address)", "kind": "read", "payable": false, "description": "Vault share balance of an account. The BoringVault is also the ERC-20 share token." },
+        { "signature": "totalSupply()", "kind": "read", "payable": false, "description": "Total vault shares outstanding." },
+        { "signature": "decimals()", "kind": "read", "payable": false, "description": "Decimals of the share token. Use it to format balances." },
+        { "signature": "approve(address,uint256)", "kind": "write", "payable": false, "description": "Approve a spender, such as the withdraw queue, to move shares." },
+        { "signature": "transfer(address,uint256)", "kind": "write", "payable": false, "description": "Send vault shares to another address." }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x4de413a26fc24c3fc27cc983be70aa9c5c299387",
+      "name": "Liquid USD Teller",
+      "role": "router",
+      "proxy": false,
+      "source": "https://etherfi.gitbook.io/etherfi/products/liquid/live-vaults/liquid-usd-vault.md",
+      "keyFunctions": [
+        { "signature": "deposit(address,uint256,uint256)", "kind": "write", "payable": true, "description": "Deposit depositAmount of depositAsset and mint shares to msg.sender. Approve the Teller for ERC-20 assets first. minimumMint is the slippage floor. Reverts if the asset is not supported or the caller lacks permission under the vault RolesAuthority." },
+        { "signature": "depositWithPermit(address,uint256,uint256,uint256,uint8,bytes32,bytes32)", "kind": "write", "payable": false, "description": "Same as deposit, but uses an EIP-2612 permit: (asset, amount, minimumMint, deadline, v, r, s)." },
+        { "signature": "accountant()", "kind": "read", "payable": false, "description": "Returns the Accountant contract that prices shares for this vault." },
+        { "signature": "vault()", "kind": "read", "payable": false, "description": "Returns the BoringVault this Teller mints shares for." }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xc315D6e14DDCDC7407784e2Caf815d131Bc1D3E7",
+      "name": "Liquid USD Accountant",
+      "role": "other",
+      "proxy": false,
+      "source": "https://etherfi.gitbook.io/etherfi/products/liquid/live-vaults/liquid-usd-vault.md",
+      "keyFunctions": [
+        { "signature": "getRate()", "kind": "read", "payable": false, "description": "Share price in the vault base asset, scaled by the Accountant decimals." },
+        { "signature": "getRateSafe()", "kind": "read", "payable": false, "description": "Same as getRate, but reverts if the Accountant is paused." },
+        { "signature": "getRateInQuote(address)", "kind": "read", "payable": false, "description": "Share price expressed in a quote asset. Argument: quote token address." },
+        { "signature": "getRateInQuoteSafe(address)", "kind": "read", "payable": false, "description": "Same as getRateInQuote, but reverts if the Accountant is paused." },
+        { "signature": "decimals()", "kind": "read", "payable": false, "description": "Decimals used by getRate and the quote functions." },
+        { "signature": "vault()", "kind": "read", "payable": false, "description": "Returns the BoringVault this Accountant prices." },
+        { "signature": "base()", "kind": "read", "payable": false, "description": "Returns the base asset the share price is quoted in." }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x38fc1ba73b7ed289955a07d9f11a85b6e388064a",
+      "name": "Liquid USD BoringOnChainQueue (withdraw queue)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://etherfi.gitbook.io/etherfi/products/liquid/live-vaults/liquid-usd-vault.md",
+      "keyFunctions": [
+        { "signature": "requestOnChainWithdraw(address,uint128,uint16,uint24)", "kind": "write", "payable": false, "description": "Request a withdrawal: (asset, amountOfShares, discount, secondsToDeadline). Approve the queue for the shares first. A solver fills the request later. Returns a request id (bytes32)." },
+        { "signature": "boringVault()", "kind": "read", "payable": false, "description": "Returns the BoringVault whose shares this queue accepts." }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    { "name": "deposit", "description": "Deposit an accepted asset into a Liquid vault and receive shares", "how": "For ERC-20 assets: approve the Teller, then call Teller.deposit(asset, amount, minimumMint). Shares are minted to msg.sender. Or use depositWithPermit to skip the approval." },
+    { "name": "check share price", "description": "Read the value of one share", "how": "Accountant.getRate() (base asset) or getRateInQuote(quoteToken). Multiply by the share balance and divide by the Accountant decimals." },
+    { "name": "check balance", "description": "Read how many vault shares an account holds", "how": "BoringVault.balanceOf(account). Value = shares x getRate() / 10^decimals." },
+    { "name": "request withdrawal", "description": "Ask the queue to redeem shares for an asset", "how": "Approve the BoringOnChainQueue for the shares, then call requestOnChainWithdraw(asset, amountOfShares, discount, secondsToDeadline). A solver fills the request later." }
+  ],
+  "risks": [
+    "Withdrawals are not instant. They go through a queue that a solver fills, so the exit can take time and depends on solver liquidity.",
+    "The strategy is set by the vault manager. Allocations can change, and the vault can lose value in a bad strategy.",
+    "The Accountant can pause. getRateSafe and getRateInQuoteSafe revert while paused, and deposits and withdrawals may stop.",
+    "Access to the Teller and queue is set by the vault RolesAuthority. A wallet without permission cannot deposit or request a withdrawal.",
+    "Share prices come from an oracle update process. A stale price can misstate the value of a balance."
+  ],
+  "notes": "Two Liquid vaults are listed, both on Ethereum mainnet: Liquid ETH and Liquid USD. The GitBook says the same contract set is also deployed on Optimism. Those Optimism addresses are not listed here. Other Liquid vaults (BTC, Reserve, RWA, EUR) and deprecated vaults are not listed. The Manager and RolesAuthority contracts are not listed because agents do not call them. Veda's documentation describes the architecture. Deposit assets for Liquid ETH are eETH, weETH and WETH.",
+  "sources": [
+    "https://api.llama.fi/protocol/ether.fi-liquid",
+    "https://defillama.com/protocol/ether.fi-liquid",
+    "https://etherfi.gitbook.io/etherfi/products/liquid",
+    "https://etherfi.gitbook.io/etherfi/sitemap.md",
+    "https://etherfi.gitbook.io/etherfi/products/liquid/live-vaults/liquid-eth-vault.md",
+    "https://etherfi.gitbook.io/etherfi/products/liquid/live-vaults/liquid-usd-vault.md",
+    "https://etherfi.gitbook.io/etherfi/products/liquid/veda-vault.md"
+  ],
+  "researchedAt": "2026-11-28"
+}

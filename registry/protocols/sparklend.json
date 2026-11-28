@@ -1,0 +1,215 @@
+{
+  "slug": "sparklend",
+  "name": "SparkLend",
+  "category": "Lending",
+  "description": "Stablecoin-focused lending market forked from Aave V3. Supply assets to earn interest, borrow against collateral, and repay or withdraw. Rates are set by governance rather than by utilization.",
+  "website": "https://spark.finance",
+  "docs": "https://docs.spark.finance",
+  "defillama": "https://defillama.com/protocol/sparklend",
+  "chains": [
+    "ethereum",
+    "gnosis"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xC13e21B648A5Ee794902342038FF3aDAB66BE987",
+      "name": "Pool (main market)",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://raw.githubusercontent.com/sparkdotfi/spark-address-registry/master/src/SparkLend.sol",
+      "keyFunctions": [
+        {
+          "signature": "supply(address,uint256,address,uint16)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply an ERC20 asset. Arguments: asset, amount in the token's smallest unit, onBehalfOf, referralCode (0 for none). Approve the Pool for the amount first. Receive spTokens."
+        },
+        {
+          "signature": "withdraw(address,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw a supplied asset. Arguments: asset, amount (type(uint256).max for the full balance), recipient. Returns the amount withdrawn. Reverts if the health factor would drop below 1 while the caller has debt."
+        },
+        {
+          "signature": "borrow(address,uint256,uint256,uint16,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow an asset against collateral. Arguments: asset, amount, interestRateMode (use 2 for variable; stable mode is disabled), referralCode, onBehalfOf. Reverts if the health factor would fall below 1."
+        },
+        {
+          "signature": "repay(address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay debt. Arguments: asset, amount (type(uint256).max to clear debt, only when onBehalfOf is the caller), interestRateMode (2 for variable), onBehalfOf. Approve the Pool for the amount first. Returns the amount repaid."
+        },
+        {
+          "signature": "setUserUseReserveAsCollateral(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Enable or disable a supplied asset as collateral. Disabling reverts if it would push the caller's health factor below the liquidation threshold. Enabling reverts if the asset has an LTV of 0."
+        },
+        {
+          "signature": "getUserAccountData(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns totalCollateralBase, totalDebtBase, availableBorrowsBase, currentLiquidationThreshold, ltv, healthFactor. Base currency values use 8 decimals for USD oracles. healthFactor is type(uint256).max with no debt; 18 decimals otherwise."
+        },
+        {
+          "signature": "getReserveData(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Full reserve struct for an asset: configuration, liquidity and borrow indexes, rates, and the spToken, debt token and rate strategy addresses."
+        },
+        {
+          "signature": "flashLoanSimple(address,address,uint256,bytes,uint16)",
+          "kind": "write",
+          "payable": false,
+          "description": "Single-asset flash loan. Arguments: receiver contract (must implement executeOperation), asset, amount, params, referralCode. The receiver must repay amount plus fee within the same transaction."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x02C3eA4e34C0cBd694D2adFa2c690EECbC1793eE",
+      "name": "PoolAddressesProvider (main market)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://raw.githubusercontent.com/sparkdotfi/spark-address-registry/master/src/SparkLend.sol",
+      "keyFunctions": [
+        {
+          "signature": "getPool()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current Pool proxy address. Read this instead of hardcoding the Pool when the market is upgraded."
+        },
+        {
+          "signature": "getPoolConfigurator()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current PoolConfigurator address, used for governance parameter changes."
+        },
+        {
+          "signature": "getPriceOracle()",
+          "kind": "read",
+          "payable": false,
+          "description": "Price oracle used by the market."
+        },
+        {
+          "signature": "getACLManager()",
+          "kind": "read",
+          "payable": false,
+          "description": "Access control manager for the market."
+        },
+        {
+          "signature": "getPoolDataProvider()",
+          "kind": "read",
+          "payable": false,
+          "description": "Protocol data provider with reserve and user data helpers."
+        }
+      ]
+    },
+    {
+      "chain": "gnosis",
+      "chainId": 100,
+      "address": "0x2Dae5307c5E3FD1CF5A72Cb6F698f915860607e0",
+      "name": "Pool (Gnosis market)",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://raw.githubusercontent.com/sparkdotfi/spark-address-registry/master/src/Gnosis.sol",
+      "keyFunctions": [
+        {
+          "signature": "supply(address,uint256,address,uint16)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply an ERC20 asset on Gnosis. Arguments: asset, amount in the token's smallest unit, onBehalfOf, referralCode (0 for none). Approve the Pool for the amount first."
+        },
+        {
+          "signature": "withdraw(address,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw a supplied asset on Gnosis. Arguments: asset, amount (type(uint256).max for the full balance), recipient. Reverts if the health factor would drop below 1."
+        },
+        {
+          "signature": "borrow(address,uint256,uint256,uint16,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow on Gnosis. Arguments: asset, amount, interestRateMode (2 for variable), referralCode, onBehalfOf. Reverts if the health factor would fall below 1."
+        },
+        {
+          "signature": "repay(address,uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay debt on Gnosis. Arguments: asset, amount, interestRateMode (2 for variable), onBehalfOf. Approve the Pool for the amount first."
+        },
+        {
+          "signature": "getUserAccountData(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral, debt, borrow capacity, liquidation threshold, LTV and healthFactor for a user on the Gnosis market."
+        },
+        {
+          "signature": "getReserveData(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Full reserve struct for an asset on the Gnosis market."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "supply",
+      "description": "Deposit an asset to earn interest",
+      "how": "approve the Pool for the amount, then Pool.supply(asset, amount, onBehalfOf, 0); spTokens are minted to onBehalfOf"
+    },
+    {
+      "name": "withdraw",
+      "description": "Withdraw a supplied asset",
+      "how": "Pool.withdraw(asset, amount, to); pass type(uint256).max to withdraw the full balance"
+    },
+    {
+      "name": "borrow",
+      "description": "Borrow against collateral",
+      "how": "check getUserAccountData(user).healthFactor first, then Pool.borrow(asset, amount, 2, 0, onBehalfOf); stable mode (1) is not available"
+    },
+    {
+      "name": "repay",
+      "description": "Repay a variable debt",
+      "how": "approve the Pool for the amount, then Pool.repay(asset, amount, 2, onBehalfOf)"
+    },
+    {
+      "name": "toggle-collateral",
+      "description": "Enable or disable a supplied asset as collateral",
+      "how": "Pool.setUserUseReserveAsCollateral(asset, true or false)"
+    },
+    {
+      "name": "check-position",
+      "description": "Read collateral, debt and health factor",
+      "how": "Pool.getUserAccountData(user); healthFactor below 1e18 means liquidatable"
+    }
+  ],
+  "risks": [
+    "Positions can be liquidated if the health factor falls below 1. Keep a margin above 1 and check it after each borrow or price move.",
+    "Stable-rate borrowing is disabled on the reserves. Only variable borrowing (mode 2) works.",
+    "Rates are set by governance and can change, unlike utilization-based rate curves.",
+    "Spark governance and its freezer and pause roles can freeze reserves or pause the market.",
+    "The Pool is an upgradeable proxy. Its implementation can change through governance."
+  ],
+  "notes": "Ethereum addresses for the main market and Gnosis addresses come from Spark's official address registry (SparkLend.sol and Gnosis.sol). Reserve token addresses (spTokens and debt tokens) are in the same file. WETHGateway (ETH deposits) and UiPoolDataProvider are not included because their signatures were not checked against source. Pool functions follow the Aave V3 interface, which Spark documents as its base. Other chains listed on DefiLlama are not covered here.",
+  "sources": [
+    "https://raw.githubusercontent.com/sparkdotfi/spark-address-registry/master/src/SparkLend.sol",
+    "https://raw.githubusercontent.com/sparkdotfi/spark-address-registry/master/src/Gnosis.sol",
+    "https://github.com/sparkdotfi/spark-address-registry/tree/master/src",
+    "https://docs.spark.finance/dev/sparklend/core-contracts/pool",
+    "https://docs.spark.finance/dev/sparklend/core-contracts/pooladdressesprovider",
+    "https://spark.finance",
+    "https://api.llama.fi/protocol/sparklend"
+  ],
+  "researchedAt": "2026-11-28"
+}

@@ -1,0 +1,215 @@
+{
+  "slug": "kinetiq-khype",
+  "name": "Kinetiq kHYPE",
+  "category": "Liquid Staking",
+  "description": "Kinetiq's non-custodial liquid staking for HYPE on Hyperliquid. Stake HYPE on HyperEVM to receive kHYPE, a yield-bearing ERC-20 that appreciates against HYPE. An agent can stake HYPE, queue and confirm withdrawals, read the HYPE to kHYPE rate, and hold or trade kHYPE.",
+  "website": "https://kinetiq.xyz",
+  "docs": "https://kinetiq.xyz/docs/integration",
+  "defillama": "https://defillama.com/protocol/kinetiq-khype",
+  "chains": ["hyperevm"],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x393D0B87Ed38fc779FD9611144aE649BA6082109",
+      "name": "STAKING_MANAGER",
+      "role": "staking",
+      "proxy": null,
+      "source": "https://kinetiq.xyz/docs/integration",
+      "keyFunctions": [
+        {
+          "signature": "stake()",
+          "kind": "write",
+          "payable": true,
+          "description": "Stake HYPE sent as msg.value and mint kHYPE to the caller. Check minStakeAmount(), maxStakeAmount(), stakingLimit() and isWhitelisted(msg.sender) first."
+        },
+        {
+          "signature": "queueWithdrawal(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Queue an unstake of the given kHYPE amount. Starts the withdrawal delay. Read the new withdrawal ID with nextWithdrawalId(address) and pass it to confirmWithdrawal."
+        },
+        {
+          "signature": "confirmWithdrawal(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim the HYPE for a queued withdrawal ID once the withdrawal delay has passed."
+        },
+        {
+          "signature": "nextWithdrawalId(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Next withdrawal ID for an address."
+        },
+        {
+          "signature": "withdrawalRequests(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Withdrawal request details for an address and withdrawal ID."
+        },
+        {
+          "signature": "withdrawalDelay()",
+          "kind": "read",
+          "payable": false,
+          "description": "Delay before a queued withdrawal can be confirmed. Kinetiq's docs describe it as about 8 to 9 days."
+        },
+        {
+          "signature": "minStakeAmount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Smallest HYPE amount accepted by stake()."
+        },
+        {
+          "signature": "maxStakeAmount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Largest HYPE amount accepted by stake() in one call."
+        },
+        {
+          "signature": "stakingLimit()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total staking limit of the protocol."
+        },
+        {
+          "signature": "totalStaked()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total HYPE staked through the manager."
+        },
+        {
+          "signature": "unstakeFeeRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee rate charged on unstaking."
+        },
+        {
+          "signature": "whitelistLength()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of whitelisted addresses."
+        },
+        {
+          "signature": "isWhitelisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is whitelisted. Check before staking if whitelisting applies."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0xfD739d4e423301CE9385c1fb8850539D657C296D",
+      "name": "KHYPE_TOKEN (kHYPE)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://kinetiq.xyz/docs/integration",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "kHYPE balance of an address. Balances do not rebase; the value per kHYPE rises over time."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer kHYPE (standard ERC-20)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender to move kHYPE, for example a DEX."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Remaining kHYPE a spender may move for an owner."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total kHYPE in circulation."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x9209648Ec9D448EF57116B73A2f081835643dc7A",
+      "name": "STAKING_ACCOUNTANT",
+      "role": "staking",
+      "proxy": null,
+      "source": "https://kinetiq.xyz/docs/integration",
+      "keyFunctions": [
+        {
+          "signature": "HYPEToKHYPE(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert an HYPE amount to kHYPE at the current rate."
+        },
+        {
+          "signature": "kHYPEToHYPE(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert a kHYPE amount to HYPE at the current rate."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x4b797A93DfC3D18Cf98B7322a2b142FA8007508f",
+      "name": "VALIDATOR_MANAGER",
+      "role": "other",
+      "proxy": null,
+      "source": "https://kinetiq.xyz/docs/integration",
+      "keyFunctions": []
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "stake",
+      "description": "Stake HYPE for kHYPE",
+      "how": "Call STAKING_MANAGER.stake() with HYPE as msg.value on HyperEVM (chain 999), after checking minStakeAmount(), maxStakeAmount() and isWhitelisted()."
+    },
+    {
+      "name": "unstake",
+      "description": "Start unstaking kHYPE to HYPE",
+      "how": "kHYPE.approve(STAKING_MANAGER, amount), then STAKING_MANAGER.queueWithdrawal(amount). After withdrawalDelay() passes, call confirmWithdrawal(withdrawalId)."
+    },
+    {
+      "name": "read-rate",
+      "description": "Read the HYPE to kHYPE rate",
+      "how": "STAKING_ACCOUNTANT.kHYPEToHYPE(amount) or HYPEToKHYPE(amount)"
+    },
+    {
+      "name": "exit-early",
+      "description": "Sell kHYPE instead of waiting",
+      "how": "Trade kHYPE on a DEX. Price can differ from the rate and depends on liquidity."
+    }
+  ],
+  "risks": [
+    "Unstaking is delayed. Kinetiq's docs describe a wait of about 8 to 9 days before confirmWithdrawal can run.",
+    "An unstake fee applies (unstakeFeeRate). Read it on-chain before quoting an exit.",
+    "Staking can be limited: there are minimum and maximum amounts, a protocol staking limit, and a whitelist check. stake() can revert.",
+    "HYPE is delegated to validators chosen through the VALIDATOR_MANAGER. Validator performance affects the rate.",
+    "Contracts are controlled by Kinetiq. Upgrade and admin powers are not documented on the pages read."
+  ],
+  "notes": "All four contracts are listed from Kinetiq's official integration page. Each has bytecode on HyperEVM. Chain ID 999 confirmed with eth_chainId on https://rpc.hyperliquid.xyz/evm. The kHYPE token is an ERC-20. Cross-chain staking from Ethereum or Base is available through Kinetiq's app (Enso), not through these contracts. VALIDATOR_MANAGER has no key functions because its ABI was not on the pages read.",
+  "sources": [
+    "https://kinetiq.xyz/docs/integration",
+    "https://kinetiq.xyz/docs/khype",
+    "https://api.llama.fi/protocol/kinetiq-khype",
+    "https://rpc.hyperliquid.xyz/evm"
+  ],
+  "researchedAt": "2026-11-28"
+}

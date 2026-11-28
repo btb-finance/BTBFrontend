@@ -1,0 +1,263 @@
+{
+  "slug": "lista-lending",
+  "name": "Lista Lending",
+  "category": "Lending",
+  "description": "Lista Lending on BNB Chain and Ethereum, built on the Moolah lending core. Markets are isolated pairs defined by a MarketParams tuple (loan token, collateral token, oracle, interest rate model, LLTV). An agent can supply loan tokens, post collateral, borrow, repay, withdraw, authorize operators, flash loan and liquidate, and read market and position data on chain.",
+  "website": "https://lista.org/lending",
+  "docs": "https://github.com/lista-dao/moolah",
+  "defillama": "https://defillama.com/protocol/lista-lending",
+  "chains": [
+    "bnb",
+    "ethereum"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x8F73b65B4caAf64FBA2aF91cC5D4a2A1318E5D8C",
+      "name": "Moolah proxy (BNB Chain)",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://github.com/lista-dao/moolah/blob/master/broadcast/deploy_moolah.sol/56/run-latest.json",
+      "keyFunctions": [
+        {
+          "signature": "supply((address,address,address,address,uint256),uint256,uint256,address,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply loan token to a market: (marketParams, assets, shares, onBehalf, data). Pass assets or shares, and set the other to 0. Use empty bytes for data. Approve the loan token to Moolah first."
+        },
+        {
+          "signature": "withdraw((address,address,address,address,uint256),uint256,uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw loan token: (marketParams, assets, shares, onBehalf, receiver). Pass assets or shares, and set the other to 0. msg.sender must be authorized for onBehalf."
+        },
+        {
+          "signature": "borrow((address,address,address,address,uint256),uint256,uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow loan token: (marketParams, assets, shares, onBehalf, receiver). Needs collateral in the market. msg.sender must be authorized for onBehalf. The borrowed assets go to receiver."
+        },
+        {
+          "signature": "repay((address,address,address,address,uint256),uint256,uint256,address,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay loan token debt: (marketParams, assets, shares, onBehalf, data). Approve the loan token to Moolah first. Repaying more shares than borrowed reverts."
+        },
+        {
+          "signature": "supplyCollateral((address,address,address,address,uint256),uint256,address,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Post collateral: (marketParams, assets, onBehalf, data). Approve the collateral token to Moolah first. No interest is accrued in this call."
+        },
+        {
+          "signature": "withdrawCollateral((address,address,address,address,uint256),uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw collateral: (marketParams, assets, onBehalf, receiver). msg.sender must be authorized for onBehalf. Reverts if it would withdraw more collateral than the position holds."
+        },
+        {
+          "signature": "liquidate((address,address,address,address,uint256),address,uint256,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidate an unhealthy borrower: (marketParams, borrower, seizedAssets, repaidShares, data). Pass seizedAssets or repaidShares, and set the other to 0. Approve the loan token first. Some markets restrict liquidators to a whitelist."
+        },
+        {
+          "signature": "flashLoan(address,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Flash loan a token from the core contract: (token, assets, data). The receiver must repay in the same transaction. Some tokens are blacklisted."
+        },
+        {
+          "signature": "setAuthorization(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Authorize or revoke an address to manage your positions in every market: (authorized, isAuthorized)."
+        },
+        {
+          "signature": "isHealthy((address,address,address,address,uint256),bytes32,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if a borrower is healthy in a market: (marketParams, marketId, borrower)."
+        },
+        {
+          "signature": "getPrice((address,address,address,address,uint256))",
+          "kind": "read",
+          "payable": false,
+          "description": "Oracle price used by the market for collateral valuation."
+        },
+        {
+          "signature": "position(bytes32,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply shares, borrow shares and collateral of a user in a market: (marketId, user)."
+        },
+        {
+          "signature": "market(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Market totals (supply, borrow, last update and fee) for a market id."
+        },
+        {
+          "signature": "idToMarketParams(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "MarketParams (loan token, collateral token, oracle, interest rate model, LLTV) for a market id."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xf820fB4680712CD7263a0D3D024D5b5aEA82Fd70",
+      "name": "Moolah proxy (Ethereum)",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://github.com/lista-dao/moolah/blob/master/broadcast/deploy_moolah.sol/1/run-1758872537160.json",
+      "keyFunctions": [
+        {
+          "signature": "supply((address,address,address,address,uint256),uint256,uint256,address,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply loan token to a market: (marketParams, assets, shares, onBehalf, data). Pass assets or shares, and set the other to 0. Use empty bytes for data. Approve the loan token to Moolah first."
+        },
+        {
+          "signature": "withdraw((address,address,address,address,uint256),uint256,uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw loan token: (marketParams, assets, shares, onBehalf, receiver). Pass assets or shares, and set the other to 0. msg.sender must be authorized for onBehalf."
+        },
+        {
+          "signature": "borrow((address,address,address,address,uint256),uint256,uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow loan token: (marketParams, assets, shares, onBehalf, receiver). Needs collateral in the market. msg.sender must be authorized for onBehalf. The borrowed assets go to receiver."
+        },
+        {
+          "signature": "repay((address,address,address,address,uint256),uint256,uint256,address,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay loan token debt: (marketParams, assets, shares, onBehalf, data). Approve the loan token to Moolah first. Repaying more shares than borrowed reverts."
+        },
+        {
+          "signature": "supplyCollateral((address,address,address,address,uint256),uint256,address,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Post collateral: (marketParams, assets, onBehalf, data). Approve the collateral token to Moolah first. No interest is accrued in this call."
+        },
+        {
+          "signature": "withdrawCollateral((address,address,address,address,uint256),uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw collateral: (marketParams, assets, onBehalf, receiver). msg.sender must be authorized for onBehalf. Reverts if it would withdraw more collateral than the position holds."
+        },
+        {
+          "signature": "liquidate((address,address,address,address,uint256),address,uint256,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidate an unhealthy borrower: (marketParams, borrower, seizedAssets, repaidShares, data). Pass seizedAssets or repaidShares, and set the other to 0. Approve the loan token first. Some markets restrict liquidators to a whitelist."
+        },
+        {
+          "signature": "flashLoan(address,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Flash loan a token from the core contract: (token, assets, data). The receiver must repay in the same transaction. Some tokens are blacklisted."
+        },
+        {
+          "signature": "setAuthorization(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Authorize or revoke an address to manage your positions in every market: (authorized, isAuthorized)."
+        },
+        {
+          "signature": "isHealthy((address,address,address,address,uint256),bytes32,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if a borrower is healthy in a market: (marketParams, marketId, borrower)."
+        },
+        {
+          "signature": "getPrice((address,address,address,address,uint256))",
+          "kind": "read",
+          "payable": false,
+          "description": "Oracle price used by the market for collateral valuation."
+        },
+        {
+          "signature": "position(bytes32,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply shares, borrow shares and collateral of a user in a market: (marketId, user)."
+        },
+        {
+          "signature": "market(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Market totals (supply, borrow, last update and fee) for a market id."
+        },
+        {
+          "signature": "idToMarketParams(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "MarketParams (loan token, collateral token, oracle, interest rate model, LLTV) for a market id."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "lend",
+      "description": "Supply loan token to a market",
+      "how": "Approve the loan token, then Moolah.supply(marketParams, assets, 0, onBehalf, \"0x\")"
+    },
+    {
+      "name": "post collateral",
+      "description": "Supply collateral to a market",
+      "how": "Approve the collateral token, then Moolah.supplyCollateral(marketParams, assets, onBehalf, \"0x\")"
+    },
+    {
+      "name": "borrow",
+      "description": "Borrow loan token against collateral",
+      "how": "Moolah.borrow(marketParams, assets, 0, onBehalf, receiver) after posting collateral and checking isHealthy"
+    },
+    {
+      "name": "repay",
+      "description": "Repay loan token debt",
+      "how": "Approve the loan token, then Moolah.repay(marketParams, assets, 0, onBehalf, \"0x\")"
+    },
+    {
+      "name": "withdraw",
+      "description": "Withdraw lent loan token or collateral",
+      "how": "Moolah.withdraw(marketParams, assets, 0, onBehalf, receiver) or Moolah.withdrawCollateral(marketParams, assets, onBehalf, receiver)"
+    },
+    {
+      "name": "liquidate",
+      "description": "Repay an unhealthy borrower debt and seize collateral",
+      "how": "Approve the loan token, then Moolah.liquidate(marketParams, borrower, 0, repaidShares, \"0x\"). Check the liquidation whitelist first."
+    },
+    {
+      "name": "read market",
+      "description": "Read a market and a user position",
+      "how": "Moolah.idToMarketParams(id), Moolah.market(id), Moolah.position(id, user)"
+    }
+  ],
+  "risks": [
+    "Each market has its own oracle, interest rate model and LLTV. A bad oracle affects its market and can create bad debt there.",
+    "Some markets restrict liquidations to a whitelist, so liquidators outside it cannot act.",
+    "Broker and provider roles can act on some markets. Check a market brokers and providers before relying on it.",
+    "The proxies are upgradeable by their admin. The implementations have changed since the first deployment.",
+    "Flash loans come from the core contract, and some tokens are blacklisted."
+  ],
+  "notes": "Addresses are the proxies from the official Foundry broadcast files. Use the proxy, because the implementation has been upgraded since the first deploy. Lista vault contracts, which pool supply across markets, are not listed here. DefiLlama also lists Robinhood Chain for this protocol, but no official address for it was checked, so it is not included.",
+  "sources": [
+    "https://api.llama.fi/protocol/lista-lending",
+    "https://defillama.com/protocol/lista-lending",
+    "https://github.com/lista-dao/moolah",
+    "https://github.com/lista-dao/moolah/blob/master/broadcast/deploy_moolah.sol/56/run-latest.json",
+    "https://github.com/lista-dao/moolah/blob/master/broadcast/deploy_moolah.sol/1/run-1758872537160.json",
+    "https://github.com/lista-dao/moolah/blob/master/broadcast/deploy_createMarket.sol/1/run-1759053783157.json",
+    "https://github.com/lista-dao/moolah/blob/master/src/moolah/interfaces/IMoolah.sol"
+  ],
+  "researchedAt": "2026-11-28"
+}

@@ -42,6 +42,32 @@ pub fn seal(title: &str, chain_id: i64, wallet: &str, steps: Vec<Value>) -> Opti
     Some((format!("https://btb.finance/sign#{body}.{sig}"), id))
 }
 
+/// A Solana sign link: each step names the BTB tool and arguments the page calls to build a fresh transaction when
+/// the person signs (Solana transactions expire about a minute after they are built, links last 15 minutes).
+pub fn seal_solana(title: &str, wallet: &str, steps: Vec<Value>) -> Option<(String, String)> {
+    let k = key()?;
+    let mut idb = [0u8; 12];
+    getrandom::getrandom(&mut idb).ok()?;
+    let id: String = idb.iter().map(|b| format!("{b:02x}")).collect();
+    let exp = chrono::Utc::now().timestamp_millis() + TTL_MS;
+    let plan = json!({ "v": 1, "title": title, "chainId": 0, "vm": "solana", "wallet": wallet, "steps": steps, "exp": exp, "id": id });
+    let mut gz = GzEncoder::new(Vec::new(), Compression::default());
+    gz.write_all(serde_json::to_string(&plan).ok()?.as_bytes()).ok()?;
+    let body = B64.encode(gz.finish().ok()?);
+    let sig = mac(&k, &body);
+    Some((format!("https://btb.finance/sign#{body}.{sig}"), id))
+}
+
+/// Adds signLink to a Solana build result: one step that rebuilds with `tool` and `args` at signing time.
+pub fn with_solana_sign_link(mut r: Value, title: &str, wallet: &str, label: &str, tool: &str, args: Value) -> Value {
+    let step = json!({ "label": label, "to": "", "data": "", "value": "0", "solana": { "tool": tool, "args": args } });
+    if let Some((url, _)) = seal_solana(title, wallet, vec![step]) {
+        r["signLink"] = json!(url);
+        r["signLinkNote"] = json!("For a person: give them this link. It opens btb.finance, where they connect a Solana wallet (Phantom, Solflare, Backpack), and it builds a fresh transaction when they sign. Valid 15 minutes, only for this wallet. Afterwards, sign_status with this link tells you whether it confirmed.");
+    }
+    r
+}
+
 pub enum Opened {
     Ok(Value),
     Invalid,
@@ -132,6 +158,7 @@ pub async fn sign_status(a: &Map<String, Value>, http: &reqwest::Client, catalog
     let reported = signed.lock().ok().and_then(|m| m.get(&id.to_lowercase()).cloned()).unwrap_or_default();
     let wallet = plan["wallet"].as_str().unwrap_or("").to_lowercase();
     let chain_id = plan["chainId"].as_i64().unwrap_or(0);
+    let solana = plan["vm"] == json!("solana");
     let mut steps = Vec::new();
     for (i, s) in plan["steps"].as_array().cloned().unwrap_or_default().iter().enumerate() {
         let n = (i + 1) as u32;
@@ -140,6 +167,15 @@ pub async fn sign_status(a: &Map<String, Value>, http: &reqwest::Client, catalog
             steps.push(json!({ "step": n, "label": label, "status": "not_signed_yet" }));
             continue;
         };
+        if solana {
+            let wallet_raw = plan["wallet"].as_str().unwrap_or("");
+            steps.push(match crate::solana::signature_status(http, &hash, wallet_raw).await {
+                Ok((status, true)) => json!({ "step": n, "label": label, "status": status, "hash": hash, "link": format!("https://solscan.io/tx/{hash}") }),
+                Ok((_, false)) => json!({ "step": n, "label": label, "status": "not_signed_yet", "note": "A report for this step was not paid by the link's wallet and was ignored." }),
+                Err(_) => json!({ "step": n, "label": label, "status": "unknown", "hash": hash }),
+            });
+            continue;
+        }
         let mut args = Map::new();
         args.insert("chain".into(), json!(chain_id));
         args.insert("hash".into(), json!(hash));

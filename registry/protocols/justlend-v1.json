@@ -1,0 +1,286 @@
+{
+  "slug": "justlend-v1",
+  "name": "JustLend V1",
+  "category": "Lending",
+  "description": "Compound V2 style lending market on TRON. Supply TRX or TRC20 assets to receive jTokens, borrow against collateral, and repay or redeem. Rates follow supply and demand through the interest rate model.",
+  "website": "https://justlend.org",
+  "docs": "https://docs.justlend.org",
+  "defillama": "https://defillama.com/protocol/justlend-v1",
+  "chains": [
+    "tron"
+  ],
+  "vm": "mixed",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "TGjYzgCyPobsNS9n6WcbdLVR9dH7mWqFx7",
+      "name": "Unitroller (Comptroller entrypoint)",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://docs.justlend.org/developers/deployed_contracts/",
+      "keyFunctions": [
+        {
+          "signature": "enterMarkets(address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Use the given jToken markets as collateral for the caller. Argument: array of jToken addresses. Returns an array of error codes (0 is success). Call before borrowing against a market."
+        },
+        {
+          "signature": "exitMarket(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stop using a jToken market as collateral. Argument: jToken address. Reverts (returns an error code) if the caller would be left under-collateralized or still has a borrow in that market."
+        },
+        {
+          "signature": "getAccountLiquidity(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (error, liquidity, shortfall) for an account. Liquidity and shortfall are scaled by 1e18 in the oracle's USD units. A non-zero shortfall means the account can be liquidated."
+        },
+        {
+          "signature": "getAssetsIn(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "jToken markets an account is using as collateral."
+        },
+        {
+          "signature": "getAllMarkets()",
+          "kind": "read",
+          "payable": false,
+          "description": "All jToken market addresses listed in the Comptroller."
+        },
+        {
+          "signature": "markets(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (isListed, collateralFactorMantissa, isComped) for a jToken. The collateral factor is scaled by 1e18."
+        },
+        {
+          "signature": "closeFactorMantissa()",
+          "kind": "read",
+          "payable": false,
+          "description": "Maximum share of a borrow that a liquidator can repay at once, scaled by 1e18."
+        },
+        {
+          "signature": "liquidationIncentiveMantissa()",
+          "kind": "read",
+          "payable": false,
+          "description": "Liquidation bonus multiplier, scaled by 1e18."
+        },
+        {
+          "signature": "oracle()",
+          "kind": "read",
+          "payable": false,
+          "description": "Price oracle address used for collateral and borrow limits."
+        }
+      ]
+    },
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "TE2RzoSV3wFK99w6J9UnnZ4vLfXYoxvRwP",
+      "name": "jTRX",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.justlend.org/developers/deployed_contracts/",
+      "keyFunctions": [
+        {
+          "signature": "mint()",
+          "kind": "write",
+          "payable": true,
+          "description": "Supply TRX. Send TRX as call value; jTRX is minted to the caller at the current exchange rate. No approval needed because the asset is native TRX."
+        },
+        {
+          "signature": "redeem(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn jTRX and receive TRX. Argument: jTRX amount. Returns an error code (0 is success)."
+        },
+        {
+          "signature": "redeemUnderlying(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn jTRX and receive an exact TRX amount in sun. Returns an error code (0 is success)."
+        },
+        {
+          "signature": "borrow(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow TRX in sun against collateral. Reverts with an error code if the account has insufficient liquidity or the market is paused."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "jTRX balance of an address. Multiply by exchangeRateStored to get the TRX value."
+        },
+        {
+          "signature": "exchangeRateStored()",
+          "kind": "read",
+          "payable": false,
+          "description": "TRX per jTRX, scaled by 1e18. Last stored value; accrueInterest is needed for the current rate."
+        },
+        {
+          "signature": "borrowBalanceStored(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Stored TRX borrow balance of an address, in sun."
+        },
+        {
+          "signature": "supplyRatePerBlock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current supply interest rate per block, scaled by 1e18."
+        },
+        {
+          "signature": "borrowRatePerBlock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current borrow interest rate per block, scaled by 1e18."
+        },
+        {
+          "signature": "accrueInterest()",
+          "kind": "write",
+          "payable": false,
+          "description": "Update the market's interest accrual to the current block. Call before reading exact current balances."
+        }
+      ]
+    },
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "TXJgMdjVX5dKiQaUi9QobwNxtSQaFqccvd",
+      "name": "jUSDT",
+      "role": "token",
+      "proxy": true,
+      "source": "https://docs.justlend.org/developers/deployed_contracts/",
+      "keyFunctions": [
+        {
+          "signature": "mint(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply USDT. Approve the jUSDT contract to spend the amount on the USDT token first. Argument: USDT amount in its smallest unit. Returns an error code (0 is success)."
+        },
+        {
+          "signature": "redeem(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn jUSDT and receive USDT. Argument: jUSDT amount. Returns an error code (0 is success)."
+        },
+        {
+          "signature": "redeemUnderlying(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn jUSDT and receive an exact USDT amount. Returns an error code (0 is success)."
+        },
+        {
+          "signature": "borrow(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow USDT against collateral. Argument: USDT amount in its smallest unit. Returns an error code (0 is success)."
+        },
+        {
+          "signature": "repayBorrow(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay USDT debt. Approve the jUSDT contract to spend the amount on the USDT token first. Argument: USDT amount to repay in its smallest unit. Returns an error code (0 is success)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "jUSDT balance of an address."
+        },
+        {
+          "signature": "exchangeRateStored()",
+          "kind": "read",
+          "payable": false,
+          "description": "USDT per jUSDT, scaled by 1e18. Last stored value."
+        },
+        {
+          "signature": "borrowBalanceStored(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Stored USDT borrow balance of an address."
+        },
+        {
+          "signature": "supplyRatePerBlock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current supply interest rate per block, scaled by 1e18."
+        },
+        {
+          "signature": "borrowRatePerBlock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current borrow interest rate per block, scaled by 1e18."
+        },
+        {
+          "signature": "underlying()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the underlying USDT TRC20 contract."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "JustLend API (SBM markets)",
+      "url": "https://docs.justlend.org/developers/apis/",
+      "auth": "none",
+      "use": "Lists the SBM jToken markets with their addresses (GET /lend/jtoken). Use it to find markets beyond those listed here.",
+      "source": "https://docs.justlend.org/developers/deployed_contracts/"
+    }
+  ],
+  "actions": [
+    {
+      "name": "supply-trx",
+      "description": "Supply TRX to earn interest",
+      "how": "call jTRX.mint() with TRX as call value; jTRX is credited to the caller"
+    },
+    {
+      "name": "supply-usdt",
+      "description": "Supply USDT to earn interest",
+      "how": "USDT.approve(jUSDT, amount), then jUSDT.mint(amount)"
+    },
+    {
+      "name": "enable-collateral",
+      "description": "Use a market as collateral",
+      "how": "Unitroller.enterMarkets([jTokenAddress])"
+    },
+    {
+      "name": "borrow",
+      "description": "Borrow against collateral",
+      "how": "check getAccountLiquidity(user) shows liquidity, then call the borrow market's borrow(amount)"
+    },
+    {
+      "name": "repay",
+      "description": "Repay a borrow",
+      "how": "approve the underlying token for the jToken market, then jToken.repayBorrow(amount); TRX markets use the jTRX payable call"
+    },
+    {
+      "name": "withdraw",
+      "description": "Redeem supplied assets",
+      "how": "jToken.redeem(jTokenAmount) or jToken.redeemUnderlying(underlyingAmount)"
+    }
+  ],
+  "risks": [
+    "Accounts can be liquidated when their borrows exceed their collateral limit. Check getAccountLiquidity after each borrow and after price moves.",
+    "Most JustLend functions return an error code instead of reverting. Check the return value, not only the transaction status.",
+    "Interest is accrued lazily. Stored balances and rates can be stale until accrueInterest runs.",
+    "Rates are set by supply and demand through the interest rate model and change with utilization.",
+    "Contracts are proxies and governance can change parameters, markets and oracles."
+  ],
+  "notes": "Tron addresses come from JustLend's official deployed-contracts page. The Comptroller function list is from the Comptroller implementation ABI, and the jToken lists are from the ABIs of each jToken, read from TronGrid. JustLend has 24 jToken markets (18 active, 6 legacy). Only jTRX and jUSDT are included here. Use the JustLend API to find the rest. The DefiLlama address (TCFLL5dx5ZJdKnWuesXxi1VPwjLVmWZZy9) is not used because it is not on the official addresses page. Tron addresses are base58, so eth_getCode does not apply. Existence was checked with TronGrid getcontract.",
+  "sources": [
+    "https://docs.justlend.org/developers/deployed_contracts/",
+    "https://docs.justlend.org/developers/contracts_overview/",
+    "https://docs.justlend.org/developers/apis/",
+    "https://api.trongrid.io/wallet/getcontract",
+    "https://api.llama.fi/protocol/justlend-v1"
+  ],
+  "researchedAt": "2026-11-28"
+}

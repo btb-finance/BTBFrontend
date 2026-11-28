@@ -1,0 +1,131 @@
+{
+  "slug": "robinhood-chain-bridge",
+  "name": "Robinhood Chain Bridge",
+  "category": "Canonical Bridge",
+  "description": "The canonical bridge between Ethereum and Robinhood Chain (chain 4663, where ETH is the gas token). An agent deposits ETH through the Delayed Inbox and ERC-20 tokens through the L1 Gateway Router. It withdraws ERC-20 tokens through the L2 Gateway Router and ETH through ArbSys, then claims on Ethereum after the 7 day challenge period.",
+  "website": "https://robinhood.com/us/en/chain/",
+  "docs": "https://docs.robinhood.com/chain/",
+  "defillama": "https://defillama.com/protocol/robinhood-chain-bridge",
+  "chains": ["ethereum", "robinhood"],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1A07cc4BD17E0118BdB54D70990D2158AbAD7a2D",
+      "name": "Delayed Inbox (Robinhood Chain)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://docs.robinhood.com/chain/protocol-contracts",
+      "keyFunctions": [
+        {
+          "signature": "depositEth()",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit ETH from Ethereum to the same address on Robinhood Chain. The ETH sent as msg.value is credited on the L2 after the sequencer includes it. The Robinhood docs name the Delayed Inbox as the contract to call for programmatic deposits. No approval needed."
+        },
+        {
+          "signature": "createRetryableTicket(address,uint256,uint256,address,address,uint256,uint256,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Send an L2 call with a retryable ticket: (to, l2CallValue, maxSubmissionCost, excessFeeRefundAddress, callValueRefundAddress, gasLimit, maxFeePerGas, data). msg.value must cover l2CallValue plus maxSubmissionCost plus gasLimit times maxFeePerGas. If the L2 leg fails, the ticket can be redeemed on Robinhood Chain within 7 days."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6a2E3a1e16FC29f27Ce61429746D558d656975bB",
+      "name": "L1 Gateway Router (Robinhood Chain)",
+      "role": "router",
+      "proxy": null,
+      "source": "https://docs.robinhood.com/chain/protocol-contracts",
+      "keyFunctions": [
+        {
+          "signature": "outboundTransfer(address,address,uint256,uint256,uint256,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit an ERC-20 to Robinhood Chain: (l1Token, to, amount, maxGas, gasPriceBid, data). Approve the L1 ERC20 Gateway (0x85001CC4867C5e1C22dA4B79BB8852B9e2a06da0) for amount first. msg.value pays the L2 retryable fees. The router picks the gateway for the token."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x85001CC4867C5e1C22dA4B79BB8852B9e2a06da0",
+      "name": "L1 ERC20 Gateway (Robinhood Chain)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://docs.robinhood.com/chain/protocol-contracts",
+      "keyFunctions": [
+        {
+          "signature": "outboundTransfer(address,address,uint256,uint256,uint256,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit a standard ERC-20 directly through the gateway: (l1Token, to, amount, maxGas, gasPriceBid, data). The gateway pulls the tokens with transferFrom, so approve this address for amount first. Use the L1 Gateway Router when you want the router to pick the gateway."
+        }
+      ]
+    },
+    {
+      "chain": "robinhood",
+      "chainId": 4663,
+      "address": "0x1E324B9316138CA9a73F960213621AD1aaf01B89",
+      "name": "L2 Gateway Router (Robinhood Chain)",
+      "role": "router",
+      "proxy": null,
+      "source": "https://docs.robinhood.com/chain/protocol-contracts",
+      "keyFunctions": [
+        {
+          "signature": "outboundTransfer(address,address,uint256,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Start an ERC-20 withdrawal to Ethereum: (l1Token, to, amount, data). Pass the L1 token address, not the L2 token. The bridged L2 tokens are burned, so no approval is needed. Starts the 7 day challenge period."
+        }
+      ]
+    },
+    {
+      "chain": "robinhood",
+      "chainId": 4663,
+      "address": "0x0000000000000000000000000000000000000064",
+      "name": "ArbSys (Robinhood Chain precompile)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.robinhood.com/chain/protocol-contracts",
+      "keyFunctions": [
+        {
+          "signature": "withdrawEth(address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Withdraw ETH from Robinhood Chain to Ethereum: (destination). Send the ETH to withdraw as msg.value. The destination receives ETH on L1 after the 7 day challenge period and an Outbox claim. The Robinhood docs do not name this function, so confirm the ETH withdrawal path on the docs before large amounts. Returns the withdrawal id."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    { "name": "deposit ETH", "description": "Bridge ETH from Ethereum to Robinhood Chain", "how": "Call Delayed Inbox depositEth() with ETH as msg.value. The ETH is credited on Robinhood Chain after the sequencer includes it." },
+    { "name": "deposit ERC-20", "description": "Bridge an ERC-20 from Ethereum to Robinhood Chain", "how": "Approve the L1 ERC20 Gateway for the amount, then call L1 Gateway Router outboundTransfer(l1Token, to, amount, maxGas, gasPriceBid, data) with ETH as msg.value to pay the L2 fees." },
+    { "name": "withdraw ERC-20", "description": "Withdraw an ERC-20 from Robinhood Chain to Ethereum", "how": "On Robinhood Chain call L2 Gateway Router outboundTransfer(l1Token, to, amount, data). After the 7 day challenge period, claim the withdrawal on Ethereum with the proof from the bridge UI or node." },
+    { "name": "withdraw ETH", "description": "Withdraw ETH from Robinhood Chain to Ethereum", "how": "On Robinhood Chain call ArbSys withdrawEth(destination) with ETH as msg.value. Confirm this path in the Robinhood docs first. After the challenge period, claim on Ethereum." }
+  ],
+  "risks": [
+    "Withdrawals to Ethereum take about 7 days because of the challenge period. The claim is a separate Ethereum transaction that needs a proof.",
+    "The Robinhood docs point users to the Arbitrum bridge interface for deposits. Scam bridge sites copy this name, so use only the addresses on docs.robinhood.com.",
+    "Bridged ERC-20 tokens have a different address on Robinhood Chain. Look up the L2 address with calculateL2TokenAddress on the L2 Gateway Router before sending."
+  ],
+  "notes": "Robinhood Chain is built on Arbitrum dedicated chain technology and uses the same gateway and Inbox contract design as the Arbitrum Bridge (see arbitrum-bridge). The public RPC is https://rpc.mainnet.chain.robinhood.com, which is rate limited. The docs page lists a Bridge contract at 0xDf8755334ce7A73cCF6b581C02eA649AE3E864b3 that is not listed here because no function is documented for it. Testnet addresses are on the same docs page and are not included. Contract bytecode for the Ethereum addresses was checked with eth_getCode.",
+  "sources": [
+    "https://docs.robinhood.com/chain/protocol-contracts",
+    "https://docs.robinhood.com/chain/bridging/",
+    "https://docs.robinhood.com/chain/connecting",
+    "https://docs.robinhood.com/chain/",
+    "https://raw.githubusercontent.com/OffchainLabs/nitro-contracts/main/src/bridge/IInbox.sol",
+    "https://raw.githubusercontent.com/OffchainLabs/token-bridge-contracts/main/contracts/tokenbridge/ethereum/gateway/L1GatewayRouter.sol",
+    "https://raw.githubusercontent.com/OffchainLabs/token-bridge-contracts/main/contracts/tokenbridge/ethereum/gateway/L1ArbitrumGateway.sol",
+    "https://raw.githubusercontent.com/OffchainLabs/token-bridge-contracts/main/contracts/tokenbridge/arbitrum/gateway/L2GatewayRouter.sol",
+    "https://github.com/OffchainLabs/nitro-precompile-interfaces/blob/7e88c8cc53c2e96201a23c638f1536557b9cb68b/ArbSys.sol",
+    "https://defillama.com/protocol/robinhood-chain-bridge"
+  ],
+  "researchedAt": "2026-11-28"
+}

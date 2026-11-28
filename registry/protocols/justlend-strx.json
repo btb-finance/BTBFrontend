@@ -1,0 +1,125 @@
+{
+  "slug": "justlend-strx",
+  "name": "JustLend sTRX",
+  "category": "Liquid Staking",
+  "description": "Liquid staking for TRX on TRON. Deposit TRX to receive sTRX, whose value rises with staking rewards from governance voting and Energy rental. Withdrawals go through a 14-day unfreezing period.",
+  "website": "https://app.justlend.org/strx",
+  "docs": "https://docs.justlend.org/getting_started/concepts/staked_trx/",
+  "defillama": "https://defillama.com/protocol/justlend-strx",
+  "chains": [
+    "tron"
+  ],
+  "vm": "mixed",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "TU3kjFuhtEo42tsCBtfYUAZxoqQ4yuSLQ5",
+      "name": "sTRX (StakedTRX proxy)",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://docs.justlend.org/developers/staked_trx/",
+      "keyFunctions": [
+        {
+          "signature": "deposit()",
+          "kind": "write",
+          "payable": true,
+          "description": "Stake TRX. Send TRX as call value. Returns the sTRX minted at the current exchange rate."
+        },
+        {
+          "signature": "withdraw(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn an sTRX amount (in minimum units) and queue the TRX for the 14-day unfreezing period. No approval needed. Returns the sTRX burned. Claim the TRX later with claim or claimAll."
+        },
+        {
+          "signature": "withdrawExact(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Queue an exact TRX amount in sun for the unfreezing period. Burns the matching sTRX and returns the amount burned."
+        },
+        {
+          "signature": "claim()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim TRX from the earliest finished unfreezing round. Check claimable() first; the call does nothing if it is zero. Returns the TRX claimed."
+        },
+        {
+          "signature": "claimAll()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim TRX from all finished unfreezing rounds. Check claimable() first. Returns the TRX claimed."
+        },
+        {
+          "signature": "claimable()",
+          "kind": "read",
+          "payable": false,
+          "description": "TRX claimable now from finished unfreezing rounds."
+        },
+        {
+          "signature": "exchangeRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "TRX per sTRX, scaled by 1e18. Rises as rewards accrue."
+        },
+        {
+          "signature": "totalUnderlying()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total TRX managed by the contract, in sun."
+        },
+        {
+          "signature": "viewBalanceOfUnderlying(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "TRX value of an address's sTRX balance, in sun."
+        },
+        {
+          "signature": "round()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current unfreezing round number. Starts at 1."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "stake-trx",
+      "description": "Stake TRX for sTRX",
+      "how": "call sTRX.deposit() with TRX as call value; sTRX is credited to the caller"
+    },
+    {
+      "name": "request-unstake",
+      "description": "Start unstaking sTRX to TRX",
+      "how": "sTRX.withdraw(sTRXAmount) or sTRX.withdrawExact(trxAmountInSun); the TRX unlocks after the 14-day unfreezing period"
+    },
+    {
+      "name": "claim-unstaked-trx",
+      "description": "Receive TRX from finished unfreezing rounds",
+      "how": "read claimable(); if it is above zero, call claim() or claimAll()"
+    },
+    {
+      "name": "check-position",
+      "description": "Read the TRX value of a position",
+      "how": "viewBalanceOfUnderlying(address) gives the TRX value; exchangeRate() gives the current rate"
+    }
+  ],
+  "risks": [
+    "Unstaking takes 14 days. TRX from a withdrawal is claimable only after its unfreezing round finishes.",
+    "The sTRX rate depends on staking rewards, Energy rental revenue and governance voting. Rewards can fall, so the value can drop relative to TRX.",
+    "sTRX is a proxy. Its implementation can be changed by the issuer.",
+    "Claiming before the round ends does nothing. Check claimable() first."
+  ],
+  "notes": "The sTRX proxy address and its functions come from JustLend's official staked TRX docs. DefiLlama lists a different address (TCFLL5dx5ZJdKnWuesXxi1VPwjLVmWZZy9) that does not appear on the official page, so it is not used. The EnergyRental proxy (TU2MJ5Veik1LRAgjeSzEdvmDYx7mefJZvd) is not included because its functions were not documented on the page. Tron addresses are base58, so eth_getCode does not apply. The sTRX address was checked with TronGrid getcontract.",
+  "sources": [
+    "https://docs.justlend.org/developers/staked_trx/",
+    "https://docs.justlend.org/getting_started/concepts/staked_trx/",
+    "https://docs.justlend.org/developers/deployed_contracts/",
+    "https://api.trongrid.io/wallet/getcontract",
+    "https://api.llama.fi/protocol/justlend-strx"
+  ],
+  "researchedAt": "2026-11-28"
+}

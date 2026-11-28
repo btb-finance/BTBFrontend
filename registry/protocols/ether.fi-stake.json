@@ -1,0 +1,334 @@
+{
+  "slug": "ether.fi-stake",
+  "name": "ether.fi Stake",
+  "category": "Liquid Staking",
+  "description": "Non-custodial Ethereum staking. Deposit ETH to receive eETH, wrap eETH into weETH, or request a withdrawal that mints a WithdrawRequestNFT and is claimed as ETH once finalized.",
+  "website": "https://www.ether.fi",
+  "docs": "https://etherfi.gitbook.io/etherfi",
+  "defillama": "https://defillama.com/protocol/ether.fi-stake",
+  "chains": [
+    "ethereum",
+    "arbitrum",
+    "base",
+    "optimism",
+    "scroll",
+    "berachain"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x308861A430be4cce5502d0A12724771Fc6DaF216",
+      "name": "LiquidityPool",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://etherfi.gitbook.io/etherfi/contracts-and-integrations/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "deposit()",
+          "kind": "write",
+          "payable": true,
+          "description": "Stake ETH (msg.value) and mint eETH to msg.sender with no referral. Reverts while the pool is paused or the sender is blacklisted. Same as sending plain ETH to the contract through receive()."
+        },
+        {
+          "signature": "deposit(address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Stake ETH (msg.value) and mint eETH to msg.sender. Argument: referral address (zero address for none). Reverts while paused or if the sender is blacklisted."
+        },
+        {
+          "signature": "requestWithdraw(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Start an eETH to ETH withdrawal. Arguments: recipient address, eETH amount in wei. Burns the eETH and mints a WithdrawRequestNFT to the recipient. Returns the request ID. Reverts while paused or if the sender is blacklisted."
+        },
+        {
+          "signature": "requestWithdrawWithPermit(address,uint256,(uint256,uint256,uint8,bytes32,bytes32))",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as requestWithdraw with an EIP-2612 permit for eETH. Tuple is (value, deadline, v, r, s). Use requestWithdraw if the permit may be front-run."
+        },
+        {
+          "signature": "amountForShare(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert a share amount into an eETH amount. Use for balance accounting because eETH value rises with rewards."
+        },
+        {
+          "signature": "sharesForAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Convert an eETH amount into shares."
+        },
+        {
+          "signature": "getTotalPooledEther()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total ETH controlled by the protocol, in wei."
+        },
+        {
+          "signature": "getTotalEtherClaimOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "ETH value attributed to an address, in wei."
+        },
+        {
+          "signature": "totalValueInLp()",
+          "kind": "read",
+          "payable": false,
+          "description": "ETH held directly by the liquidity pool, in wei. Use it to judge whether a withdrawal can be served from the pool."
+        },
+        {
+          "signature": "totalValueOutOfLp()",
+          "kind": "read",
+          "payable": false,
+          "description": "ETH deployed out of the liquidity pool (validators), in wei."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x35fA164735182de50811E8e2E824cFb9B6118ac2",
+      "name": "eETH",
+      "role": "token",
+      "proxy": true,
+      "source": "https://etherfi.gitbook.io/etherfi/contracts-and-integrations/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "eETH balance of an address in wei. Changes as rewards accrue, without Transfer events."
+        },
+        {
+          "signature": "shares(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Share balance of an address. Constant across rewards, so use it for accounting."
+        },
+        {
+          "signature": "totalShares()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total shares in existence."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total eETH supply in wei, derived from the liquidity pool's total pooled ETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender for an eETH amount. Needed before weETH.wrap(amount) and before any contract pulls eETH."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer eETH. The amount is converted to shares internally, so the recipient receives the amount in eETH."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer eETH from an owner using an allowance."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 signed approval: owner, spender, value, deadline, v, r, s."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee",
+      "name": "weETH",
+      "role": "token",
+      "proxy": true,
+      "source": "https://etherfi.gitbook.io/etherfi/contracts-and-integrations/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "wrap(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Wrap eETH into weETH. Approve eETH to this contract for the amount first. Returns the weETH minted."
+        },
+        {
+          "signature": "unwrap(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn weETH and receive eETH. Argument: weETH amount in wei. Returns the eETH received."
+        },
+        {
+          "signature": "wrapWithPermit(uint256,(uint256,uint256,uint8,bytes32,bytes32))",
+          "kind": "write",
+          "payable": false,
+          "description": "Wrap eETH with an EIP-2612 permit for eETH. Tuple is (value, deadline, v, r, s)."
+        },
+        {
+          "signature": "getRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "eETH per 1 weETH, scaled by 1e18. Rises as rewards accrue."
+        },
+        {
+          "signature": "getEETHByWeETH(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "eETH amount that a given weETH amount is worth."
+        },
+        {
+          "signature": "getWeETHByeETH(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "weETH amount that a given eETH amount is worth."
+        },
+        {
+          "signature": "eETH()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the underlying eETH token."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "weETH balance of an address in wei."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender for a weETH amount. Needed before unwrapping through another contract."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x7d5706f6ef3F89B3951E23e557CDFBC3239D4E2c",
+      "name": "WithdrawRequestNFT",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://etherfi.gitbook.io/etherfi/contracts-and-integrations/deployed-contracts",
+      "keyFunctions": [
+        {
+          "signature": "isFinalized(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "True when a withdrawal request has been finalized and can be claimed."
+        },
+        {
+          "signature": "getClaimableAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "ETH claimable for a request ID, in wei. Check before claiming."
+        },
+        {
+          "signature": "getRequest(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Withdrawal request struct for a request ID (amounts, shares, recipient and related fields)."
+        },
+        {
+          "signature": "lastFinalizedRequestId()",
+          "kind": "read",
+          "payable": false,
+          "description": "Highest request ID finalized so far. A request is finalized once its ID is at or below this value."
+        },
+        {
+          "signature": "nextRequestId()",
+          "kind": "read",
+          "payable": false,
+          "description": "ID that the next withdrawal request will receive."
+        },
+        {
+          "signature": "ownerOf(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current holder of a withdrawal NFT. The holder is the account that can claim."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of withdrawal NFTs held by an address."
+        },
+        {
+          "signature": "claimWithdraw(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim the ETH for one finalized request. Reverts if the request is not finalized, already claimed, or the sender is blacklisted."
+        },
+        {
+          "signature": "batchClaimWithdraw(uint256[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim the ETH for several finalized requests in one transaction. Argument: array of request IDs."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "stake",
+      "description": "Stake ETH for eETH",
+      "how": "call LiquidityPool.deposit() or deposit(referral) with ETH as msg.value; eETH is credited to the caller"
+    },
+    {
+      "name": "wrap",
+      "description": "Convert eETH to weETH",
+      "how": "eETH.approve(weETH, amount), then weETH.wrap(amount)"
+    },
+    {
+      "name": "unwrap",
+      "description": "Convert weETH to eETH",
+      "how": "weETH.unwrap(amount)"
+    },
+    {
+      "name": "request-withdrawal",
+      "description": "Start unstaking eETH to ETH",
+      "how": "eETH.approve(LiquidityPool, amount) if required by the caller flow, then LiquidityPool.requestWithdraw(recipient, amount); read the request ID from the return value or the WithdrawRequestNFT transfer"
+    },
+    {
+      "name": "check-withdrawal",
+      "description": "See whether a request is ready",
+      "how": "WithdrawRequestNFT.isFinalized(requestId) and getClaimableAmount(requestId)"
+    },
+    {
+      "name": "claim-withdrawal",
+      "description": "Receive ETH for finalized requests",
+      "how": "WithdrawRequestNFT.claimWithdraw(requestId) or batchClaimWithdraw(ids) once isFinalized is true"
+    }
+  ],
+  "risks": [
+    "eETH balances rise as rewards accrue, without a Transfer event for each change. Store shares (shares) or convert with amountForShare for accounting.",
+    "Withdrawals are queued. A request must be finalized before it can be claimed, and finalization depends on protocol liquidity and validator exits.",
+    "The protocol is pausable. Deposits and withdrawal requests revert while paused.",
+    "Contracts are upgradeable proxies. The implementation can change, so re-check the ABI before relying on a function.",
+    "Withdrawal NFTs are transferable. Whoever holds the NFT can claim the ETH."
+  ],
+  "notes": "Ethereum mainnet addresses come from the official ether.fi deployed-contracts page. L2 weETH and bridge addresses are on the same page and are not listed here. StakingManager and EtherFiRedemptionManager are not included because their function signatures were not confirmed from source. EigenLayer restaking contracts are winding down and are not included.",
+  "sources": [
+    "https://etherfi.gitbook.io/etherfi/contracts-and-integrations/deployed-contracts",
+    "https://github.com/etherfi-protocol/smart-contracts",
+    "https://raw.githubusercontent.com/etherfi-protocol/smart-contracts/master/src/core/LiquidityPool.sol",
+    "https://raw.githubusercontent.com/etherfi-protocol/smart-contracts/master/src/core/WeETH.sol",
+    "https://raw.githubusercontent.com/etherfi-protocol/smart-contracts/master/src/core/EETH.sol",
+    "https://raw.githubusercontent.com/etherfi-protocol/smart-contracts/master/src/withdrawals/WithdrawRequestNFT.sol",
+    "https://www.ether.fi",
+    "https://etherfi.gitbook.io/etherfi",
+    "https://api.llama.fi/protocol/ether.fi-stake"
+  ],
+  "researchedAt": "2026-11-28"
+}

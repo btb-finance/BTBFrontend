@@ -1,0 +1,910 @@
+{
+  "slug": "m0",
+  "name": "M0",
+  "category": "Stablecoin Issuer",
+  "description": "M0 is stablecoin infrastructure. $M is its earning stablecoin and wM is the wrapped version used in DeFi. Agents can read, transfer, wrap and unwrap these tokens on each listed chain.",
+  "website": "https://www.m0.org",
+  "docs": "https://docs.m0.org",
+  "defillama": "https://defillama.com/protocol/m0",
+  "chains": [
+    "ethereum",
+    "arbitrum",
+    "base",
+    "bsc",
+    "linea",
+    "hyperevm"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b",
+      "name": "$M",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.m0.org/resources/addresses/m0-platform",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send $M to a recipient. Amount is in base units (6 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Amount is in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount in base units."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "$M balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total $M supply on this chain, in base units."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals. Returns 6."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b",
+      "name": "$M",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.m0.org/resources/addresses/m0-platform",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send $M to a recipient. Amount is in base units (6 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Amount is in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount in base units."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "$M balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total $M supply on this chain, in base units."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals. Returns 6."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b",
+      "name": "$M",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.m0.org/resources/addresses/m0-platform",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send $M to a recipient. Amount is in base units (6 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Amount is in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount in base units."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "$M balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total $M supply on this chain, in base units."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals. Returns 6."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b",
+      "name": "$M",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.m0.org/resources/addresses/m0-platform",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send $M to a recipient. Amount is in base units (6 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Amount is in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount in base units."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "$M balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total $M supply on this chain, in base units."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals. Returns 6."
+        }
+      ]
+    },
+    {
+      "chain": "linea",
+      "chainId": 59144,
+      "address": "0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b",
+      "name": "$M",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.m0.org/resources/addresses/m0-platform",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send $M to a recipient. Amount is in base units (6 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Amount is in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount in base units."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "$M balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total $M supply on this chain, in base units."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals. Returns 6."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b",
+      "name": "$M",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.m0.org/resources/addresses/m0-platform",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send $M to a recipient. Amount is in base units (6 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Amount is in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount in base units."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "$M balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total $M supply on this chain, in base units."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals. Returns 6."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x437cc33344a0B27A429f795ff6B469C72698B291",
+      "name": "Wrapped $M (wM)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.m0.org/resources/addresses/m0-platform",
+      "keyFunctions": [
+        {
+          "signature": "wrap(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer $M from the caller and mint wM to the recipient. Args: recipient, amount in $M base units."
+        },
+        {
+          "signature": "unwrap(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn wM from the caller and send $M to the recipient. Args: recipient, amount."
+        },
+        {
+          "signature": "wrapWithPermit(address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Wrap $M using a permit signature. Args: recipient, amount, deadline, v, r, s."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send wM to a recipient. Amount is in base units (6 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance for wM."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend a wM allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "wM balance of an address, in base units."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total wM supply, in base units."
+        },
+        {
+          "signature": "accruedYieldOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Yield accrued by an earning account."
+        },
+        {
+          "signature": "balanceWithYieldOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance of an account including accrued yield."
+        },
+        {
+          "signature": "isEarning(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is currently earning yield."
+        },
+        {
+          "signature": "claimExcess()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim excess yield held by the wM contract for the configured destination."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals. Returns 6."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x437cc33344a0B27A429f795ff6B469C72698B291",
+      "name": "Wrapped $M (wM)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.m0.org/resources/addresses/m0-platform",
+      "keyFunctions": [
+        {
+          "signature": "wrap(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer $M from the caller and mint wM to the recipient. Args: recipient, amount in $M base units."
+        },
+        {
+          "signature": "unwrap(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn wM from the caller and send $M to the recipient. Args: recipient, amount."
+        },
+        {
+          "signature": "wrapWithPermit(address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Wrap $M using a permit signature. Args: recipient, amount, deadline, v, r, s."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send wM to a recipient. Amount is in base units (6 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance for wM."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend a wM allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "wM balance of an address, in base units."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total wM supply, in base units."
+        },
+        {
+          "signature": "accruedYieldOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Yield accrued by an earning account."
+        },
+        {
+          "signature": "balanceWithYieldOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance of an account including accrued yield."
+        },
+        {
+          "signature": "isEarning(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is currently earning yield."
+        },
+        {
+          "signature": "claimExcess()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim excess yield held by the wM contract for the configured destination."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals. Returns 6."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x437cc33344a0B27A429f795ff6B469C72698B291",
+      "name": "Wrapped $M (wM)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.m0.org/resources/addresses/m0-platform",
+      "keyFunctions": [
+        {
+          "signature": "wrap(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer $M from the caller and mint wM to the recipient. Args: recipient, amount in $M base units."
+        },
+        {
+          "signature": "unwrap(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn wM from the caller and send $M to the recipient. Args: recipient, amount."
+        },
+        {
+          "signature": "wrapWithPermit(address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Wrap $M using a permit signature. Args: recipient, amount, deadline, v, r, s."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send wM to a recipient. Amount is in base units (6 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance for wM."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend a wM allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "wM balance of an address, in base units."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total wM supply, in base units."
+        },
+        {
+          "signature": "accruedYieldOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Yield accrued by an earning account."
+        },
+        {
+          "signature": "balanceWithYieldOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance of an account including accrued yield."
+        },
+        {
+          "signature": "isEarning(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is currently earning yield."
+        },
+        {
+          "signature": "claimExcess()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim excess yield held by the wM contract for the configured destination."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals. Returns 6."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x437cc33344a0B27A429f795ff6B469C72698B291",
+      "name": "Wrapped $M (wM)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.m0.org/resources/addresses/m0-platform",
+      "keyFunctions": [
+        {
+          "signature": "wrap(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer $M from the caller and mint wM to the recipient. Args: recipient, amount in $M base units."
+        },
+        {
+          "signature": "unwrap(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn wM from the caller and send $M to the recipient. Args: recipient, amount."
+        },
+        {
+          "signature": "wrapWithPermit(address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Wrap $M using a permit signature. Args: recipient, amount, deadline, v, r, s."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send wM to a recipient. Amount is in base units (6 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance for wM."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend a wM allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "wM balance of an address, in base units."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total wM supply, in base units."
+        },
+        {
+          "signature": "accruedYieldOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Yield accrued by an earning account."
+        },
+        {
+          "signature": "balanceWithYieldOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance of an account including accrued yield."
+        },
+        {
+          "signature": "isEarning(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is currently earning yield."
+        },
+        {
+          "signature": "claimExcess()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim excess yield held by the wM contract for the configured destination."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals. Returns 6."
+        }
+      ]
+    },
+    {
+      "chain": "linea",
+      "chainId": 59144,
+      "address": "0x437cc33344a0B27A429f795ff6B469C72698B291",
+      "name": "Wrapped $M (wM)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.m0.org/resources/addresses/m0-platform",
+      "keyFunctions": [
+        {
+          "signature": "wrap(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer $M from the caller and mint wM to the recipient. Args: recipient, amount in $M base units."
+        },
+        {
+          "signature": "unwrap(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn wM from the caller and send $M to the recipient. Args: recipient, amount."
+        },
+        {
+          "signature": "wrapWithPermit(address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Wrap $M using a permit signature. Args: recipient, amount, deadline, v, r, s."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send wM to a recipient. Amount is in base units (6 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance for wM."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend a wM allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "wM balance of an address, in base units."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total wM supply, in base units."
+        },
+        {
+          "signature": "accruedYieldOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Yield accrued by an earning account."
+        },
+        {
+          "signature": "balanceWithYieldOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance of an account including accrued yield."
+        },
+        {
+          "signature": "isEarning(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is currently earning yield."
+        },
+        {
+          "signature": "claimExcess()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim excess yield held by the wM contract for the configured destination."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals. Returns 6."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x437cc33344a0B27A429f795ff6B469C72698B291",
+      "name": "Wrapped $M (wM)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.m0.org/resources/addresses/m0-platform",
+      "keyFunctions": [
+        {
+          "signature": "wrap(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer $M from the caller and mint wM to the recipient. Args: recipient, amount in $M base units."
+        },
+        {
+          "signature": "unwrap(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn wM from the caller and send $M to the recipient. Args: recipient, amount."
+        },
+        {
+          "signature": "wrapWithPermit(address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Wrap $M using a permit signature. Args: recipient, amount, deadline, v, r, s."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send wM to a recipient. Amount is in base units (6 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance for wM."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend a wM allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "wM balance of an address, in base units."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total wM supply, in base units."
+        },
+        {
+          "signature": "accruedYieldOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Yield accrued by an earning account."
+        },
+        {
+          "signature": "balanceWithYieldOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance of an account including accrued yield."
+        },
+        {
+          "signature": "isEarning(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the account is currently earning yield."
+        },
+        {
+          "signature": "claimExcess()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim excess yield held by the wM contract for the configured destination."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals. Returns 6."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "check balance",
+      "description": "Read $M or wM balance",
+      "how": "balanceOf(address) on the token contract for the chain"
+    },
+    {
+      "name": "wrap",
+      "description": "Convert $M to wM",
+      "how": "wrap(recipient, amount) on the wM contract. Amount is in $M base units."
+    },
+    {
+      "name": "unwrap",
+      "description": "Convert wM back to $M",
+      "how": "unwrap(recipient, amount) on the wM contract."
+    },
+    {
+      "name": "transfer",
+      "description": "Send $M or wM",
+      "how": "transfer(address,uint256) on the token contract for that chain"
+    }
+  ],
+  "risks": [
+    "Minting and redemption of $M run through the M0 platform. Those contracts are not covered by these entries.",
+    "Earning and yield depend on the account's earning status. Check isEarning before assuming yield.",
+    "Each chain has its own token contracts. Send only on the chain that matches the address."
+  ],
+  "notes": "Token contracts for $M and wM are listed on the six chains where the official deployments page and on-chain checks agree. The M0 deployments page also lists Mantra, Soneium, Plasma, Citrea, 0G, Fluent, Moca, Monad, Rise, Nexus and Solana. Those chains are not included in this pass. The platform contracts (MinterGateway, Registrar, StandardGovernor, Hub Portal) are not listed because their ABIs were not confirmed. A secondary M0 skill page lists a different MinterGateway address (0xf7a27FE3579C420575a09D279f78CA6a3E5e75D0) that has no code on Ethereum, so it was not used. wM functions come from the official wM spec page.",
+  "sources": [
+    "https://docs.m0.org/resources/addresses/m0-platform",
+    "https://docs.m0.org/raw/protocol/wrapped-m-spec.md",
+    "https://docs.m0.org",
+    "https://www.m0.org",
+    "https://api.llama.fi/protocol/m0"
+  ],
+  "researchedAt": "2026-11-28"
+}

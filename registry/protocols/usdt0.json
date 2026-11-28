@@ -1,0 +1,194 @@
+{
+  "slug": "usdt0",
+  "name": "USDT0",
+  "category": "Bridge",
+  "description": "Omnichain USDT built on LayerZero OFT. Tether's USDT on Ethereum is locked in an OFT adapter, and USDT0 is minted 1:1 on the destination chain. An agent can quote and send USDT0 between chains and hold it on each supported chain.",
+  "website": "https://usdt0.to",
+  "docs": "https://docs.usdt0.to",
+  "defillama": "https://defillama.com/protocol/usdt0",
+  "chains": [
+    "ethereum",
+    "arbitrum",
+    "optimism",
+    "polygon",
+    "mantle",
+    "unichain",
+    "berachain",
+    "ink",
+    "morph",
+    "megaeth",
+    "monad",
+    "plasma",
+    "sei",
+    "stable",
+    "hyperevm",
+    "hedera",
+    "flare",
+    "conflux",
+    "rootstock",
+    "xlayer",
+    "tempo"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6C96dE32CEa08842dcc4058c14d3aaAD7Fa41dee",
+      "name": "USDT0 OFT Adapter (Ethereum, locks USDT)",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://docs.usdt0.to/technical-documentation/deployments",
+      "keyFunctions": [
+        {
+          "signature": "token()",
+          "kind": "read",
+          "payable": false,
+          "description": "The underlying ERC-20 the adapter locks on Ethereum (Tether's USDT). Approve this token to the adapter before send."
+        },
+        {
+          "signature": "sharedDecimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Decimals shared across chains for cross-chain amounts. Amounts in SendParam are in local decimals; the adapter rounds dust to shared decimals."
+        },
+        {
+          "signature": "oftVersion()",
+          "kind": "read",
+          "payable": false,
+          "description": "OFT interface version and interface ID."
+        },
+        {
+          "signature": "quoteOFT((uint32,bytes32,uint256,uint256,bytes,bytes,bytes))",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview the amount that would be sent and received for a SendParam: (dstEid, to, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd). Returns limits, fee details and the receipt. Use it to check slippage before send."
+        },
+        {
+          "signature": "quoteSend((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),bool)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote the LayerZero messaging fee for a send: (SendParam, payInLzToken). Use false to pay the fee in native gas. Returns (nativeFee, lzTokenFee). Pass nativeFee as msg.value to send."
+        },
+        {
+          "signature": "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Send USDT0 to another chain: (SendParam, MessagingFee, refundAddress). dstEid is the destination LayerZero Endpoint ID (Ethereum is 30101). to is the recipient as bytes32 (left-pad the address). amountLD is in local (USDT) decimals. The adapter must be approved to pull amountLD of USDT first. msg.value must be at least the quoted nativeFee. Reverts if the received amount is below minAmountLD."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x14E4A1B13bf7F943c8ff7C51fb60FA964A298D92",
+      "name": "USDT0 (OFT, Arbitrum One)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.usdt0.to/technical-documentation/deployments",
+      "keyFunctions": []
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0xF03b4d9AC1D5d1E7c4cEf54C2A313b9fe051A0aD",
+      "name": "USDT0 (OFT, Optimism)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.usdt0.to/technical-documentation/deployments",
+      "keyFunctions": []
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x6BA10300f0DC58B7a1e4c0e41f5daBb7D7829e13",
+      "name": "USDT0 (OFT, Polygon PoS)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.usdt0.to/technical-documentation/deployments",
+      "keyFunctions": []
+    },
+    {
+      "chain": "mantle",
+      "chainId": 5000,
+      "address": "0xcb768e263FB1C62214E7cab4AA8d036D76dc59CC",
+      "name": "USDT0 (OFT, Mantle)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.usdt0.to/technical-documentation/deployments",
+      "keyFunctions": []
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0xc07bE8994D035631c36fb4a89C918CeFB2f03EC3",
+      "name": "USDT0 (OFT, Unichain)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.usdt0.to/technical-documentation/deployments",
+      "keyFunctions": []
+    },
+    {
+      "chain": "berachain",
+      "chainId": 80094,
+      "address": "0x3Dc96399109df5ceb2C226664A086140bD0379cB",
+      "name": "USDT0 (OFT, Berachain)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.usdt0.to/technical-documentation/deployments",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ink",
+      "chainId": 57073,
+      "address": "0x1cB6De532588fCA4a21B7209DE7C456AF8434A65",
+      "name": "USDT0 (OFT, Ink)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.usdt0.to/technical-documentation/deployments",
+      "keyFunctions": []
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "bridge-usdt0-out-of-ethereum",
+      "description": "Move USDT from Ethereum to another chain as USDT0",
+      "how": "approve the USDT token to the OFT adapter 0x6C96dE32CEa08842dcc4058c14d3aaAD7Fa41dee for amountLD; build SendParam (dstEid, to as bytes32, amountLD, minAmountLD, '0x', '0x', '0x'); quoteSend(sendParam, false) for nativeFee; send{value: nativeFee}(sendParam, fee, refundAddress)."
+    },
+    {
+      "name": "bridge-usdt0-between-l2s",
+      "description": "Move USDT0 from one OFT chain to another",
+      "how": "check approvalRequired and the token flow with get_abi on the source chain's USDT0 OFT contract (only the Ethereum adapter locks USDT). Then quoteSend and send on that OFT contract, using the destination chain's Endpoint ID."
+    },
+    {
+      "name": "hold-or-transfer-usdt0",
+      "description": "Send USDT0 on the same chain",
+      "how": "call transfer(to, amount) on the USDT0 token address for that chain. Same-chain transfers do not use LayerZero."
+    },
+    {
+      "name": "check-before-send",
+      "description": "Preview a bridge transfer",
+      "how": "call quoteOFT(sendParam) to see the amount received and fee details, then quoteSend(sendParam, false) for the gas fee."
+    }
+  ],
+  "risks": [
+    "USDT0 relies on LayerZero messaging and on the verifiers and executors configured for each route. A delayed or failed message delays the transfer on the destination chain.",
+    "On Ethereum, USDT is locked in one adapter. If the adapter's lock is not matched by minted USDT0 elsewhere, the peg breaks. Read the official backing statements before large transfers.",
+    "The adapter is an upgradeable proxy controlled by the USDT0 team. Its logic can change.",
+    "Native fees are paid in the source chain's gas token. A send with too little msg.value reverts.",
+    "Amounts are in local decimals on each side and are rounded to shared decimals. Set minAmountLD so you do not lose value to rounding or slippage.",
+    "USDT0 and native USDT on the same chain are different contracts. Check the token address before using it in a protocol."
+  ],
+  "notes": "The Ethereum adapter and the USDT0 OFT contracts above are from the official USDT0 deployments page (24 networks there). Only the EVM networks with addresses listed here have contract entries. Non-EVM networks on that page (IOTA, Stellar, HyperCore) are not included. The Ethereum USDT token address is not on the deployments page, so it is not listed; get it from Tether's official page before approving. The Ethereum OFT adapter source is a TransparentUpgradeableProxy; its ABI was not read, so the OFT signatures come from LayerZero's OFT interface and the LayerZero OFT quickstart. Check with get_abi before a write call.",
+  "sources": [
+    "https://docs.usdt0.to/technical-documentation/deployments",
+    "https://docs.usdt0.to",
+    "https://usdt0.to",
+    "https://docs.layerzero.network/v2/developers/evm/oft/quickstart",
+    "https://defillama.com/protocol/usdt0",
+    "https://api.llama.fi/protocol/usdt0"
+  ],
+  "researchedAt": "2026-11-28"
+}

@@ -1,0 +1,92 @@
+{
+  "slug": "binance-bitcoin",
+  "name": "Binance Bitcoin (BTCB)",
+  "category": "Bridge",
+  "description": "BTCB is the Bitcoin token on BNB Smart Chain, issued through Binance. Agents can read BTCB balances and transfer or approve the token on BNB Chain.",
+  "website": "https://www.binance.com",
+  "docs": "https://bnbchain.org/en/blog/btcb-on-binance-smart-chain-101",
+  "defillama": "https://defillama.com/protocol/binance-bitcoin",
+  "chains": [
+    "bsc"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c",
+      "name": "BTCB",
+      "role": "token",
+      "proxy": null,
+      "source": "https://bnbchain.org/en/blog/btcb-on-binance-smart-chain-101",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send BTCB to a recipient. Amount is in base units (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Amount is in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount in base units."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "BTCB balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total BTCB supply on BNB Chain, in base units."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals. Returns 18 on BNB Chain."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "check balance",
+      "description": "Read a BTCB balance on BNB Chain",
+      "how": "balanceOf(address) on the BTCB contract"
+    },
+    {
+      "name": "transfer",
+      "description": "Send BTCB on BNB Chain",
+      "how": "transfer(address,uint256) on the BTCB contract, amount in 18-decimal base units"
+    }
+  ],
+  "risks": [
+    "BTCB is a bridged or pegged token. Its value depends on the custody and bridge behind it.",
+    "Only the BNB Chain address is listed. Other chains are not covered by this entry."
+  ],
+  "notes": "The official BNB Chain blog states that 0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c is the official and unique BTCB address on BSC. A third-party page showed a different address (0xdff8f1da07a557ec14a7f9a0340c360f8ed26124). That address was not used. The contract has code on BSC and reports 18 decimals.",
+  "sources": [
+    "https://bnbchain.org/en/blog/btcb-on-binance-smart-chain-101",
+    "https://api.llama.fi/protocol/binance-bitcoin"
+  ],
+  "researchedAt": "2026-11-28"
+}

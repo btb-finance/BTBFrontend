@@ -1,0 +1,135 @@
+{
+  "slug": "binance-staked-sol",
+  "name": "Binance Staked SOL",
+  "category": "Liquid Staking",
+  "description": "Binance's liquid staking token for SOL on Solana. BNSOL is a standard SPL token that represents staked SOL plus rewards. An agent can hold, transfer and read the supply of BNSOL on-chain. Staking itself is run through Binance, so an agent cannot stake or unstake directly from the official sources read.",
+  "website": "https://www.binance.com/en/solana-staking",
+  "docs": "https://www.binance.com/en/support/faq/bnsol-use-cases-frequently-asked-questions-2325ef68286a4cb298982ec24ece71e6",
+  "defillama": "https://defillama.com/protocol/binance-staked-sol",
+  "chains": ["solana"],
+  "vm": "solana",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "BNso1VUJnh4zcfpZa6986Ea66P6TCp59hvtNJ8b1X85",
+      "name": "BNSOL token mint",
+      "role": "token",
+      "proxy": null,
+      "source": "https://www.binance.com/en/support/faq/bnsol-use-cases-frequently-asked-questions-2325ef68286a4cb298982ec24ece71e6",
+      "keyFunctions": [
+        {
+          "signature": "transfer(amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Standard SPL Token transfer of BNSOL between two token accounts (Tokenkeg program)."
+        },
+        {
+          "signature": "transferChecked(amount: u64, decimals: u8)",
+          "kind": "write",
+          "payable": false,
+          "description": "SPL Token transfer that checks the decimals against the mint. Read the decimals from the mint account first."
+        },
+        {
+          "signature": "approve(amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Delegate an amount of BNSOL to a spender token account."
+        },
+        {
+          "signature": "burn(amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn BNSOL from a token account owned by the signer."
+        },
+        {
+          "signature": "getTokenSupply(mint)",
+          "kind": "read",
+          "payable": false,
+          "description": "Total BNSOL supply and decimals from the mint account."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy",
+      "name": "SPL Stake Pool program (Solana Labs)",
+      "role": "other",
+      "proxy": true,
+      "source": "https://www.solana-program.com/docs/stake-pool",
+      "keyFunctions": [
+        {
+          "signature": "DepositSol(lamports: u64)",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit SOL into a stake pool and mint pool tokens to the depositor. Needs the pool account, which is not listed in this entry."
+        },
+        {
+          "signature": "DepositSolWithSlippage(lamports_in: u64, minimum_pool_tokens_out: u64)",
+          "kind": "write",
+          "payable": true,
+          "description": "Same as DepositSol, but fails if fewer pool tokens than the minimum are minted."
+        },
+        {
+          "signature": "DepositStake()",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit an active stake account into the pool and receive pool tokens."
+        },
+        {
+          "signature": "WithdrawSol(pool_tokens: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn pool tokens and receive SOL from the pool reserve, if the reserve holds enough SOL."
+        },
+        {
+          "signature": "WithdrawSolWithSlippage(pool_tokens_in: u64, minimum_lamports_out: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as WithdrawSol, but fails if less SOL than the minimum is returned."
+        },
+        {
+          "signature": "WithdrawStake(pool_tokens: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn pool tokens and receive a split stake account that must be deactivated and withdrawn after the epoch ends."
+        },
+        {
+          "signature": "UpdateStakePoolBalance()",
+          "kind": "write",
+          "payable": false,
+          "description": "Permissionless epoch update of pool totals. Deposits and withdrawals can fail if the pool was not updated this epoch."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "hold-bnsol",
+      "description": "Hold and transfer BNSOL",
+      "how": "SPL Token transfer or transferChecked of mint BNSOL (BNso1VUJnh4zcfpZa6986Ea66P6TCp59hvtNJ8b1X85) between token accounts"
+    },
+    {
+      "name": "read-supply",
+      "description": "Read total BNSOL supply",
+      "how": "getTokenSupply on mint BNso1VUJnh4zcfpZa6986Ea66P6TCp59hvtNJ8b1X85"
+    }
+  ],
+  "risks": [
+    "BNSOL is issued and managed by Binance. The issuer is a counterparty, so issuer and custody risk apply.",
+    "The fee Binance takes on staking rewards is not stated on the official FAQ page read. Third-party sites disagree, so do not quote a figure without checking Binance's current terms.",
+    "The BNSOL price on DEXs can differ from the value implied by the pool rate. Use the pool rate for accounting and expect slippage when swapping.",
+    "The SPL Stake Pool program is an upgradeable program controlled by its upgrade authority."
+  ],
+  "notes": "Only the BNSOL mint is listed. The BNSOL stake pool account is not published on any official page read here, so it is left out. Mint verified on mainnet: owned by the SPL Token program (TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA). Binance's FAQ names the mint as a smart contract address for the SOL network. The SPL Stake Pool instruction names follow the program's Rust interface. The official page read only confirmed the program ID and linked the Rust docs.",
+  "sources": [
+    "https://www.binance.com/en/support/faq/bnsol-use-cases-frequently-asked-questions-2325ef68286a4cb298982ec24ece71e6",
+    "https://www.solana-program.com/docs/stake-pool",
+    "https://api.llama.fi/protocol/binance-staked-sol",
+    "https://api.mainnet-beta.solana.com"
+  ],
+  "researchedAt": "2026-11-28"
+}

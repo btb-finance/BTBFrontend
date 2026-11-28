@@ -36,6 +36,25 @@ pub fn definitions() -> Vec<Value> {
         "inputSchema": { "type": "object", "properties": { "wallet": { "type": "string", "pattern": "^[1-9A-HJ-NP-Za-km-z]{32,44}$", "description": "The creator's Solana address." } }, "required": ["wallet"] },
         "annotations": read,
     }));
+    more.push(json!({
+        "name": "build_pump_launch",
+        "title": "Launch a Pump coin (ready to sign)",
+        "description": "Launch a new coin on Pump (Solana) from the creator's wallet: one transaction that creates the coin, sets the creator-fee split (BTB keeps a share of creator fees on coins launched through BTB; the creator gets the rest), and optionally makes the creator's first buy in the same transaction so nobody can buy before them. Returns the new mint address, the split, a dry run on Solana and the transaction, already signed by the new coin's mint key; the creator's wallet signs as fee payer and must send it within about a minute without changing the blockhash. Send the coin's picture (imageUrl, or imageBase64 and BTB hosts it), description and optional links, and BTB builds and hosts the metadata; or pass metadataUri if you host it yourself. Cost: about 0.02 to 0.03 SOL plus the first buy. Most new coins lose almost all their value.",
+        "inputSchema": { "type": "object", "properties": {
+            "wallet": { "type": "string", "pattern": "^[1-9A-HJ-NP-Za-km-z]{32,44}$", "description": "The creator's Solana address: pays, signs and receives the creator's fee share." },
+            "name": { "type": "string", "minLength": 1, "maxLength": 32, "description": "Coin name, up to 32 characters." },
+            "symbol": { "type": "string", "minLength": 1, "maxLength": 10, "description": "Ticker, up to 10 characters, without the $." },
+            "description": { "type": "string", "maxLength": 500, "description": "What the coin is about, shown on Pump." },
+            "imageUrl": { "type": "string", "description": "https or ipfs link to the coin's picture." },
+            "imageBase64": { "type": "string", "description": "Or the picture itself: PNG, JPEG, GIF or WebP, up to 1000 KB, base64 (a data: URL works). BTB hosts it." },
+            "twitter": { "type": "string", "description": "Optional https link." },
+            "telegram": { "type": "string", "description": "Optional https link." },
+            "website": { "type": "string", "description": "Optional https link." },
+            "metadataUri": { "type": "string", "maxLength": 200, "description": "Only if you host the metadata JSON yourself (https or ipfs). Otherwise leave it out and BTB builds and hosts it from the fields above." },
+            "devBuySol": { "type": "number", "minimum": 0, "maximum": 85, "description": "SOL to spend on the creator's first buy, in the same transaction. Default 0." }
+        }, "required": ["wallet", "name", "symbol"] },
+        "annotations": read,
+    }));
     let mut list = vec![
         json!({
             "name": "top_pools",
@@ -169,7 +188,7 @@ pub fn has(name: &str) -> bool {
             | "list_protocols" | "get_protocol" | "quick_token_check" | "bridge_status"
             | "lending_rates" | "staking_rates" | "tx_status"
             | "find_token" | "quote_swap" | "sign_status"
-            | "wallet_portfolio" | "wallet_overview" | "build_pump_claim"
+            | "wallet_portfolio" | "wallet_overview" | "build_pump_claim" | "build_pump_launch"
             | "build_swap" | "build_lend" | "build_withdraw" | "build_vault_deposit" | "build_vault_withdraw" | "build_bridge"
     )
 }
@@ -286,6 +305,49 @@ pub async fn call(name: &str, args: &Map<String, Value>, ctx: &Ctx<'_>) -> Resul
                 return Err(bad("wallet must be a Solana address (the coin's creator)"));
             }
             crate::solana::build_pump_claim(ctx.http, w.trim()).await.map_err(ToolError)
+        }
+        "build_pump_launch" => {
+            let w = opt_str(args, "wallet")?.ok_or_else(|| bad("wallet is required"))?;
+            if !crate::solana::is_address(w.trim()) {
+                return Err(bad("wallet must be a Solana address (the coin's creator)"));
+            }
+            let name = opt_str(args, "name")?.unwrap_or_default().trim().to_string();
+            let symbol = opt_str(args, "symbol")?.unwrap_or_default().trim().trim_start_matches('$').to_string();
+            let mut uri = opt_str(args, "metadataUri")?.unwrap_or_default().trim().to_string();
+            if name.is_empty() || name.len() > 32 {
+                return Err(bad("name is required, up to 32 bytes"));
+            }
+            if symbol.is_empty() || symbol.len() > 10 {
+                return Err(bad("symbol is required, up to 10 bytes"));
+            }
+            if uri.is_empty() {
+                let (link, _) = crate::pumpmeta::save(
+                    ctx.index.db.as_ref(),
+                    crate::pumpmeta::Meta {
+                        name: name.clone(),
+                        symbol: symbol.clone(),
+                        description: opt_str(args, "description")?.unwrap_or_default().chars().take(500).collect(),
+                        image_url: opt_str(args, "imageUrl")?,
+                        image_base64: opt_str(args, "imageBase64")?,
+                        twitter: opt_str(args, "twitter")?,
+                        telegram: opt_str(args, "telegram")?,
+                        website: opt_str(args, "website")?,
+                    },
+                )
+                .await
+                .map_err(ToolError)?;
+                uri = link;
+            }
+            if uri.len() > 200 || !(uri.starts_with("https://") || uri.starts_with("ipfs://")) {
+                return Err(bad("metadataUri must be an https:// or ipfs:// link to the metadata JSON, up to 200 characters"));
+            }
+            let dev = opt_num(args, "devBuySol")?.unwrap_or(0.0);
+            if !(0.0..=85.0).contains(&dev) {
+                return Err(bad("devBuySol must be between 0 and 85"));
+            }
+            crate::solana::build_pump_launch(ctx.http, crate::solana::Launch { wallet: w.trim().to_string(), name, symbol, uri, dev_buy_sol: dev })
+                .await
+                .map_err(ToolError)
         }
         "build_swap" => crate::builders::build_swap(args, ctx).await,
         "build_lend" => crate::builders::build_lend(args, ctx).await,

@@ -1,0 +1,185 @@
+{
+  "slug": "spark-savings",
+  "name": "Spark Savings",
+  "category": "Yield",
+  "description": "Deposit USDS into sUSDS to earn the Sky Savings Rate. sUSDS is an ERC-4626 vault on Ethereum, and its share price rises over time as interest accrues.",
+  "website": "https://spark.finance",
+  "docs": "https://docs.spark.finance",
+  "defillama": "https://defillama.com/protocol/spark-savings",
+  "chains": [
+    "ethereum",
+    "arbitrum",
+    "base",
+    "optimism",
+    "avalanche",
+    "unichain",
+    "x-layer",
+    "robinhood-chain"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD",
+      "name": "sUSDS (Savings USDS)",
+      "role": "vault",
+      "proxy": null,
+      "source": "https://docs.spark.finance/dev/savings/susds-token",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626 deposit. Arguments: USDS amount in wei, receiver. Approve sUSDS for the amount first. Mints sUSDS shares to the receiver and returns the shares minted."
+        },
+        {
+          "signature": "deposit(uint256,address,uint16)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as deposit with a referral code as the third argument (0 for none)."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626 mint of an exact share amount. Pulls the USDS needed for those shares. Approve sUSDS for enough USDS first."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626 withdraw of an exact USDS amount. Arguments: assets, receiver, owner. Burns the owner's shares. Caller needs an allowance if it is not the owner."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "ERC-4626 redeem of an exact share amount. Arguments: shares, receiver, owner. Returns the USDS sent. Caller needs an allowance if it is not the owner."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDS value of a share amount. Use it to read the current sUSDS to USDS rate."
+        },
+        {
+          "signature": "convertToShares(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "sUSDS shares for a USDS amount."
+        },
+        {
+          "signature": "previewDeposit(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares that a deposit of the given USDS amount would mint right now."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDS that redeeming the given shares would return right now."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Largest USDS amount the owner can withdraw right now."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total USDS held by the vault, in wei."
+        },
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying asset address (USDS)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "sUSDS share balance of an address. Multiply by convertToAssets to get the USDS value."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender for an sUSDS amount. Needed before withdraw or redeem by a third party."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 signed approval for sUSDS: owner, spender, value, deadline, v, r, s."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xdC035D45d973E3EC169d2276DDab16f1e407384F",
+      "name": "USDS",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.spark.finance/dev/savings/susds-token",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDS balance of an address in wei."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender for a USDS amount. Needed before sUSDS.deposit or mint."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer USDS to a recipient."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "save-usds",
+      "description": "Deposit USDS to earn the Sky Savings Rate",
+      "how": "USDS.approve(sUSDS, amount), then sUSDS.deposit(amount, receiver)"
+    },
+    {
+      "name": "withdraw-usds",
+      "description": "Withdraw USDS from sUSDS",
+      "how": "sUSDS.withdraw(assets, receiver, owner) for an exact USDS amount, or sUSDS.redeem(shares, receiver, owner) for an exact share amount"
+    },
+    {
+      "name": "check-yield",
+      "description": "Read the current rate and a position value",
+      "how": "convertToAssets(1e18) gives USDS per sUSDS; multiply the sUSDS balanceOf by that rate for the USDS value"
+    }
+  ],
+  "risks": [
+    "The savings rate is set by Sky governance and can change at any time.",
+    "sUSDS is issued by Sky, not Spark. Spark documents the token, but Sky controls the contract and its parameters.",
+    "sUSDS value rises against USDS over time. Track value with convertToAssets rather than by the raw token balance.",
+    "Only the Ethereum sUSDS contract has the ERC-4626 functions. The cross-chain sUSDS tokens on other chains are bridged tokens without them.",
+    "USDS is the underlying stablecoin. Depegs or issuer actions affect the value of the position."
+  ],
+  "notes": "Ethereum addresses for sUSDS and USDS come from Spark's docs and the official Spark address registry (Ethereum.sol). Spark Vaults V2 products (spUSDC, spUSDT, spPYUSD, spETH) are separate contracts with their own addresses and are not included. The cross-chain sUSDS tokens on the other chains listed on DefiLlama are not included because their addresses were not confirmed from an official source.",
+  "sources": [
+    "https://docs.spark.finance/dev/savings/susds-token",
+    "https://raw.githubusercontent.com/sparkdotfi/spark-address-registry/master/src/Ethereum.sol",
+    "https://api.llama.fi/protocol/spark-savings"
+  ],
+  "researchedAt": "2026-11-28"
+}

@@ -1,0 +1,173 @@
+{
+  "slug": "jito-liquid-staking",
+  "name": "Jito Liquid Staking",
+  "category": "Liquid Staking",
+  "description": "Liquid staking for SOL. An agent can deposit SOL to receive JitoSOL, a token whose value rises as staking rewards and MEV tips accrue. It can also burn JitoSOL for SOL, instantly through the pool reserve or with a delayed stake-account withdrawal. Jito's kobe API reports pool stats and rates.",
+  "website": "https://www.jito.network",
+  "docs": "https://www.jito.network/docs/jitosol/jitosol-liquid-staking/",
+  "defillama": "https://defillama.com/protocol/jito-liquid-staking",
+  "chains": [
+    "solana"
+  ],
+  "vm": "solana",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy",
+      "name": "SPL Stake Pool program (used by JitoSOL)",
+      "role": "staking",
+      "proxy": null,
+      "source": "https://www.jito.network/docs/jitosol/jitosol-liquid-staking/security/deployed-programs/",
+      "keyFunctions": [
+        {
+          "signature": "DepositSol(lamports: u64)",
+          "kind": "write",
+          "payable": true,
+          "description": "Send SOL (in lamports) to the stake pool and receive JitoSOL at the current exchange rate. Call UpdateStakePoolBalance first in the same transaction if the pool is stale. A deposit fee may apply."
+        },
+        {
+          "signature": "WithdrawSol(pool_tokens: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn JitoSOL (pool tokens) for SOL immediately. Only works up to the SOL held in the pool reserve, and a withdrawal fee may apply."
+        },
+        {
+          "signature": "WithdrawStake(pool_tokens: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn JitoSOL for a stake account split from a validator. Slower than WithdrawSol but has no reserve limit. The stake account is then deactivated and withdrawn after the epoch change."
+        },
+        {
+          "signature": "DepositStake()",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit an existing stake account into the pool for JitoSOL. The stake account must be eligible (correct validator and state)."
+        },
+        {
+          "signature": "UpdateStakePoolBalance()",
+          "kind": "write",
+          "payable": false,
+          "description": "Recompute the pool's total lamports and the JitoSOL exchange rate. Permissionless. Send it before deposits and withdrawals when the pool is out of date for the epoch."
+        },
+        {
+          "signature": "CleanupRemovedValidatorEntries()",
+          "kind": "write",
+          "payable": false,
+          "description": "Remove validator list entries for validators that were removed from the pool. Permissionless."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs4P815Awbb",
+      "name": "JitoSOL stake pool account",
+      "role": "staking",
+      "proxy": null,
+      "source": "https://www.jito.network/docs/jitosol/jitosol-liquid-staking/security/deployed-programs/",
+      "keyFunctions": [
+        {
+          "signature": "StakePool account (getAccountInfo, owner SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy)",
+          "kind": "read",
+          "payable": false,
+          "description": "The JitoSOL stake pool state: total lamports, pool token supply, fees and validator list. Read it with getAccountInfo and decode with the SPL stake pool layout, or use @solana/spl-stake-pool."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn",
+      "name": "JitoSOL mint",
+      "role": "token",
+      "proxy": false,
+      "source": "https://www.jito.network/docs/jitosol/jitosol-liquid-staking/security/deployed-programs/",
+      "keyFunctions": [
+        {
+          "signature": "transfer(amount: u64) via SPL Token program (TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA)",
+          "kind": "write",
+          "payable": false,
+          "description": "JitoSOL is a classic SPL token. Transfer it between associated token accounts with the SPL Token program."
+        },
+        {
+          "signature": "Mint account (getTokenSupply)",
+          "kind": "read",
+          "payable": false,
+          "description": "Read the total JitoSOL supply and decimals."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Kobe API: stake pool stats",
+      "url": "https://kobe.mainnet.jito.network/api/v1/stake_pool_stats",
+      "auth": "none",
+      "use": "GET or POST: stake pool TVL, APY, validator count, supply and MEV rewards over time.",
+      "source": "https://www.jito.network/docs/jitosol/jitosol-liquid-staking/for-developers/stake-pool-api/"
+    },
+    {
+      "name": "Kobe API: JitoSOL to SOL ratio",
+      "url": "https://kobe.mainnet.jito.network/api/v1/jitosol_sol_ratio",
+      "auth": "none",
+      "use": "GET or POST: historical JitoSOL to SOL exchange ratio. Use it to price JitoSOL.",
+      "source": "https://www.jito.network/docs/jitosol/jitosol-liquid-staking/for-developers/stake-pool-api/"
+    },
+    {
+      "name": "Kobe API: JitoSOL validators",
+      "url": "https://kobe.mainnet.jito.network/api/v1/jitosol_validators",
+      "auth": "none",
+      "use": "GET or POST: the stake pool's validators for an epoch (latest by default).",
+      "source": "https://www.jito.network/docs/jitosol/jitosol-liquid-staking/for-developers/stake-pool-api/"
+    },
+    {
+      "name": "Kobe API: preferred withdraw validator list",
+      "url": "https://kobe.mainnet.jito.network/api/v1/preferred_withdraw_validator_list",
+      "auth": "none",
+      "use": "GET the validators suited to delayed (stake account) withdrawals. Pass the validator vote account to WithdrawStake flows when you want a specific one.",
+      "source": "https://www.jito.network/docs/jitosol/jitosol-liquid-staking/for-developers/stake-pool-api/"
+    }
+  ],
+  "actions": [
+    {
+      "name": "stake",
+      "description": "Deposit SOL and receive JitoSOL",
+      "how": "UpdateStakePoolBalance if the pool is stale, then DepositSol(lamports) with the SOL amount. Or use the official @solana/spl-stake-pool helper depositSol."
+    },
+    {
+      "name": "unstake-instant",
+      "description": "Burn JitoSOL for SOL from the pool reserve",
+      "how": "UpdateStakePoolBalance if stale, then WithdrawSol(pool_tokens). Fails if the reserve has less SOL than the amount."
+    },
+    {
+      "name": "unstake-delayed",
+      "description": "Burn JitoSOL for a stake account",
+      "how": "WithdrawStake(pool_tokens) with a chosen validator; or helper withdrawStake from @solana/spl-stake-pool. The stake account becomes SOL after deactivation and withdrawal."
+    },
+    {
+      "name": "price",
+      "description": "Read the current JitoSOL to SOL rate",
+      "how": "Read the stake pool account (total lamports and pool token supply), or call /api/v1/jitosol_sol_ratio on kobe."
+    }
+  ],
+  "risks": [
+    "Validator risk: the pool delegates to many validators. Poor validator behavior affects the rate, and delegation rules change over time.",
+    "Liquidity risk: WithdrawSol is limited to the pool reserve. Use WithdrawStake or wait when the reserve is low.",
+    "Epoch timing: the exchange rate updates per epoch. Deposits and withdrawals in the middle of an epoch can wait for the pool update.",
+    "Fees: deposit and withdrawal fees may apply, and they are set by the pool manager.",
+    "Program control: according to Jito's docs, the SPL stake pool program's upgrade keys are held by the Solana Foundation. Pool fees and the validator set are set by the pool's manager and staker roles."
+  ],
+  "notes": "Program, stake pool and mint addresses are from Jito's official deployed-programs page on mainnet. All three were confirmed on mainnet with getAccountInfo. The SPL Stake Pool program is the standard Solana Program Library program, not a Jito-written program. Jito's Interceptor program (5TAiuAh3YGDbwjEruC1ZpXTJWdNDS7Ur7VeqNNiHMmGV on mainnet, listed on the same page) is a separate program and is left out because its instructions were not researched. The devnet deployments listed on the same page are left out. Instruction arguments come from the StakePoolInstruction enum in the official solana-program-library stake-pool program (the solana-program/stake-pool repository); only variants with confirmed fields are included.",
+  "sources": [
+    "https://api.llama.fi/protocol/jito-liquid-staking",
+    "https://www.jito.network/docs/jitosol/jitosol-liquid-staking/",
+    "https://www.jito.network/docs/jitosol/jitosol-liquid-staking/security/deployed-programs/",
+    "https://www.jito.network/docs/jitosol/jitosol-liquid-staking/for-developers/staking-integration/",
+    "https://www.jito.network/docs/jitosol/jitosol-liquid-staking/for-developers/stake-pool-api/",
+    "https://raw.githubusercontent.com/solana-program/stake-pool/main/program/src/instruction.rs",
+    "https://api.mainnet-beta.solana.com"
+  ],
+  "researchedAt": "2026-11-28"
+}
