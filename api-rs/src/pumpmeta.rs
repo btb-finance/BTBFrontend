@@ -86,33 +86,50 @@ fn metadata_json(m: &Meta, image: &str) -> Value {
     body
 }
 
-/// Pins the picture and the metadata JSON to IPFS with Pinata (PINATA_JWT), as pump.fun's own launches are pinned.
-async fn pinata(http: &reqwest::Client, jwt: &str, m: &Meta) -> Result<(String, String), String> {
+/// Pinata credentials: PINATA_JWT, or PINATA_API_KEY plus PINATA_API_SECRET (short enough for hosts that cap env values).
+pub enum PinataAuth { Jwt(String), Key(String, String) }
+
+fn env(name: &str) -> Option<String> { std::env::var(name).ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) }
+
+pub fn pinata_auth() -> Option<PinataAuth> {
+    if let Some(j) = env("PINATA_JWT") { return Some(PinataAuth::Jwt(j)); }
+    Some(PinataAuth::Key(env("PINATA_API_KEY")?, env("PINATA_API_SECRET")?))
+}
+
+fn authed(req: reqwest::RequestBuilder, a: &PinataAuth) -> reqwest::RequestBuilder {
+    match a {
+        PinataAuth::Jwt(j) => req.bearer_auth(j),
+        PinataAuth::Key(k, s) => req.header("pinata_api_key", k).header("pinata_secret_api_key", s),
+    }
+}
+
+/// Pins the picture and the metadata JSON to IPFS with Pinata, as pump.fun's own launches are pinned.
+async fn pinata(http: &reqwest::Client, auth: &PinataAuth, m: &Meta) -> Result<(String, String), String> {
     let image = if let Some(url) = m.image_url.as_deref().map(str::trim).filter(|u| u.starts_with("ipfs://") && m.image_base64.is_none()) {
         url.to_string()
     } else {
         let (bytes, ct) = image_bytes(http, m).await?;
         let part = reqwest::multipart::Part::bytes(bytes).file_name(format!("{}.{}", m.symbol, ct.trim_start_matches("image/"))).mime_str(ct).map_err(|e| e.to_string())?;
         let form = reqwest::multipart::Form::new().part("file", part).text("pinataMetadata", json!({ "name": format!("{} image", m.symbol) }).to_string());
-        let r = http.post("https://api.pinata.cloud/pinning/pinFileToIPFS").bearer_auth(jwt).multipart(form).timeout(std::time::Duration::from_secs(45)).send().await.map_err(|e| format!("Pinata is not reachable: {e}"))?;
+        let r = authed(http.post("https://api.pinata.cloud/pinning/pinFileToIPFS"), auth).multipart(form).timeout(std::time::Duration::from_secs(45)).send().await.map_err(|e| format!("Pinata is not reachable: {e}"))?;
         let status = r.status();
         let v: Value = r.json().await.unwrap_or(Value::Null);
         let cid = v["IpfsHash"].as_str().ok_or_else(|| format!("Pinata did not pin the image ({status}): {}", v["error"]))?;
         format!("https://ipfs.io/ipfs/{cid}")
     };
     let body = json!({ "pinataContent": metadata_json(m, &image), "pinataMetadata": { "name": format!("{} metadata", m.symbol) } });
-    let r = http.post("https://api.pinata.cloud/pinning/pinJSONToIPFS").bearer_auth(jwt).json(&body).timeout(std::time::Duration::from_secs(30)).send().await.map_err(|e| format!("Pinata is not reachable: {e}"))?;
+    let r = authed(http.post("https://api.pinata.cloud/pinning/pinJSONToIPFS"), auth).json(&body).timeout(std::time::Duration::from_secs(30)).send().await.map_err(|e| format!("Pinata is not reachable: {e}"))?;
     let status = r.status();
     let v: Value = r.json().await.unwrap_or(Value::Null);
     let cid = v["IpfsHash"].as_str().ok_or_else(|| format!("Pinata did not pin the metadata ({status}): {}", v["error"]))?;
     Ok((format!("https://ipfs.io/ipfs/{cid}"), image))
 }
 
-/// Hosts the coin's picture and metadata: on IPFS through Pinata when PINATA_JWT is set, else in BTB's own
+/// Hosts the coin's picture and metadata: on IPFS through Pinata when its keys are set, else in BTB's own
 /// database. Returns (metadata link, image link).
 pub async fn save(http: &reqwest::Client, db: Option<&sqlx::PgPool>, m: Meta) -> Result<(String, String), String> {
-    if let Some(jwt) = std::env::var("PINATA_JWT").ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
-        return pinata(http, &jwt, &m).await;
+    if let Some(auth) = pinata_auth() {
+        return pinata(http, &auth, &m).await;
     }
     let db = db.ok_or("BTB cannot host coin metadata right now (no IPFS key or database on this server). Pass metadataUri: a link to your own metadata JSON.")?;
     ready(db).await;

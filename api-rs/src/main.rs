@@ -172,7 +172,7 @@ async fn snapshot_now(app: &App) -> Option<Arc<snapshot::Snapshot>> {
 
 async fn health(State(app): State<App>) -> Response {
     match snapshot_now(&app).await {
-        Some(s) => json_response(StatusCode::OK, &json!({ "ok": true, "pools": s.pools.len(), "updatedAt": s.updated_at, "database": app.index.db.is_some(), "ipfs": std::env::var("PINATA_JWT").map(|s| !s.trim().is_empty()).unwrap_or(false) })),
+        Some(s) => json_response(StatusCode::OK, &json!({ "ok": true, "pools": s.pools.len(), "updatedAt": s.updated_at, "database": app.index.db.is_some(), "ipfs": crate::pumpmeta::pinata_auth().is_some() })),
         None => json_response(StatusCode::SERVICE_UNAVAILABLE, &json!({ "ok": false, "note": "pool snapshot still loading" })),
     }
 }
