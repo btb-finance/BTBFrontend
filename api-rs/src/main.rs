@@ -14,6 +14,7 @@ mod indexers;
 mod overview;
 mod solana;
 mod portfolio;
+mod btb;
 mod launchpads;
 mod pumpmeta;
 mod lite;
@@ -363,6 +364,7 @@ fn rest_routes(r: Router<App>) -> Router<App> {
     let r = route_tool!(r, "/api/v1/solana/pump/launch", "build_pump_launch", &[]);
     let r = route_tool!(r, "/api/v1/launch", "build_token_launch", &[]);
     let r = route_tool!(r, "/api/v1/launch/claim", "build_launch_claim", &[]);
+    let r = route_tool!(r, "/api/v1/btb", "build_btb", &[]);
     let r = route_tool!(r, "/api/v1/build/swap", "build_swap", &[]);
     let r = route_tool!(r, "/api/v1/build/lend", "build_lend", &[]);
     let r = route_tool!(r, "/api/v1/build/withdraw", "build_withdraw", &[]);

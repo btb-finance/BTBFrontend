@@ -670,6 +670,25 @@ export function buildServer(): McpServer {
     } catch (e) { return fail(`The launch service is not reachable right now (${(e as Error).message}).`); }
   });
 
+  server.registerTool('build_btb', {
+    title: 'BTB Bears, BTBB, wrapping and FLIP (ready to sign)',
+    description: 'BTB\'s own products on Ethereum, each as a sign link with a dry run. Bears: bear_status (Bears held and staked, BTBB waiting, mint price), bear_mint (count; ETH price read live; 1,000 XP per Bear on btb.finance), bear_stake (all Bears in the wallet or count; approval included once), bear_unstake (count), bear_claim (BTBB rewards: every BTBB transfer pays 1% to staked Bears). Tokens: btbb_wrap and btbb_unwrap (BTB to BTBB 1:1 and back), wrap and unwrap (BTB into the token used in BTB\'s pools, 1 to 1,000,000, and back; trades of it pay 1% into the Friday pot), flip_up (USDC into FLIP) and flip_down (FLIP into USDC).',
+    inputSchema: z.object({
+      wallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+      action: z.enum(['bear_status', 'bear_mint', 'bear_stake', 'bear_unstake', 'bear_claim', 'btbb_wrap', 'btbb_unwrap', 'wrap', 'unwrap', 'flip_up', 'flip_down']),
+      count: z.number().int().min(1).max(200).optional().describe('Bears to mint, stake or unstake. Stake defaults to all in the wallet; unstake to all staked.'),
+      amount: z.string().regex(/^\d+(\.\d+)?$/).optional().describe('Whole units for wrap, unwrap and flip actions (BTB, BTBB, pool token, USDC or FLIP).'),
+    }),
+    annotations: READ,
+  }, async (a) => {
+    // Built by BTB's Rust service on Flux.
+    try {
+      const r = await fetch(`${SIGN_STATUS_API}/api/v1/btb`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(a), signal: AbortSignal.timeout(25_000) });
+      const body = await r.json() as unknown;
+      return r.ok ? text(body) : fail(`The BTB service answered ${r.status}: ${JSON.stringify(body).slice(0, 300)}`);
+    } catch (e) { return fail(`The BTB service is not reachable right now (${(e as Error).message}).`); }
+  });
+
   server.registerTool('build_launch_claim', {
     title: 'Claim launchpad creator fees (ready to sign)',
     description: 'Find a creator\'s unclaimed fees on Clanker (Base, BNB Chain, Robinhood Chain, Monad) and Pons (Robinhood Chain) and build the claim transactions, one per chain, each with a dry run. Zora and Flap pay creators automatically. Claiming through BTB is free. Pump on Solana is build_pump_claim.',
