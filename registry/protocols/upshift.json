@@ -1,0 +1,105 @@
+{
+  "slug": "upshift",
+  "name": "Upshift",
+  "category": "Onchain Capital Allocator",
+  "description": "Upshift runs yield vaults that take deposits in stablecoins, BTC and other assets. Vault shares follow the ERC-4626 model with epoch-based redemptions. Agents deposit through the vault or the Universal Adapter, read share prices and previews, and request redemptions and claims on-chain.",
+  "website": "https://app.upshift.finance",
+  "docs": "https://docs.upshift.finance",
+  "defillama": "https://defillama.com/protocol/upshift",
+  "chains": ["ethereum", "base"],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x80E1048eDE66ec4c364b4F22C8768fc657FF6A42",
+      "name": "Upshift USDC (upUSDC) vault (lending pool proxy)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://docs.upshift.finance/contracts/addresses",
+      "keyFunctions": [
+        { "signature": "deposit(uint256,address)", "kind": "write", "payable": false, "description": "ERC-4626 deposit: (assets, receiver). Approve the vault for USDC first. Returns the shares minted to receiver." },
+        { "signature": "requestRedeem(uint256,address,address)", "kind": "write", "payable": false, "description": "Request a redemption of shares: (shares, receiverAddr, holderAddr). Returns (assets, claimableEpoch). Redemptions are epoch based, so funds are claimed later with claim." },
+        { "signature": "claim(uint256,uint256,uint256,address)", "kind": "write", "payable": false, "description": "Claim a matured redemption: (year, month, day, receiverAddr) for the epoch date. Returns the amounts claimed. Reverts if the epoch has not matured." },
+        { "signature": "convertToAssets(uint256)", "kind": "read", "payable": false, "description": "Assets worth a given number of shares at the current rate." },
+        { "signature": "convertToShares(uint256)", "kind": "read", "payable": false, "description": "Shares equal to a given asset amount at the current rate." },
+        { "signature": "previewDeposit(uint256)", "kind": "read", "payable": false, "description": "Shares that a deposit of the given assets would mint." },
+        { "signature": "previewRedeem(uint256)", "kind": "read", "payable": false, "description": "Assets that a redemption of the given shares would return." },
+        { "signature": "balanceOf(address)", "kind": "read", "payable": false, "description": "Vault share balance of an account." },
+        { "signature": "approve(address,uint256)", "kind": "write", "payable": false, "description": "Approve a spender to move vault shares." },
+        { "signature": "asset()", "kind": "read", "payable": false, "description": "Returns the underlying asset of the vault (USDC)." },
+        { "signature": "totalAssets()", "kind": "read", "payable": false, "description": "Total assets managed by the vault." }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xEBac5e50003d4B17Be422ff9775043cD61002f7f",
+      "name": "Upshift BTC (upBTC) vault (lending pool proxy)",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://docs.upshift.finance/contracts/addresses",
+      "keyFunctions": [
+        { "signature": "deposit(uint256,address)", "kind": "write", "payable": false, "description": "ERC-4626 deposit: (assets, receiver). Approve the vault for the BTC asset first. Returns the shares minted to receiver." },
+        { "signature": "requestRedeem(uint256,address,address)", "kind": "write", "payable": false, "description": "Request a redemption of shares: (shares, receiverAddr, holderAddr). Returns (assets, claimableEpoch). Funds are claimed later with claim." },
+        { "signature": "claim(uint256,uint256,uint256,address)", "kind": "write", "payable": false, "description": "Claim a matured redemption: (year, month, day, receiverAddr). Reverts if the epoch has not matured." },
+        { "signature": "convertToAssets(uint256)", "kind": "read", "payable": false, "description": "Assets worth a given number of shares at the current rate." },
+        { "signature": "convertToShares(uint256)", "kind": "read", "payable": false, "description": "Shares equal to a given asset amount at the current rate." },
+        { "signature": "previewDeposit(uint256)", "kind": "read", "payable": false, "description": "Shares that a deposit of the given assets would mint." },
+        { "signature": "previewRedeem(uint256)", "kind": "read", "payable": false, "description": "Assets that a redemption of the given shares would return." },
+        { "signature": "balanceOf(address)", "kind": "read", "payable": false, "description": "Vault share balance of an account." },
+        { "signature": "approve(address,uint256)", "kind": "write", "payable": false, "description": "Approve a spender to move vault shares." },
+        { "signature": "asset()", "kind": "read", "payable": false, "description": "Returns the underlying asset of the vault." },
+        { "signature": "totalAssets()", "kind": "read", "payable": false, "description": "Total assets managed by the vault." }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xC11c6d8fD8FfFB2045d57b149125C44414d8160B",
+      "name": "Universal Adapter (Ethereum)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.upshift.finance/developer-docs/universal-adapter",
+      "keyFunctions": [
+        { "signature": "deposit(bytes32,uint256,address,uint8,address,address)", "kind": "write", "payable": false, "description": "Deposit into an Upshift vault in one call: (originCode, depositAmount, vaultAddr, vaultType, assetAddr, receiverAddr). Pulls depositAmount of assetAddr from msg.sender and does no swap. Returns the shares minted. Use bytes32(0) for originCode. vaultType is 1 for ERC-4626 or 2 for Tokenized Vault V2. Approve the adapter first." }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x261c97E80C105F85BBbe1416E6eC67C76B9910E2",
+      "name": "Universal Adapter (Base)",
+      "role": "router",
+      "proxy": false,
+      "source": "https://docs.upshift.finance/developer-docs/universal-adapter",
+      "keyFunctions": [
+        { "signature": "deposit(bytes32,uint256,address,uint8,address,address)", "kind": "write", "payable": false, "description": "Deposit into an Upshift vault in one call: (originCode, depositAmount, vaultAddr, vaultType, assetAddr, receiverAddr). Pulls depositAmount of assetAddr from msg.sender and does no swap. Returns the shares minted. Use bytes32(0) for originCode. vaultType is 1 for ERC-4626 or 2 for Tokenized Vault V2. Approve the adapter first." }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    { "name": "deposit", "description": "Deposit an asset into an Upshift vault", "how": "Approve the vault (or the Universal Adapter) for the asset, then call vault.deposit(assets, receiver). Check previewDeposit first." },
+    { "name": "request redemption", "description": "Start an exit from a vault", "how": "Call vault.requestRedeem(shares, receiver, holder). The call returns the claimable epoch." },
+    { "name": "claim redemption", "description": "Collect assets after the epoch matures", "how": "Call vault.claim(year, month, day, receiver) with the epoch date from requestRedeem." },
+    { "name": "check value", "description": "Read the value of a position", "how": "balanceOf(account) for shares, then convertToAssets(shares) for the value in the underlying asset." }
+  ],
+  "risks": [
+    "Redemptions are epoch based. Funds are not available until the epoch matures and the claim is made.",
+    "Vault strategies are run by Upshift and its partners. Losses in a strategy reduce the share price.",
+    "The Universal Adapter pulls tokens from the caller. Approve only the amount needed, and check the vault address and vault type before calling deposit.",
+    "Some deployments are retired. The docs say the same address can be live on one chain and retired on another, so check the chain as well as the address."
+  ],
+  "notes": "Two Upshift vaults on Ethereum are listed: the USDC vault (upUSDC) and the BTC vault (upBTC). Both are proxies whose interface is ERC-4626 with epoch redemptions. The docs also describe an instantRedeem function and previewInstantRedemption, but neither was found in the USDC or BTC vault bytecode, so they are not listed. The Universal Adapter is also deployed on Avalanche, HyperEVM, Monad, Flare, Citrea and Fluent, which are not listed. The Upshift contracts page lists many more vaults across chains, including Solana, Sui and Stellar. Only the verified ones here are listed.",
+  "sources": [
+    "https://api.llama.fi/protocol/upshift",
+    "https://defillama.com/protocol/upshift",
+    "https://docs.upshift.finance",
+    "https://docs.upshift.finance/contracts/addresses",
+    "https://docs.upshift.finance/developer-docs/vault-contract-interface",
+    "https://docs.upshift.finance/developer-docs/universal-adapter"
+  ],
+  "researchedAt": "2026-11-28"
+}

@@ -608,6 +608,32 @@ export function buildServer(): McpServer {
     } catch (e) { return fail(`The Solana service is not reachable right now (${(e as Error).message}).`); }
   });
 
+  server.registerTool('build_pump_launch', {
+    title: 'Launch a Pump coin (ready to sign)',
+    description: 'Launch a new coin on Pump (Solana) from the creator\'s wallet: one transaction that creates the coin, sets the creator-fee split (BTB keeps a share of creator fees on coins launched through BTB; the creator gets the rest), and optionally makes the creator\'s first buy in the same transaction so nobody can buy before them. Returns the new mint address, the split, a dry run on Solana and the transaction, already signed by the new coin\'s mint key; the creator\'s wallet signs as fee payer and must send it within about a minute without changing the blockhash. Send the coin\'s picture (imageUrl, or imageBase64 and BTB hosts it), description and optional links, and BTB builds and hosts the metadata; or pass metadataUri if you host it yourself. Cost: about 0.02 to 0.03 SOL plus the first buy. Most new coins lose almost all their value.',
+    inputSchema: z.object({
+      wallet: z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/).describe('The creator\'s Solana address: pays, signs and receives the creator\'s fee share.'),
+      name: z.string().min(1).max(32).describe('Coin name, up to 32 characters.'),
+      symbol: z.string().min(1).max(10).describe('Ticker, up to 10 characters, without the $.'),
+      description: z.string().max(500).optional().describe('What the coin is about, shown on Pump.'),
+      imageUrl: z.string().optional().describe('https or ipfs link to the coin\'s picture.'),
+      imageBase64: z.string().max(1_400_000).optional().describe('Or the picture itself: PNG, JPEG, GIF or WebP, up to 1000 KB, base64 (a data: URL works). BTB hosts it.'),
+      twitter: z.string().optional().describe('Optional https link.'),
+      telegram: z.string().optional().describe('Optional https link.'),
+      website: z.string().optional().describe('Optional https link.'),
+      metadataUri: z.string().max(200).optional().describe('Only if you host the metadata JSON yourself (https or ipfs). Otherwise leave it out and BTB builds and hosts it from the fields above.'),
+      devBuySol: z.number().min(0).max(85).optional().describe('SOL to spend on the creator\'s first buy, in the same transaction. Default 0.'),
+    }),
+    annotations: READ,
+  }, async (a) => {
+    // Built by BTB's Rust service on Flux.
+    try {
+      const r = await fetch(`${SIGN_STATUS_API}/api/v1/solana/pump/launch`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(a), signal: AbortSignal.timeout(25_000) });
+      const body = await r.json() as unknown;
+      return r.ok ? text(body) : fail(`The Solana service answered ${r.status}: ${JSON.stringify(body).slice(0, 300)}`);
+    } catch (e) { return fail(`The Solana service is not reachable right now (${(e as Error).message}).`); }
+  });
+
   server.registerTool('wallet_overview', {
     title: 'Where a wallet stands, and what to do',
     description: 'Start here when someone asks about their portfolio (EVM or Solana address). One call: net worth across BTB\'s protocols (about 36 chains), liquidity pools and the wallet\'s own tokens, each counted once; warnings that need attention (Aave health factor low, pools out of range); and opportunities (idle stablecoins earning nothing, vaults well below the best rate on their chain), each with the yearly gain (on 7-day average rates, only into markets big enough to take the amount) and the exact build tool calls to act. Includes a one-line headline to show the person. Public on-chain data, read-only. Takes about 5 to 25 seconds.',

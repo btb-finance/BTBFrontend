@@ -1,0 +1,213 @@
+{
+  "slug": "jupiter-lend",
+  "name": "Jupiter Lend",
+  "category": "Lending",
+  "description": "Jupiter's lending products on Solana. Earn lets an agent deposit a token to earn yield (mint, deposit, redeem, withdraw). Vaults (Borrow) lets an agent open a position, deposit collateral and borrow against it. Both have REST APIs that return ready-to-sign transactions.",
+  "website": "https://jup.ag",
+  "docs": "https://developers.jup.ag/docs/lend",
+  "defillama": "https://defillama.com/protocol/jupiter-lend",
+  "chains": [
+    "solana"
+  ],
+  "vm": "solana",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9",
+      "name": "Jupiter Lend Earn program",
+      "role": "vault",
+      "proxy": null,
+      "source": "https://developers.jup.ag/docs/lend/program-addresses",
+      "keyFunctions": [
+        {
+          "signature": "deposit(assets: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit an exact amount of the underlying token into Earn and receive fToken shares. assets is in base units of the underlying mint."
+        },
+        {
+          "signature": "deposit_with_min_amount_out(assets: u64, min_amount_out: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as deposit, but fails if fewer than min_amount_out shares are received. Use this to protect against a rate change between quote and execution."
+        },
+        {
+          "signature": "mint(shares: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint an exact number of fToken shares, paying the underlying token needed for them."
+        },
+        {
+          "signature": "mint_with_max_assets(shares: u64, max_assets: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint an exact number of shares, failing if more than max_assets of the underlying would be spent."
+        },
+        {
+          "signature": "withdraw(amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact amount of the underlying token by burning the needed shares. amount is in underlying base units."
+        },
+        {
+          "signature": "withdraw_with_max_shares_burn(amount: u64, max_shares_burn: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact amount of underlying, failing if more than max_shares_burn shares would be burned."
+        },
+        {
+          "signature": "redeem(shares: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn an exact number of fToken shares and receive the underlying token."
+        },
+        {
+          "signature": "redeem_with_min_amount_out(shares: u64, min_amount_out: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem shares, failing if less than min_amount_out of the underlying is received."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "jupr81YtYssSyPt8jbnGuiWon5f6x9TcDEFxYe3Bdzi",
+      "name": "Jupiter Lend Vaults program (Borrow)",
+      "role": "vault",
+      "proxy": null,
+      "source": "https://developers.jup.ag/docs/lend/program-addresses",
+      "keyFunctions": [
+        {
+          "signature": "init_position(vault_id: u16, next_position_id: u32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create a borrow position in a vault. Needed before the first operate call for a new position."
+        },
+        {
+          "signature": "operate(new_col: i128, new_debt: i128, transfer_type: Option<TransferType>, remaining_accounts_indices: bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Change a position's collateral and debt in one call. new_col and new_debt are signed amounts: positive adds collateral or borrows debt, negative withdraws collateral or repays debt. Check the vault docs for the exact sign and unit convention before sending."
+        },
+        {
+          "signature": "operate_dex(col_amounts: Option<OperateDexColAmounts>, debt_amounts: Option<OperateDexDebtAmounts>, transfer_type: Option<TransferType>, remaining_accounts_indices: bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Operate on a DEX-type vault (collateral and debt split across two tokens). Amounts are passed as structured arguments."
+        },
+        {
+          "signature": "operate_perfect_dex(col_amounts: Option<OperatePerfectDexColAmounts>, debt_amounts: Option<OperatePerfectDexDebtAmounts>, transfer_type: Option<TransferType>, remaining_accounts_indices: bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Operate on a DEX-type vault with perfect (balanced) amounts. Same accounts model as operate_dex."
+        },
+        {
+          "signature": "liquidate(debt_amt: u64, col_per_unit_debt: u128, absorb: bool, transfer_type: Option<TransferType>, remaining_accounts_indices: bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidate an unhealthy position: repay debt_amt and receive collateral at the liquidation discount. absorb is a boolean flag for the bad-debt handling path. Liquidators only."
+        },
+        {
+          "signature": "liquidate_dex(debt_amt: u64, debt_amounts: Option<LiquidateDexDebtAmounts>, col_per_unit_debt: u128, col_amounts: Option<LiquidateDexColAmounts>, absorb: bool, transfer_type: Option<TransferType>, remaining_accounts_indices: bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidation for DEX-type vaults with per-token amounts."
+        },
+        {
+          "signature": "rebalance()",
+          "kind": "write",
+          "payable": false,
+          "description": "Rebalance the vault's DEX liquidity (no arguments). Not meant for ordinary borrowers; check the IDL for who is allowed to call it."
+        },
+        {
+          "signature": "get_exchange_prices()",
+          "kind": "read",
+          "payable": false,
+          "description": "Read the current exchange prices used for vault accounting. Simulate to read the result without sending."
+        },
+        {
+          "signature": "init_tick(vault_id: u16, tick: i32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create a tick account for a price tick in the vault. Positions use ticks, so the tick account must exist before a position uses that tick."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "jupeiUmn818Jg1ekPURTpr4mFo29p46vygyykFJ3wZC",
+      "name": "Jupiter Lend Liquidity program",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://developers.jup.ag/docs/lend/program-addresses",
+      "keyFunctions": []
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Earn API: GET /earn/tokens",
+      "url": "https://api.jup.ag/lend/v1/earn/tokens",
+      "auth": "api-key",
+      "use": "List the tokens that can be deposited into Earn, with their information. Send the x-api-key header from the Jupiter developer portal.",
+      "source": "https://developers.jup.ag/docs/api-reference/lend/earn/tokens"
+    },
+    {
+      "name": "Earn API: deposit, withdraw, mint, redeem (transaction)",
+      "url": "https://api.jup.ag/lend/v1/earn/deposit",
+      "auth": "api-key",
+      "use": "POST to get a ready transaction for a deposit. The same API has /earn/withdraw, /earn/mint and /earn/redeem. Matching /deposit-instructions, /withdraw-instructions, /mint-instructions and /redeem-instructions routes return raw instructions for CPI or composing.",
+      "source": "https://developers.jup.ag/docs/lend/earn/api"
+    },
+    {
+      "name": "Earn API: positions and earnings",
+      "url": "https://api.jup.ag/lend/v1/earn/earnings",
+      "auth": "api-key",
+      "use": "GET earnings for a wallet: pass user and the position ids (for example ?user=<wallet>&positions=<id>).",
+      "source": "https://developers.jup.ag/docs/lend/earn/api"
+    }
+  ],
+  "actions": [
+    {
+      "name": "earn-deposit",
+      "description": "Deposit a token into Jupiter Earn",
+      "how": "POST https://api.jup.ag/lend/v1/earn/deposit with the wallet and amount (x-api-key header); sign the returned transaction and send it. Or call deposit_with_min_amount_out on the Earn program."
+    },
+    {
+      "name": "earn-withdraw",
+      "description": "Withdraw a token from Jupiter Earn",
+      "how": "POST /lend/v1/earn/withdraw (or redeem with a share amount); sign and send the returned transaction."
+    },
+    {
+      "name": "vault-borrow",
+      "description": "Open or change a borrow position in a Vaults (Borrow) vault",
+      "how": "init_position once, then operate(new_col, new_debt, ...) with signed amounts. Read the vault's exchange prices and ticks first. Build the call with the Jupiter Lend SDK or the official IDL; do not hand-encode the remaining accounts."
+    }
+  ],
+  "risks": [
+    "Borrowing can be liquidated when a vault position becomes undercollateralized. Liquidation takes collateral at a discount.",
+    "Earn deposits are exposed to the strategies and lending markets behind the vault. Yield is not guaranteed and withdrawals can be limited by available liquidity.",
+    "Oracle and price risk: vault values depend on oracle prices.",
+    "Programs are upgradeable and the IDL can change. Build from the current IDL or API output, not from a cached copy.",
+    "Keyless API access is rate limited. Production use needs an API key from the Jupiter developer portal."
+  ],
+  "notes": "Program addresses are from Jupiter's official Lend program-addresses page. Other program ids on that page (Lending Rewards Rate Model jup7TthsMgcR9Y3L277b8Eo9uboVSmu1utkuXHNUKar, Oracle jupnw4B6Eqs7ft6rxpzYLJZYSnrpRgPcr589n5Kv4oc, Flashloan jupgfSgfuAXv4B6R2Uxu85Z1qdzgju79s6MfZekN6XS, AMM jupZ4m2GqUCJ5iueMfzQf8khFfH31d4XAQt3RzCT9Vd, Referral LrefWFcNXGnLxnQUdKmuJ1U3fUrFBdNkm6xCfVfWwQW) are left out as contracts because their instruction lists were not confirmed. The Liquidity program is listed with no keyFunctions; agents use Earn and Vaults. Instruction signatures come from the IDLs in the official jup-ag/jupiter-lend repository (target/idl). The Liquidity program is the shared liquidity layer that the other Lend programs call.",
+  "sources": [
+    "https://api.llama.fi/protocol/jupiter-lend",
+    "https://developers.jup.ag/docs/lend",
+    "https://developers.jup.ag/docs/lend/architecture",
+    "https://developers.jup.ag/docs/lend/program-addresses",
+    "https://developers.jup.ag/docs/lend/idl-and-types",
+    "https://github.com/jup-ag/jupiter-lend/tree/main/target/idl",
+    "https://raw.githubusercontent.com/jup-ag/jupiter-lend/main/target/idl/lending.json",
+    "https://raw.githubusercontent.com/jup-ag/jupiter-lend/main/target/idl/vaults.json",
+    "https://developers.jup.ag/docs/lend/earn/api",
+    "https://developers.jup.ag/docs/api-reference/lend/earn/tokens",
+    "https://developers.jup.ag/docs/portal/rate-limits",
+    "https://api.mainnet-beta.solana.com"
+  ],
+  "researchedAt": "2026-11-28"
+}

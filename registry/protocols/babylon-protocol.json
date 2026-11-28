@@ -1,0 +1,55 @@
+{
+  "slug": "babylon-protocol",
+  "name": "Babylon Protocol",
+  "category": "Restaking",
+  "description": "Bitcoin staking with native BTC and no bridge or wrapped asset. An agent can read a staker delegations, finality providers, network parameters and APR through the Babylon Staking API, and check or request unbonding.",
+  "website": "https://babylonlabs.io",
+  "docs": "https://docs.babylonlabs.io",
+  "defillama": "https://defillama.com/protocol/babylon-protocol",
+  "chains": [
+    "bitcoin",
+    "babylon"
+  ],
+  "vm": "mixed",
+  "agentAccess": "api",
+  "contracts": [],
+  "offchainApis": [
+    {
+      "name": "Babylon Staking API",
+      "url": "https://staking-api.babylonlabs.io",
+      "auth": "none",
+      "use": "Read delegations (GET /v2/delegations, GET /v2/delegation), staker stats (GET /v2/staker/stats), finality providers (GET /v2/finality-providers), network info (GET /v2/network-info), APR (GET /v2/apr) and prices (GET /v2/prices). Check unbonding eligibility (GET /v1/unbonding/eligibility) and request unbonding of a phase 1 delegation (POST /v1/unbonding).",
+      "source": "https://staking-api.babylonlabs.io/swagger/doc.json"
+    }
+  ],
+  "actions": [
+    {
+      "name": "check delegations",
+      "description": "List active delegations for a staker",
+      "how": "Call GET /v2/delegations with staker_pk_hex or babylon_address and state=active."
+    },
+    {
+      "name": "list finality providers",
+      "description": "Pick finality providers with stats",
+      "how": "Call GET /v2/finality-providers and page with pagination_key."
+    },
+    {
+      "name": "check unbonding",
+      "description": "See if a delegation can be unbonded",
+      "how": "Call GET /v1/unbonding/eligibility for the staking transaction, then POST /v1/unbonding if eligible."
+    }
+  ],
+  "risks": [
+    "Staked BTC is locked for the staking period. Early exit uses the fast unbonding path, which takes a few days.",
+    "Slashing removes a part of the stake when a finality provider misbehaves. Pick providers with care.",
+    "Several v1 endpoints are marked deprecated in the spec. Use the v2 endpoints.",
+    "Use of the API is governed by Babylon API Access License. Read it before building a product on the API."
+  ],
+  "notes": "There are no EVM contracts. Native BTC staking runs on Bitcoin with the Babylon Genesis chain (a Cosmos SDK chain) as the coordination layer. Stake creation is not part of the staking API spec, so the agent reads state and handles unbonding through the API. The spec defines no security scheme, so auth is shown as none.",
+  "sources": [
+    "https://staking-api.babylonlabs.io/swagger/doc.json",
+    "https://docs.babylonlabs.io/api/staking-api/babylon-staking-api",
+    "https://docs.babylonlabs.io/guides/overview/"
+  ],
+  "researchedAt": "2026-11-28"
+}

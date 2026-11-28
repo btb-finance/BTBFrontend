@@ -1,0 +1,184 @@
+{
+  "slug": "solvbtc",
+  "name": "SolvBTC",
+  "category": "Bridge",
+  "description": "SolvBTC is a Bitcoin reserve token that Solv issues across many chains. This entry covers the Solv router and multi asset pool on Ethereum, read from Solv's official deployment files. The SolvBTC token address itself is not listed because no official source confirmed it.",
+  "website": "https://solv.finance",
+  "docs": "https://github.com/solv-finance/SolvBTC",
+  "defillama": "https://defillama.com/protocol/solvbtc",
+  "chains": [
+    "ethereum",
+    "bsc",
+    "polygon",
+    "arbitrum",
+    "avalanche",
+    "base",
+    "mantle",
+    "merlin",
+    "bob",
+    "bitcoin",
+    "solana"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x3d93B9e8F0886358570646dAd9421564C5fE6334",
+      "name": "SolvBTC Router (proxy)",
+      "role": "router",
+      "proxy": true,
+      "source": "https://raw.githubusercontent.com/solv-finance/SolvBTC/main/deployments/mainnet/SolvBTCRouterV2Proxy.json",
+      "keyFunctions": [
+        {
+          "signature": "deposit(address,address,uint256,uint256,uint64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Router deposit. The deployment file does not document the argument meanings, so read the router source before calling."
+        },
+        {
+          "signature": "withdrawRequest(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Open a withdrawal request through the router. Argument meanings are not documented in the deployment file."
+        },
+        {
+          "signature": "cancelWithdrawRequest(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Cancel an open withdrawal request. Argument meanings are not documented in the deployment file."
+        },
+        {
+          "signature": "multiAssetPools(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns the multi asset pool address stored for the given address key."
+        },
+        {
+          "signature": "poolIds(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns the pool id stored for a pair of addresses."
+        },
+        {
+          "signature": "paths(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns a stored route entry for two addresses and an index."
+        },
+        {
+          "signature": "checkPoolPermission(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns the permission check result for a pool id."
+        },
+        {
+          "signature": "X_SOLV_BTC_POOL_ID()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns the pool id constant used for SolvBTC."
+        },
+        {
+          "signature": "owner()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns the router owner address."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1d5262919C4AAb745A8C9dD56B80DB9FeaEf86BA",
+      "name": "SolvBTC Multi Asset Pool (proxy)",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://raw.githubusercontent.com/solv-finance/SolvBTC/main/deployments/mainnet/SolvBTCMultiAssetPoolProxy.json",
+      "keyFunctions": [
+        {
+          "signature": "deposit(address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit into the pool for an SFT slot. Argument order is in the verified implementation ABI; the deployment file does not describe it."
+        },
+        {
+          "signature": "withdraw(address,uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw from the pool for an SFT slot. Argument meanings are in the implementation ABI."
+        },
+        {
+          "signature": "getSftSlotBalance(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance held for an SFT slot."
+        },
+        {
+          "signature": "getHoldingValueSftId(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Holding value for an SFT id."
+        },
+        {
+          "signature": "getERC20(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "ERC20 amount associated with an SFT slot."
+        },
+        {
+          "signature": "isSftSlotDepositAllowed(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if deposits are allowed for the SFT slot."
+        },
+        {
+          "signature": "isSftSlotWithdrawAllowed(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if withdrawals are allowed for the SFT slot."
+        },
+        {
+          "signature": "admin()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns the pool admin address."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "deposit",
+      "description": "Deposit a supported asset through the Solv router",
+      "how": "call deposit on the router with the argument order from the verified ABI"
+    },
+    {
+      "name": "request withdrawal",
+      "description": "Open a withdrawal request",
+      "how": "call withdrawRequest on the router; cancelWithdrawRequest cancels it"
+    },
+    {
+      "name": "read pool state",
+      "description": "Check pool and slot permissions",
+      "how": "call isSftSlotDepositAllowed or isSftSlotWithdrawAllowed on the pool proxy"
+    }
+  ],
+  "risks": [
+    "The SolvBTC token address is not listed here. Do not treat the router or pool as the token.",
+    "The ABIs come from the implementation deployment files. Proxies can be upgraded, so check the current implementation before calling.",
+    "Withdrawals go through a request step, so they are not instant."
+  ],
+  "notes": "Only the Ethereum mainnet router and pool proxies are listed. The Solv repo has deployment folders for other chains (bsc, base and more), not covered in this pass. The SolvBTC V3 implementation is at 0xA4b6cf2BAaA235ab7Fe10EADB84b82460165B38F, which has code on Ethereum, BSC and Base. It is an implementation contract, not the token a user holds. Third-party sites list SolvBTC token addresses, but none came from an official Solv source, so they were not used.",
+  "sources": [
+    "https://github.com/solv-finance/SolvBTC",
+    "https://raw.githubusercontent.com/solv-finance/SolvBTC/main/deployments/mainnet/SolvBTCRouterV2Proxy.json",
+    "https://raw.githubusercontent.com/solv-finance/SolvBTC/main/deployments/mainnet/SolvBTCRouterV2Impl_v2.3.json",
+    "https://raw.githubusercontent.com/solv-finance/SolvBTC/main/deployments/mainnet/SolvBTCMultiAssetPoolProxy.json",
+    "https://raw.githubusercontent.com/solv-finance/SolvBTC/main/deployments/mainnet/SolvBTCMultiAssetPoolImpl.json",
+    "https://raw.githubusercontent.com/solv-finance/SolvBTC/main/deployments/mainnet/SolvBTC_v3.0.json",
+    "https://api.llama.fi/protocol/solvbtc"
+  ],
+  "researchedAt": "2026-11-28"
+}

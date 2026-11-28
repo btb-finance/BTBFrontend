@@ -1,0 +1,149 @@
+{
+  "slug": "arbitrum-bridge",
+  "name": "Arbitrum Bridge",
+  "category": "Canonical Bridge",
+  "description": "The canonical bridge between Ethereum and Arbitrum One. An agent deposits ETH through the Delayed Inbox, deposits ERC-20 tokens through the L1 Gateway Router, withdraws ETH through ArbSys and withdraws ERC-20 tokens through the L2 Gateway Router. Withdrawals are claimed on Ethereum through the Outbox after the 7 day challenge period.",
+  "website": "https://portal.arbitrum.io/bridge",
+  "docs": "https://docs.arbitrum.io/build-decentralized-apps/reference/useful-addresses",
+  "defillama": "https://defillama.com/protocol/arbitrum-bridge",
+  "chains": ["ethereum", "arbitrum"],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x4Dbd4fc535Ac27206064B68FfCf827b0A60BAB3f",
+      "name": "Delayed Inbox (Arbitrum One)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://docs.arbitrum.io/build-decentralized-apps/reference/useful-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositEth()",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit ETH from Ethereum to the same address on Arbitrum One. The ETH sent as msg.value is credited on L2 after the sequencer includes the message. Returns the message number. No approval needed."
+        },
+        {
+          "signature": "createRetryableTicket(address,uint256,uint256,address,address,uint256,uint256,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Send an L2 call with a retryable ticket: (to, l2CallValue, maxSubmissionCost, excessFeeRefundAddress, callValueRefundAddress, gasLimit, maxFeePerGas, data). msg.value must cover l2CallValue plus maxSubmissionCost plus gasLimit times maxFeePerGas. If the L2 leg fails, the ticket can be redeemed on Arbitrum One within 7 days."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x72Ce9c846789fdB6fC1f34aC4AD25Dd9ef7031ef",
+      "name": "L1 Gateway Router (Arbitrum One)",
+      "role": "router",
+      "proxy": null,
+      "source": "https://docs.arbitrum.io/build-decentralized-apps/reference/useful-addresses",
+      "keyFunctions": [
+        {
+          "signature": "outboundTransfer(address,address,uint256,uint256,uint256,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit an ERC-20 to Arbitrum One: (l1Token, to, amount, maxGas, gasPriceBid, data). Approve the L1 ERC20 Gateway (0xa3A7B6F88361F48403514059F1F16C8E78d60EeC) for amount first. msg.value pays the L2 retryable fees. Routes to the gateway registered for the token, so the L2 token address is derived from the L1 token. Amount is in the token's base units."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xa3A7B6F88361F48403514059F1F16C8E78d60EeC",
+      "name": "L1 ERC20 Gateway (Arbitrum One)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://docs.arbitrum.io/build-decentralized-apps/reference/useful-addresses",
+      "keyFunctions": [
+        {
+          "signature": "outboundTransfer(address,address,uint256,uint256,uint256,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit a standard ERC-20 directly through the gateway: (l1Token, to, amount, maxGas, gasPriceBid, data). The gateway pulls the tokens with transferFrom, so approve this address for amount first. Use the L1 Gateway Router when you want the router to pick the gateway."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x0B9857ae2D4A3DBe74ffE1d7DF045bb7F96E4840",
+      "name": "Outbox (Arbitrum One)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://docs.arbitrum.io/build-decentralized-apps/reference/useful-addresses",
+      "keyFunctions": [
+        {
+          "signature": "executeTransaction(bytes32[],uint256,address,address,uint256,uint256,uint256,uint256,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim an L2 to L1 withdrawal on Ethereum: (proof, index, l2Sender, to, l2Block, l1Block, l2Timestamp, value, data). The proof is the Merkle proof for the send, built from the Arbitrum node (NodeInterface constructOutboxProof) or the Arbitrum bridge UI. Only callable after the 7 day challenge period. Each withdrawal can be executed once."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x5288c571Fd7aD117beA99bF60FE0846C4E84F933",
+      "name": "L2 Gateway Router (Arbitrum One)",
+      "role": "router",
+      "proxy": null,
+      "source": "https://docs.arbitrum.io/build-decentralized-apps/reference/useful-addresses",
+      "keyFunctions": [
+        {
+          "signature": "outboundTransfer(address,address,uint256,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Start an ERC-20 withdrawal to Ethereum: (l1Token, to, amount, data). Pass the L1 token address, not the L2 token. The bridged L2 tokens are burned, so no approval is needed. Starts the 7 day challenge period. msg.value is 0 unless the caller needs to pay the L2 to L1 send fee."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x0000000000000000000000000000000000000064",
+      "name": "ArbSys (Arbitrum One precompile)",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.arbitrum.io/build-decentralized-apps/reference/useful-addresses",
+      "keyFunctions": [
+        {
+          "signature": "withdrawEth(address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Withdraw ETH from Arbitrum One to Ethereum: (destination). Send the ETH to withdraw as msg.value. The destination receives ETH on L1 after the 7 day challenge period and an Outbox.executeTransaction claim. Returns the withdrawal id."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    { "name": "deposit ETH", "description": "Bridge ETH from Ethereum to Arbitrum One", "how": "Call Delayed Inbox depositEth() with ETH as msg.value. The ETH is credited on Arbitrum One after the sequencer includes the message." },
+    { "name": "deposit ERC-20", "description": "Bridge an ERC-20 from Ethereum to Arbitrum One", "how": "Approve the L1 ERC20 Gateway for the amount, then call L1 Gateway Router outboundTransfer(l1Token, to, amount, maxGas, gasPriceBid, data) with ETH as msg.value to pay the L2 fees." },
+    { "name": "withdraw ETH", "description": "Withdraw ETH from Arbitrum One to Ethereum", "how": "On Arbitrum One call ArbSys withdrawEth(destination) with ETH as msg.value. After the 7 day challenge period, claim on Ethereum with Outbox executeTransaction and the withdrawal proof." },
+    { "name": "withdraw ERC-20", "description": "Withdraw an ERC-20 from Arbitrum One to Ethereum", "how": "On Arbitrum One call L2 Gateway Router outboundTransfer(l1Token, to, amount, data). After the 7 day challenge period, claim on Ethereum with Outbox executeTransaction and the withdrawal proof." }
+  ],
+  "risks": [
+    "Withdrawals to Ethereum take about 7 days because of the challenge period. The claim is a separate Ethereum transaction that needs a Merkle proof.",
+    "Deposit tickets can fail on L2 (for example when gas is too low). A failed ticket can be redeemed within 7 days.",
+    "Bridged ERC-20 tokens have a different address on Arbitrum One. Look up the L2 address from the gateway before sending.",
+    "Only the addresses listed here come from the official docs. Scam bridge sites copy this name, so check addresses against the official docs."
+  ],
+  "notes": "Arbitrum Nova and other Arbitrum chains use separate bridge deployments; this file covers Arbitrum One only. Robinhood Chain uses the same contract design (see robinhood-chain-bridge). Contract bytecode for the Ethereum addresses was checked with eth_getCode.",
+  "sources": [
+    "https://docs.arbitrum.io/build-decentralized-apps/reference/useful-addresses",
+    "https://docs.arbitrum.io/for-devs/dev-tools-and-resources/chain-info",
+    "https://portal.arbitrum.io/bridge",
+    "https://raw.githubusercontent.com/OffchainLabs/nitro-contracts/main/src/bridge/IInbox.sol",
+    "https://raw.githubusercontent.com/OffchainLabs/nitro-contracts/main/src/bridge/IOutbox.sol",
+    "https://raw.githubusercontent.com/OffchainLabs/token-bridge-contracts/main/contracts/tokenbridge/ethereum/gateway/L1GatewayRouter.sol",
+    "https://raw.githubusercontent.com/OffchainLabs/token-bridge-contracts/main/contracts/tokenbridge/ethereum/gateway/L1ArbitrumGateway.sol",
+    "https://raw.githubusercontent.com/OffchainLabs/token-bridge-contracts/main/contracts/tokenbridge/arbitrum/gateway/L2GatewayRouter.sol",
+    "https://github.com/OffchainLabs/nitro-precompile-interfaces/blob/7e88c8cc53c2e96201a23c638f1536557b9cb68b/ArbSys.sol",
+    "https://defillama.com/protocol/arbitrum-bridge"
+  ],
+  "researchedAt": "2026-11-28"
+}

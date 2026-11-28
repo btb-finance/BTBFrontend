@@ -1,0 +1,55 @@
+{
+  "slug": "polygon-bridge",
+  "name": "Polygon Bridge",
+  "category": "Canonical Bridge",
+  "description": "The canonical PoS bridge between Ethereum and Polygon PoS. An agent deposits ETH from Ethereum through the RootChainManager, which credits WETH on Polygon. An agent can start a withdrawal on Polygon PoS and finish it on Ethereum with RootChainManager exit once the checkpoint is on Ethereum.",
+  "website": "https://polygon.technology",
+  "docs": "https://docs.polygon.technology/pos/",
+  "defillama": "https://defillama.com/protocol/polygon-bridge",
+  "chains": ["ethereum", "polygon"],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xA0c68C638235ee32657e8f720a23ceC1bFc77C77",
+      "name": "RootChainManagerProxy (Polygon PoS)",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://github.com/maticnetwork/static/blob/master/network/mainnet/v1/index.json",
+      "keyFunctions": [
+        {
+          "signature": "depositEtherFor(address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit ETH (msg.value) from Ethereum. The argument is the user who receives the funds on Polygon PoS. The ETH arrives on Polygon as WETH (MaticWETH). No approval needed."
+        },
+        {
+          "signature": "exit(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Finish a withdrawal on Ethereum: the argument is the ABI encoded exit payload built from the burn transaction on Polygon PoS (block, receipt and proofs). Only works once the checkpoint that contains the burn is on Ethereum. Reverts if the exit was already processed."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    { "name": "deposit ETH", "description": "Bridge ETH from Ethereum to Polygon PoS as WETH", "how": "Call RootChainManagerProxy depositEtherFor(user) with ETH as msg.value. The user receives MaticWETH on Polygon PoS." },
+    { "name": "withdraw", "description": "Withdraw from Polygon PoS to Ethereum", "how": "Burn the token on Polygon PoS. When the checkpoint containing the burn is on Ethereum, build the exit payload from the burn transaction and call RootChainManagerProxy exit(payload) on Ethereum." }
+  ],
+  "risks": [
+    "Withdrawals are not instant. They need the checkpoint on Ethereum and an exit transaction on Ethereum with a proof.",
+    "ETH deposits arrive on Polygon PoS as WETH, not as the native token.",
+    "Exit payloads must be built from the burn transaction. A payload built from the wrong log or block reverts."
+  ],
+  "notes": "This entry covers the Ethereum side of the Polygon PoS bridge and the ETH deposit path. ERC-20 deposits use the ERC20 predicate through depositFor, which is not listed here because its data encoding was not confirmed from the official source. The Polygon PoS child contract for withdrawals is also not listed for the same reason. Contract bytecode for the Ethereum address was checked with eth_getCode. Polygon PoS is chain 137.",
+  "sources": [
+    "https://github.com/maticnetwork/static/blob/master/network/mainnet/v1/index.json",
+    "https://raw.githubusercontent.com/maticnetwork/pos-portal/master/contracts/root/RootChainManager/RootChainManager.sol",
+    "https://docs.polygon.technology/pos/",
+    "https://defillama.com/protocol/polygon-bridge"
+  ],
+  "researchedAt": "2026-11-28"
+}

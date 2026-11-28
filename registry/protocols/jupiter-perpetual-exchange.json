@@ -1,0 +1,70 @@
+{
+  "slug": "jupiter-perpetual-exchange",
+  "name": "Jupiter Perpetual Exchange",
+  "category": "Derivatives",
+  "description": "Jupiter's perpetuals exchange on Solana. Traders open leveraged long and short positions against the JLP pool, which holds the liquidity. The on-chain Perpetuals program and the single JLP pool account are documented by Jupiter.",
+  "website": "https://jup.ag",
+  "docs": "https://developers.jup.ag/docs/perps",
+  "defillama": "https://defillama.com/protocol/jupiter-perpetual-exchange",
+  "chains": [
+    "solana"
+  ],
+  "vm": "solana",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
+      "name": "Jupiter Perpetuals program",
+      "role": "exchange",
+      "proxy": null,
+      "source": "https://developers.jup.ag/docs/perps/pool-account",
+      "keyFunctions": []
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq",
+      "name": "JLP pool account",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://developers.jup.ag/docs/perps/pool-account",
+      "keyFunctions": [
+        {
+          "signature": "Pool account (getAccountInfo, owner PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu)",
+          "kind": "read",
+          "payable": false,
+          "description": "The single JLP pool account that holds the liquidity for all perp markets. Read it with getAccountInfo and decode it with the Pool account layout in the Jupiter docs (developers.jup.ag/docs/perps/pool-account)."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "read-pool",
+      "description": "Read the JLP pool state",
+      "how": "getAccountInfo on 5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq, then decode with the Pool account layout"
+    }
+  ],
+  "risks": [
+    "Leverage: positions are liquidated when collateral falls below the maintenance margin. Losses can exceed the collateral you expect at low leverage during fast moves.",
+    "Counterparty: the JLP pool takes the other side of trader positions, so JLP holders carry trader profit and loss.",
+    "Oracle risk: position values and liquidations depend on oracle prices.",
+    "Jupiter describes its Perps API as a work in progress. Position and order instructions are not documented as a stable public interface, so do not build production trading on unofficial IDLs without checking them.",
+    "The program is upgradeable by Jupiter."
+  ],
+  "notes": "The Perpetuals program id PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu appears in an official Jupiter docs page, in the Solscan IDL link on the pool-account page. It is confirmed executable on mainnet. The JLP pool account 5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq is confirmed owned by the program on mainnet. The JLP mint address is left out because no official Jupiter page stated it in this research. Instruction names (open, close, increase and decrease position requests) were not confirmed from an official source, so keyFunctions is empty. The official source repository for the program (jup-ag/perpetuals) was not reachable during research. The Solscan IDL link is the only official pointer found; Jupiter's Perps docs say the API is a work in progress.",
+  "sources": [
+    "https://api.llama.fi/protocol/jupiter-perpetual-exchange",
+    "https://developers.jup.ag/docs/perps",
+    "https://developers.jup.ag/docs/perps/index",
+    "https://developers.jup.ag/docs/perps/pool-account",
+    "https://developers.jup.ag/docs/perps/custody-account",
+    "https://developers.jup.ag/docs/perps/position-account",
+    "https://developers.jup.ag/docs/perp-api",
+    "https://api.mainnet-beta.solana.com"
+  ],
+  "researchedAt": "2026-11-28"
+}

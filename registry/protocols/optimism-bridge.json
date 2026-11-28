@@ -1,0 +1,142 @@
+{
+  "slug": "optimism-bridge",
+  "name": "Optimism Bridge",
+  "category": "Canonical Bridge",
+  "description": "The canonical bridge between Ethereum and OP Mainnet. An agent deposits ETH and ERC-20 tokens to OP Mainnet through the L1 Standard Bridge, and withdraws ETH and ERC-20 tokens from OP Mainnet through the L2 Standard Bridge. Withdrawals are proven and finalized on Ethereum through the Optimism Portal after the challenge period.",
+  "website": "https://optimism.io",
+  "docs": "https://docs.optimism.io",
+  "defillama": "https://defillama.com/protocol/optimism-bridge",
+  "chains": ["ethereum", "optimism"],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x99C9fc46f92E8a1c0deC1b1747d010903E884bE1",
+      "name": "L1StandardBridgeProxy (OP Mainnet)",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://raw.githubusercontent.com/ethereum-optimism/superchain-registry/main/superchain/extra/addresses/addresses.json",
+      "keyFunctions": [
+        {
+          "signature": "bridgeETH(uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit ETH (msg.value) from Ethereum to the caller's address on OP Mainnet: (minGasLimit, extraData). minGasLimit is the gas for the L2 side. extraData is optional bytes, empty is fine."
+        },
+        {
+          "signature": "bridgeETHTo(address,uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit ETH (msg.value) from Ethereum to another address on OP Mainnet: (to, minGasLimit, extraData)."
+        },
+        {
+          "signature": "bridgeERC20(address,address,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit an ERC-20 from Ethereum to the caller on OP Mainnet: (localToken, remoteToken, amount, minGasLimit, extraData). localToken is the L1 token, remoteToken is the mapped L2 token. Approve this bridge for amount first. Amount is in base units."
+        },
+        {
+          "signature": "bridgeERC20To(address,address,address,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit an ERC-20 from Ethereum to another address on OP Mainnet: (localToken, remoteToken, to, amount, minGasLimit, extraData). Same approval and token mapping rules as bridgeERC20."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xbEb5Fc579115071764c7423A4f12eDde41f106Ed",
+      "name": "OptimismPortalProxy (OP Mainnet)",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://raw.githubusercontent.com/ethereum-optimism/superchain-registry/main/superchain/extra/addresses/addresses.json",
+      "keyFunctions": [
+        {
+          "signature": "depositTransaction(address,uint256,uint64,bool,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Low level deposit of ETH and an L2 call: (to, value, gasLimit, isCreation, data). The standard bridge calls this internally. Prefer L1StandardBridgeProxy unless you need a raw L2 call. Set isCreation to false for a normal call."
+        },
+        {
+          "signature": "finalizeWithdrawalTransaction((uint256,address,address,uint256,uint256,bytes))",
+          "kind": "write",
+          "payable": false,
+          "description": "Finalize an OP Mainnet withdrawal on Ethereum: a tuple of (nonce, sender, target, value, gasLimit, data). The withdrawal must have been proven on this portal first and the challenge period must have passed. Sends the ETH or tokens to the target."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x4200000000000000000000000000000000000010",
+      "name": "L2StandardBridge (OP Mainnet predeploy)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://specs.optimism.io/protocol/predeploys.html",
+      "keyFunctions": [
+        {
+          "signature": "bridgeETH(uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Withdraw ETH (msg.value) from OP Mainnet to the caller's address on Ethereum: (minGasLimit, extraData). Starts the withdrawal. It is finished on Ethereum after proving and the challenge period (see OptimismPortal finalizeWithdrawalTransaction)."
+        },
+        {
+          "signature": "withdraw(address,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Withdraw an ERC-20 from OP Mainnet to the caller on Ethereum: (l2Token, amount, minGasLimit, extraData). Pass the L2 token address. Bridged tokens are burned, so no approval is needed for them. Finished on Ethereum after the challenge period."
+        },
+        {
+          "signature": "withdrawTo(address,address,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Withdraw an ERC-20 from OP Mainnet to another address on Ethereum: (l2Token, to, amount, minGasLimit, extraData). Same rules as withdraw."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x4200000000000000000000000000000000000016",
+      "name": "L2ToL1MessagePasser (OP Mainnet predeploy)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://specs.optimism.io/protocol/predeploys.html",
+      "keyFunctions": [
+        {
+          "signature": "initiateWithdrawal(address,uint256,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Start a raw withdrawal message to Ethereum: (target, gasLimit, data). msg.value is sent to the target on L1. The standard bridge uses this internally. The withdrawal is finished on Ethereum through OptimismPortal finalizeWithdrawalTransaction after the challenge period."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    { "name": "deposit ETH", "description": "Bridge ETH from Ethereum to OP Mainnet", "how": "Call L1StandardBridgeProxy bridgeETH(minGasLimit, extraData) with ETH as msg.value, or bridgeETHTo(to, minGasLimit, extraData) for another recipient." },
+    { "name": "deposit ERC-20", "description": "Bridge an ERC-20 from Ethereum to OP Mainnet", "how": "Approve L1StandardBridgeProxy for the amount, then call bridgeERC20(l1Token, l2Token, amount, minGasLimit, extraData)." },
+    { "name": "withdraw ETH", "description": "Withdraw ETH from OP Mainnet to Ethereum", "how": "On OP Mainnet call L2StandardBridge bridgeETH(minGasLimit, extraData) with ETH as msg.value. On Ethereum, prove the withdrawal on OptimismPortal, wait out the challenge period, then call finalizeWithdrawalTransaction." },
+    { "name": "withdraw ERC-20", "description": "Withdraw an ERC-20 from OP Mainnet to Ethereum", "how": "On OP Mainnet call L2StandardBridge withdraw(l2Token, amount, minGasLimit, extraData). Then prove and finalize on Ethereum through OptimismPortal after the challenge period." }
+  ],
+  "risks": [
+    "Withdrawals to Ethereum need a prove step and a finalize step on OptimismPortal, and they only finish after the challenge period (7 days).",
+    "The prove step and the finalize step are separate Ethereum transactions. Each costs L1 gas.",
+    "Only the addresses listed here come from the official superchain registry. Check them there before large transfers."
+  ],
+  "notes": "DefiLlama lists this bridge with Base and PGN chains. This file covers the OP Mainnet bridge only. Base has its own entry (base-bridge). The L2 predeploys are the same address on every OP Stack chain. Contract bytecode for the Ethereum addresses was checked with eth_getCode.",
+  "sources": [
+    "https://raw.githubusercontent.com/ethereum-optimism/superchain-registry/main/superchain/extra/addresses/addresses.json",
+    "https://specs.optimism.io/protocol/predeploys.html",
+    "https://raw.githubusercontent.com/ethereum-optimism/optimism/develop/packages/contracts-bedrock/src/universal/StandardBridge.sol",
+    "https://raw.githubusercontent.com/ethereum-optimism/optimism/develop/packages/contracts-bedrock/src/L1/OptimismPortal2.sol",
+    "https://raw.githubusercontent.com/ethereum-optimism/optimism/develop/packages/contracts-bedrock/src/L2/L2StandardBridge.sol",
+    "https://raw.githubusercontent.com/ethereum-optimism/optimism/develop/packages/contracts-bedrock/src/L2/L2ToL1MessagePasser.sol",
+    "https://raw.githubusercontent.com/ethereum-optimism/optimism/develop/packages/contracts-bedrock/src/libraries/Types.sol",
+    "https://defillama.com/protocol/optimism-bridge"
+  ],
+  "researchedAt": "2026-11-28"
+}

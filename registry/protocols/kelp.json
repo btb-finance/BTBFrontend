@@ -1,0 +1,299 @@
+{
+  "slug": "kelp",
+  "name": "Kelp DAO",
+  "category": "Liquid Restaking",
+  "description": "Liquid restaking on Ethereum. Deposit ETH or supported LSTs into LRTDepositPool to mint rsETH, check the rsETH price on LRTOracle, and withdraw through LRTWithdrawalManager. rsETH is also bridged to several L2s.",
+  "website": "https://kerneldao.com/kelp/restake/",
+  "docs": "https://kelp.gitbook.io/kelp",
+  "defillama": "https://defillama.com/protocol/kelp",
+  "chains": [
+    "ethereum"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xA1290d69c65A6Fe4DF752f95823fae25cB99e5A7",
+      "name": "RSETH (rsETH)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://github.com/Kelp-DAO/LRT-rsETH",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "rsETH balance of an account (18 decimals)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total rsETH in existence."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer rsETH. Blocked for addresses under a transfer hold (see risks)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender for rsETH, for example a DEX router or a lending market."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer rsETH using an allowance."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the rsETH token is paused."
+        },
+        {
+          "signature": "maxMintAmountPerDay()",
+          "kind": "read",
+          "payable": false,
+          "description": "Daily cap on rsETH minting (18 decimals)."
+        },
+        {
+          "signature": "remainingDailyMintLimit()",
+          "kind": "read",
+          "payable": false,
+          "description": "rsETH that can still be minted today under the daily cap."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x036676389e48133B63a802f8635AD39E752D375D",
+      "name": "LRTDepositPool",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://github.com/Kelp-DAO/LRT-rsETH",
+      "keyFunctions": [
+        {
+          "signature": "depositETH(uint256,string)",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit ETH (msg.value) and mint rsETH to msg.sender. Argument 1: minimum rsETH expected, reverts below it (slippage guard). Argument 2: referral ID string (empty if none)."
+        },
+        {
+          "signature": "depositAsset(address,uint256,uint256,string)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit a supported ERC-20 asset and mint rsETH. Arguments: asset address, amount, minimum rsETH expected, referral ID. Approve the asset to the deposit pool first."
+        },
+        {
+          "signature": "getRsETHAmountToMint(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview: rsETH minted for an asset amount at the current rsETH price."
+        },
+        {
+          "signature": "getAssetCurrentLimit(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Deposit room left for an asset under its current cap."
+        },
+        {
+          "signature": "getTotalAssetDeposits(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Total deposits of an asset held by the protocol."
+        },
+        {
+          "signature": "minAmountToDeposit()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum deposit amount in wei."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if deposits are paused."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x349A73444b1a310BAe67ef67973022020d70020d",
+      "name": "LRTOracle",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/Kelp-DAO/LRT-rsETH",
+      "keyFunctions": [
+        {
+          "signature": "rsETHPrice()",
+          "kind": "read",
+          "payable": false,
+          "description": "Price of 1 rsETH in ETH (18 decimals). Use this as the rsETH to ETH rate."
+        },
+        {
+          "signature": "getAssetPrice(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Price of one unit of an asset in ETH (18 decimals), from its price oracle."
+        },
+        {
+          "signature": "highestRsethPrice()",
+          "kind": "read",
+          "payable": false,
+          "description": "Highest rsETH price recorded so far."
+        },
+        {
+          "signature": "pricePercentageLimit()",
+          "kind": "read",
+          "payable": false,
+          "description": "Maximum allowed price move per update before the protocol pauses."
+        },
+        {
+          "signature": "updateRSETHPrice()",
+          "kind": "write",
+          "payable": false,
+          "description": "Recalculate the rsETH price from total assets and supply. Permissionless, but a move outside the bounds pauses the protocol for review."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x947Cb49334e6571ccBFEF1f1f1178d8469D65ec7",
+      "name": "LRTConfig",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/Kelp-DAO/LRT-rsETH",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x62De59c08eB5dAE4b7E6F7a8cAd3006d6965ec16",
+      "name": "LRTWithdrawalManager",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://github.com/Kelp-DAO/LRT-rsETH",
+      "keyFunctions": [
+        {
+          "signature": "initiateWithdrawal(address,uint256,string)",
+          "kind": "write",
+          "payable": false,
+          "description": "Start a withdrawal of rsETH into an asset (ETH or a supported ERC-20). Arguments: asset address, rsETH amount, referral ID. Approve rsETH to this contract first. The request completes after the withdrawal delay."
+        },
+        {
+          "signature": "completeWithdrawal(address,string)",
+          "kind": "write",
+          "payable": false,
+          "description": "Complete a matured withdrawal request for an asset. Arguments: asset address, referral ID. Reverts until withdrawalDelayBlocks have passed and the funds are unlocked."
+        },
+        {
+          "signature": "instantWithdrawal(address,uint256,string)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw rsETH into an asset immediately, when instant withdrawals are enabled for that asset. Arguments: asset, rsETH amount, referral ID. A fee applies (instantWithdrawalFee)."
+        },
+        {
+          "signature": "getExpectedAssetAmount(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Preview: asset amount returned for an rsETH amount at the current price."
+        },
+        {
+          "signature": "getUserWithdrawalRequest(address,address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Read one withdrawal request: arguments are asset, user and index. Returns the request fields (4 values)."
+        },
+        {
+          "signature": "withdrawalDelayBlocks()",
+          "kind": "read",
+          "payable": false,
+          "description": "Blocks that must pass between initiating and completing a withdrawal."
+        },
+        {
+          "signature": "instantWithdrawalFee()",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee charged on an instant withdrawal (uint256, check the units in the contract)."
+        },
+        {
+          "signature": "isInstantWithdrawalEnabled(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if instant withdrawals are enabled for an asset."
+        },
+        {
+          "signature": "minRsEthAmountToWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum rsETH amount for a withdrawal of this asset."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if withdrawals are paused."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "deposit ETH for rsETH",
+      "description": "Mint rsETH from ETH",
+      "how": "check LRTOracle.rsETHPrice() and LRTDepositPool.minAmountToDeposit(); call LRTDepositPool.depositETH(minRsETHOut, referralId) with ETH value"
+    },
+    {
+      "name": "deposit asset for rsETH",
+      "description": "Mint rsETH from a supported LST",
+      "how": "approve the asset to LRTDepositPool; call depositAsset(asset, amount, minRsETHOut, referralId). Preview with getRsETHAmountToMint"
+    },
+    {
+      "name": "withdraw rsETH",
+      "description": "Start a queued withdrawal",
+      "how": "approve rsETH to LRTWithdrawalManager; initiateWithdrawal(asset, amount, referralId); after the delay, completeWithdrawal(asset, referralId)"
+    },
+    {
+      "name": "instant withdraw",
+      "description": "Withdraw without the delay when enabled",
+      "how": "check isInstantWithdrawalEnabled(asset) and instantWithdrawalFee(); call instantWithdrawal(asset, amount, referralId)"
+    },
+    {
+      "name": "value rsETH",
+      "description": "Get the ETH value of rsETH",
+      "how": "LRTOracle.rsETHPrice() * amount / 1e18"
+    }
+  ],
+  "risks": [
+    "Withdrawals are delayed. initiateWithdrawal starts a wait of withdrawalDelayBlocks before completeWithdrawal, and instant withdrawals cost a fee.",
+    "The team can hold and sweep rsETH in an address (per-address transfer hold, added January 2026). Partner protocols are exempt. A held address cannot send rsETH.",
+    "Minting is capped per day (maxMintAmountPerDay). Deposits can be refused when the cap is used up.",
+    "A large rsETH price move pauses the protocol automatically so the team can review. Deposits and withdrawals can stop during that time.",
+    "Core contracts are upgradeable behind proxies. Ethereum core upgrades go through a 10-day timelock (per the Kelp upgrades page).",
+    "Yield comes from restaked assets run by node operators and strategies. Slashing or strategy losses reduce the rsETH backing."
+  ],
+  "notes": "Ethereum mainnet core contracts from the Kelp-DAO/LRT-rsETH README (Deployed Contracts, ETH Mainnet section). Kelp also lists bridged rsETH token addresses on Arbitrum, Optimism, Base, Linea, Scroll, Zircuit, Mantle, Blast and other chains, plus L1Vault and node delegator contracts. Those are in the README and are not included here. The rsETH token and the core contracts are proxies (EIP-1967 slot checked on chain).",
+  "sources": [
+    "https://github.com/Kelp-DAO/LRT-rsETH",
+    "https://raw.githubusercontent.com/Kelp-DAO/LRT-rsETH/main/README.md",
+    "https://kelp.gitbook.io/kelp",
+    "https://kerneldao.gitbook.io/kernel/getting-started/kelp/smart-contracts/upgrades",
+    "https://api.llama.fi/protocol/kelp",
+    "https://sourcify.dev/server/v2/contract/1/0x7159107483e623707c18c6e06cbc095bd0717783",
+    "https://sourcify.dev/server/v2/contract/1/0xea38dfa108318288f36f13d06e821a64acda8320",
+    "https://sourcify.dev/server/v2/contract/1/0xc59110239240761ccd3e670288443316e10dd271",
+    "https://sourcify.dev/server/v2/contract/1/0x0ecde3f414d1a245246d121e37191d9a63684e19"
+  ],
+  "researchedAt": "2026-11-28"
+}

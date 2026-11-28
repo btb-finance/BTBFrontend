@@ -1,0 +1,81 @@
+{
+  "slug": "lista-liquid-staking",
+  "name": "Lista Liquid Staking (slisBNB)",
+  "category": "Liquid Staking",
+  "description": "Lista DAO's liquid staking for BNB on BNB Chain. Stake BNB to receive slisBNB, a yield-bearing ERC-20 token that appreciates against BNB as staking rewards accrue. An agent can hold, transfer and read slisBNB on-chain. Staking and unstaking go through Lista's app and staking contracts.",
+  "website": "https://lista.org",
+  "docs": "https://docs.bsc.lista.org",
+  "defillama": "https://defillama.com/protocol/lista-liquid-staking",
+  "chains": ["bsc"],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xB0b84D294e0C75A6abe60171b70edEb2EFd14A1B",
+      "name": "slisBNB token",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.bsc.lista.org/user-guide/liquid-staking-slisbnb/mint-slisbnb",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "slisBNB balance of an address. The balance rises as rewards accrue."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer slisBNB (standard ERC-20)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender to move slisBNB, for example a DEX or a lending market."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Remaining slisBNB a spender may move for an owner."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total slisBNB in circulation."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "stake",
+      "description": "Stake BNB for slisBNB",
+      "how": "Enter the BNB amount in Lista's staking app and confirm. The staking contract address is not listed here because no official page read gave it."
+    },
+    {
+      "name": "hold-slisbnb",
+      "description": "Hold and transfer slisBNB",
+      "how": "ERC-20 transfer or approve on the slisBNB token 0xB0b84D294e0C75A6abe60171b70edEb2EFd14A1B on BNB Chain"
+    }
+  ],
+  "risks": [
+    "The withdrawal period and any unstake fee are not stated on the official pages read. Check Lista's current docs before quoting a figure or relying on a fast exit.",
+    "slisBNB is a yield-bearing token, so its value against BNB rises over time. Use the on-chain rate for accounting, not the DEX price.",
+    "Lista's staking and token contracts are controlled by Lista DAO governance and can be upgraded."
+  ],
+  "notes": "Only the slisBNB token is listed. Address confirmed by Lista's own mint guide and on-chain (bytecode present on BNB Chain). 0x4b30fcAA7945fE9fDEFD2895aae539ba102Ed6F6 is clisBNB, a different token, and must not be used as slisBNB. Lista's governance docs list the LISTA token and lending or vault contracts but no slisBNB staking manager, so the staking entry contract is left out.",
+  "sources": [
+    "https://docs.bsc.lista.org/user-guide/liquid-staking-slisbnb/mint-slisbnb",
+    "https://docs.bsc.lista.org/for-developer/lista-governance/smart-contract",
+    "https://api.llama.fi/protocol/lista-liquid-staking",
+    "https://bsc-rpc.publicnode.com"
+  ],
+  "researchedAt": "2026-11-28"
+}

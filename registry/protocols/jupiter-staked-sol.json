@@ -1,0 +1,86 @@
+{
+  "slug": "jupiter-staked-sol",
+  "name": "Jupiter Staked SOL",
+  "category": "Liquid Staking",
+  "description": "Jupiter's liquid staking token for SOL on Solana, built on Sanctum's SPL stake pool design. JupSOL is a standard SPL token that appreciates against SOL as rewards accrue. An agent can hold, transfer and read the supply of JupSOL on-chain, and can buy or sell it through Jupiter swaps.",
+  "website": "https://jup.ag",
+  "docs": "https://docs.jup.ag/user-docs/earn/stake-sol/jupsol",
+  "defillama": "https://defillama.com/protocol/jupiter-staked-sol",
+  "chains": ["solana"],
+  "vm": "solana",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "jupSoLaHXQiZZTSfEWMTRRgpnyFm8f6sZdosWBjx93v",
+      "name": "JupSOL token mint",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.jup.ag/user-docs/earn/stake-sol/jupsol",
+      "keyFunctions": [
+        {
+          "signature": "transfer(amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Standard SPL Token transfer of JupSOL between two token accounts (Tokenkeg program)."
+        },
+        {
+          "signature": "transferChecked(amount: u64, decimals: u8)",
+          "kind": "write",
+          "payable": false,
+          "description": "SPL Token transfer that checks the decimals against the mint. Read the decimals from the mint account first."
+        },
+        {
+          "signature": "approve(amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Delegate an amount of JupSOL to a spender token account."
+        },
+        {
+          "signature": "burn(amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn JupSOL from a token account owned by the signer."
+        },
+        {
+          "signature": "getTokenSupply(mint)",
+          "kind": "read",
+          "payable": false,
+          "description": "Total JupSOL supply and decimals from the mint account."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "hold-jupsol",
+      "description": "Hold and transfer JupSOL",
+      "how": "SPL Token transfer or transferChecked of mint jupSoLaHXQiZZTSfEWMTRRgpnyFm8f6sZdosWBjx93v between token accounts"
+    },
+    {
+      "name": "swap-to-jupsol",
+      "description": "Buy JupSOL with SOL",
+      "how": "Swap SOL for JupSOL through Jupiter swaps; the price depends on the pool rate and route liquidity. Direct staking through the Jupiter Stake interface is also documented, but its pool account is not listed here."
+    },
+    {
+      "name": "read-supply",
+      "description": "Read total JupSOL supply",
+      "how": "getTokenSupply on mint jupSoLaHXQiZZTSfEWMTRRgpnyFm8f6sZdosWBjx93v"
+    }
+  ],
+  "risks": [
+    "Fees per Jupiter's docs: 0% SOL deposit fee, 0.1% withdrawal fee on SOL or stake withdrawals and on swaps that unwrap JupSOL, 0% management fee, 5% validator commission on inflation rewards (0% on MEV), and a Sanctum epoch fee of 5% on base staking rewards split between Sanctum and the Jupiter DAO treasury. Some third-party sites list a different deposit fee.",
+    "Delayed unstake to a native stake account carries a 0.1% unstake fee and takes time to complete. Instant exits go through swaps and can cost price impact.",
+    "Day-to-day management of the pool is done by Sanctum, and the pool is built on the SPL stake pool program. Changes to the program or its authorities can affect the pool.",
+    "Swap prices on DEXs can differ from the pool rate. Use the pool rate for accounting."
+  ],
+  "notes": "Only the JupSOL mint is listed. Mint verified on mainnet: owned by the SPL Token program (TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA). Jupiter's docs also name a program address SPMBzsVUuoHA4Jm6KunbsotaahvVikZs1JyTW6iJvbn and label it a multisig, but on-chain it is an upgradeable BPF program. Its role is unclear, so it is left out. The JupSOL pool account is not on any official page read, so it is left out too.",
+  "sources": [
+    "https://docs.jup.ag/user-docs/earn/stake-sol/jupsol",
+    "https://api.llama.fi/protocol/jupiter-staked-sol",
+    "https://api.mainnet-beta.solana.com"
+  ],
+  "researchedAt": "2026-11-28"
+}

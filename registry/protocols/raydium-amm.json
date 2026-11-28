@@ -1,0 +1,164 @@
+{
+  "slug": "raydium-amm",
+  "name": "Raydium AMM",
+  "category": "DEX",
+  "description": "Raydium's original AMM (v4) on Solana, the constant-product pools that Raydium runs with the OpenBook order book. An agent can swap through a pool, add liquidity, and remove liquidity. Raydium's REST API lists pools, mints and prices.",
+  "website": "https://raydium.io",
+  "docs": "https://docs.raydium.io",
+  "defillama": "https://defillama.com/protocol/raydium-amm",
+  "chains": [
+    "solana"
+  ],
+  "vm": "solana",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",
+      "name": "Raydium AMM v4 program",
+      "role": "exchange",
+      "proxy": null,
+      "source": "https://github.com/raydium-io/raydium-amm",
+      "keyFunctions": [
+        {
+          "signature": "SwapBaseInV2(amount_in: u64, minimum_amount_out: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap an exact amount of the input token for at least minimum_amount_out of the output token. Uses the AMM only (order book disabled). Amounts are in token base units."
+        },
+        {
+          "signature": "SwapBaseOutV2(max_amount_in: u64, amount_out: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Receive an exact amount_out of the output token, spending at most max_amount_in of the input token. AMM only."
+        },
+        {
+          "signature": "SwapBaseIn(amount_in: u64, minimum_amount_out: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Original exact-input swap, which can also match the OpenBook order book. Prefer the V2 variant for new integrations."
+        },
+        {
+          "signature": "SwapBaseOut(max_amount_in: u64, amount_out: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Original exact-output swap, which can also use the order book. Prefer the V2 variant."
+        },
+        {
+          "signature": "Deposit(max_coin_amount: u64, max_pc_amount: u64, base_side: u64, other_amount_min: Option<u64>)",
+          "kind": "write",
+          "payable": false,
+          "description": "Add liquidity to a pool. Deposits at the current pool ratio, up to max_coin_amount of the coin token and max_pc_amount of the PC token. base_side selects which side the ratio is taken from. Receives LP tokens."
+        },
+        {
+          "signature": "Withdraw(amount: u64, min_coin_amount: Option<u64>, min_pc_amount: Option<u64>)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn amount LP tokens and receive pool tokens at the current ratio, failing if below the optional minimums."
+        },
+        {
+          "signature": "Initialize2(nonce: u8, open_time: u64, init_pc_amount: u64, init_coin_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create a new AMM pool for a market, with the initial PC and coin amounts that set the starting price. Pool creation fee applies."
+        },
+        {
+          "signature": "SetParams(param: u8, value: Option<u64>, fees: Option<Fees>)",
+          "kind": "write",
+          "payable": false,
+          "description": "Admin only: change pool parameters or fees."
+        },
+        {
+          "signature": "UpdateConfigAccount(config_args: ConfigArgs)",
+          "kind": "write",
+          "payable": false,
+          "description": "Admin only: update the AMM config account (for example the owner or the pool creation fee)."
+        },
+        {
+          "signature": "WithdrawPnl()",
+          "kind": "write",
+          "payable": false,
+          "description": "Admin only: withdraw accumulated profit from the pool to the protocol."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Raydium API V3: main info",
+      "url": "https://api-v3.raydium.io/main/info",
+      "auth": "none",
+      "use": "GET main statistics for the Raydium venues.",
+      "source": "https://docs.raydium.io/api-reference/api-v3/overview"
+    },
+    {
+      "name": "Raydium API V3: pools by id",
+      "url": "https://api-v3.raydium.io/pools/info/ids",
+      "auth": "none",
+      "use": "GET pool info (mints, vaults, LP mint, fees, price, TVL) for one or more pool ids. Cached about 60 seconds. Use it to resolve the pool before building a swap or liquidity transaction.",
+      "source": "https://docs.raydium.io/api-reference/api-v3/overview"
+    },
+    {
+      "name": "Raydium API V3: pools by mint",
+      "url": "https://api-v3.raydium.io/pools/info/mint",
+      "auth": "none",
+      "use": "GET pools that contain a mint, or a mint pair. pageSize is capped at 1000. Use it to find the pool for a token pair.",
+      "source": "https://docs.raydium.io/api-reference/api-v3/overview"
+    },
+    {
+      "name": "Raydium API V3: list pools (cursor paging)",
+      "url": "https://api-v3.raydium.io/pools/info/list-v2",
+      "auth": "none",
+      "use": "GET a paged list of pools with nextPageId cursor. size is capped at 1000.",
+      "source": "https://docs.raydium.io/api-reference/api-v3/overview"
+    },
+    {
+      "name": "Raydium API V3: token prices",
+      "url": "https://api-v3.raydium.io/mint/price",
+      "auth": "none",
+      "use": "GET the price for one or more mints.",
+      "source": "https://docs.raydium.io/api-reference/api-v3/overview"
+    }
+  ],
+  "actions": [
+    {
+      "name": "swap",
+      "description": "Swap one token for another in a Raydium AMM v4 pool",
+      "how": "GET the pool from /pools/info/mint (or /pools/info/ids), build SwapBaseInV2(amount_in, minimum_amount_out) with the pool's accounts (amm, vaults, authority, user token accounts), sign and send. Compute minimum_amount_out from the pool reserves and your slippage."
+    },
+    {
+      "name": "add-liquidity",
+      "description": "Deposit two tokens into a pool and receive LP tokens",
+      "how": "Deposit(max_coin_amount, max_pc_amount, base_side, other_amount_min) at the current ratio; check the pool's LP mint and ratio first"
+    },
+    {
+      "name": "remove-liquidity",
+      "description": "Burn LP tokens for the two underlying tokens",
+      "how": "Withdraw(amount, min_coin_amount, min_pc_amount)"
+    },
+    {
+      "name": "create-pool",
+      "description": "Create a new AMM v4 pool for a market",
+      "how": "Initialize2 with the market id and the starting amounts. The pool needs an existing OpenBook market and a pool creation fee."
+    }
+  ],
+  "risks": [
+    "Constant-product pools lose value to arbitrage when prices move, which is impermanent loss for liquidity providers.",
+    "Low-liquidity pools have high price impact. Set minimum_amount_out on every swap.",
+    "Anyone can create a pool for any token pair, including fake or scam tokens. Check the mint before swapping or providing liquidity.",
+    "AMM v4 is the older Raydium program. Newer Raydium pool types (CPMM, CLMM) are separate programs and are not covered here.",
+    "The program is upgradeable by its maintainers. Admin instructions are not for ordinary users."
+  ],
+  "notes": "Mainnet program id 675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8 is listed on the official raydium-amm README under Program Deployments (devnet id DRaya7Kj3aMWQSy19kSjvmuwq9docCHofyP9kanQGaav is left out). Instruction names come from the AmmInstruction enum in program/src/instruction.rs of the official repository. Individual pool, market and authority addresses are not included; get them from the API. Raydium's Swap transaction API and other products are not covered here.",
+  "sources": [
+    "https://api.llama.fi/protocol/raydium-amm",
+    "https://github.com/raydium-io/raydium-amm",
+    "https://raw.githubusercontent.com/raydium-io/raydium-amm/master/program/src/lib.rs",
+    "https://raw.githubusercontent.com/raydium-io/raydium-amm/master/program/src/instruction.rs",
+    "https://docs.raydium.io/api-reference/api-v3/overview",
+    "https://docs.raydium.io",
+    "https://api.mainnet-beta.solana.com"
+  ],
+  "researchedAt": "2026-11-28"
+}

@@ -1,0 +1,66 @@
+{
+  "slug": "aave-horizon-rwa",
+  "name": "Aave Horizon RWA",
+  "category": "Lending",
+  "description": "Aave Horizon is a separate Aave market on Ethereum for institutions and other qualified users. They supply stablecoins and borrow stablecoins against tokenized real-world assets. Agents call the Horizon Pool with the same Aave V3 interface, and read market data through the AaveKit API.",
+  "website": "https://aave.com",
+  "docs": "https://aave.com/docs/aave-v3/horizon",
+  "defillama": "https://defillama.com/protocol/aave-horizon-rwa",
+  "chains": ["ethereum"],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xAe05Cd22df81871bc7cC2a04BeCfb516bFe332C8",
+      "name": "Aave Horizon Pool",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://aave.com/docs/aave-v3/horizon",
+      "keyFunctions": [
+        { "signature": "supply(address,uint256,address,uint16)", "kind": "write", "payable": false, "description": "Supply a reserve asset: (asset, amount, onBehalfOf, referralCode=0). Approve the Pool first. Mints aTokens to onBehalfOf. Access is permissioned, so the caller must be an approved address." },
+        { "signature": "withdraw(address,uint256,address)", "kind": "write", "payable": false, "description": "Withdraw a supplied asset: (asset, amount, to). Burns aTokens. type(uint256).max withdraws the whole balance. Reverts if it would push the health factor below 1 or if the reserve lacks liquidity." },
+        { "signature": "borrow(address,uint256,uint256,uint16,address)", "kind": "write", "payable": false, "description": "Borrow a stablecoin against collateral: (asset, amount, interestRateMode, referralCode=0, onBehalfOf). Use interestRateMode 2 (variable). Needs enough collateral; see getUserAccountData." },
+        { "signature": "repay(address,uint256,uint256,address)", "kind": "write", "payable": false, "description": "Repay debt: (asset, amount, interestRateMode=2, onBehalfOf). Approve the Pool first. type(uint256).max repays the full debt when onBehalfOf is the caller." },
+        { "signature": "getUserAccountData(address)", "kind": "read", "payable": false, "description": "Returns (totalCollateralBase, totalDebtBase, availableBorrowsBase, currentLiquidationThreshold, ltv, healthFactor). healthFactor has 18 decimals. Below 1e18 the position can be liquidated." },
+        { "signature": "getReserveData(address)", "kind": "read", "payable": false, "description": "Reserve state and config for an asset, including aTokenAddress and variableDebtTokenAddress. Use it to find the receipt and debt tokens." },
+        { "signature": "getReservesList()", "kind": "read", "payable": false, "description": "All reserve asset addresses in the Horizon market. The list changes over time, so read it rather than hard-coding it." },
+        { "signature": "setUserUseReserveAsCollateral(address,bool)", "kind": "write", "payable": false, "description": "Enable or disable a supplied asset as collateral. Disabling reverts if it would drop the health factor below 1." },
+        { "signature": "setUserEMode(uint8)", "kind": "write", "payable": false, "description": "Enter an efficiency-mode category for correlated assets, or 0 to leave. Reverts if current positions are not allowed in the category." },
+        { "signature": "getUserEMode(address)", "kind": "read", "payable": false, "description": "Efficiency-mode category of a user (0 = none)." },
+        { "signature": "getEModeCategoryData(uint8)", "kind": "read", "payable": false, "description": "LTV, liquidation threshold, liquidation bonus and label of an e-mode category." }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Aave GraphQL API",
+      "url": "https://api.v3.aave.com/graphql",
+      "auth": "none",
+      "use": "Market data over GraphQL. Query the market by address (the Horizon Pool, 0xAe05Cd22df81871bc7cC2a04BeCfb516bFe332C8) and chainId 1. The Horizon docs do not name a separate Horizon endpoint, so check the response is the Horizon market before relying on it.",
+      "source": "https://aave.com/docs/aave-v3/getting-started/graphql"
+    }
+  ],
+  "actions": [
+    { "name": "supply", "description": "Supply a stablecoin or RWA reserve asset to earn interest", "how": "Approve the Horizon Pool for the asset, then call Pool.supply(asset, amount, onBehalfOf, 0). The caller must be an approved (permissioned) address." },
+    { "name": "borrow", "description": "Borrow a stablecoin against supplied collateral", "how": "Check getUserAccountData(user).availableBorrowsBase, then call Pool.borrow(asset, amount, 2, 0, onBehalfOf)." },
+    { "name": "repay", "description": "Repay a stablecoin debt", "how": "Approve the Pool, then call Pool.repay(asset, amount, 2, onBehalfOf). Use type(uint256).max for the full debt when repaying your own debt." },
+    { "name": "withdraw", "description": "Withdraw a supplied asset", "how": "Call Pool.withdraw(asset, amount, to). Use type(uint256).max for the full balance." }
+  ],
+  "risks": [
+    "Access is permissioned. Wallets that are not approved cannot use the market.",
+    "Collateral is tokenized real-world assets. Their prices, transfer limits and redemption terms can differ from DeFi assets, and a price drop can trigger liquidation.",
+    "Borrowing uses a health factor. Falling collateral value can make a position liquidatable.",
+    "Liquidity can be low for some assets. A withdrawal or borrow can revert when the reserve has no cash.",
+    "Market parameters, reserves and oracles are set by Aave governance and can change."
+  ],
+  "notes": "Only the Horizon Pool is listed. It is the single address the official Aave Horizon docs give for Ethereum. The Aave docs describe Horizon as a licensed, separate instance of the Aave protocol, forked from V3.3. Press reports say it will move to a custom deployment once Aave V4 is available. The Pool function list matches the Aave V3 Pool interface. Other Horizon contracts (oracle, data provider, aTokens) are not listed because no official source gave their addresses. Horizon is fully compatible with AaveKit API methods.",
+  "sources": [
+    "https://api.llama.fi/protocol/aave-horizon-rwa",
+    "https://defillama.com/protocol/aave-horizon-rwa",
+    "https://aave.com/docs/aave-v3/horizon",
+    "https://aave.com/docs/aave-v3/getting-started/graphql"
+  ],
+  "researchedAt": "2026-11-28"
+}

@@ -1,0 +1,67 @@
+{
+  "slug": "cian-yield-layer",
+  "name": "CIAN Yield Layer",
+  "category": "Yield Aggregator",
+  "description": "CIAN Yield Layer vaults spread deposits across several yield sources and rebalance them. Agents can read vault data from the CIAN API, deposit the vault asset through the ERC-4626 interface, and check the share price and balances on-chain.",
+  "website": "https://yieldlayer.cian.app",
+  "docs": "https://docs.cian.app",
+  "defillama": "https://defillama.com/protocol/cian-yield-layer",
+  "chains": ["ethereum"],
+  "vm": "evm",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xB13aa2d0345b0439b064f26B82D8dCf3f508775d",
+      "name": "stETH Yield Layer vault",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://docs.cian.app/yieldlayer/for-builders-developer-documentation/cian-yield-layer-tech-docs.md",
+      "keyFunctions": [
+        { "signature": "asset()", "kind": "read", "payable": false, "description": "Returns the underlying ERC-20 asset of the vault (ERC-4626)." },
+        { "signature": "deposit(uint256,address)", "kind": "write", "payable": false, "description": "ERC-4626 deposit of the underlying asset: (assets, receiver). Approve the vault for the asset first. Returns the shares minted to receiver." },
+        { "signature": "optionalDeposit(address,uint256,address,address)", "kind": "write", "payable": false, "description": "Deposit another supported token: (token, assets, receiver, referral). Approve the vault for the token first. Returns the shares minted. Which tokens are accepted depends on the vault. The docs give WBTC, FBTC and pumpBTC as examples. Use referral = zero address if none." },
+        { "signature": "redeem(uint256,address,address)", "kind": "write", "payable": false, "description": "ERC-4626 redeem: (shares, receiver, owner). Burns shares. The CIAN docs describe a request-based withdrawal path, so check the current withdraw mode before calling. Returns the assets sent." },
+        { "signature": "withdraw(uint256,address,address)", "kind": "write", "payable": false, "description": "ERC-4626 withdraw: (assets, receiver, owner). Same withdraw-mode caveat as redeem." },
+        { "signature": "convertToAssets(uint256)", "kind": "read", "payable": false, "description": "Assets worth a given number of shares at the current exchange rate." },
+        { "signature": "previewDeposit(uint256)", "kind": "read", "payable": false, "description": "Shares that a deposit of the given assets would mint." },
+        { "signature": "previewRedeem(uint256)", "kind": "read", "payable": false, "description": "Assets that a redeem of the given shares would return." },
+        { "signature": "balanceOf(address)", "kind": "read", "payable": false, "description": "Vault share balance of an account." },
+        { "signature": "totalAssets()", "kind": "read", "payable": false, "description": "Total assets managed by the vault." },
+        { "signature": "totalSupply()", "kind": "read", "payable": false, "description": "Total vault shares outstanding." }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Yield Layer vault API",
+      "url": "https://yieldlayer.cian.app/ethereum/pool/home/vaults",
+      "auth": "none",
+      "use": "List the vaults on a chain (replace ethereum with arbitrum, bsc or sei). Other endpoints under /{chain}/pool/home/: vault/:vault_address for config, vault/tvl/:vault_address for TVL, vault/breakdown/:vault_address for APY and strategy allocation, vault/history/:vault_address for hourly history, vault/withdraw/pending/:vault_address for pending withdrawals, and vault/user/:vault_address?user_address= for a user's position.",
+      "source": "https://docs.cian.app/yieldlayer/for-builders-developer-documentation/cian-yield-layer-tech-docs.md"
+    }
+  ],
+  "actions": [
+    { "name": "deposit", "description": "Deposit the vault asset and receive vault shares", "how": "Approve the vault for the asset, then call deposit(assets, receiver). Check previewDeposit first." },
+    { "name": "check position", "description": "Read the value of a position", "how": "balanceOf(account) for shares, then convertToAssets(shares) for the value in the underlying asset. Or use the vault API vault/user endpoint." },
+    { "name": "withdraw", "description": "Take assets out of the vault", "how": "Call redeem(shares, receiver, owner) or withdraw(assets, receiver, owner), following the vault withdraw mode. Read the vault API pending withdrawals endpoint to track requests." }
+  ],
+  "risks": [
+    "Yield comes from third-party DeFi strategies. A failure in one source can cause losses.",
+    "Withdrawal mode may not be instant. The CIAN docs describe a request-based path, so funds can be delayed.",
+    "Vault strategy and allocation can change without notice. Read the breakdown endpoint before depositing.",
+    "Smart contract risk applies. Check the audit reports listed by CIAN before depositing large amounts."
+  ],
+  "notes": "Only the stETH Yield Layer vault on Ethereum is listed, because it is the only vault address the official docs give with a chain. The docs also name FBTC, USD1 and slisBNB Yield Layers, and wrsETH with no chain, but none of these addresses could be confirmed from the docs, so they are not listed. The DefiLlama listing shows deployments on Scroll, Base, Arbitrum, Mantle, Optimism and BNB. The API covers ethereum, arbitrum, bsc and sei. A requestRedeem(uint256) function is described in the docs but was not found in the vault bytecode, so it is not listed. The vault is an upgradeable proxy.",
+  "sources": [
+    "https://api.llama.fi/protocol/cian-yield-layer",
+    "https://defillama.com/protocol/cian-yield-layer",
+    "https://docs.cian.app",
+    "https://docs.cian.app/yieldlayer/",
+    "https://docs.cian.app/yieldlayer/for-builders-developer-documentation/cian-yield-layer-tech-docs.md",
+    "https://yieldlayer.cian.app",
+    "https://eips.ethereum.org/EIPS/eip-4626"
+  ],
+  "researchedAt": "2026-11-28"
+}

@@ -1,0 +1,199 @@
+{
+  "slug": "kamino-lend",
+  "name": "Kamino Lend",
+  "category": "Lending",
+  "description": "Peer-to-pool lending and borrowing on Solana (klend program). An agent can deposit liquidity to earn interest, deposit collateral, borrow against it, repay, withdraw, and use flash loans. Kamino also exposes a REST API for market data and transaction builders.",
+  "website": "https://kamino.com",
+  "docs": "https://kamino.com/docs",
+  "defillama": "https://defillama.com/protocol/kamino-lend",
+  "chains": [
+    "solana"
+  ],
+  "vm": "solana",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD",
+      "name": "klend lending program (mainnet)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/Kamino-Finance/klend",
+      "keyFunctions": [
+        {
+          "signature": "deposit_reserve_liquidity(liquidity_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply liquidity to a reserve and receive cTokens (collateral tokens). Amount is in base units of the reserve's liquidity mint. Lending market and reserve accounts are required."
+        },
+        {
+          "signature": "redeem_reserve_collateral(collateral_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn cTokens to withdraw the matching liquidity from a reserve. Amount is in cToken base units."
+        },
+        {
+          "signature": "init_user_metadata(user_lookup_table: Pubkey)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create the user metadata account once per wallet. Pass an address lookup table pubkey (used to shrink transactions). Needed before obligations are opened."
+        },
+        {
+          "signature": "init_obligation(args: InitObligationArgs)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create an obligation (borrow and collateral account) for a wallet in a lending market. Required before depositing collateral or borrowing."
+        },
+        {
+          "signature": "refresh_reserve()",
+          "kind": "write",
+          "payable": false,
+          "description": "Update a reserve's interest and oracle price. Send in the same transaction before borrow, withdraw or liquidation instructions."
+        },
+        {
+          "signature": "refresh_reserves_batch(skip_price_updates: bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Refresh several reserves in one instruction (reserve accounts passed as remaining accounts). Use before refresh_obligation."
+        },
+        {
+          "signature": "refresh_obligation()",
+          "kind": "write",
+          "payable": false,
+          "description": "Recompute an obligation's deposited value, borrowed value and LTV from its refreshed reserves. Required before borrow, withdraw or liquidate."
+        },
+        {
+          "signature": "deposit_obligation_collateral_v2(collateral_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit cTokens as collateral into an obligation. Amount in cToken base units."
+        },
+        {
+          "signature": "withdraw_obligation_collateral_v2(collateral_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw collateral from an obligation. Fails if the obligation would exceed its allowed LTV. Refresh reserves and obligation first."
+        },
+        {
+          "signature": "borrow_obligation_liquidity_v2(liquidity_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow liquidity against collateral in an obligation. Amount in base units of the reserve's liquidity mint. Refresh reserves and obligation first."
+        },
+        {
+          "signature": "repay_obligation_liquidity_v2(liquidity_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay borrowed liquidity. Amount in base units; accrued interest is included in the debt."
+        },
+        {
+          "signature": "deposit_reserve_liquidity_and_obligation_collateral_v2(liquidity_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Combined call: supply liquidity to a reserve and deposit the received cTokens as obligation collateral in one instruction."
+        },
+        {
+          "signature": "withdraw_obligation_collateral_and_redeem_reserve_collateral_v2(collateral_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Combined call: withdraw collateral from an obligation and redeem the cTokens for liquidity in one instruction."
+        },
+        {
+          "signature": "repay_and_withdraw_and_redeem(repay_amount: u64, withdraw_collateral_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Combined call: repay debt, then withdraw collateral and redeem it. Amounts in base units."
+        },
+        {
+          "signature": "flash_borrow_reserve_liquidity(liquidity_amount: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Start a flash loan. Must be paired with flash_repay_reserve_liquidity later in the same transaction."
+        },
+        {
+          "signature": "flash_repay_reserve_liquidity(liquidity_amount: u64, borrow_instruction_index: u8)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay a flash loan in the same transaction. borrow_instruction_index is the index of the matching flash_borrow instruction in the transaction."
+        },
+        {
+          "signature": "liquidate_obligation_and_redeem_reserve_collateral_v2(liquidity_amount: u64, min_received_liquidity_amount: u64, max_allowed_ltv_override_percent: u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidate an unhealthy obligation: repay part of its debt and receive discounted collateral. Used by liquidators; refresh reserves and obligation first."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Kamino API: list lending markets",
+      "url": "https://api.kamino.finance/v2/kamino-market",
+      "auth": "none",
+      "use": "GET the list of lending markets (market pubkeys and metadata). Use it to find the main market and its reserves before building transactions. Base URL taken from Kamino's own tutorial code; the API reference was not readable in full during research.",
+      "source": "https://kamino.com/docs/build/tutorials/borrow"
+    },
+    {
+      "name": "Kamino API: reserve metrics history",
+      "url": "https://api.kamino.finance/kamino-market/{market}/reserves/{reserve}/metrics/history",
+      "auth": "none",
+      "use": "GET historical supply APY and borrow APY for one reserve.",
+      "source": "https://kamino.com/docs/build/borrow/market-data-metrics.md"
+    },
+    {
+      "name": "Kamino API reference",
+      "url": "https://api-docs.kamino.com",
+      "auth": "none",
+      "use": "Full OpenAPI reference for market data and transaction builders (for example the klend deposit and withdraw routes under /ktx/). Check exact parameters here before use.",
+      "source": "https://api-docs.kamino.com"
+    }
+  ],
+  "actions": [
+    {
+      "name": "supply",
+      "description": "Deposit liquidity into a reserve to earn interest",
+      "how": "deposit_reserve_liquidity(amount) on the klend program, or the Kamino API transaction builder under /ktx/klend/deposit"
+    },
+    {
+      "name": "borrow",
+      "description": "Borrow against deposited collateral",
+      "how": "init_user_metadata and init_obligation once per wallet and market; deposit collateral; refresh_reserve(s) and refresh_obligation; then borrow_obligation_liquidity_v2(amount) in the same transaction"
+    },
+    {
+      "name": "repay",
+      "description": "Repay borrowed liquidity",
+      "how": "refresh the reserve, then repay_obligation_liquidity_v2(amount); or repay_and_withdraw_and_redeem for repay plus collateral release"
+    },
+    {
+      "name": "withdraw",
+      "description": "Withdraw supplied liquidity",
+      "how": "redeem_reserve_collateral(ctoken_amount) after refresh_reserve"
+    },
+    {
+      "name": "flash-loan",
+      "description": "Borrow and repay in one transaction",
+      "how": "flash_borrow_reserve_liquidity(amount), other instructions, then flash_repay_reserve_liquidity(amount, borrow_index) in the same transaction"
+    }
+  ],
+  "risks": [
+    "Borrowing can be liquidated when LTV passes the reserve limit. Liquidators can repay debt and take collateral at a discount. Watch health (LTV) and keep a margin.",
+    "Oracle and price moves: collateral and debt values depend on oracle prices. A bad or stale price can trigger liquidations or block withdrawals.",
+    "Interest rates are variable and change with utilization. Supplied liquidity can be temporarily unavailable to withdraw when a reserve is highly utilized.",
+    "Smart contract risk: the program is an upgradeable Solana program maintained by Kamino. Audits reduce risk but do not remove it.",
+    "Refresh instructions must be included before borrow, withdraw and liquidation. Transactions without them fail or use stale values."
+  ],
+  "notes": "Mainnet program id KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD is listed for mainnet and devnet on the official README. The staging program SLendK7ySfcEzyaFqy93gDnD3RtrpXJcnRwb6zFHJSh (a separate test deployment) is left out. Lending market and reserve account addresses are not included because they could not be confirmed from an official page in this research; get them from the Kamino API or the SDK. Keyfunctions are from the program's lib.rs instruction list; the deprecated v1 variants are omitted. Kamino vaults (kvault) are a separate product and are not covered here.",
+  "sources": [
+    "https://api.llama.fi/protocol/kamino-lend",
+    "https://github.com/Kamino-Finance/klend",
+    "https://raw.githubusercontent.com/Kamino-Finance/klend/master/programs/klend/src/lib.rs",
+    "https://kamino.com/docs",
+    "https://kamino.com/docs/build/tutorials/borrow",
+    "https://kamino.com/docs/build/borrow/market-data-metrics.md",
+    "https://kamino.com/build/api-reference/introduction",
+    "https://api-docs.kamino.com",
+    "https://api.mainnet-beta.solana.com"
+  ],
+  "researchedAt": "2026-11-28"
+}

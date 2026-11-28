@@ -19,8 +19,10 @@ export interface SignStep {
   /** Swaps: rebuilt with a fresh quote when signed more than a minute after builtAt (quotes go stale in about 2 minutes). */
   swap?: { chainId: number; tokenIn: string; tokenOut: string; amount: string; slippageBps: number };
   builtAt?: number;
+  /** Solana steps: the BTB tool and arguments the page calls for a fresh transaction when the person signs. */
+  solana?: { tool: 'build_pump_claim' | 'build_pump_launch'; args: Record<string, unknown> };
 }
-export interface SignPlan { v: 1; title: string; chainId: number; wallet: string; steps: SignStep[]; exp: number; /** Lets an agent ask whether the steps were signed (sign_status). */ id?: string }
+export interface SignPlan { v: 1; title: string; chainId: number; wallet: string; steps: SignStep[]; exp: number; /** Lets an agent ask whether the steps were signed (sign_status). */ id?: string; /** 'solana' for Solana links (built by api-rs); EVM otherwise. */ vm?: 'solana' }
 
 /** Where the sign page reports signed steps and sign_status reads them back: BTB's API on Flux. */
 export const SIGN_STATUS_API = process.env.NEXT_PUBLIC_BTB_API ?? 'https://btbmcp.app.runonflux.io';

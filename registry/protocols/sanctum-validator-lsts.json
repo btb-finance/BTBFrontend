@@ -1,0 +1,198 @@
+{
+  "slug": "sanctum-validator-lsts",
+  "name": "Sanctum Validator LSTs",
+  "category": "Liquid Staking",
+  "description": "Liquid staking tokens on Solana for validators, minted by Sanctum stake pool programs. An agent can read LST prices and APYs, quote and swap LSTs through the Sanctum API, or deposit SOL and stake accounts into a pool program.",
+  "website": "https://www.sanctum.so",
+  "docs": "https://learn.sanctum.so",
+  "defillama": "https://defillama.com/protocol/sanctum-validator-lsts",
+  "chains": [
+    "solana"
+  ],
+  "vm": "solana",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "SP12tWFxD9oJsVWNavTTBZvMbA6gkAmxtVgxdqvyvhY",
+      "name": "SanctumSpl stake pool program",
+      "role": "staking",
+      "proxy": null,
+      "source": "https://learn.sanctum.so/docs/for-developers/deployed-programs",
+      "keyFunctions": [
+        {
+          "signature": "DepositSol(u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: deposit SOL into the pool reserve and mint pool tokens (the LST) at the current ratio. Argument: lamports to deposit."
+        },
+        {
+          "signature": "DepositSolWithSlippage",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: same as DepositSol but fails if fewer than the minimum pool tokens are minted."
+        },
+        {
+          "signature": "WithdrawSol(u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: burn pool tokens and withdraw SOL from the reserve. Argument: pool tokens to burn."
+        },
+        {
+          "signature": "WithdrawSolWithSlippage",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: same as WithdrawSol but fails if less than the minimum lamports are returned."
+        },
+        {
+          "signature": "DepositStake",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: deposit a user stake account into the pool and mint pool tokens."
+        },
+        {
+          "signature": "DepositStakeWithSlippage",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: same as DepositStake with a minimum pool token amount."
+        },
+        {
+          "signature": "WithdrawStake(u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: burn pool tokens and withdraw a stake account from a validator or the reserve. Argument: pool tokens to burn."
+        },
+        {
+          "signature": "WithdrawStakeWithSlippage",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: same as WithdrawStake with a minimum lamports output."
+        },
+        {
+          "signature": "UpdateValidatorListBalance",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: update validator and transient stake balances. Permissionless crank that keeps the pool price current."
+        },
+        {
+          "signature": "UpdateStakePoolBalance",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: recalculate the total pool balance from the reserve and the validator list."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "SPMBzsVUuoHA4Jm6KunbsotaahvVikZs1JyTW6iJvbn",
+      "name": "SanctumSplMulti stake pool program (multi validator)",
+      "role": "staking",
+      "proxy": null,
+      "source": "https://learn.sanctum.so/docs/for-developers/deployed-programs",
+      "keyFunctions": [
+        {
+          "signature": "DepositSol(u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: deposit SOL into the pool reserve and mint pool tokens (the LST) at the current ratio. Argument: lamports to deposit."
+        },
+        {
+          "signature": "DepositSolWithSlippage",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: same as DepositSol but fails if fewer than the minimum pool tokens are minted."
+        },
+        {
+          "signature": "WithdrawSol(u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: burn pool tokens and withdraw SOL from the reserve. Argument: pool tokens to burn."
+        },
+        {
+          "signature": "WithdrawSolWithSlippage",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: same as WithdrawSol but fails if less than the minimum lamports are returned."
+        },
+        {
+          "signature": "DepositStake",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: deposit a user stake account into the pool and mint pool tokens."
+        },
+        {
+          "signature": "DepositStakeWithSlippage",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: same as DepositStake with a minimum pool token amount."
+        },
+        {
+          "signature": "WithdrawStake(u64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: burn pool tokens and withdraw a stake account from a validator or the reserve. Argument: pool tokens to burn."
+        },
+        {
+          "signature": "WithdrawStakeWithSlippage",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: same as WithdrawStake with a minimum lamports output."
+        },
+        {
+          "signature": "UpdateValidatorListBalance",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: update validator and transient stake balances. Permissionless crank that keeps the pool price current."
+        },
+        {
+          "signature": "UpdateStakePoolBalance",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: recalculate the total pool balance from the reserve and the validator list."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Sanctum API",
+      "url": "https://sanctum-api.ironforge.network",
+      "auth": "api-key",
+      "use": "List LSTs and metadata (GET /lsts, GET /lsts/{mintOrSymbol}), per LST APYs (GET /lsts/{mintOrSymbol}/apys), validator APYs (GET /validators/apy), swap quotes (GET /swap/token/order) and swap transactions (POST /swap/token/execute). The apiKey is a query parameter.",
+      "source": "https://learn.sanctum.so/docs/for-developers/sanctum-api"
+    }
+  ],
+  "actions": [
+    {
+      "name": "stake SOL for LST",
+      "description": "Deposit SOL and receive the validator LST",
+      "how": "Use the Sanctum API swap quote (GET /swap/token/order) and execute (POST /swap/token/execute) from SOL to the LST mint. Or call DepositSol on the pool program with the pool accounts."
+    },
+    {
+      "name": "swap LST",
+      "description": "Swap between an LST and another token",
+      "how": "Get a quote from GET /swap/token/order without a signer, then request the transaction with a signer and submit it with POST /swap/token/execute."
+    },
+    {
+      "name": "unstake LST",
+      "description": "Burn LST for SOL or a stake account",
+      "how": "Swap LST to SOL through the API, or call WithdrawSol or WithdrawStake on the pool program."
+    }
+  ],
+  "risks": [
+    "Validator LSTs carry the risk of the validator behind them. Poor validator performance lowers the exchange rate.",
+    "The programs are upgradeable and controlled by a Sanctum multisig. An upgrade can change behavior.",
+    "The program instruction names come from the upstream SPL stake pool. Sanctum runs a fork pinned to v1.0.0. Check the deployed IDL before relying on argument layouts.",
+    "The multi validator program has no verified build on at least one third party explorer. Treat its source as unconfirmed.",
+    "Withdrawals to SOL can be instant through a swap at a discount, or delayed through the stake pool epoch cycle."
+  ],
+  "notes": "Both program IDs were confirmed as deployed Solana programs, owned by the upgradeable BPF loader. The API host comes from the official OpenAPI reference. The API needs a key. Sanctum also runs other stake pool and LST programs that are not included here.",
+  "sources": [
+    "https://learn.sanctum.so/docs/for-developers/deployed-programs",
+    "https://learn.sanctum.so/docs/for-developers/sanctum-api",
+    "https://github.com/solana-program/stake-pool/blob/main/program/src/instruction.rs"
+  ],
+  "researchedAt": "2026-11-28"
+}

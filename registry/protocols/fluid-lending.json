@@ -1,0 +1,1229 @@
+{
+  "slug": "fluid-lending",
+  "name": "Fluid Lending",
+  "category": "Lending",
+  "description": "Fluid lending markets. Deposit an underlying token (USDC, USDT, WETH and others) into its fToken to earn lending yield. fTokens follow the ERC4626 vault interface. Use the lending factory to find fTokens and the lending resolver for rates and user positions.",
+  "website": "https://www.fluid.io/",
+  "docs": "https://docs.fluid.instadapp.io",
+  "defillama": "https://defillama.com/protocol/fluid-lending",
+  "chains": [
+    "ethereum",
+    "arbitrum",
+    "base",
+    "polygon",
+    "plasma"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x54B91A0D94cb471F37f949c60F7Fa7935b551D03",
+      "name": "LendingFactory (ethereum)",
+      "role": "factory",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "allTokens()",
+          "kind": "read",
+          "payable": false,
+          "description": "All fToken addresses created by this lending factory."
+        },
+        {
+          "signature": "fTokenTypes()",
+          "kind": "read",
+          "payable": false,
+          "description": "Names of the fToken types this factory can create."
+        },
+        {
+          "signature": "computeToken(address,string)",
+          "kind": "read",
+          "payable": false,
+          "description": "Deterministic fToken address for an underlying asset and fToken type: (asset, fTokenType)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x48D32f49aFeAEC7AE66ad7B9264f446fc11a1569",
+      "name": "LendingResolver (ethereum)",
+      "role": "other",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getAllFTokens()",
+          "kind": "read",
+          "payable": false,
+          "description": "All fToken addresses in this lending deployment."
+        },
+        {
+          "signature": "getFTokensEntireData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Full data for every fToken in one call, including rates and totals. Good for a market overview."
+        },
+        {
+          "signature": "getFTokenDetails(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Details for one fToken: (fToken). Includes the underlying token and rates."
+        },
+        {
+          "signature": "getUserPositions(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "All fToken positions of a user: (user)."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x54B91A0D94cb471F37f949c60F7Fa7935b551D03",
+      "name": "LendingFactory (arbitrum)",
+      "role": "factory",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "allTokens()",
+          "kind": "read",
+          "payable": false,
+          "description": "All fToken addresses created by this lending factory."
+        },
+        {
+          "signature": "fTokenTypes()",
+          "kind": "read",
+          "payable": false,
+          "description": "Names of the fToken types this factory can create."
+        },
+        {
+          "signature": "computeToken(address,string)",
+          "kind": "read",
+          "payable": false,
+          "description": "Deterministic fToken address for an underlying asset and fToken type: (asset, fTokenType)."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x48D32f49aFeAEC7AE66ad7B9264f446fc11a1569",
+      "name": "LendingResolver (arbitrum)",
+      "role": "other",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getAllFTokens()",
+          "kind": "read",
+          "payable": false,
+          "description": "All fToken addresses in this lending deployment."
+        },
+        {
+          "signature": "getFTokensEntireData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Full data for every fToken in one call, including rates and totals. Good for a market overview."
+        },
+        {
+          "signature": "getFTokenDetails(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Details for one fToken: (fToken). Includes the underlying token and rates."
+        },
+        {
+          "signature": "getUserPositions(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "All fToken positions of a user: (user)."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x54B91A0D94cb471F37f949c60F7Fa7935b551D03",
+      "name": "LendingFactory (base)",
+      "role": "factory",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "allTokens()",
+          "kind": "read",
+          "payable": false,
+          "description": "All fToken addresses created by this lending factory."
+        },
+        {
+          "signature": "fTokenTypes()",
+          "kind": "read",
+          "payable": false,
+          "description": "Names of the fToken types this factory can create."
+        },
+        {
+          "signature": "computeToken(address,string)",
+          "kind": "read",
+          "payable": false,
+          "description": "Deterministic fToken address for an underlying asset and fToken type: (asset, fTokenType)."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x48D32f49aFeAEC7AE66ad7B9264f446fc11a1569",
+      "name": "LendingResolver (base)",
+      "role": "other",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getAllFTokens()",
+          "kind": "read",
+          "payable": false,
+          "description": "All fToken addresses in this lending deployment."
+        },
+        {
+          "signature": "getFTokensEntireData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Full data for every fToken in one call, including rates and totals. Good for a market overview."
+        },
+        {
+          "signature": "getFTokenDetails(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Details for one fToken: (fToken). Includes the underlying token and rates."
+        },
+        {
+          "signature": "getUserPositions(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "All fToken positions of a user: (user)."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x54B91A0D94cb471F37f949c60F7Fa7935b551D03",
+      "name": "LendingFactory (polygon)",
+      "role": "factory",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "allTokens()",
+          "kind": "read",
+          "payable": false,
+          "description": "All fToken addresses created by this lending factory."
+        },
+        {
+          "signature": "fTokenTypes()",
+          "kind": "read",
+          "payable": false,
+          "description": "Names of the fToken types this factory can create."
+        },
+        {
+          "signature": "computeToken(address,string)",
+          "kind": "read",
+          "payable": false,
+          "description": "Deterministic fToken address for an underlying asset and fToken type: (asset, fTokenType)."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x48D32f49aFeAEC7AE66ad7B9264f446fc11a1569",
+      "name": "LendingResolver (polygon)",
+      "role": "other",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getAllFTokens()",
+          "kind": "read",
+          "payable": false,
+          "description": "All fToken addresses in this lending deployment."
+        },
+        {
+          "signature": "getFTokensEntireData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Full data for every fToken in one call, including rates and totals. Good for a market overview."
+        },
+        {
+          "signature": "getFTokenDetails(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Details for one fToken: (fToken). Includes the underlying token and rates."
+        },
+        {
+          "signature": "getUserPositions(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "All fToken positions of a user: (user)."
+        }
+      ]
+    },
+    {
+      "chain": "plasma",
+      "chainId": 9745,
+      "address": "0x54B91A0D94cb471F37f949c60F7Fa7935b551D03",
+      "name": "LendingFactory (plasma)",
+      "role": "factory",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "allTokens()",
+          "kind": "read",
+          "payable": false,
+          "description": "All fToken addresses created by this lending factory."
+        },
+        {
+          "signature": "fTokenTypes()",
+          "kind": "read",
+          "payable": false,
+          "description": "Names of the fToken types this factory can create."
+        },
+        {
+          "signature": "computeToken(address,string)",
+          "kind": "read",
+          "payable": false,
+          "description": "Deterministic fToken address for an underlying asset and fToken type: (asset, fTokenType)."
+        }
+      ]
+    },
+    {
+      "chain": "plasma",
+      "chainId": 9745,
+      "address": "0x48D32f49aFeAEC7AE66ad7B9264f446fc11a1569",
+      "name": "LendingResolver (plasma)",
+      "role": "other",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "getAllFTokens()",
+          "kind": "read",
+          "payable": false,
+          "description": "All fToken addresses in this lending deployment."
+        },
+        {
+          "signature": "getFTokensEntireData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Full data for every fToken in one call, including rates and totals. Good for a market overview."
+        },
+        {
+          "signature": "getFTokenDetails(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Details for one fToken: (fToken). Includes the underlying token and rates."
+        },
+        {
+          "signature": "getUserPositions(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "All fToken positions of a user: (user)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x9Fb7b4477576Fe5B32be4C1843aFB1e55F251B33",
+      "name": "fUSDC fToken (ethereum)",
+      "role": "vault",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token of this fToken (USDC)."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total underlying managed by this fToken, in underlying units."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying value of a share amount at the current exchange price: (shares)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying a redeem of the given shares would return: (shares)."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Maximum underlying the owner can withdraw now, limited by available liquidity: (owner)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "fToken share balance of an account. Shares grow in value as interest accrues."
+        },
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying: (assets, receiver). Approve the underlying to the fToken first. Mints shares to receiver and returns the shares minted."
+        },
+        {
+          "signature": "deposit(uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying with a minimum share output: (assets, receiver, minAmountOut). Reverts if fewer shares would be minted."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint an exact number of shares by paying underlying: (shares, receiver). Approve the underlying first. Returns the assets pulled."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw underlying: (assets, receiver, owner). Burns owner shares. Caller needs an allowance from owner if it is not the owner. Limited by available liquidity."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares for underlying: (shares, receiver, owner). Returns the assets sent to receiver. Limited by available liquidity."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x5C20B550819128074FD538Edf79791733ccEdd18",
+      "name": "fUSDT fToken (ethereum)",
+      "role": "vault",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token of this fToken (USDT)."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total underlying managed by this fToken, in underlying units."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying value of a share amount at the current exchange price: (shares)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying a redeem of the given shares would return: (shares)."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Maximum underlying the owner can withdraw now, limited by available liquidity: (owner)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "fToken share balance of an account. Shares grow in value as interest accrues."
+        },
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying: (assets, receiver). Approve the underlying to the fToken first. Mints shares to receiver and returns the shares minted."
+        },
+        {
+          "signature": "deposit(uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying with a minimum share output: (assets, receiver, minAmountOut). Reverts if fewer shares would be minted."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint an exact number of shares by paying underlying: (shares, receiver). Approve the underlying first. Returns the assets pulled."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw underlying: (assets, receiver, owner). Burns owner shares. Caller needs an allowance from owner if it is not the owner. Limited by available liquidity."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares for underlying: (shares, receiver, owner). Returns the assets sent to receiver. Limited by available liquidity."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x90551c1795392094FE6D29B758EcCD233cFAa260",
+      "name": "fWETH fToken (ethereum)",
+      "role": "vault",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token of this fToken (WETH)."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total underlying managed by this fToken, in underlying units."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying value of a share amount at the current exchange price: (shares)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying a redeem of the given shares would return: (shares)."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Maximum underlying the owner can withdraw now, limited by available liquidity: (owner)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "fToken share balance of an account. Shares grow in value as interest accrues."
+        },
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying: (assets, receiver). Approve the underlying to the fToken first. Mints shares to receiver and returns the shares minted."
+        },
+        {
+          "signature": "deposit(uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying with a minimum share output: (assets, receiver, minAmountOut). Reverts if fewer shares would be minted."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint an exact number of shares by paying underlying: (shares, receiver). Approve the underlying first. Returns the assets pulled."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw underlying: (assets, receiver, owner). Burns owner shares. Caller needs an allowance from owner if it is not the owner. Limited by available liquidity."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares for underlying: (shares, receiver, owner). Returns the assets sent to receiver. Limited by available liquidity."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x1A996cb54bb95462040408C06122D45D6Cdb6096",
+      "name": "fUSDC fToken (arbitrum)",
+      "role": "vault",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token of this fToken (USDC)."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total underlying managed by this fToken, in underlying units."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying value of a share amount at the current exchange price: (shares)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying a redeem of the given shares would return: (shares)."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Maximum underlying the owner can withdraw now, limited by available liquidity: (owner)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "fToken share balance of an account. Shares grow in value as interest accrues."
+        },
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying: (assets, receiver). Approve the underlying to the fToken first. Mints shares to receiver and returns the shares minted."
+        },
+        {
+          "signature": "deposit(uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying with a minimum share output: (assets, receiver, minAmountOut). Reverts if fewer shares would be minted."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint an exact number of shares by paying underlying: (shares, receiver). Approve the underlying first. Returns the assets pulled."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw underlying: (assets, receiver, owner). Burns owner shares. Caller needs an allowance from owner if it is not the owner. Limited by available liquidity."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares for underlying: (shares, receiver, owner). Returns the assets sent to receiver. Limited by available liquidity."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x4A03F37e7d3fC243e3f99341d36f4b829BEe5E03",
+      "name": "fUSDT fToken (arbitrum)",
+      "role": "vault",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token of this fToken (USDT)."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total underlying managed by this fToken, in underlying units."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying value of a share amount at the current exchange price: (shares)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying a redeem of the given shares would return: (shares)."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Maximum underlying the owner can withdraw now, limited by available liquidity: (owner)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "fToken share balance of an account. Shares grow in value as interest accrues."
+        },
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying: (assets, receiver). Approve the underlying to the fToken first. Mints shares to receiver and returns the shares minted."
+        },
+        {
+          "signature": "deposit(uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying with a minimum share output: (assets, receiver, minAmountOut). Reverts if fewer shares would be minted."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint an exact number of shares by paying underlying: (shares, receiver). Approve the underlying first. Returns the assets pulled."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw underlying: (assets, receiver, owner). Burns owner shares. Caller needs an allowance from owner if it is not the owner. Limited by available liquidity."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares for underlying: (shares, receiver, owner). Returns the assets sent to receiver. Limited by available liquidity."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x45Df0656F8aDf017590009d2f1898eeca4F0a205",
+      "name": "fWETH fToken (arbitrum)",
+      "role": "vault",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token of this fToken (WETH)."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total underlying managed by this fToken, in underlying units."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying value of a share amount at the current exchange price: (shares)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying a redeem of the given shares would return: (shares)."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Maximum underlying the owner can withdraw now, limited by available liquidity: (owner)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "fToken share balance of an account. Shares grow in value as interest accrues."
+        },
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying: (assets, receiver). Approve the underlying to the fToken first. Mints shares to receiver and returns the shares minted."
+        },
+        {
+          "signature": "deposit(uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying with a minimum share output: (assets, receiver, minAmountOut). Reverts if fewer shares would be minted."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint an exact number of shares by paying underlying: (shares, receiver). Approve the underlying first. Returns the assets pulled."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw underlying: (assets, receiver, owner). Burns owner shares. Caller needs an allowance from owner if it is not the owner. Limited by available liquidity."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares for underlying: (shares, receiver, owner). Returns the assets sent to receiver. Limited by available liquidity."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xf42f5795D9ac7e9D757dB633D693cD548Cfd9169",
+      "name": "fUSDC fToken (base)",
+      "role": "vault",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token of this fToken (USDC)."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total underlying managed by this fToken, in underlying units."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying value of a share amount at the current exchange price: (shares)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying a redeem of the given shares would return: (shares)."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Maximum underlying the owner can withdraw now, limited by available liquidity: (owner)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "fToken share balance of an account. Shares grow in value as interest accrues."
+        },
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying: (assets, receiver). Approve the underlying to the fToken first. Mints shares to receiver and returns the shares minted."
+        },
+        {
+          "signature": "deposit(uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying with a minimum share output: (assets, receiver, minAmountOut). Reverts if fewer shares would be minted."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint an exact number of shares by paying underlying: (shares, receiver). Approve the underlying first. Returns the assets pulled."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw underlying: (assets, receiver, owner). Burns owner shares. Caller needs an allowance from owner if it is not the owner. Limited by available liquidity."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares for underlying: (shares, receiver, owner). Returns the assets sent to receiver. Limited by available liquidity."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x9272D6153133175175Bc276512B2336BE3931CE9",
+      "name": "fWETH fToken (base)",
+      "role": "vault",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token of this fToken (WETH)."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total underlying managed by this fToken, in underlying units."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying value of a share amount at the current exchange price: (shares)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying a redeem of the given shares would return: (shares)."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Maximum underlying the owner can withdraw now, limited by available liquidity: (owner)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "fToken share balance of an account. Shares grow in value as interest accrues."
+        },
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying: (assets, receiver). Approve the underlying to the fToken first. Mints shares to receiver and returns the shares minted."
+        },
+        {
+          "signature": "deposit(uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying with a minimum share output: (assets, receiver, minAmountOut). Reverts if fewer shares would be minted."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint an exact number of shares by paying underlying: (shares, receiver). Approve the underlying first. Returns the assets pulled."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw underlying: (assets, receiver, owner). Burns owner shares. Caller needs an allowance from owner if it is not the owner. Limited by available liquidity."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares for underlying: (shares, receiver, owner). Returns the assets sent to receiver. Limited by available liquidity."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x571d456b578fDC34E26E6D636736ED7c0CDB9d89",
+      "name": "fUSDC fToken (polygon)",
+      "role": "vault",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token of this fToken (USDC)."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total underlying managed by this fToken, in underlying units."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying value of a share amount at the current exchange price: (shares)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying a redeem of the given shares would return: (shares)."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Maximum underlying the owner can withdraw now, limited by available liquidity: (owner)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "fToken share balance of an account. Shares grow in value as interest accrues."
+        },
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying: (assets, receiver). Approve the underlying to the fToken first. Mints shares to receiver and returns the shares minted."
+        },
+        {
+          "signature": "deposit(uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying with a minimum share output: (assets, receiver, minAmountOut). Reverts if fewer shares would be minted."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint an exact number of shares by paying underlying: (shares, receiver). Approve the underlying first. Returns the assets pulled."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw underlying: (assets, receiver, owner). Burns owner shares. Caller needs an allowance from owner if it is not the owner. Limited by available liquidity."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares for underlying: (shares, receiver, owner). Returns the assets sent to receiver. Limited by available liquidity."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x6f5e34eFf43D9ab7c977512509C53840B5EfBA85",
+      "name": "fUSDT fToken (polygon)",
+      "role": "vault",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token of this fToken (USDT)."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total underlying managed by this fToken, in underlying units."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying value of a share amount at the current exchange price: (shares)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying a redeem of the given shares would return: (shares)."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Maximum underlying the owner can withdraw now, limited by available liquidity: (owner)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "fToken share balance of an account. Shares grow in value as interest accrues."
+        },
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying: (assets, receiver). Approve the underlying to the fToken first. Mints shares to receiver and returns the shares minted."
+        },
+        {
+          "signature": "deposit(uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying with a minimum share output: (assets, receiver, minAmountOut). Reverts if fewer shares would be minted."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint an exact number of shares by paying underlying: (shares, receiver). Approve the underlying first. Returns the assets pulled."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw underlying: (assets, receiver, owner). Burns owner shares. Caller needs an allowance from owner if it is not the owner. Limited by available liquidity."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares for underlying: (shares, receiver, owner). Returns the assets sent to receiver. Limited by available liquidity."
+        }
+      ]
+    },
+    {
+      "chain": "plasma",
+      "chainId": 9745,
+      "address": "0xCd9C28728b83C85ff79507cdc3f0c7296A0B6E81",
+      "name": "fUSDC fToken (plasma)",
+      "role": "vault",
+      "proxy": null,
+      "source": "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+      "keyFunctions": [
+        {
+          "signature": "asset()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying token of this fToken (USDC)."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total underlying managed by this fToken, in underlying units."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying value of a share amount at the current exchange price: (shares)."
+        },
+        {
+          "signature": "previewRedeem(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying a redeem of the given shares would return: (shares)."
+        },
+        {
+          "signature": "maxWithdraw(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Maximum underlying the owner can withdraw now, limited by available liquidity: (owner)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "fToken share balance of an account. Shares grow in value as interest accrues."
+        },
+        {
+          "signature": "deposit(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying: (assets, receiver). Approve the underlying to the fToken first. Mints shares to receiver and returns the shares minted."
+        },
+        {
+          "signature": "deposit(uint256,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit underlying with a minimum share output: (assets, receiver, minAmountOut). Reverts if fewer shares would be minted."
+        },
+        {
+          "signature": "mint(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint an exact number of shares by paying underlying: (shares, receiver). Approve the underlying first. Returns the assets pulled."
+        },
+        {
+          "signature": "withdraw(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw underlying: (assets, receiver, owner). Burns owner shares. Caller needs an allowance from owner if it is not the owner. Limited by available liquidity."
+        },
+        {
+          "signature": "redeem(uint256,address,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn shares for underlying: (shares, receiver, owner). Returns the assets sent to receiver. Limited by available liquidity."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "deposit",
+      "description": "Deposit underlying and receive fToken shares",
+      "how": "Approve the underlying to the fToken, then fToken.deposit(assets, receiver)"
+    },
+    {
+      "name": "withdraw",
+      "description": "Withdraw underlying",
+      "how": "fToken.withdraw(assets, receiver, owner) or fToken.redeem(shares, receiver, owner)"
+    },
+    {
+      "name": "find markets",
+      "description": "List fTokens and their rates",
+      "how": "LendingResolver.getFTokensEntireData() or LendingFactory.allTokens()"
+    },
+    {
+      "name": "read position",
+      "description": "Read a user positions across fTokens",
+      "how": "LendingResolver.getUserPositions(user)"
+    }
+  ],
+  "risks": [
+    "Withdrawals are limited by liquidity that is not borrowed. maxWithdraw shows the current limit.",
+    "Yield comes from borrowers, so rates change with utilization and with the rate model.",
+    "Each fToken is a separate contract per underlying per chain. Check the underlying address before depositing.",
+    "The smart contract risk of the Fluid liquidity layer applies to every fToken.",
+    "Share value rises through the exchange price, not through a rebase."
+  ],
+  "notes": "The lending factory and lending resolver have the same address on every chain listed, and the code was checked on chain. The fToken addresses come from the official deployments file. Fluid also has a Sui lending deployment, which DefiLlama lists, but it is not covered here. Smart lending and vault products are separate contracts and are not covered.",
+  "sources": [
+    "https://api.llama.fi/protocol/fluid-lending",
+    "https://defillama.com/protocol/fluid-lending",
+    "https://docs.fluid.instadapp.io",
+    "https://github.com/Instadapp/fluid-contracts-public/blob/main/deployments/deployments.md",
+    "https://github.com/Instadapp/fluid-contracts-public/blob/main/contracts/protocols/lending/fToken/main.sol",
+    "https://github.com/Instadapp/fluid-contracts-public/blob/main/contracts/protocols/lending/interfaces/iFToken.sol",
+    "https://github.com/Instadapp/fluid-contracts-public/blob/main/contracts/protocols/lending/interfaces/iLendingFactory.sol",
+    "https://github.com/Instadapp/fluid-contracts-public/blob/main/contracts/periphery/resolvers/lending/iLendingResolver.sol"
+  ],
+  "researchedAt": "2026-11-28"
+}

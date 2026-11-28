@@ -1,0 +1,664 @@
+{
+  "slug": "venus-core-pool",
+  "name": "Venus Core Pool",
+  "category": "Lending",
+  "description": "Venus Core Pool on BNB Chain, the main Venus lending market. Supply assets to mint vTokens that earn interest, enter markets to use them as collateral, borrow against that collateral, repay, redeem and liquidate. Agents call each vToken for money movement and the Unitroller (Comptroller) for collateral and account checks.",
+  "website": "https://venus.io",
+  "docs": "https://docs-v4.venus.io",
+  "defillama": "https://defillama.com/protocol/venus-core-pool",
+  "chains": [
+    "bnb"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0xfD36E2c2a6789Db23113685031d7F16329158384",
+      "name": "Unitroller (Core Pool Comptroller)",
+      "role": "pool",
+      "proxy": true,
+      "source": "https://github.com/VenusProtocol/venus-protocol/blob/develop/deployments/bscmainnet_addresses.json",
+      "keyFunctions": [
+        {
+          "signature": "enterMarkets(address[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Enter one or more vToken markets so supplied assets count as collateral: (vTokens). Required before borrowing against a market. Returns an error code per market (0 on success)."
+        },
+        {
+          "signature": "exitMarket(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stop using a vToken as collateral: (vToken). Returns an error code (0 on success). Fails if the account would fall short of collateral."
+        },
+        {
+          "signature": "getAssetsIn(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "vTokens an account has entered as collateral."
+        },
+        {
+          "signature": "getAccountLiquidity(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (error, liquidity, shortfall) for an account, valued in USD by the oracle. A shortfall above zero makes the account liquidatable."
+        },
+        {
+          "signature": "claimVenus(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim accrued XVS rewards for a holder across all core pool markets: (holder). The rewards go to the holder."
+        },
+        {
+          "signature": "getAllMarkets()",
+          "kind": "read",
+          "payable": false,
+          "description": "All vToken markets listed in the core pool."
+        },
+        {
+          "signature": "isMarketListed(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if a vToken is listed in the core pool."
+        },
+        {
+          "signature": "getCollateralFactor(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Collateral factor of a vToken, scaled by 1e18. The share of its collateral value that counts toward borrowing."
+        },
+        {
+          "signature": "oracle()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the price oracle the Comptroller uses for collateral and borrow checks."
+        }
+      ]
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0xecA88125a5ADbe82614ffC12D0DB554E2e2867C8",
+      "name": "vUSDC (Core Pool)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://github.com/VenusProtocol/venus-protocol/blob/develop/deployments/bscmainnet_addresses.json",
+      "keyFunctions": [
+        {
+          "signature": "mint(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply underlying and receive vTokens: (mintAmount). Approve the underlying for the vToken first. Returns an error code (0 means success) instead of reverting for most failures, so read the return value."
+        },
+        {
+          "signature": "redeem(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn vTokens and receive underlying: (redeemTokens, in vToken units). Returns an error code (0 on success). Fails if the account would fall short of collateral or the market lacks cash."
+        },
+        {
+          "signature": "redeemUnderlying(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact amount of underlying: (redeemAmount). Burns the matching vTokens. Returns an error code (0 on success)."
+        },
+        {
+          "signature": "borrow(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow underlying: (borrowAmount). Enter the market with enterMarkets on the Unitroller first. Returns an error code (0 on success). Borrow caps and collateral checks apply."
+        },
+        {
+          "signature": "repayBorrow(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay your own debt: (repayAmount). Approve the underlying for the vToken first. Returns an error code (0 on success)."
+        },
+        {
+          "signature": "repayBorrowBehalf(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay the debt of another borrower: (borrower, repayAmount). Approve the underlying first. Returns an error code (0 on success)."
+        },
+        {
+          "signature": "liquidateBorrow(address,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidate a borrower: (borrower, repayAmount, vTokenCollateral). Approve the underlying first. Seizes vTokenCollateral from the borrower. Only valid when the borrower has a shortfall. Returns an error code (0 on success)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "vToken balance of an account, in vToken units (not underlying)."
+        },
+        {
+          "signature": "balanceOfUnderlying(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Underlying balance of an account after interest accrues. Not a view function in the ABI, so call it with eth_call."
+        },
+        {
+          "signature": "borrowBalanceStored(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Debt of an account as of the last accrual, in underlying units. Use borrowBalanceCurrent with eth_call for an up to date figure."
+        },
+        {
+          "signature": "borrowBalanceCurrent(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Accrues interest and returns the current debt. Not a view function in the ABI, so call it with eth_call."
+        },
+        {
+          "signature": "supplyRatePerBlock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per block, scaled by 1e18. Venus rates are quoted per block."
+        },
+        {
+          "signature": "borrowRatePerBlock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Borrow rate per block, scaled by 1e18. Venus rates are quoted per block."
+        },
+        {
+          "signature": "getCash()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying cash held by the vToken, available for borrows and redeems."
+        },
+        {
+          "signature": "underlying()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the underlying token of this vToken."
+        }
+      ]
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0xfD5840Cd36d94D7229439859C0112a4185BC0255",
+      "name": "vUSDT (Core Pool)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://github.com/VenusProtocol/venus-protocol/blob/develop/deployments/bscmainnet_addresses.json",
+      "keyFunctions": [
+        {
+          "signature": "mint(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply underlying and receive vTokens: (mintAmount). Approve the underlying for the vToken first. Returns an error code (0 means success) instead of reverting for most failures, so read the return value."
+        },
+        {
+          "signature": "redeem(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn vTokens and receive underlying: (redeemTokens, in vToken units). Returns an error code (0 on success). Fails if the account would fall short of collateral or the market lacks cash."
+        },
+        {
+          "signature": "redeemUnderlying(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact amount of underlying: (redeemAmount). Burns the matching vTokens. Returns an error code (0 on success)."
+        },
+        {
+          "signature": "borrow(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow underlying: (borrowAmount). Enter the market with enterMarkets on the Unitroller first. Returns an error code (0 on success). Borrow caps and collateral checks apply."
+        },
+        {
+          "signature": "repayBorrow(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay your own debt: (repayAmount). Approve the underlying for the vToken first. Returns an error code (0 on success)."
+        },
+        {
+          "signature": "repayBorrowBehalf(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay the debt of another borrower: (borrower, repayAmount). Approve the underlying first. Returns an error code (0 on success)."
+        },
+        {
+          "signature": "liquidateBorrow(address,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidate a borrower: (borrower, repayAmount, vTokenCollateral). Approve the underlying first. Seizes vTokenCollateral from the borrower. Only valid when the borrower has a shortfall. Returns an error code (0 on success)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "vToken balance of an account, in vToken units (not underlying)."
+        },
+        {
+          "signature": "balanceOfUnderlying(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Underlying balance of an account after interest accrues. Not a view function in the ABI, so call it with eth_call."
+        },
+        {
+          "signature": "borrowBalanceStored(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Debt of an account as of the last accrual, in underlying units. Use borrowBalanceCurrent with eth_call for an up to date figure."
+        },
+        {
+          "signature": "borrowBalanceCurrent(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Accrues interest and returns the current debt. Not a view function in the ABI, so call it with eth_call."
+        },
+        {
+          "signature": "supplyRatePerBlock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per block, scaled by 1e18. Venus rates are quoted per block."
+        },
+        {
+          "signature": "borrowRatePerBlock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Borrow rate per block, scaled by 1e18. Venus rates are quoted per block."
+        },
+        {
+          "signature": "getCash()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying cash held by the vToken, available for borrows and redeems."
+        },
+        {
+          "signature": "underlying()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the underlying token of this vToken."
+        }
+      ]
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0xA07c5b74C9B40447a954e1466938b865b6BBea36",
+      "name": "vBNB (Core Pool)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://github.com/VenusProtocol/venus-protocol/blob/develop/deployments/bscmainnet_addresses.json",
+      "keyFunctions": [
+        {
+          "signature": "mint()",
+          "kind": "write",
+          "payable": true,
+          "description": "Supply BNB and receive vBNB: send the amount as msg.value. Accrues interest first. The ABI has no return value, so check the vBNB balance change after the call."
+        },
+        {
+          "signature": "redeem(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn vBNB and receive BNB: (redeemTokens, in vBNB units). Fails if the account would fall short of collateral."
+        },
+        {
+          "signature": "redeemUnderlying(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact amount of BNB: (redeemAmount). Burns the matching vBNB."
+        },
+        {
+          "signature": "borrow(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow BNB: (borrowAmount). Enter the market with enterMarkets on the Unitroller first. Borrow caps and collateral checks apply."
+        },
+        {
+          "signature": "repayBorrow()",
+          "kind": "write",
+          "payable": true,
+          "description": "Repay your own BNB debt: send the repay amount as msg.value. Any excess is refunded."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "vBNB balance of an account, in vBNB units."
+        },
+        {
+          "signature": "balanceOfUnderlying(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "BNB balance of an account after interest accrues. Not a view function in the ABI, so call it with eth_call."
+        },
+        {
+          "signature": "borrowBalanceStored(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "BNB debt of an account as of the last accrual."
+        },
+        {
+          "signature": "borrowBalanceCurrent(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Accrues interest and returns the current BNB debt. Not a view function in the ABI, so call it with eth_call."
+        },
+        {
+          "signature": "supplyRatePerBlock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per block, scaled by 1e18."
+        },
+        {
+          "signature": "borrowRatePerBlock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Borrow rate per block, scaled by 1e18."
+        },
+        {
+          "signature": "getCash()",
+          "kind": "read",
+          "payable": false,
+          "description": "BNB cash held by the vBNB market."
+        }
+      ]
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0xf508fCD89b8bd15579dc79A6827cB4686A3592c8",
+      "name": "vETH (Core Pool)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://github.com/VenusProtocol/venus-protocol/blob/develop/deployments/bscmainnet_addresses.json",
+      "keyFunctions": [
+        {
+          "signature": "mint(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply underlying and receive vTokens: (mintAmount). Approve the underlying for the vToken first. Returns an error code (0 means success) instead of reverting for most failures, so read the return value."
+        },
+        {
+          "signature": "redeem(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn vTokens and receive underlying: (redeemTokens, in vToken units). Returns an error code (0 on success). Fails if the account would fall short of collateral or the market lacks cash."
+        },
+        {
+          "signature": "redeemUnderlying(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact amount of underlying: (redeemAmount). Burns the matching vTokens. Returns an error code (0 on success)."
+        },
+        {
+          "signature": "borrow(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow underlying: (borrowAmount). Enter the market with enterMarkets on the Unitroller first. Returns an error code (0 on success). Borrow caps and collateral checks apply."
+        },
+        {
+          "signature": "repayBorrow(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay your own debt: (repayAmount). Approve the underlying for the vToken first. Returns an error code (0 on success)."
+        },
+        {
+          "signature": "repayBorrowBehalf(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay the debt of another borrower: (borrower, repayAmount). Approve the underlying first. Returns an error code (0 on success)."
+        },
+        {
+          "signature": "liquidateBorrow(address,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidate a borrower: (borrower, repayAmount, vTokenCollateral). Approve the underlying first. Seizes vTokenCollateral from the borrower. Only valid when the borrower has a shortfall. Returns an error code (0 on success)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "vToken balance of an account, in vToken units (not underlying)."
+        },
+        {
+          "signature": "balanceOfUnderlying(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Underlying balance of an account after interest accrues. Not a view function in the ABI, so call it with eth_call."
+        },
+        {
+          "signature": "borrowBalanceStored(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Debt of an account as of the last accrual, in underlying units. Use borrowBalanceCurrent with eth_call for an up to date figure."
+        },
+        {
+          "signature": "borrowBalanceCurrent(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Accrues interest and returns the current debt. Not a view function in the ABI, so call it with eth_call."
+        },
+        {
+          "signature": "supplyRatePerBlock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per block, scaled by 1e18. Venus rates are quoted per block."
+        },
+        {
+          "signature": "borrowRatePerBlock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Borrow rate per block, scaled by 1e18. Venus rates are quoted per block."
+        },
+        {
+          "signature": "getCash()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying cash held by the vToken, available for borrows and redeems."
+        },
+        {
+          "signature": "underlying()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the underlying token of this vToken."
+        }
+      ]
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x882C173bC7Ff3b7786CA16dfeD3DFFfb9Ee7847B",
+      "name": "vBTC (Core Pool)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://github.com/VenusProtocol/venus-protocol/blob/develop/deployments/bscmainnet_addresses.json",
+      "keyFunctions": [
+        {
+          "signature": "mint(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply underlying and receive vTokens: (mintAmount). Approve the underlying for the vToken first. Returns an error code (0 means success) instead of reverting for most failures, so read the return value."
+        },
+        {
+          "signature": "redeem(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn vTokens and receive underlying: (redeemTokens, in vToken units). Returns an error code (0 on success). Fails if the account would fall short of collateral or the market lacks cash."
+        },
+        {
+          "signature": "redeemUnderlying(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw an exact amount of underlying: (redeemAmount). Burns the matching vTokens. Returns an error code (0 on success)."
+        },
+        {
+          "signature": "borrow(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow underlying: (borrowAmount). Enter the market with enterMarkets on the Unitroller first. Returns an error code (0 on success). Borrow caps and collateral checks apply."
+        },
+        {
+          "signature": "repayBorrow(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay your own debt: (repayAmount). Approve the underlying for the vToken first. Returns an error code (0 on success)."
+        },
+        {
+          "signature": "repayBorrowBehalf(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay the debt of another borrower: (borrower, repayAmount). Approve the underlying first. Returns an error code (0 on success)."
+        },
+        {
+          "signature": "liquidateBorrow(address,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidate a borrower: (borrower, repayAmount, vTokenCollateral). Approve the underlying first. Seizes vTokenCollateral from the borrower. Only valid when the borrower has a shortfall. Returns an error code (0 on success)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "vToken balance of an account, in vToken units (not underlying)."
+        },
+        {
+          "signature": "balanceOfUnderlying(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Underlying balance of an account after interest accrues. Not a view function in the ABI, so call it with eth_call."
+        },
+        {
+          "signature": "borrowBalanceStored(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Debt of an account as of the last accrual, in underlying units. Use borrowBalanceCurrent with eth_call for an up to date figure."
+        },
+        {
+          "signature": "borrowBalanceCurrent(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Accrues interest and returns the current debt. Not a view function in the ABI, so call it with eth_call."
+        },
+        {
+          "signature": "supplyRatePerBlock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Supply rate per block, scaled by 1e18. Venus rates are quoted per block."
+        },
+        {
+          "signature": "borrowRatePerBlock()",
+          "kind": "read",
+          "payable": false,
+          "description": "Borrow rate per block, scaled by 1e18. Venus rates are quoted per block."
+        },
+        {
+          "signature": "getCash()",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying cash held by the vToken, available for borrows and redeems."
+        },
+        {
+          "signature": "underlying()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the underlying token of this vToken."
+        }
+      ]
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x7FabdD617200C9CB4dcf3dd2C41273e60552068A",
+      "name": "VenusChainlinkOracle",
+      "role": "other",
+      "proxy": null,
+      "source": "https://github.com/VenusProtocol/venus-protocol/blob/develop/deployments/bscmainnet_addresses.json",
+      "keyFunctions": [
+        {
+          "signature": "getUnderlyingPrice(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Underlying price for a vToken, used by the Comptroller for collateral and borrow checks. Scaling follows the Venus oracle implementation, so check the source before using it in math."
+        },
+        {
+          "signature": "assetPrices(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Stored price for an underlying token."
+        },
+        {
+          "signature": "getFeed(string)",
+          "kind": "read",
+          "payable": false,
+          "description": "Chainlink feed address registered for a symbol."
+        },
+        {
+          "signature": "maxStalePeriod()",
+          "kind": "read",
+          "payable": false,
+          "description": "Maximum age accepted for feed answers."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "supply",
+      "description": "Supply an asset and receive vTokens",
+      "how": "Approve the underlying, then vToken.mint(amount). For BNB call vBNB.mint() with value."
+    },
+    {
+      "name": "use as collateral",
+      "description": "Let supplied assets back borrows",
+      "how": "Unitroller.enterMarkets([vToken])"
+    },
+    {
+      "name": "borrow",
+      "description": "Borrow against collateral",
+      "how": "vToken.borrow(amount), after entering the market and checking getAccountLiquidity"
+    },
+    {
+      "name": "repay",
+      "description": "Repay debt",
+      "how": "Approve the underlying, then vToken.repayBorrow(amount). For BNB call vBNB.repayBorrow() with value."
+    },
+    {
+      "name": "withdraw",
+      "description": "Redeem supplied assets",
+      "how": "vToken.redeem(vTokenAmount) or vToken.redeemUnderlying(amount)"
+    },
+    {
+      "name": "liquidate",
+      "description": "Repay part of an underwater debt and seize collateral",
+      "how": "Approve the debt underlying, then debtVToken.liquidateBorrow(borrower, repayAmount, collateralVToken) when the shortfall is above zero"
+    },
+    {
+      "name": "claim rewards",
+      "description": "Claim XVS rewards",
+      "how": "Unitroller.claimVenus(holder)"
+    }
+  ],
+  "risks": [
+    "Most vToken functions return an error code instead of reverting. Read the return value and treat anything other than 0 as a failure.",
+    "Collateral is valued by the Venus oracle. Oracle problems or stale prices can make positions liquidatable or block borrows.",
+    "Borrow caps, supply caps and pause guardians can stop a market at any time.",
+    "Liquidators receive a bonus, so borrowers lose collateral when they are liquidated.",
+    "Interest rates are quoted per block and move with utilization.",
+    "Venus has other pools with different contracts. This entry covers the Core Pool only."
+  ],
+  "notes": "Only BNB Chain has a Core Pool Unitroller in the official Venus deployments folder. DefiLlama also lists Ethereum, Arbitrum, Base, Optimism, zkSync Era, Unichain and opBNB for this pool, but the official files for those chains hold only Prime and treasury contracts, so they are not listed. The vBNB market takes native BNB and has its own mint and repay signatures. Every address above was checked to have code and the vTokens were checked against getAllMarkets on the Unitroller.",
+  "sources": [
+    "https://api.llama.fi/protocol/venus-core-pool",
+    "https://defillama.com/protocol/venus-core-pool",
+    "https://github.com/VenusProtocol/venus-protocol/tree/develop/deployments",
+    "https://github.com/VenusProtocol/venus-protocol/blob/develop/deployments/bscmainnet_addresses.json",
+    "https://github.com/VenusProtocol/venus-protocol/blob/develop/deployments/bscmainnet/vUSDC.json",
+    "https://github.com/VenusProtocol/venus-protocol/blob/develop/deployments/bscmainnet/vBNB.json",
+    "https://github.com/VenusProtocol/venus-protocol/blob/develop/deployments/bscmainnet/MarketFacet.json",
+    "https://github.com/VenusProtocol/venus-protocol/blob/develop/deployments/bscmainnet/RewardFacet.json",
+    "https://github.com/VenusProtocol/venus-protocol/blob/develop/deployments/bscmainnet/PolicyFacet.json",
+    "https://github.com/VenusProtocol/venus-protocol/blob/develop/deployments/bscmainnet/VenusChainlinkOracle.json",
+    "https://docs-v4.venus.io/technical-reference/contracts-overview"
+  ],
+  "researchedAt": "2026-11-28"
+}

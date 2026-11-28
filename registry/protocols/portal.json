@@ -1,0 +1,605 @@
+{
+  "slug": "portal",
+  "name": "Portal",
+  "category": "Bridge",
+  "description": "Wormhole Portal token bridge. Moves ERC20 and native tokens between EVM chains and Solana by locking or burning on the source chain and minting or releasing on the destination, using signed Wormhole VAAs. An agent can bridge tokens, attest new tokens, and redeem inbound transfers.",
+  "website": "https://portalbridge.com",
+  "docs": "https://wormhole.com/docs",
+  "defillama": "https://defillama.com/protocol/portal",
+  "chains": [
+    "ethereum",
+    "bsc",
+    "base",
+    "arbitrum",
+    "optimism",
+    "polygon",
+    "avalanche",
+    "solana"
+  ],
+  "vm": "mixed",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x3ee18B2214AFF97000D974cf647E7C347E8fa585",
+      "name": "Portal Token Bridge",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://wormhole.com/docs/reference/contract-addresses/",
+      "keyFunctions": [
+        {
+          "signature": "transferTokens(address,uint256,uint16,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Lock or burn an ERC20 and send a transfer message. Args: token, amount, recipientChain (Wormhole chain id), recipient (bytes32, left padded address), arbiterFee (0 if none), nonce (any value). Approve the bridge for the token first. msg.value pays the Wormhole message fee."
+        },
+        {
+          "signature": "wrapAndTransferETH(uint16,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Wrap the native gas token and bridge it. msg.value must cover the amount plus the Wormhole message fee. Args: recipientChain, recipient (bytes32), arbiterFee, nonce."
+        },
+        {
+          "signature": "attestToken(address,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Publish an attestation for a token so it can be wrapped on other chains. msg.value pays the Wormhole message fee. Run this once per token before the first transfer to a new chain."
+        },
+        {
+          "signature": "transferTokensWithPayload(address,uint256,uint16,bytes32,uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge tokens and attach a payload for a contract on the destination chain. Args: token, amount, recipientChain, recipient (bytes32 of the destination contract), nonce, payload."
+        },
+        {
+          "signature": "completeTransfer(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem an inbound transfer using the signed VAA bytes from Wormholescan. Mints the wrapped token or releases the native token to the recipient. Anyone can submit it."
+        },
+        {
+          "signature": "completeTransferAndUnwrapETH(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem an inbound transfer of wrapped native ETH and send native ETH to the recipient. Takes the signed VAA bytes."
+        },
+        {
+          "signature": "completeTransferWithPayload(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem a transfer that carries a payload. Takes the signed VAA bytes. The destination recipient contract must call it."
+        },
+        {
+          "signature": "wrappedAsset(uint16,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Local wrapped token address for a remote token. Args: origin Wormhole chain id, origin token address as bytes32. Returns the zero address if no wrapped token exists yet."
+        },
+        {
+          "signature": "isWrappedAsset(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is a wrapped asset minted by this bridge."
+        },
+        {
+          "signature": "isTransferCompleted(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if a VAA hash has already been redeemed. Check it before calling completeTransfer."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xB6F6D86a8f9879A9c87f643768d9efc38c1Da6E7",
+      "name": "Portal Token Bridge",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://wormhole.com/docs/reference/contract-addresses/",
+      "keyFunctions": [
+        {
+          "signature": "transferTokens(address,uint256,uint16,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Lock or burn an ERC20 and send a transfer message. Args: token, amount, recipientChain (Wormhole chain id), recipient (bytes32, left padded address), arbiterFee (0 if none), nonce (any value). Approve the bridge for the token first. msg.value pays the Wormhole message fee."
+        },
+        {
+          "signature": "wrapAndTransferETH(uint16,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Wrap the native gas token and bridge it. msg.value must cover the amount plus the Wormhole message fee. Args: recipientChain, recipient (bytes32), arbiterFee, nonce."
+        },
+        {
+          "signature": "attestToken(address,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Publish an attestation for a token so it can be wrapped on other chains. msg.value pays the Wormhole message fee. Run this once per token before the first transfer to a new chain."
+        },
+        {
+          "signature": "transferTokensWithPayload(address,uint256,uint16,bytes32,uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge tokens and attach a payload for a contract on the destination chain. Args: token, amount, recipientChain, recipient (bytes32 of the destination contract), nonce, payload."
+        },
+        {
+          "signature": "completeTransfer(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem an inbound transfer using the signed VAA bytes from Wormholescan. Mints the wrapped token or releases the native token to the recipient. Anyone can submit it."
+        },
+        {
+          "signature": "completeTransferAndUnwrapETH(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem an inbound transfer of wrapped native ETH and send native ETH to the recipient. Takes the signed VAA bytes."
+        },
+        {
+          "signature": "completeTransferWithPayload(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem a transfer that carries a payload. Takes the signed VAA bytes. The destination recipient contract must call it."
+        },
+        {
+          "signature": "wrappedAsset(uint16,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Local wrapped token address for a remote token. Args: origin Wormhole chain id, origin token address as bytes32. Returns the zero address if no wrapped token exists yet."
+        },
+        {
+          "signature": "isWrappedAsset(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is a wrapped asset minted by this bridge."
+        },
+        {
+          "signature": "isTransferCompleted(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if a VAA hash has already been redeemed. Check it before calling completeTransfer."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x8d2de8d2f73F1F4cAB472AC9A881C9b123C79627",
+      "name": "Portal Token Bridge",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://wormhole.com/docs/reference/contract-addresses/",
+      "keyFunctions": [
+        {
+          "signature": "transferTokens(address,uint256,uint16,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Lock or burn an ERC20 and send a transfer message. Args: token, amount, recipientChain (Wormhole chain id), recipient (bytes32, left padded address), arbiterFee (0 if none), nonce (any value). Approve the bridge for the token first. msg.value pays the Wormhole message fee."
+        },
+        {
+          "signature": "wrapAndTransferETH(uint16,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Wrap the native gas token and bridge it. msg.value must cover the amount plus the Wormhole message fee. Args: recipientChain, recipient (bytes32), arbiterFee, nonce."
+        },
+        {
+          "signature": "attestToken(address,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Publish an attestation for a token so it can be wrapped on other chains. msg.value pays the Wormhole message fee. Run this once per token before the first transfer to a new chain."
+        },
+        {
+          "signature": "transferTokensWithPayload(address,uint256,uint16,bytes32,uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge tokens and attach a payload for a contract on the destination chain. Args: token, amount, recipientChain, recipient (bytes32 of the destination contract), nonce, payload."
+        },
+        {
+          "signature": "completeTransfer(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem an inbound transfer using the signed VAA bytes from Wormholescan. Mints the wrapped token or releases the native token to the recipient. Anyone can submit it."
+        },
+        {
+          "signature": "completeTransferAndUnwrapETH(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem an inbound transfer of wrapped native ETH and send native ETH to the recipient. Takes the signed VAA bytes."
+        },
+        {
+          "signature": "completeTransferWithPayload(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem a transfer that carries a payload. Takes the signed VAA bytes. The destination recipient contract must call it."
+        },
+        {
+          "signature": "wrappedAsset(uint16,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Local wrapped token address for a remote token. Args: origin Wormhole chain id, origin token address as bytes32. Returns the zero address if no wrapped token exists yet."
+        },
+        {
+          "signature": "isWrappedAsset(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is a wrapped asset minted by this bridge."
+        },
+        {
+          "signature": "isTransferCompleted(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if a VAA hash has already been redeemed. Check it before calling completeTransfer."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x0b2402144Bb366A632D14B83F244D2e0e21bD39c",
+      "name": "Portal Token Bridge",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://wormhole.com/docs/reference/contract-addresses/",
+      "keyFunctions": [
+        {
+          "signature": "transferTokens(address,uint256,uint16,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Lock or burn an ERC20 and send a transfer message. Args: token, amount, recipientChain (Wormhole chain id), recipient (bytes32, left padded address), arbiterFee (0 if none), nonce (any value). Approve the bridge for the token first. msg.value pays the Wormhole message fee."
+        },
+        {
+          "signature": "wrapAndTransferETH(uint16,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Wrap the native gas token and bridge it. msg.value must cover the amount plus the Wormhole message fee. Args: recipientChain, recipient (bytes32), arbiterFee, nonce."
+        },
+        {
+          "signature": "attestToken(address,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Publish an attestation for a token so it can be wrapped on other chains. msg.value pays the Wormhole message fee. Run this once per token before the first transfer to a new chain."
+        },
+        {
+          "signature": "transferTokensWithPayload(address,uint256,uint16,bytes32,uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge tokens and attach a payload for a contract on the destination chain. Args: token, amount, recipientChain, recipient (bytes32 of the destination contract), nonce, payload."
+        },
+        {
+          "signature": "completeTransfer(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem an inbound transfer using the signed VAA bytes from Wormholescan. Mints the wrapped token or releases the native token to the recipient. Anyone can submit it."
+        },
+        {
+          "signature": "completeTransferAndUnwrapETH(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem an inbound transfer of wrapped native ETH and send native ETH to the recipient. Takes the signed VAA bytes."
+        },
+        {
+          "signature": "completeTransferWithPayload(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem a transfer that carries a payload. Takes the signed VAA bytes. The destination recipient contract must call it."
+        },
+        {
+          "signature": "wrappedAsset(uint16,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Local wrapped token address for a remote token. Args: origin Wormhole chain id, origin token address as bytes32. Returns the zero address if no wrapped token exists yet."
+        },
+        {
+          "signature": "isWrappedAsset(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is a wrapped asset minted by this bridge."
+        },
+        {
+          "signature": "isTransferCompleted(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if a VAA hash has already been redeemed. Check it before calling completeTransfer."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x1D68124e65faFC907325e3EDbF8c4d84499DAa8b",
+      "name": "Portal Token Bridge",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://wormhole.com/docs/reference/contract-addresses/",
+      "keyFunctions": [
+        {
+          "signature": "transferTokens(address,uint256,uint16,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Lock or burn an ERC20 and send a transfer message. Args: token, amount, recipientChain (Wormhole chain id), recipient (bytes32, left padded address), arbiterFee (0 if none), nonce (any value). Approve the bridge for the token first. msg.value pays the Wormhole message fee."
+        },
+        {
+          "signature": "wrapAndTransferETH(uint16,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Wrap the native gas token and bridge it. msg.value must cover the amount plus the Wormhole message fee. Args: recipientChain, recipient (bytes32), arbiterFee, nonce."
+        },
+        {
+          "signature": "attestToken(address,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Publish an attestation for a token so it can be wrapped on other chains. msg.value pays the Wormhole message fee. Run this once per token before the first transfer to a new chain."
+        },
+        {
+          "signature": "transferTokensWithPayload(address,uint256,uint16,bytes32,uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge tokens and attach a payload for a contract on the destination chain. Args: token, amount, recipientChain, recipient (bytes32 of the destination contract), nonce, payload."
+        },
+        {
+          "signature": "completeTransfer(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem an inbound transfer using the signed VAA bytes from Wormholescan. Mints the wrapped token or releases the native token to the recipient. Anyone can submit it."
+        },
+        {
+          "signature": "completeTransferAndUnwrapETH(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem an inbound transfer of wrapped native ETH and send native ETH to the recipient. Takes the signed VAA bytes."
+        },
+        {
+          "signature": "completeTransferWithPayload(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem a transfer that carries a payload. Takes the signed VAA bytes. The destination recipient contract must call it."
+        },
+        {
+          "signature": "wrappedAsset(uint16,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Local wrapped token address for a remote token. Args: origin Wormhole chain id, origin token address as bytes32. Returns the zero address if no wrapped token exists yet."
+        },
+        {
+          "signature": "isWrappedAsset(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is a wrapped asset minted by this bridge."
+        },
+        {
+          "signature": "isTransferCompleted(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if a VAA hash has already been redeemed. Check it before calling completeTransfer."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x5a58505a96D1dbf8dF91cB21B54419FC36e93fdE",
+      "name": "Portal Token Bridge",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://wormhole.com/docs/reference/contract-addresses/",
+      "keyFunctions": [
+        {
+          "signature": "transferTokens(address,uint256,uint16,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Lock or burn an ERC20 and send a transfer message. Args: token, amount, recipientChain (Wormhole chain id), recipient (bytes32, left padded address), arbiterFee (0 if none), nonce (any value). Approve the bridge for the token first. msg.value pays the Wormhole message fee."
+        },
+        {
+          "signature": "wrapAndTransferETH(uint16,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Wrap the native gas token and bridge it. msg.value must cover the amount plus the Wormhole message fee. Args: recipientChain, recipient (bytes32), arbiterFee, nonce."
+        },
+        {
+          "signature": "attestToken(address,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Publish an attestation for a token so it can be wrapped on other chains. msg.value pays the Wormhole message fee. Run this once per token before the first transfer to a new chain."
+        },
+        {
+          "signature": "transferTokensWithPayload(address,uint256,uint16,bytes32,uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge tokens and attach a payload for a contract on the destination chain. Args: token, amount, recipientChain, recipient (bytes32 of the destination contract), nonce, payload."
+        },
+        {
+          "signature": "completeTransfer(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem an inbound transfer using the signed VAA bytes from Wormholescan. Mints the wrapped token or releases the native token to the recipient. Anyone can submit it."
+        },
+        {
+          "signature": "completeTransferAndUnwrapETH(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem an inbound transfer of wrapped native ETH and send native ETH to the recipient. Takes the signed VAA bytes."
+        },
+        {
+          "signature": "completeTransferWithPayload(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem a transfer that carries a payload. Takes the signed VAA bytes. The destination recipient contract must call it."
+        },
+        {
+          "signature": "wrappedAsset(uint16,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Local wrapped token address for a remote token. Args: origin Wormhole chain id, origin token address as bytes32. Returns the zero address if no wrapped token exists yet."
+        },
+        {
+          "signature": "isWrappedAsset(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is a wrapped asset minted by this bridge."
+        },
+        {
+          "signature": "isTransferCompleted(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if a VAA hash has already been redeemed. Check it before calling completeTransfer."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x0e082F06FF657D94310cB8cE8B0D9a04541d8052",
+      "name": "Portal Token Bridge",
+      "role": "bridge",
+      "proxy": true,
+      "source": "https://wormhole.com/docs/reference/contract-addresses/",
+      "keyFunctions": [
+        {
+          "signature": "transferTokens(address,uint256,uint16,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Lock or burn an ERC20 and send a transfer message. Args: token, amount, recipientChain (Wormhole chain id), recipient (bytes32, left padded address), arbiterFee (0 if none), nonce (any value). Approve the bridge for the token first. msg.value pays the Wormhole message fee."
+        },
+        {
+          "signature": "wrapAndTransferETH(uint16,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Wrap the native gas token and bridge it. msg.value must cover the amount plus the Wormhole message fee. Args: recipientChain, recipient (bytes32), arbiterFee, nonce."
+        },
+        {
+          "signature": "attestToken(address,uint32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Publish an attestation for a token so it can be wrapped on other chains. msg.value pays the Wormhole message fee. Run this once per token before the first transfer to a new chain."
+        },
+        {
+          "signature": "transferTokensWithPayload(address,uint256,uint16,bytes32,uint32,bytes)",
+          "kind": "write",
+          "payable": true,
+          "description": "Bridge tokens and attach a payload for a contract on the destination chain. Args: token, amount, recipientChain, recipient (bytes32 of the destination contract), nonce, payload."
+        },
+        {
+          "signature": "completeTransfer(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem an inbound transfer using the signed VAA bytes from Wormholescan. Mints the wrapped token or releases the native token to the recipient. Anyone can submit it."
+        },
+        {
+          "signature": "completeTransferAndUnwrapETH(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem an inbound transfer of wrapped native ETH and send native ETH to the recipient. Takes the signed VAA bytes."
+        },
+        {
+          "signature": "completeTransferWithPayload(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Redeem a transfer that carries a payload. Takes the signed VAA bytes. The destination recipient contract must call it."
+        },
+        {
+          "signature": "wrappedAsset(uint16,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Local wrapped token address for a remote token. Args: origin Wormhole chain id, origin token address as bytes32. Returns the zero address if no wrapped token exists yet."
+        },
+        {
+          "signature": "isWrappedAsset(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is a wrapped asset minted by this bridge."
+        },
+        {
+          "signature": "isTransferCompleted(bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if a VAA hash has already been redeemed. Check it before calling completeTransfer."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "wormDTUJ6AWPNvk59vGQbDvGJmqbDTdgWgAqcLBCgUb",
+      "name": "Portal Token Bridge (Solana program)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://wormhole.com/docs/reference/contract-addresses/",
+      "keyFunctions": [
+        {
+          "signature": "TransferNative",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: lock a native SPL token and emit a transfer message."
+        },
+        {
+          "signature": "TransferWrapped",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: burn a wrapped SPL token and emit a transfer message back toward its origin chain."
+        },
+        {
+          "signature": "CompleteNative",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: redeem an inbound VAA for a native token, releasing it from custody."
+        },
+        {
+          "signature": "CompleteWrapped",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: redeem an inbound VAA for a wrapped token, minting it to the recipient."
+        },
+        {
+          "signature": "AttestToken",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: publish an attestation for an SPL token so it can be wrapped on other chains."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Wormholescan API",
+      "url": "https://api.wormholescan.io/api/v1/",
+      "auth": "none",
+      "use": "Fetch the signed VAA for a transfer (vaas/{chainId}/{emitterAddress}/{sequence}) and check transfer status. The VAA bytes are the input to completeTransfer.",
+      "source": "https://docs.wormhole.com/wormhole/reference/api-docs/swagger"
+    }
+  ],
+  "actions": [
+    {
+      "name": "bridge ERC20",
+      "description": "Send tokens from an EVM chain to another chain",
+      "how": "Approve the Portal bridge for the amount, then call transferTokens on the source chain with the destination Wormhole chain id and a bytes32 recipient. Pay the message fee in msg.value."
+    },
+    {
+      "name": "bridge native ETH or gas token",
+      "description": "Wrap and bridge the native gas token",
+      "how": "Call wrapAndTransferETH with msg.value set to the amount plus the message fee."
+    },
+    {
+      "name": "redeem transfer",
+      "description": "Receive tokens on the destination chain",
+      "how": "Wait for the guardian signed VAA on Wormholescan, then call completeTransfer (or completeTransferAndUnwrapETH) with the VAA bytes on the destination chain."
+    }
+  ],
+  "risks": [
+    "Bridged tokens are wrapped copies on most chains. Their value depends on the bridge contracts and guardian set.",
+    "Redeeming needs the signed VAA from the Wormhole guardians, so a transfer is not final until the VAA exists and is redeemed.",
+    "Wormhole message fees are charged in the source chain native token and are paid on each transfer.",
+    "Recipient is a bytes32 value. A wrong recipient encoding sends tokens to an unrecoverable address.",
+    "The bridge is paused or frozen by Wormhole governance in some emergencies. Transfers can stall."
+  ],
+  "notes": "Wormhole chain ids differ from EVM chain ids: Solana 1, Ethereum 2, BSC 4, Polygon 5, Avalanche 6, Arbitrum 23, Optimism 24, Base 30. The bridge contract on each EVM chain is an upgradeable proxy. The same function set was checked on every listed EVM chain. Other chains (for example Sui, Aptos, Near) have their own Token Bridge addresses on the Wormhole contract addresses page, not included here.",
+  "sources": [
+    "https://wormhole.com/docs/reference/contract-addresses/",
+    "https://github.com/wormhole-foundation/wormhole/blob/main/ethereum/contracts/bridge/interfaces/ITokenBridge.sol",
+    "https://github.com/wormhole-foundation/wormhole/blob/main/solana/modules/token_bridge/program/src/lib.rs",
+    "https://github.com/wormhole-foundation/wormhole/blob/main/sdk/vaa/structs.go",
+    "https://docs.wormhole.com/wormhole/reference/api-docs/swagger",
+    "https://api.wormholescan.io/api/v1/vaas/2?pageSize=1",
+    "https://defillama.com/protocol/portal"
+  ],
+  "researchedAt": "2026-11-28"
+}

@@ -1,0 +1,147 @@
+{
+  "slug": "wbtc",
+  "name": "WBTC (Wrapped Bitcoin)",
+  "category": "Bridge",
+  "description": "Bitcoin-backed ERC-20 token, 1 WBTC for 1 BTC held in custody. An agent can hold, transfer and approve WBTC on Ethereum and on the other chains where WBTC is native. Minting and burning go through WBTC custody and merchants, not through the token contract.",
+  "website": "https://wbtc.network/",
+  "docs": "https://docs.wbtc.network",
+  "defillama": "https://defillama.com/protocol/wbtc",
+  "chains": [
+    "ethereum",
+    "bnb",
+    "kava",
+    "solana",
+    "tron"
+  ],
+  "vm": "mixed",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "name": "WBTC (ERC-20, 8 decimals)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.wbtc.network/resources/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "WBTC balance of an address in base units (8 decimals, so 100000000 is 1 WBTC)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Remaining amount a spender may pull from an owner: (owner, spender)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total WBTC in circulation, in base units (8 decimals)."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns 8. Use it when converting between whole WBTC and base units."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender to pull WBTC: (spender, amount in base units). Needed before any contract pulls WBTC from your wallet, for example a DEX or lending pool."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send WBTC to an address: (to, amount in base units). Reverts if the balance is too low."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Move WBTC from an owner to a recipient using an allowance: (from, to, amount in base units). The caller must have been approved by from."
+        }
+      ]
+    },
+    {
+      "chain": "bnb",
+      "chainId": 56,
+      "address": "0x39665e85a68a4d7328b8799135E2ff301a0Ca86f",
+      "name": "WBTC (BEP-20, BNB Chain)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.wbtc.network/resources/contract-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "kava",
+      "chainId": 2222,
+      "address": "0xb5c4423a65B953905949548276654C96fcaE6992",
+      "name": "WBTC (ERC-20, Kava)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.wbtc.network/resources/contract-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "5XZw2LKTyrfvfiskJ78AMpackRjPcyCif1WhUsPDuVqQ",
+      "name": "WBTC (SPL token, Solana)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.wbtc.network/resources/contract-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "TYhWwKpw43ENFWBTGpzLHn3882f2au7SMi",
+      "name": "WBTC (TRC-20, TRON)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.wbtc.network/resources/contract-addresses",
+      "keyFunctions": []
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "hold-or-send-wbtc",
+      "description": "Send WBTC on Ethereum or another listed chain",
+      "how": "call transfer(to, amount) on the token address for that chain. Amount in base units (8 decimals)."
+    },
+    {
+      "name": "use-wbtc-in-protocol",
+      "description": "Deposit WBTC into a DeFi protocol",
+      "how": "approve(protocol, amount) on the WBTC token, then call the protocol's deposit function. Check the protocol's own registry entry for the function."
+    },
+    {
+      "name": "mint-or-redeem",
+      "description": "Convert BTC to WBTC or back",
+      "how": "not possible from a contract call. Minting and redemption go through WBTC merchants and custody, as described on the WBTC docs site."
+    }
+  ],
+  "risks": [
+    "WBTC is custodial. Every token depends on BTC held by WBTC custodians and on the WBTC DAO and merchant set. A custody failure would break the peg.",
+    "Token decimals are 8, not 18. Using 18-decimal math with WBTC amounts gives wrong results.",
+    "Look-alike tokens exist on Ethereum (for example, a 'Wrapped BTC from PulseChain' token). Use only the addresses listed on the WBTC docs page.",
+    "Minting and burning are controlled by WBTC custody and merchants. An agent cannot mint or redeem WBTC through the token contract."
+  ],
+  "notes": "Ethereum is the canonical WBTC token. The other chains listed are the ones on the WBTC docs contract addresses page. The WBTC docs also list the Solana and TRON addresses, which are not EVM. The Ethereum entry is the one most agents need. keyFunctions for the other chains are empty on purpose; use get_abi on those token addresses if needed. WBTC also appears on other chains through bridges and third-party wrappers. Those are not official WBTC and are not listed.",
+  "sources": [
+    "https://docs.wbtc.network/resources/contract-addresses",
+    "https://docs.wbtc.network",
+    "https://wbtc.network/",
+    "https://wbtc.network/transparency",
+    "https://defillama.com/protocol/wbtc",
+    "https://api.llama.fi/protocol/wbtc"
+  ],
+  "researchedAt": "2026-11-28"
+}

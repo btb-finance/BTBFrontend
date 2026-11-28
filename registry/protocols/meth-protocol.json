@@ -1,0 +1,304 @@
+{
+  "slug": "meth-protocol",
+  "name": "mETH Protocol",
+  "category": "Liquid Staking",
+  "description": "Permissionless ETH liquid staking run by Mantle. Stake ETH for mETH on Ethereum, queue an unstake request for ETH, and claim it once finalized. mETH is also bridged to Mantle as METHL2.",
+  "website": "https://www.methprotocol.xyz",
+  "docs": "https://docs.mantle.xyz/meth",
+  "defillama": "https://defillama.com/protocol/meth-protocol",
+  "chains": [
+    "ethereum",
+    "mantle"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xe3cBd06D7dadB3F4e6557bAb7EdD924CD1489E8f",
+      "name": "Staking",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://github.com/mantle-lsp/contracts",
+      "keyFunctions": [
+        {
+          "signature": "stake(uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Stake ETH (msg.value) and mint mETH to msg.sender. Argument: minimum mETH expected, reverts below it (slippage guard). Reverts below minimumDepositAmount()."
+        },
+        {
+          "signature": "unstakeRequest(uint128,uint128)",
+          "kind": "write",
+          "payable": false,
+          "description": "Start an unstake: takes mETH from msg.sender (approve mETH to Staking first) and opens a request. Arguments: mETH amount and minimum ETH expected. Returns the request ID. Wait for finalization before claiming."
+        },
+        {
+          "signature": "unstakeRequestWithPermit(uint128,uint128,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as unstakeRequest, using an EIP-2612 permit for the mETH approval. Arguments: mETH amount, minimum ETH, permit deadline, v, r, s."
+        },
+        {
+          "signature": "claimUnstakeRequest(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim the ETH of a finalized unstake request by its ID. Reverts until the request is finalized."
+        },
+        {
+          "signature": "unstakeRequestInfo(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (bool finalized, uint256 ETH amount) for a request ID."
+        },
+        {
+          "signature": "ethToMETH(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "mETH minted for an ETH amount at the current rate (before any adjustment)."
+        },
+        {
+          "signature": "mETHToETH(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "ETH value of an mETH amount at the current rate."
+        },
+        {
+          "signature": "totalControlled()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total ETH controlled by the protocol, in wei."
+        },
+        {
+          "signature": "minimumDepositAmount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum ETH per stake, in wei."
+        },
+        {
+          "signature": "minimumUnstakeBound()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum mETH per unstake request."
+        },
+        {
+          "signature": "isStakingAllowlist()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if staking is restricted to an allowlist."
+        },
+        {
+          "signature": "exchangeAdjustmentRate()",
+          "kind": "read",
+          "payable": false,
+          "description": "Exchange adjustment rate (uint16) that can lower the mETH minted per ETH. Check the mETH docs for its meaning."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xd5F7838F5C461fefF7FE49ea5ebaF7728bB0ADfa",
+      "name": "METH",
+      "role": "token",
+      "proxy": true,
+      "source": "https://github.com/mantle-lsp/contracts",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "mETH balance of an account (18 decimals)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total mETH in existence."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer mETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender for mETH, for example the Staking contract before unstakeRequest."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer mETH using an allowance."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 signed approval for mETH."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x38fDF7b489316e03eD8754ad339cb5c4483FDcf9",
+      "name": "UnstakeRequestsManager",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/mantle-lsp/contracts",
+      "keyFunctions": [
+        {
+          "signature": "requestInfo(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns (bool finalized, uint256 ETH amount) for an unstake request. Same data as Staking.unstakeRequestInfo."
+        },
+        {
+          "signature": "requestByID(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Full request record for an ID: requester, mETH amount, ETH amounts and cumulative checkpoints (6 fields)."
+        },
+        {
+          "signature": "numberOfBlocksToFinalize()",
+          "kind": "read",
+          "payable": false,
+          "description": "Blocks that must pass before a request can be finalized. The docs give a minimum wait of 12 hours, and longer when the queue is busy."
+        },
+        {
+          "signature": "nextRequestId()",
+          "kind": "read",
+          "payable": false,
+          "description": "ID the next unstake request will receive."
+        },
+        {
+          "signature": "totalClaimed()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total ETH claimed from unstake requests so far."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x8735049F496727f824Cc0f2B174d826f5c408192",
+      "name": "Oracle",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/mantle-lsp/contracts",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1766be66fBb0a1883d41B4cfB0a533c5249D3b82",
+      "name": "ReturnsAggregator",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/mantle-lsp/contracts",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x29Ab878aEd032e2e2c86FF4A9a9B05e3276cf1f8",
+      "name": "Pauser",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/mantle-lsp/contracts",
+      "keyFunctions": []
+    },
+    {
+      "chain": "mantle",
+      "chainId": 5000,
+      "address": "0xcDA86A272531e8640cD7F1a92c01839911B90bb0",
+      "name": "METHL2 (bridged mETH, Mantle)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://github.com/mantle-lsp/contracts",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged mETH balance on Mantle (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bridged mETH on Mantle."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender for bridged mETH on Mantle."
+        },
+        {
+          "signature": "l1Token()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the mETH token on Ethereum that this token mirrors."
+        },
+        {
+          "signature": "l2Bridge()",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridge contract that mints and burns this token."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "stake ETH for mETH",
+      "description": "Mint mETH from ETH on Ethereum",
+      "how": "Staking.stake(minMETH) with ETH value; check minimumDepositAmount() first"
+    },
+    {
+      "name": "unstake mETH",
+      "description": "Open an unstake request",
+      "how": "approve mETH to Staking, then Staking.unstakeRequest(mETHAmount, minETH) or unstakeRequestWithPermit; keep the returned request ID"
+    },
+    {
+      "name": "claim unstake",
+      "description": "Receive ETH for a finalized request",
+      "how": "check Staking.unstakeRequestInfo(id) returns finalized = true, then Staking.claimUnstakeRequest(id)"
+    },
+    {
+      "name": "value mETH",
+      "description": "Get the ETH value of mETH",
+      "how": "Staking.mETHToETH(amount)"
+    }
+  ],
+  "risks": [
+    "Unstaking is queued. The docs give a minimum wait of 12 hours, and the wait can run to 40 days or more when the Ethereum validator exit queue is long.",
+    "Unstake requests are finalized in order, so a large request can delay smaller ones behind it.",
+    "The protocol can restrict staking to an allowlist (isStakingAllowlist). Check it before sending ETH.",
+    "The exchange adjustment rate can reduce the mETH minted for a deposit. Read exchangeAdjustmentRate() and ethToMETH() before staking.",
+    "Core contracts are upgradeable proxies under Mantle governance and role-based admin keys.",
+    "The Mantle copy of mETH is a bridged token. Its value depends on the bridge, so check the bridge before relying on it."
+  ],
+  "notes": "Ethereum mainnet contracts from the Mantle LSP README (mantle-lsp/contracts, L1 table), with METHL2 from its L2 table. Staking, METH and the rest of the L1 table are proxies (EIP-1967 slot checked on chain). The Ethereum cmETH restaking token is a separate product and is not covered. Mantle docs give the full protocol details at docs.mantle.xyz/meth.",
+  "sources": [
+    "https://github.com/mantle-lsp/contracts",
+    "https://raw.githubusercontent.com/mantle-lsp/contracts/main/README.md",
+    "https://docs.mantle.xyz/meth",
+    "https://docs.mantle.xyz/meth/concepts/risk-management/unstake-griefing",
+    "https://www.methprotocol.xyz",
+    "https://api.llama.fi/protocol/meth-protocol",
+    "https://sourcify.dev/server/v2/contract/1/0x01a360392c74b5b8bf4973f438ff3983507a06a2",
+    "https://sourcify.dev/server/v2/contract/1/0x052f52748109bae13d6319a463d64b6a2a613e52",
+    "https://sourcify.dev/server/v2/contract/1/0x5a7b3cde8ac8d780af4797bf1517464ac54ca033",
+    "https://sourcify.dev/server/v2/contract/5000/0xa7d93d0fa423f81dd834943731d0a207223a70b1"
+  ],
+  "researchedAt": "2026-11-28"
+}

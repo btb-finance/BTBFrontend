@@ -1,0 +1,259 @@
+{
+  "slug": "liquid-collective",
+  "name": "Liquid Collective",
+  "category": "Liquid Staking",
+  "description": "Non-custodial ETH liquid staking. Deposit ETH into River to receive LsETH, and redeem LsETH for ETH through River's redeem queue. LsETH is also deployed as a bridged token on Base.",
+  "website": "https://liquidcollective.io",
+  "docs": "https://docs.liquidcollective.io",
+  "defillama": "https://defillama.com/protocol/liquid-collective",
+  "chains": [
+    "ethereum",
+    "base"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x8c1BEd5b9a0928467c9B1341Da1D7BD5e10b6549",
+      "name": "River (LsETH)",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://github.com/liquid-collective/liquid-collective-protocol",
+      "keyFunctions": [
+        {
+          "signature": "deposit()",
+          "kind": "write",
+          "payable": true,
+          "description": "Stake ETH (msg.value) and mint LsETH to msg.sender. The caller must pass the allowlist (KYC and AML permission list) or the call reverts."
+        },
+        {
+          "signature": "depositAndTransfer(address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Stake ETH and send the minted LsETH to the given address. Same allowlist rule as deposit()."
+        },
+        {
+          "signature": "requestRedeem(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Start an LsETH to ETH redemption. Arguments: LsETH amount (18 decimals) and recipient. Returns a redeem request ID. The request is claimed later with claimRedeemRequests once it is finalized."
+        },
+        {
+          "signature": "claimRedeemRequests(uint32[],uint32[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim ETH for finalized redeem requests. Arguments: request IDs and their matching batch indexes (parallel arrays, see the River docs). Returns a status code per request."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "LsETH balance of an account (18 decimals)."
+        },
+        {
+          "signature": "balanceOfUnderlying(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "ETH value of an account's LsETH at the current rate."
+        },
+        {
+          "signature": "underlyingBalanceFromShares(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "ETH value of a share amount at the current rate."
+        },
+        {
+          "signature": "sharesFromUnderlyingBalance(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Share amount for an ETH amount at the current rate."
+        },
+        {
+          "signature": "totalUnderlyingSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total ETH controlled by River, in wei."
+        },
+        {
+          "signature": "getBalanceToDeposit()",
+          "kind": "read",
+          "payable": false,
+          "description": "ETH held by River that is waiting to be deposited to validators."
+        },
+        {
+          "signature": "getBalanceToRedeem()",
+          "kind": "read",
+          "payable": false,
+          "description": "ETH held by River that is available to fund redeem requests."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer LsETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender for LsETH."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xb5Fe6946836D687848B5aBd42dAbF531d5819632",
+      "name": "TLC (governance token)",
+      "role": "governance",
+      "proxy": true,
+      "source": "https://github.com/liquid-collective/liquid-collective-protocol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1235f1b60df026B2620e48E735C422425E06b725",
+      "name": "OperatorsRegistry",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/liquid-collective/liquid-collective-protocol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x895a57eD71025D51fe4080530A3489D92E230683",
+      "name": "Oracle",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/liquid-collective/liquid-collective-protocol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xebc83Bb472b2816Ec5B5de8D34F0eFc9088BB2ce",
+      "name": "Allowlist",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/liquid-collective/liquid-collective-protocol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x32Aac358b627B9FEaa971CC33304027A41e49a81",
+      "name": "CoverageFund",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/liquid-collective/liquid-collective-protocol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x0AFd81862eEA47322Cf85Db39D3D07e8A3c25154",
+      "name": "Withdraw",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/liquid-collective/liquid-collective-protocol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x7D16d2c4e96BCFC8f815E15b771aC847EcbDB48b",
+      "name": "ELFeeRecipient",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/liquid-collective/liquid-collective-protocol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x080b3a41390b357Ad7e8097644d1DEDf57AD3375",
+      "name": "RedeemManager",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/liquid-collective/liquid-collective-protocol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xf19345EabC46ADF82e85CC2293A657A2dBa5c7d4",
+      "name": "ProtocolMetrics",
+      "role": "other",
+      "proxy": true,
+      "source": "https://github.com/liquid-collective/liquid-collective-protocol",
+      "keyFunctions": []
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xB29749498954A3A821ec37BdE86e386dF3cE30B6",
+      "name": "LsETH (bridged, Base)",
+      "role": "token",
+      "proxy": true,
+      "source": "https://github.com/liquid-collective/liquid-collective-protocol",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Bridged LsETH balance on Base (18 decimals)."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer bridged LsETH on Base."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender for bridged LsETH on Base."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "stake ETH for LsETH",
+      "description": "Mint LsETH from ETH",
+      "how": "River.deposit() with ETH value, or depositAndTransfer(recipient); the caller must be on the allowlist"
+    },
+    {
+      "name": "redeem LsETH",
+      "description": "Start an LsETH to ETH redemption",
+      "how": "River.requestRedeem(amount, recipient) to get a request ID; after it finalizes, River.claimRedeemRequests(ids, indexes)"
+    },
+    {
+      "name": "value LsETH",
+      "description": "Get the ETH value of LsETH",
+      "how": "River.balanceOfUnderlying(account) or underlyingBalanceFromShares(shares)"
+    }
+  ],
+  "risks": [
+    "Redemptions are queued. A request waits for ETH to become available, which depends on validator exits and the redeem queue. Check getBalanceToRedeem() before expecting a fast exit.",
+    "Deposits are gated by an allowlist (KYC and AML permission list). Addresses that are not allowed cannot stake.",
+    "River, Oracle and the other core contracts are upgradeable proxies controlled by governance and admin roles.",
+    "Oracle reports update the rate and are submitted by oracle operators, so a delayed report means a stale rate.",
+    "The Base LsETH is a bridged token (BurnMint). It does not carry River's redeem path; move it back to Ethereum through the bridge to redeem."
+  ],
+  "notes": "Mainnet contracts from the Deployment Addresses table of the liquid-collective-protocol README. Hoodi testnet addresses in the same table are not included. Base LsETH is the bridged BurnMint token, and the same README lists LsETH on Linea and Zircuit and other L2 deployments; only Base is included here. The README and docs.liquidcollective.io hold the ABI-level detail.",
+  "sources": [
+    "https://github.com/liquid-collective/liquid-collective-protocol",
+    "https://raw.githubusercontent.com/liquid-collective/liquid-collective-protocol/main/README.md",
+    "https://docs.liquidcollective.io/eth/technical-reference/smart-contracts",
+    "https://api.llama.fi/protocol/liquid-collective",
+    "https://sourcify.dev/server/v2/contract/1/0x0056f9ed62daa4dc3f972340c92326accddd1a9d"
+  ],
+  "researchedAt": "2026-11-28"
+}

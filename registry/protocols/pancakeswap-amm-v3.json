@@ -1,0 +1,354 @@
+{
+  "slug": "pancakeswap-amm-v3",
+  "name": "PancakeSwap AMM V3",
+  "category": "Dexs",
+  "description": "PancakeSwap V3 concentrated liquidity DEX on BNB Chain. An agent can swap tokens through the SwapRouter, open and manage liquidity position NFTs, and quote prices with QuoterV2. The V2 router is included for legacy pairs.",
+  "website": "https://pancakeswap.finance",
+  "docs": "https://developer.pancakeswap.finance",
+  "defillama": "https://defillama.com/protocol/pancakeswap-amm-v3",
+  "chains": [
+    "bsc"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865",
+      "name": "PancakeV3Factory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://developer.pancakeswap.finance/contracts/v3/addresses",
+      "keyFunctions": [
+        {
+          "signature": "getPool(address,address,uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Pool address for a token pair and fee tier. Args: tokenA, tokenB, fee (hundredths of a bip, for example 2500 for 0.25%). Returns the zero address if no pool exists."
+        },
+        {
+          "signature": "createPool(address,address,uint24)",
+          "kind": "write",
+          "payable": false,
+          "description": "Create the pool for a token pair and fee tier if it does not exist. Reverts if the fee tier is not enabled or the pool already exists. Returns the pool address."
+        },
+        {
+          "signature": "feeAmountTickSpacing(uint24)",
+          "kind": "read",
+          "payable": false,
+          "description": "Tick spacing for a fee tier. Returns zero if the fee tier is not enabled."
+        },
+        {
+          "signature": "owner()",
+          "kind": "read",
+          "payable": false,
+          "description": "Factory owner, who can enable fee tiers and change the owner."
+        },
+        {
+          "signature": "setOwner(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Owner only. Transfers factory ownership to a new address."
+        },
+        {
+          "signature": "enableFeeAmount(uint24,int24)",
+          "kind": "write",
+          "payable": false,
+          "description": "Owner only. Enables a new fee tier with a tick spacing."
+        },
+        {
+          "signature": "poolDeployer()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the pool deployer contract used by createPool."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x1b81D678ffb9C0263b24A97847620C99d213eB14",
+      "name": "PancakeSwap V3 SwapRouter",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developer.pancakeswap.finance/contracts/v3/addresses",
+      "keyFunctions": [
+        {
+          "signature": "exactInputSingle((address,address,uint24,address,uint256,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap an exact amount of tokenIn for as much tokenOut as possible in one pool. Struct fields in order: tokenIn, tokenOut, fee, recipient, deadline, amountIn, amountOutMinimum, sqrtPriceLimitX96 (0 for no limit). Approve the router for tokenIn first. Send value only for native BNB input."
+        },
+        {
+          "signature": "exactInput((bytes,address,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi hop exact input swap. Struct fields: path (packed token, fee, token, ... bytes), recipient, deadline, amountIn, amountOutMinimum."
+        },
+        {
+          "signature": "exactOutputSingle((address,address,uint24,address,uint256,uint256,uint256,uint160))",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap as little tokenIn as possible for an exact amount of tokenOut in one pool. Struct fields: tokenIn, tokenOut, fee, recipient, deadline, amountOut, amountInMaximum, sqrtPriceLimitX96."
+        },
+        {
+          "signature": "exactOutput((bytes,address,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Multi hop exact output swap. Path is encoded in reverse order (tokenOut first). Struct fields: path, recipient, deadline, amountOut, amountInMaximum."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Run several router calls in one transaction. Each element is calldata for another router function."
+        },
+        {
+          "signature": "refundETH()",
+          "kind": "write",
+          "payable": true,
+          "description": "Send any native BNB held by the router to msg.sender. Used after native swaps."
+        },
+        {
+          "signature": "unwrapWETH9(uint256,address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Unwrap WBNB held by the router and send native BNB to a recipient. Args: minimum amount, recipient."
+        },
+        {
+          "signature": "sweepToken(address,uint256,address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Send any leftover token balance held by the router to a recipient. Args: token, minimum amount, recipient."
+        },
+        {
+          "signature": "selfPermit(address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": true,
+          "description": "Approve the router with an EIP 2612 permit signature in the same transaction."
+        },
+        {
+          "signature": "factory()",
+          "kind": "read",
+          "payable": false,
+          "description": "PancakeV3Factory used by the router."
+        },
+        {
+          "signature": "WETH9()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped BNB token used for native swaps."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x46A15B0b27311cedF172AB29E4f4766fbE7F4364",
+      "name": "PancakeSwap V3 NonfungiblePositionManager",
+      "role": "pool",
+      "proxy": false,
+      "source": "https://developer.pancakeswap.finance/contracts/v3/addresses",
+      "keyFunctions": [
+        {
+          "signature": "mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Open a new liquidity position and mint its ERC721 NFT to recipient. Struct fields in order: token0, token1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline. Tokens must be sorted by address. Approve both tokens first."
+        },
+        {
+          "signature": "increaseLiquidity((uint256,uint256,uint256,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Add liquidity to an existing position. Struct fields: tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline."
+        },
+        {
+          "signature": "decreaseLiquidity((uint256,uint128,uint256,uint256,uint256))",
+          "kind": "write",
+          "payable": true,
+          "description": "Remove liquidity from a position. Struct fields: tokenId, liquidity, amount0Min, amount1Min, deadline. The tokens stay owed to the position until collect is called."
+        },
+        {
+          "signature": "collect((uint256,address,uint128,uint128))",
+          "kind": "write",
+          "payable": true,
+          "description": "Collect owed tokens and fees. Struct fields: tokenId, recipient, amount0Max, amount1Max. Use the uint128 maximum to collect everything."
+        },
+        {
+          "signature": "burn(uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Burn a position NFT. The position must have zero liquidity and no owed tokens. Collect first."
+        },
+        {
+          "signature": "positions(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Position data for a tokenId: token pair, fee, tick range, liquidity, fee growth and owed amounts."
+        },
+        {
+          "signature": "ownerOf(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Owner of a position NFT."
+        },
+        {
+          "signature": "multicall(bytes[])",
+          "kind": "write",
+          "payable": true,
+          "description": "Run several position manager calls in one transaction, for example collect and burn together."
+        },
+        {
+          "signature": "refundETH()",
+          "kind": "write",
+          "payable": true,
+          "description": "Send any leftover native BNB held by the position manager to msg.sender."
+        },
+        {
+          "signature": "safeTransferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer a position NFT to another address. Transfers the position and its claim on the liquidity."
+        },
+        {
+          "signature": "factory()",
+          "kind": "read",
+          "payable": false,
+          "description": "PancakeV3Factory used by the position manager."
+        },
+        {
+          "signature": "WETH9()",
+          "kind": "read",
+          "payable": false,
+          "description": "Wrapped BNB token used for native deposits."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997",
+      "name": "PancakeSwap V3 QuoterV2",
+      "role": "other",
+      "proxy": false,
+      "source": "https://developer.pancakeswap.finance/contracts/v3/addresses",
+      "keyFunctions": [
+        {
+          "signature": "quoteExactInputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote the output of an exact input swap in one pool. Struct fields: tokenIn, tokenOut, amountIn, fee, sqrtPriceLimitX96. The function is not a view. Call it with eth_call. Returns amountOut and related pool values."
+        },
+        {
+          "signature": "quoteExactOutputSingle((address,address,uint256,uint24,uint160))",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote the input needed for an exact output swap in one pool. Struct fields: tokenIn, tokenOut, amount (exact output), fee, sqrtPriceLimitX96. Call with eth_call."
+        },
+        {
+          "signature": "quoteExactInput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi hop exact input swap. Args: path (packed tokens and fees), amountIn. Call with eth_call."
+        },
+        {
+          "signature": "quoteExactOutput(bytes,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Quote a multi hop exact output swap. Args: path (encoded in reverse order), amountOut. Call with eth_call."
+        },
+        {
+          "signature": "factory()",
+          "kind": "read",
+          "payable": false,
+          "description": "PancakeV3Factory used to find pools."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x10ED43C718714eb63d5aA57B78B54704E256024E",
+      "name": "PancakeSwap V2 Router",
+      "role": "router",
+      "proxy": false,
+      "source": "https://developer.pancakeswap.finance/contracts/v2/addresses",
+      "keyFunctions": [
+        {
+          "signature": "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap an exact input amount along a V2 path. Args: amountIn, amountOutMin, path, to, deadline. Approve the router first."
+        },
+        {
+          "signature": "swapTokensForExactTokens(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap for an exact output amount along a V2 path. Args: amountOut, amountInMax, path, to, deadline."
+        },
+        {
+          "signature": "swapExactETHForTokens(uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Swap exact native BNB for tokens along a V2 path. Args: amountOutMin, path (first token is WBNB), to, deadline. Send BNB as value."
+        },
+        {
+          "signature": "swapExactTokensForETH(uint256,uint256,address[],address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Swap an exact token amount for native BNB along a V2 path. Args: amountIn, amountOutMin, path (last token is WBNB), to, deadline."
+        },
+        {
+          "signature": "getAmountsOut(uint256,address[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Expected output amounts along a V2 path for an input amount."
+        },
+        {
+          "signature": "getAmountsIn(uint256,address[])",
+          "kind": "read",
+          "payable": false,
+          "description": "Required input amounts along a V2 path for an output amount."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "swap exact input",
+      "description": "Swap one token for another in a V3 pool",
+      "how": "Read the quote with QuoterV2.quoteExactInputSingle, approve SwapRouter for tokenIn, then call SwapRouter.exactInputSingle with amountOutMinimum set from the quote and a deadline."
+    },
+    {
+      "name": "open liquidity position",
+      "description": "Add liquidity in a tick range",
+      "how": "Approve both tokens for NonfungiblePositionManager, then call mint with tokens sorted by address, the fee tier, the tick range and a deadline."
+    },
+    {
+      "name": "collect and close position",
+      "description": "Withdraw liquidity and fees, then burn the NFT",
+      "how": "Call decreaseLiquidity for all liquidity, then collect with max amounts, then burn. Batch them with multicall."
+    },
+    {
+      "name": "swap on V2 pairs",
+      "description": "Swap on the legacy V2 AMM",
+      "how": "Use getAmountsOut for the quote, approve the V2 router, then call swapExactTokensForTokens or swapExactETHForTokens."
+    }
+  ],
+  "risks": [
+    "Out of range positions earn no fees and hold only one token until the price returns.",
+    "Low liquidity pools can move sharply on a single swap. Always set amountOutMinimum or amountInMaximum from a fresh quote.",
+    "Swaps with a deadline can revert if the transaction waits too long.",
+    "Tokens with transfer fees or rebasing behavior can break exact amount math.",
+    "Fee tiers differ per pool. Pick the pool that holds liquidity for the pair, not only the lowest fee."
+  ],
+  "notes": "Only BNB Chain contracts are included, and they were confirmed on BNB Chain. The developer docs list the same V3 factory address on Ethereum, Arbitrum, Base, Linea, opBNB, Monad and Robinhood, and a different one on zkSync. Those deployments are not included here. The V2 router is included for legacy V2 pairs. Smart Router, MasterChefV3 and TickLens are not included because their function sets were not checked against bytecode.",
+  "sources": [
+    "https://developer.pancakeswap.finance/contracts/v3/addresses",
+    "https://developer.pancakeswap.finance/contracts/v2/addresses",
+    "https://github.com/pancakeswap/pancake-v3-contracts/blob/master/projects/v3-periphery/contracts/interfaces/ISwapRouter.sol"
+  ],
+  "researchedAt": "2026-11-28"
+}

@@ -1,0 +1,586 @@
+{
+  "slug": "aave-v4",
+  "name": "Aave V4",
+  "category": "Lending",
+  "description": "Aave V4 lending built as hubs and spokes. Hubs hold liquidity for each asset. Spokes are the markets users interact with, each with its own collateral and risk settings. An agent calls a Spoke with a reserveId (read it with getReserveId) to supply, withdraw, borrow, repay, toggle collateral and liquidate. Native tokens go through the native token gateway on Base.",
+  "website": "https://aave.com",
+  "docs": "https://github.com/aave/aave-v4",
+  "defillama": "https://defillama.com/protocol/aave-v4",
+  "chains": [
+    "ethereum",
+    "base",
+    "avalanche"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xCca852Bc40e560adC3b1Cc58CA5b55638ce826c9",
+      "name": "Core Hub (Ethereum)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV4Ethereum.sol",
+      "keyFunctions": [
+        {
+          "signature": "getAssetCount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of assets listed in this Hub."
+        },
+        {
+          "signature": "getAssetDrawnRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current drawn borrow rate for a Hub asset id. Check the Hub source for the unit."
+        },
+        {
+          "signature": "getAssetConfig(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Config struct of a Hub asset id."
+        },
+        {
+          "signature": "getAssetAccruedFees(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Accrued fees for a Hub asset id."
+        },
+        {
+          "signature": "getSpokeCount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of Spokes connected to a Hub asset id."
+        },
+        {
+          "signature": "isSpokeListed(uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if a Spoke is listed for a Hub asset id: (assetId, spoke)."
+        },
+        {
+          "signature": "getSpokeAddress(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Spoke address at an index for a Hub asset id: (assetId, index)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x94e7A5dCbE816e498b89aB752661904E2F56c485",
+      "name": "Main Spoke (Ethereum)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV4Ethereum.sol",
+      "keyFunctions": [
+        {
+          "signature": "supply(uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply an asset to a reserve: (reserveId, amount, onBehalfOf). Approve the underlying to the Spoke first, since the Spoke pulls it from msg.sender. Returns (shares, assets). Caller must be onBehalfOf or an approved position manager. Reverts if the reserve is not listed."
+        },
+        {
+          "signature": "withdraw(uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw supplied assets: (reserveId, amount, onBehalfOf). The underlying goes to msg.sender. An amount above the maximum withdrawable means a full withdrawal. Caller must be onBehalfOf or an approved position manager."
+        },
+        {
+          "signature": "borrow(uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow an asset: (reserveId, amount, onBehalfOf). The underlying goes to msg.sender. Needs enough collateral. Reverts if the reserve is not listed or the user would exceed the maximum number of borrowed reserves. Caller must be onBehalfOf or an approved position manager."
+        },
+        {
+          "signature": "repay(uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay debt: (reserveId, amount, onBehalfOf). Approve the underlying to the Spoke first. Returns (shares, assets) repaid. Reverts if the reserve is not listed."
+        },
+        {
+          "signature": "setUsingAsCollateral(uint256,bool,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Enable or disable a supplied reserve as collateral: (reserveId, usingAsCollateral, onBehalfOf). Reverts when enabling would exceed the maximum number of collateral reserves."
+        },
+        {
+          "signature": "updateUserRiskPremium(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Refresh the risk premium of a position: (onBehalfOf). Caller must be onBehalfOf, an approved position manager, or admin."
+        },
+        {
+          "signature": "setUserPositionManager(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve or revoke a position manager for msg.sender: (positionManager, approve). A gateway such as the native token gateway needs approval before it can act for the user."
+        },
+        {
+          "signature": "liquidationCall(uint256,uint256,address,uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidate an unhealthy position: (collateralReserveId, debtReserveId, user, debtToCover, receiveShares). The Spoke pulls the debt asset from the caller, so approve it first. receiveShares true returns collateral as supplied shares, false returns the underlying."
+        },
+        {
+          "signature": "getReserveId(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Reserve identifier in this Spoke for a Hub and asset id: (hub, assetId). Every Spoke call takes this reserveId."
+        },
+        {
+          "signature": "getUserAccountData(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Account summary for a user: (riskPremium, avgCollateralFactor, healthFactor, totalCollateralValue, totalDebtValueRay, activeCollateralCount, borrowCount). Check healthFactor before borrowing or withdrawing."
+        },
+        {
+          "signature": "getUserPosition(uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Full position struct for one reserve and user: (reserveId, user)."
+        },
+        {
+          "signature": "getUserSuppliedAssets(uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supplied underlying amount of a user in one reserve: (reserveId, user)."
+        },
+        {
+          "signature": "getUserTotalDebt(uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Total debt of a user in one reserve, in underlying units: (reserveId, user)."
+        },
+        {
+          "signature": "getReserveSuppliedAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supplied underlying for a reserve."
+        },
+        {
+          "signature": "getReserveTotalDebt(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Total debt for a reserve, in underlying units."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0xd07369fAE4A5BB13c9Ce446B052c7867B1AbDf6e",
+      "name": "Core Hub (Avalanche)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV4Avalanche.sol",
+      "keyFunctions": [
+        {
+          "signature": "getAssetCount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of assets listed in this Hub."
+        },
+        {
+          "signature": "getAssetDrawnRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current drawn borrow rate for a Hub asset id. Check the Hub source for the unit."
+        },
+        {
+          "signature": "getAssetConfig(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Config struct of a Hub asset id."
+        },
+        {
+          "signature": "getAssetAccruedFees(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Accrued fees for a Hub asset id."
+        },
+        {
+          "signature": "getSpokeCount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of Spokes connected to a Hub asset id."
+        },
+        {
+          "signature": "isSpokeListed(uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if a Spoke is listed for a Hub asset id: (assetId, spoke)."
+        },
+        {
+          "signature": "getSpokeAddress(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Spoke address at an index for a Hub asset id: (assetId, index)."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x435272CefF93a1E657E8ABfdf0A13e95900A3a56",
+      "name": "Main Spoke (Avalanche)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV4Avalanche.sol",
+      "keyFunctions": [
+        {
+          "signature": "supply(uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply an asset to a reserve: (reserveId, amount, onBehalfOf). Approve the underlying to the Spoke first, since the Spoke pulls it from msg.sender. Returns (shares, assets). Caller must be onBehalfOf or an approved position manager. Reverts if the reserve is not listed."
+        },
+        {
+          "signature": "withdraw(uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw supplied assets: (reserveId, amount, onBehalfOf). The underlying goes to msg.sender. An amount above the maximum withdrawable means a full withdrawal. Caller must be onBehalfOf or an approved position manager."
+        },
+        {
+          "signature": "borrow(uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow an asset: (reserveId, amount, onBehalfOf). The underlying goes to msg.sender. Needs enough collateral. Reverts if the reserve is not listed or the user would exceed the maximum number of borrowed reserves. Caller must be onBehalfOf or an approved position manager."
+        },
+        {
+          "signature": "repay(uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay debt: (reserveId, amount, onBehalfOf). Approve the underlying to the Spoke first. Returns (shares, assets) repaid. Reverts if the reserve is not listed."
+        },
+        {
+          "signature": "setUsingAsCollateral(uint256,bool,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Enable or disable a supplied reserve as collateral: (reserveId, usingAsCollateral, onBehalfOf). Reverts when enabling would exceed the maximum number of collateral reserves."
+        },
+        {
+          "signature": "updateUserRiskPremium(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Refresh the risk premium of a position: (onBehalfOf). Caller must be onBehalfOf, an approved position manager, or admin."
+        },
+        {
+          "signature": "setUserPositionManager(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve or revoke a position manager for msg.sender: (positionManager, approve). A gateway such as the native token gateway needs approval before it can act for the user."
+        },
+        {
+          "signature": "liquidationCall(uint256,uint256,address,uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidate an unhealthy position: (collateralReserveId, debtReserveId, user, debtToCover, receiveShares). The Spoke pulls the debt asset from the caller, so approve it first. receiveShares true returns collateral as supplied shares, false returns the underlying."
+        },
+        {
+          "signature": "getReserveId(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Reserve identifier in this Spoke for a Hub and asset id: (hub, assetId). Every Spoke call takes this reserveId."
+        },
+        {
+          "signature": "getUserAccountData(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Account summary for a user: (riskPremium, avgCollateralFactor, healthFactor, totalCollateralValue, totalDebtValueRay, activeCollateralCount, borrowCount). Check healthFactor before borrowing or withdrawing."
+        },
+        {
+          "signature": "getUserPosition(uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Full position struct for one reserve and user: (reserveId, user)."
+        },
+        {
+          "signature": "getUserSuppliedAssets(uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supplied underlying amount of a user in one reserve: (reserveId, user)."
+        },
+        {
+          "signature": "getUserTotalDebt(uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Total debt of a user in one reserve, in underlying units: (reserveId, user)."
+        },
+        {
+          "signature": "getReserveSuppliedAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supplied underlying for a reserve."
+        },
+        {
+          "signature": "getReserveTotalDebt(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Total debt for a reserve, in underlying units."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xa4d5947Eb727A052bae69C593FfC84247EC9864E",
+      "name": "Equities Hub (Base)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV4Base.sol",
+      "keyFunctions": [
+        {
+          "signature": "getAssetCount()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of assets listed in this Hub."
+        },
+        {
+          "signature": "getAssetDrawnRate(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Current drawn borrow rate for a Hub asset id. Check the Hub source for the unit."
+        },
+        {
+          "signature": "getAssetConfig(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Config struct of a Hub asset id."
+        },
+        {
+          "signature": "getAssetAccruedFees(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Accrued fees for a Hub asset id."
+        },
+        {
+          "signature": "getSpokeCount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of Spokes connected to a Hub asset id."
+        },
+        {
+          "signature": "isSpokeListed(uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if a Spoke is listed for a Hub asset id: (assetId, spoke)."
+        },
+        {
+          "signature": "getSpokeAddress(uint256,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Spoke address at an index for a Hub asset id: (assetId, index)."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x17905Db0e4A3514467539956c084180616AE7B8D",
+      "name": "MAG7 Spoke (Base)",
+      "role": "pool",
+      "proxy": null,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV4Base.sol",
+      "keyFunctions": [
+        {
+          "signature": "supply(uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Supply an asset to a reserve: (reserveId, amount, onBehalfOf). Approve the underlying to the Spoke first, since the Spoke pulls it from msg.sender. Returns (shares, assets). Caller must be onBehalfOf or an approved position manager. Reverts if the reserve is not listed."
+        },
+        {
+          "signature": "withdraw(uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw supplied assets: (reserveId, amount, onBehalfOf). The underlying goes to msg.sender. An amount above the maximum withdrawable means a full withdrawal. Caller must be onBehalfOf or an approved position manager."
+        },
+        {
+          "signature": "borrow(uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow an asset: (reserveId, amount, onBehalfOf). The underlying goes to msg.sender. Needs enough collateral. Reverts if the reserve is not listed or the user would exceed the maximum number of borrowed reserves. Caller must be onBehalfOf or an approved position manager."
+        },
+        {
+          "signature": "repay(uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Repay debt: (reserveId, amount, onBehalfOf). Approve the underlying to the Spoke first. Returns (shares, assets) repaid. Reverts if the reserve is not listed."
+        },
+        {
+          "signature": "setUsingAsCollateral(uint256,bool,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Enable or disable a supplied reserve as collateral: (reserveId, usingAsCollateral, onBehalfOf). Reverts when enabling would exceed the maximum number of collateral reserves."
+        },
+        {
+          "signature": "updateUserRiskPremium(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Refresh the risk premium of a position: (onBehalfOf). Caller must be onBehalfOf, an approved position manager, or admin."
+        },
+        {
+          "signature": "setUserPositionManager(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve or revoke a position manager for msg.sender: (positionManager, approve). A gateway such as the native token gateway needs approval before it can act for the user."
+        },
+        {
+          "signature": "liquidationCall(uint256,uint256,address,uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidate an unhealthy position: (collateralReserveId, debtReserveId, user, debtToCover, receiveShares). The Spoke pulls the debt asset from the caller, so approve it first. receiveShares true returns collateral as supplied shares, false returns the underlying."
+        },
+        {
+          "signature": "getReserveId(address,uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Reserve identifier in this Spoke for a Hub and asset id: (hub, assetId). Every Spoke call takes this reserveId."
+        },
+        {
+          "signature": "getUserAccountData(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Account summary for a user: (riskPremium, avgCollateralFactor, healthFactor, totalCollateralValue, totalDebtValueRay, activeCollateralCount, borrowCount). Check healthFactor before borrowing or withdrawing."
+        },
+        {
+          "signature": "getUserPosition(uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Full position struct for one reserve and user: (reserveId, user)."
+        },
+        {
+          "signature": "getUserSuppliedAssets(uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Supplied underlying amount of a user in one reserve: (reserveId, user)."
+        },
+        {
+          "signature": "getUserTotalDebt(uint256,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Total debt of a user in one reserve, in underlying units: (reserveId, user)."
+        },
+        {
+          "signature": "getReserveSuppliedAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Total supplied underlying for a reserve."
+        },
+        {
+          "signature": "getReserveTotalDebt(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Total debt for a reserve, in underlying units."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xdFC11f7037Ba11D9cC29A822844f5dC19C42B70d",
+      "name": "NativeTokenGateway (Base)",
+      "role": "other",
+      "proxy": null,
+      "source": "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV4Base.sol",
+      "keyFunctions": [
+        {
+          "signature": "supplyNative(address,uint256,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Supply native token to a Spoke reserve: (spoke, reserveId, amount). Send the amount as msg.value. The gateway must be an approved position manager of the caller on that Spoke. Reverts with NativeAmountMismatch on a value mismatch."
+        },
+        {
+          "signature": "supplyAsCollateralNative(address,uint256,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Supply native token and enable it as collateral: (spoke, reserveId, amount). Send the amount as msg.value. Same approval rules as supplyNative."
+        },
+        {
+          "signature": "withdrawNative(address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw native token from a Spoke reserve: (spoke, reserveId, amount). The gateway must be approved. May return less than requested if the user has insufficient supplied assets."
+        },
+        {
+          "signature": "borrowNative(address,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Borrow native token from a Spoke reserve: (spoke, reserveId, amount). The gateway must be approved."
+        },
+        {
+          "signature": "repayNative(address,uint256,uint256)",
+          "kind": "write",
+          "payable": true,
+          "description": "Repay native token debt: (spoke, reserveId, amount). Send the amount as msg.value. Any excess beyond the debt is refunded."
+        },
+        {
+          "signature": "NATIVE_TOKEN_WRAPPER()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the wrapped native token the gateway uses."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "supply",
+      "description": "Supply an asset to a reserve",
+      "how": "Approve the underlying to the Spoke, then Spoke.supply(reserveId, amount, onBehalfOf)"
+    },
+    {
+      "name": "borrow",
+      "description": "Borrow against collateral",
+      "how": "Spoke.borrow(reserveId, amount, onBehalfOf) after checking getUserAccountData"
+    },
+    {
+      "name": "repay",
+      "description": "Repay debt",
+      "how": "Approve the underlying to the Spoke, then Spoke.repay(reserveId, amount, onBehalfOf)"
+    },
+    {
+      "name": "withdraw",
+      "description": "Withdraw supplied assets",
+      "how": "Spoke.withdraw(reserveId, amount, onBehalfOf). Pass a very large amount for a full withdrawal."
+    },
+    {
+      "name": "use as collateral",
+      "description": "Enable or disable a supplied asset as collateral",
+      "how": "Spoke.setUsingAsCollateral(reserveId, true, onBehalfOf)"
+    },
+    {
+      "name": "native token",
+      "description": "Supply, borrow, repay or withdraw the native token",
+      "how": "Spoke.setUserPositionManager(gateway, true) once, then NativeTokenGateway.supplyNative(spoke, reserveId, amount) with msg.value"
+    },
+    {
+      "name": "liquidate",
+      "description": "Repay an unhealthy debt and take collateral",
+      "how": "Approve the debt asset to the Spoke, then Spoke.liquidationCall(collateralReserveId, debtReserveId, user, debtToCover, receiveShares)"
+    }
+  ],
+  "risks": [
+    "Aave V4 is newer than V3 and has fewer live markets and chains. Check each Spoke before relying on it.",
+    "Each Spoke sets its own collateral factors, liquidation settings and oracle, so the same asset can carry different risk in different Spokes.",
+    "Approved position managers and gateways can act for a user. Revoke them with setUserPositionManager(manager, false) when they are not needed.",
+    "Withdrawals and borrows are limited by liquidity held in the Hub. High utilization blocks them.",
+    "The Base Spokes list tokenized equities, which carry issuer and price feed risk."
+  ],
+  "notes": "Ethereum, Avalanche and Base entries come from the Aave address book. Ethereum has many more Spokes, for example the BLUECHIP, LIDO and ETHERFI markets. See AaveV4Ethereum.sol for the full list. Arc is listed on DefiLlama but left out because its chain id was not confirmed from an official source. The address book has no core Hub on Base, so the Base entries are the equities Hub, the MAG7 Spoke and the native gateway. The gateway takes the Spoke as an argument, so it can serve any Spoke where the user has approved it.",
+  "sources": [
+    "https://api.llama.fi/protocol/aave-v4",
+    "https://defillama.com/protocol/aave-v4",
+    "https://github.com/aave/aave-v4",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV4.sol",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV4Ethereum.sol",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV4Avalanche.sol",
+    "https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV4Base.sol",
+    "https://github.com/aave/aave-v4/blob/main/src/spoke/interfaces/ISpoke.sol",
+    "https://github.com/aave/aave-v4/blob/main/src/hub/interfaces/IHub.sol",
+    "https://github.com/aave/aave-v4/blob/main/src/position-manager/interfaces/INativeTokenGateway.sol"
+  ],
+  "researchedAt": "2026-11-28"
+}

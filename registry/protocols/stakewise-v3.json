@@ -1,0 +1,493 @@
+{
+  "slug": "stakewise-v3",
+  "name": "StakeWise V3",
+  "category": "Liquid Staking",
+  "description": "Non-custodial ETH staking through StakeWise V3 vaults. Deposit ETH for vault shares, mint osETH against the shares as collateral, and exit through the exit queue. Vaults are created by factories; this entry covers the Ethereum mainnet core contracts.",
+  "website": "https://stakewise.io",
+  "docs": "https://docs.stakewise.io",
+  "defillama": "https://defillama.com/protocol/stakewise-v3",
+  "chains": [
+    "ethereum"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x7A8cbBf690084E43De778173cfAcf7313c9122DD",
+      "name": "VaultFactory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.stakewise.io/contracts/networks/Mainnet",
+      "keyFunctions": [
+        {
+          "signature": "createVault(bytes,bool)",
+          "kind": "write",
+          "payable": true,
+          "description": "Deploy a new vault proxy from the current implementation. Argument 1: ABI-encoded vault init params (capacity, fee percent, metadata hash; see the v3-core repo). Argument 2: true to deploy a dedicated MEV escrow for the vault. Returns the new vault address. Check the StakeWise docs before sending ETH with the call."
+        },
+        {
+          "signature": "implementation()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current vault implementation that new vaults point to."
+        },
+        {
+          "signature": "ownMevEscrow()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the MEV escrow contract used by vaults created with their own escrow."
+        },
+        {
+          "signature": "vaultAdmin()",
+          "kind": "read",
+          "payable": false,
+          "description": "Admin address that the factory assigns to new vaults."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x97795DA27138BD8d79204D37F3A2e80fA4d30488",
+      "name": "Erc20VaultFactory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.stakewise.io/contracts/networks/Mainnet",
+      "keyFunctions": [
+        {
+          "signature": "createVault(bytes,bool)",
+          "kind": "write",
+          "payable": true,
+          "description": "Deploy a new ERC-20 variant vault from the current ERC-20 implementation. Same arguments as VaultFactory.createVault: encoded init params and the MEV escrow flag. Returns the vault address."
+        },
+        {
+          "signature": "implementation()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current ERC-20 vault implementation that new vaults point to."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x3a0008a588772446f6e656133C2D5029CC4FC20E",
+      "name": "VaultsRegistry",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.stakewise.io/contracts/networks/Mainnet",
+      "keyFunctions": [
+        {
+          "signature": "vaults(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is a vault registered by the protocol."
+        },
+        {
+          "signature": "factories(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is an approved vault factory."
+        },
+        {
+          "signature": "vaultImpls(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address is an approved vault implementation."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x154628AC72533aad39aBdcaE2055Dced0b4Eef4D",
+      "name": "CommunityVault",
+      "role": "vault",
+      "proxy": true,
+      "source": "https://docs.stakewise.io/contracts/networks/Mainnet",
+      "keyFunctions": [
+        {
+          "signature": "deposit(address,address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Deposit ETH (msg.value) and mint vault shares to receiver. Argument 1: receiver. Argument 2: referrer (zero address if none). Returns the shares minted. Shares track the vault's assets, so the share price rises as rewards are added."
+        },
+        {
+          "signature": "updateStateAndDeposit(address,address,(bytes32,int160,uint160,bytes32[]))",
+          "kind": "write",
+          "payable": true,
+          "description": "Apply a signed rewards update first, then deposit. Use this when the vault state is stale. Arguments: receiver, referrer, and the harvest params (rewards root, reward delta, unlocked MEV reward, merkle proof) from the StakeWise rewards API."
+        },
+        {
+          "signature": "mintOsToken(address,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Mint osETH against your vault shares. Arguments: receiver, osETH amount in osToken shares, referrer. Minting raises the position's debt, so keep it under the vault's LTV limit (see OsTokenConfig.getConfig) or the position can be liquidated."
+        },
+        {
+          "signature": "burnOsToken(uint128)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn osETH held against your position to reduce its debt. Argument: osToken shares to burn. Burn your osETH first."
+        },
+        {
+          "signature": "enterExitQueue(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Start an exit: burn vault shares into the exit queue and receive a position ticket. Arguments: shares, receiver. Exits are queued, not instant. Claim the ETH with claimExitedAssets after the queue processes the ticket."
+        },
+        {
+          "signature": "claimExitedAssets(uint256,uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim ETH for a processed exit queue position. Arguments: position ticket, timestamp and exit queue index, taken from the exit queue data. Reverts until the position is processed."
+        },
+        {
+          "signature": "updateState((bytes32,int160,uint160,bytes32[]))",
+          "kind": "write",
+          "payable": false,
+          "description": "Apply a signed rewards update (rewards root, reward delta, unlocked MEV reward, merkle proof) so the share price is current. Anyone can submit a valid update."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total ETH controlled by the vault in wei."
+        },
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "ETH value of a share amount at the current share price."
+        },
+        {
+          "signature": "convertToShares(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Shares for an ETH amount at the current share price."
+        },
+        {
+          "signature": "getShares(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Vault shares held by an account."
+        },
+        {
+          "signature": "osTokenPositions(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "osETH shares minted against an account's position in this vault."
+        },
+        {
+          "signature": "withdrawableAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "ETH that can be withdrawn now without waiting for validator exits."
+        },
+        {
+          "signature": "isStateUpdateRequired()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the vault needs a rewards update before a deposit or mint gives the current share price."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xf1C9acDc66974dFB6dEcB12aA385b9cD01190E38",
+      "name": "OsToken (osETH)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://docs.stakewise.io/contracts/networks/Mainnet",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "osETH balance of an account (18 decimals)."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total osETH in existence."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer osETH."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve a spender for osETH, for example the redeemer or a DEX router."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 signed approval for osETH."
+        },
+        {
+          "signature": "controllers(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the address may mint and burn osETH (the controller contracts only)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x2A261e60FB14586B474C208b1B7AC6D0f5000306",
+      "name": "OsTokenVaultController",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.stakewise.io/contracts/networks/Mainnet",
+      "keyFunctions": [
+        {
+          "signature": "convertToAssets(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "ETH value of osToken shares at the current rate."
+        },
+        {
+          "signature": "convertToShares(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "osToken shares for an ETH amount at the current rate."
+        },
+        {
+          "signature": "totalAssets()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total ETH backing the osETH supply."
+        },
+        {
+          "signature": "totalShares()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total osToken shares in existence."
+        },
+        {
+          "signature": "avgRewardPerSecond()",
+          "kind": "read",
+          "payable": false,
+          "description": "Average osETH reward rate per second used for the osETH rate."
+        },
+        {
+          "signature": "capacity()",
+          "kind": "read",
+          "payable": false,
+          "description": "Maximum osETH supply the controller allows."
+        },
+        {
+          "signature": "feePercent()",
+          "kind": "read",
+          "payable": false,
+          "description": "Protocol fee percent on osETH rewards (uint64)."
+        },
+        {
+          "signature": "updateState()",
+          "kind": "write",
+          "payable": false,
+          "description": "Refresh the osETH rate state. Permissionless."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x287d1e2A8dE183A8bf8f2b09Fa1340fBd766eb59",
+      "name": "OsTokenConfig",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.stakewise.io/contracts/networks/Mainnet",
+      "keyFunctions": [
+        {
+          "signature": "getConfig(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "osToken risk config for a vault, returned as a tuple of (uint128, uint64, uint64). Check the v3-core repo for the field names and units before using the values."
+        },
+        {
+          "signature": "redeemer()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the OsTokenRedeemer contract."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x9Fc8C7F3C1ff6d0DF39EcB5870884d59777Ea2Bb",
+      "name": "OsTokenRedeemer",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.stakewise.io/contracts/networks/Mainnet",
+      "keyFunctions": [
+        {
+          "signature": "enterExitQueue(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Queue osETH for redemption into ETH. Per the StakeWise docs, the user sends osETH to the redeemer and receives a ticket. Arguments: amount and receiver (check get_abi for the exact units). Settlement depends on minters' positions and checkpoints."
+        },
+        {
+          "signature": "processExitQueue()",
+          "kind": "write",
+          "payable": false,
+          "description": "Process queued redemptions when the queue is ready (see canProcessExitQueue)."
+        },
+        {
+          "signature": "canProcessExitQueue()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the exit queue can be processed now."
+        },
+        {
+          "signature": "getExitQueueData()",
+          "kind": "read",
+          "payable": false,
+          "description": "Exit queue totals: queued shares, cumulative tickets and the processed amounts (3 values)."
+        },
+        {
+          "signature": "claimExitedAssets(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim ETH for a processed redemption ticket. Arguments: position ticket and timestamp from the queue entry."
+        },
+        {
+          "signature": "exitQueueTimestamp()",
+          "kind": "read",
+          "payable": false,
+          "description": "Timestamp of the last exit queue update."
+        },
+        {
+          "signature": "exitQueueUpdateDelay()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum seconds between exit queue updates."
+        },
+        {
+          "signature": "maxRedemptionFeePercent()",
+          "kind": "read",
+          "payable": false,
+          "description": "Upper bound on the redemption fee percent."
+        },
+        {
+          "signature": "redemptionFeePercent()",
+          "kind": "read",
+          "payable": false,
+          "description": "Current redemption fee percent."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x6B5815467da09DaA7DC83Db21c9239d98Bb487b5",
+      "name": "Keeper",
+      "role": "other",
+      "proxy": false,
+      "source": "https://docs.stakewise.io/contracts/networks/Mainnet",
+      "keyFunctions": [
+        {
+          "signature": "canHarvest(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the vault can harvest its rewards now."
+        },
+        {
+          "signature": "isHarvestRequired(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the vault's state is stale and a harvest is needed."
+        },
+        {
+          "signature": "isCollateralized(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the vault is collateralized for its osETH position."
+        },
+        {
+          "signature": "rewardsRoot()",
+          "kind": "read",
+          "payable": false,
+          "description": "Merkle root of the latest rewards update (bytes32)."
+        },
+        {
+          "signature": "rewardsNonce()",
+          "kind": "read",
+          "payable": false,
+          "description": "Nonce of the latest rewards update."
+        },
+        {
+          "signature": "lastRewardsTimestamp()",
+          "kind": "read",
+          "payable": false,
+          "description": "Timestamp of the latest rewards update (uint64)."
+        },
+        {
+          "signature": "rewardsDelay()",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum delay between rewards updates."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "deposit ETH to a vault",
+      "description": "Get vault shares for ETH",
+      "how": "CommunityVault.deposit(receiver, referrer) with ETH value; call updateStateAndDeposit when isStateUpdateRequired() is true"
+    },
+    {
+      "name": "mint osETH",
+      "description": "Borrow osETH against vault shares",
+      "how": "CommunityVault.mintOsToken(receiver, osTokenShares, referrer) after checking OsTokenConfig.getConfig and the position health"
+    },
+    {
+      "name": "repay osETH",
+      "description": "Reduce the osETH position",
+      "how": "approve osETH to the vault if needed, then CommunityVault.burnOsToken(shares)"
+    },
+    {
+      "name": "exit to ETH via vault",
+      "description": "Withdraw vault shares as ETH through the exit queue",
+      "how": "CommunityVault.enterExitQueue(shares, receiver) to get a ticket; after processing, CommunityVault.claimExitedAssets(ticket, timestamp, index)"
+    },
+    {
+      "name": "redeem osETH",
+      "description": "Sell osETH back for ETH through the redeemer",
+      "how": "approve osETH to OsTokenRedeemer, then enterExitQueue(amount, receiver); later processExitQueue() and claimExitedAssets(ticket, timestamp)"
+    }
+  ],
+  "risks": [
+    "Withdrawals are queued. A vault exit can wait for validator exits when the vault has little withdrawable ETH; withdrawableAssets() shows what is available now.",
+    "osETH minting creates debt. If the position drifts past the liquidation threshold, it can be liquidated; keep a margin under the LTV limit.",
+    "Share price depends on oracle-signed rewards updates. A stale vault needs updateState before deposits or mints use the current price.",
+    "Vaults are operated by their admins and node operators. Vault risk (validator slashing, operator behaviour, MEV escrow) is separate from the core protocol.",
+    "Core contracts are upgradeable and admin controlled. Check the StakeWise docs for the current governance setup."
+  ],
+  "notes": "Ethereum mainnet contracts from the StakeWise networks page (updated 2026-10-01). CommunityVault is listed as a deployed vault; its ABI is read from the implementation it proxies. Other vault types (FoxVault, GenesisVault and custom vaults) are on the same page and can be added. The page also covers Gnosis and Hoodi deployments, which are not included here. Vault deposits are not tied to a single address; use VaultsRegistry.vaults(address) to check a vault is official.",
+  "sources": [
+    "https://docs.stakewise.io/contracts/networks/Mainnet",
+    "https://docs.stakewise.io/contracts/networks/",
+    "https://docs.stakewise.io/",
+    "https://github.com/stakewise/v3-core",
+    "https://api.llama.fi/protocol/stakewise-v3",
+    "https://sourcify.dev/server/v2/contract/1/0x7A8cbBf690084E43De778173cfAcf7313c9122DD",
+    "https://sourcify.dev/server/v2/contract/1/0x9Fc8C7F3C1ff6d0DF39EcB5870884d59777Ea2Bb",
+    "https://sourcify.dev/server/v2/contract/1/0x2A261e60FB14586B474C208b1B7AC6D0f5000306",
+    "https://sourcify.dev/server/v2/contract/1/0x6B5815467da09DaA7DC83Db21c9239d98Bb487b5"
+  ],
+  "researchedAt": "2026-11-28"
+}

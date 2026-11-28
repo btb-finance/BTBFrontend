@@ -1,0 +1,216 @@
+{
+  "slug": "ssv-network",
+  "name": "SSV Network",
+  "category": "Staking",
+  "description": "Distributed validator network for Ethereum staking. An agent can register operators, create validator clusters from SSV operators, and deposit, withdraw or exit validators. Clusters are paid in SSV tokens.",
+  "website": "https://ssv.network/",
+  "docs": "https://docs.ssv.network",
+  "defillama": "https://defillama.com/protocol/ssv-network",
+  "chains": [
+    "ethereum"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xDD9BC35aE942eF0cFa76930954a156B3fF30a4E1",
+      "name": "SSVNetwork",
+      "role": "staking",
+      "proxy": true,
+      "source": "https://docs.ssv.network/developers/smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "registerOperator(bytes,uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Register a new operator: (public key bytes, fee, setPrivate). Fee is per block in SSV base units and must be at or above the network minimum. The call reverts if the fee is below the minimum. Set setPrivate to true to start the operator as private."
+        },
+        {
+          "signature": "removeOperator(uint64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Permanently remove an operator (caller must be the operator owner). Argument: operatorId."
+        },
+        {
+          "signature": "withdrawAllOperatorEarnings(uint64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw all SSV earnings of an operator to its owner. Argument: operatorId."
+        },
+        {
+          "signature": "declareOperatorFee(uint64,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Declare a new fee for an operator: (operatorId, fee). The fee becomes active only after the declare waiting period and must be executed in its time window."
+        },
+        {
+          "signature": "reduceOperatorFee(uint64,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Lower an operator fee immediately: (operatorId, fee). Fee increases are not allowed through this function; use declareOperatorFee for raises."
+        },
+        {
+          "signature": "setFeeRecipientAddress(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set the address that receives execution-layer tips for all validators of the caller. Argument: fee recipient address."
+        },
+        {
+          "signature": "registerValidator(bytes,uint64[],bytes,uint256,(uint32,uint64,uint64,bool,uint256))",
+          "kind": "write",
+          "payable": false,
+          "description": "Register one validator to a cluster: (publicKey, operatorIds, sharesData, amount, cluster). Approve the SSV token to SSVNetwork first. amount is SSV base units, divisible by 1e7, and can be 0. Cluster is the latest snapshot from the SSV subgraph or scanner (use zero values for a new cluster). Max 13 operators per cluster."
+        },
+        {
+          "signature": "bulkRegisterValidator(bytes[],uint64[],bytes[],uint256,(uint32,uint64,uint64,bool,uint256))",
+          "kind": "write",
+          "payable": false,
+          "description": "Register several validators to the same cluster in one call: (publicKeys, operatorIds, sharesData, amount, cluster). Same approval and amount rules as registerValidator."
+        },
+        {
+          "signature": "removeValidator(bytes,uint64[],(uint32,uint64,uint64,bool,uint256))",
+          "kind": "write",
+          "payable": false,
+          "description": "Remove one validator from the network: (publicKey, operatorIds, cluster). Cluster must be the latest snapshot."
+        },
+        {
+          "signature": "exitValidator(bytes,uint64[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Ask the operators to sign a voluntary exit for one validator: (publicKey, operatorIds). This does not return funds by itself; the validator exits on the Beacon chain."
+        },
+        {
+          "signature": "deposit(address,uint64[],uint256,(uint32,uint64,uint64,bool,uint256))",
+          "kind": "write",
+          "payable": false,
+          "description": "Add SSV to a cluster: (owner, operatorIds, amount, cluster). Approve the SSV token to SSVNetwork for amount first. amount is SSV base units, divisible by 1e7. Cluster is the latest snapshot from the SSV subgraph or scanner."
+        },
+        {
+          "signature": "withdraw(uint64[],uint256,(uint32,uint64,uint64,bool,uint256))",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw SSV from a cluster: (operatorIds, amount, cluster). amount is divisible by 1e7 and must not exceed the cluster's liquidation collateral. Reverts otherwise. To withdraw the full balance and stop the cluster, use liquidate() on the owner's own cluster instead."
+        },
+        {
+          "signature": "reactivate(uint64[],uint256,(uint32,uint64,uint64,bool,uint256))",
+          "kind": "write",
+          "payable": false,
+          "description": "Reactivate a liquidated cluster by depositing SSV: (operatorIds, amount, cluster). Approve the SSV token first. amount is divisible by 1e7."
+        },
+        {
+          "signature": "liquidate(address,uint64[],(uint32,uint64,uint64,bool,uint256))",
+          "kind": "write",
+          "payable": false,
+          "description": "Liquidate a cluster that is eligible for liquidation: (owner, operatorIds, cluster). Sends the cluster balance to the caller. Eligibility is set by the network liquidation threshold period."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xafE830B6Ee262ba11cce5F32fDCd760FFE6a66e4",
+      "name": "SSVNetworkViews",
+      "role": "other",
+      "proxy": true,
+      "source": "https://docs.ssv.network/developers/smart-contracts",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x9D65fF81a3c488d585bBfb0Bfe3c7707c7917f54",
+      "name": "SSV Token",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ssv.network/developers/smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "SSV balance of an address."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Approve SSVNetwork (or another spender) to pull SSV. Required before deposit, registerValidator, reactivate."
+        },
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Transfer SSV tokens."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xe018D31F120A637828F46aFD6c64EC099d960546",
+      "name": "cSSV Token",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.ssv.network/developers/smart-contracts",
+      "keyFunctions": []
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "register-operator",
+      "description": "Register a new SSV operator",
+      "how": "approve nothing; call SSVNetwork.registerOperator(publicKey, fee, setPrivate). Fee is per block in SSV base units and must meet the network minimum."
+    },
+    {
+      "name": "create-validator-cluster",
+      "description": "Register a validator to a cluster of operators",
+      "how": "approve SSV token to SSVNetwork for the amount; call SSVNetwork.registerValidator(publicKey, operatorIds, sharesData, amount, cluster). sharesData comes from the SSV key split tool. Use the cluster snapshot from the SSV subgraph or scanner (zero values for a new cluster)."
+    },
+    {
+      "name": "top-up-cluster",
+      "description": "Add SSV to an existing cluster",
+      "how": "approve SSV token to SSVNetwork; call SSVNetwork.deposit(owner, operatorIds, amount, cluster). amount divisible by 1e7."
+    },
+    {
+      "name": "withdraw-from-cluster",
+      "description": "Take SSV back out of a cluster",
+      "how": "call SSVNetwork.withdraw(operatorIds, amount, cluster). amount divisible by 1e7 and not above the liquidation collateral."
+    },
+    {
+      "name": "exit-validator",
+      "description": "Start a voluntary exit",
+      "how": "call SSVNetwork.exitValidator(publicKey, operatorIds). The operators sign the exit; the validator leaves on the Beacon chain."
+    },
+    {
+      "name": "set-fee-recipient",
+      "description": "Set where execution-layer tips go",
+      "how": "call SSVNetwork.setFeeRecipientAddress(address)."
+    },
+    {
+      "name": "read-cluster-state",
+      "description": "Get the cluster snapshot needed for write calls",
+      "how": "use the SSV subgraph or SSV scanner (see docs). The snapshot is the Cluster struct (validatorCount, networkFeeIndex, index, active, balance) that every cluster write needs."
+    }
+  ],
+  "risks": [
+    "Operators and clusters are funded in SSV. If a cluster balance runs out it can be liquidated, and the validators stop.",
+    "Cluster writes need the latest cluster snapshot. A stale snapshot makes the call revert or change the wrong cluster.",
+    "Validator withdrawals on the Beacon chain are separate from SSV. Exiting a validator does not return the ETH stake by itself.",
+    "SSV amounts must be divisible by 1e7 base units for deposit, withdraw and register calls.",
+    "The SSVNetwork contract is a UUPS upgradeable proxy controlled by SSV governance. Its logic can change.",
+    "The network sets a maximum of 13 operators per cluster."
+  ],
+  "notes": "Contracts come from the SSV smart contracts page (mainnet section). The SSVNetwork proxy is the entry point; logic lives in module contracts behind it, and events come from SSVNetwork. Function signatures come from the SSV docs (SSVNetwork page), not from a verified ABI, so check the exact ABI with get_abi before sending. Treasury, reward distributor and upgrader contracts are left out on purpose. Hoodi testnet is not included. The ethereum deposit contract is 0x00000000219ab540356cBB839Cbe05303d7705Fa.",
+  "sources": [
+    "https://docs.ssv.network/developers/smart-contracts",
+    "https://docs.ssv.network/build/smart-contracts/ssvnetwork",
+    "https://docs.ssv.network",
+    "https://ssv.network/",
+    "https://defillama.com/protocol/ssv-network",
+    "https://api.llama.fi/protocol/ssv-network"
+  ],
+  "researchedAt": "2026-11-28"
+}

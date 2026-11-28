@@ -1,0 +1,132 @@
+{
+  "slug": "obol",
+  "name": "Obol",
+  "category": "Staking Pool",
+  "description": "Distributed validator (DVT) staking. The factories deploy Obol Validator Manager, reward split and withdrawal recipient contracts for a validator cluster. Agents can deploy these instances and read the factory settings; the per-cluster contracts hold the funds.",
+  "website": "https://obol.org",
+  "docs": "https://docs.obol.org",
+  "defillama": "https://defillama.com/protocol/obol",
+  "chains": [
+    "ethereum"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x2c26B5A373294CaccBd3DE817D9B7C6aea7De584",
+      "name": "ObolValidatorManagerFactory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.obol.org/learn/readme/obol-splits",
+      "keyFunctions": [
+        {
+          "signature": "createObolValidatorManager(address,address,address,uint64)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy a new Obol Validator Manager for one Distributed Validator cluster and return its address. Arguments follow the verified ABI order (address, address, address, uint64). Confirm the role of each argument in the Obol docs before calling. The new manager is a separate contract; the factory holds no funds."
+        },
+        {
+          "signature": "consolidationSystemContract()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the consolidation system contract the managers use (EIP-7251 consolidations)."
+        },
+        {
+          "signature": "depositSystemContract()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the Ethereum beacon deposit contract used by the managers."
+        },
+        {
+          "signature": "withdrawalSystemContract()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the withdrawal system contract used by the managers (EIP-7002 withdrawal requests)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x119acD7844cbDd5fc09b1c6A4408f490c8F7F522",
+      "name": "OptimisticWithdrawalRecipientFactory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.obol.org/learn/readme/obol-splits",
+      "keyFunctions": [
+        {
+          "signature": "createOWRecipient(address,address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy an Optimistic Withdrawal Recipient for a validator. Holds the validator's withdrawals until they are distributed. Arguments follow the verified ABI order (address, address, address, uint256); check the Obol docs for the meaning of each before calling. Returns the new recipient address."
+        },
+        {
+          "signature": "owrImpl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Implementation contract that each recipient proxy points to."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xA9d94139A310150Ca1163b5E23f3E1dbb7D9E2A6",
+      "name": "ObolLidoSplitFactory",
+      "role": "factory",
+      "proxy": false,
+      "source": "https://docs.obol.org/learn/readme/obol-splits",
+      "keyFunctions": [
+        {
+          "signature": "createSplit(address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deploy an Obol Lido Split that divides a validator's stETH and wstETH rewards between the node operator and the fee recipient. Takes one address (the verified ABI argument); check the Obol docs for the exact role before calling. Returns the new split address."
+        },
+        {
+          "signature": "lidoSplitImpl()",
+          "kind": "read",
+          "payable": false,
+          "description": "Implementation contract that each Lido split proxy points to."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "create validator manager",
+      "description": "Deploy an Obol Validator Manager for a Distributed Validator cluster",
+      "how": "call ObolValidatorManagerFactory.createObolValidatorManager(...) with the cluster's addresses, then read the new address from the return value or the creation event"
+    },
+    {
+      "name": "create withdrawal recipient",
+      "description": "Deploy an Optimistic Withdrawal Recipient",
+      "how": "call OptimisticWithdrawalRecipientFactory.createOWRecipient(address,address,address,uint256)"
+    },
+    {
+      "name": "create Lido split",
+      "description": "Deploy a reward split for stETH and wstETH",
+      "how": "call ObolLidoSplitFactory.createSplit(address); the split then distributes its balance through distribute()"
+    }
+  ],
+  "risks": [
+    "Factories only deploy instances. Funds sit in the instances (each cluster has its own contracts), so a bad argument can send rewards to the wrong recipient.",
+    "Arguments to the create functions are not self-explanatory. Confirm each one in the Obol docs before a mainnet deployment.",
+    "The docs page covers Obol Splits v1.11. Check the audit scope and release notes for the version you deploy against.",
+    "The Lido split handles stETH, which rebases daily. Account for share versus balance when reading amounts."
+  ],
+  "notes": "Mainnet factories listed on the Obol Splits docs page (v1.11). Hoodi and Sepolia test factories are listed there too and are not included. Obol does not publish a list of deployed Validator Manager instances; these come from factory creation events. Obol Validator Manager instances hold validator withdrawal credentials, so treat them as high value.",
+  "sources": [
+    "https://docs.obol.org/learn/readme/obol-splits",
+    "https://github.com/ObolNetwork/obol-splits",
+    "https://raw.githubusercontent.com/ObolNetwork/obol-splits/main/README.md",
+    "https://api.llama.fi/protocol/obol",
+    "https://sourcify.dev/server/v2/contract/1/0x2c26B5A373294CaccBd3DE817D9B7C6aea7De584",
+    "https://sourcify.dev/server/v2/contract/1/0x119acd7844cbdd5fc09b1c6a4408f490c8f7f522",
+    "https://sourcify.dev/server/v2/contract/1/0xA9d94139A310150Ca1163b5E23f3E1dbb7D9E2A6"
+  ],
+  "researchedAt": "2026-11-28"
+}

@@ -1,0 +1,28 @@
+{
+  "slug": "coinbase-wrapped-staked-eth",
+  "name": "Coinbase Wrapped Staked ETH (cbETH)",
+  "category": "Liquid Staking",
+  "description": "Coinbase Wrapped Staked ETH (cbETH), a liquid staking token for ETH staked through Coinbase. cbETH is an ERC-20 on Ethereum and Base that earns staking rewards against ETH. An agent can hold and transfer cbETH once the contract addresses are confirmed from an official source.",
+  "website": "https://www.coinbase.com/cbeth",
+  "docs": "https://help.coinbase.com/en/coinbase/trading-and-funding/staking-rewards/cbeth",
+  "defillama": "https://defillama.com/protocol/coinbase-wrapped-staked-eth",
+  "chains": ["ethereum", "base"],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [],
+  "offchainApis": [],
+  "actions": [],
+  "risks": [
+    "Coinbase is the issuer and operates the staking service behind cbETH. Issuer and custody risk apply.",
+    "Token tickers are not unique on EVM chains. Use only the contract address from an official Coinbase page, and check the token name and symbol on-chain before any transfer.",
+    "cbETH's rate against ETH rises as staking rewards accrue. Use the on-chain rate for accounting, not a DEX price."
+  ],
+  "notes": "No contract addresses are listed yet. The official Coinbase cbETH pages (coinbase.com/cbeth, the help center and the price page) returned HTTP 403 to the research tool, so no address could be confirmed from an official page. The coinbase/wrapped-tokens-os GitHub repository does not list cbETH addresses. Add the Ethereum and Base token contracts here once they can be read from an official Coinbase page.",
+  "sources": [
+    "https://www.coinbase.com/cbeth",
+    "https://help.coinbase.com/en/coinbase/trading-and-funding/staking-rewards/cbeth",
+    "https://github.com/coinbase/wrapped-tokens-os",
+    "https://api.llama.fi/protocol/coinbase-wrapped-staked-eth"
+  ],
+  "researchedAt": "2026-11-28"
+}

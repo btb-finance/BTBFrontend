@@ -1,0 +1,260 @@
+{
+  "slug": "layerzero-v2",
+  "name": "LayerZero V2",
+  "category": "Bridge",
+  "description": "Cross-chain messaging protocol. Apps send messages and token transfers between chains through the EndpointV2 contract on each chain. Agents can quote and send OFT (omnichain token) transfers and read messaging state.",
+  "website": "https://layerzero.network/",
+  "docs": "https://docs.layerzero.network",
+  "defillama": "https://defillama.com/protocol/layerzero-v2",
+  "chains": [
+    "ethereum",
+    "arbitrum",
+    "base",
+    "optimism",
+    "polygon",
+    "avalanche",
+    "bsc",
+    "solana"
+  ],
+  "vm": "mixed",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1a44076050125825900e736c501f859c50fE728c",
+      "name": "EndpointV2 (ethereum, Endpoint ID 30101)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://metadata.layerzero-api.com/v1/metadata/deployments",
+      "keyFunctions": [
+        {
+          "signature": "eid()",
+          "kind": "read",
+          "payable": false,
+          "description": "This chain's LayerZero Endpoint ID (for example 30101 on Ethereum). Destinations are addressed by Endpoint ID, not chain ID."
+        },
+        {
+          "signature": "quote((uint32,bytes32,bytes,bytes,bool),address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee for a message: (MessagingParams(dstEid, receiver as bytes32, message, options, payInLzToken), sender OApp). Returns (nativeFee, lzTokenFee). Agents normally call the OApp or OFT's own quoteSend instead."
+        },
+        {
+          "signature": "send((uint32,bytes32,bytes,bytes,bool),address)",
+          "kind": "write",
+          "payable": true,
+          "description": "Called by an OApp, not by wallets directly: sends a message with the native fee as value; the second argument is the refund address."
+        },
+        {
+          "signature": "getSendLibrary(address,uint32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Message library an OApp uses to send to a destination Endpoint ID."
+        },
+        {
+          "signature": "outboundNonce(address,uint32,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Messages sent so far from (sender OApp, destination Endpoint ID, receiver as bytes32)."
+        },
+        {
+          "signature": "inboundNonce(address,uint32,bytes32)",
+          "kind": "read",
+          "payable": false,
+          "description": "Highest message nonce delivered in order to (receiver OApp, source Endpoint ID, sender as bytes32)."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x1a44076050125825900e736c501f859c50fE728c",
+      "name": "EndpointV2 (arbitrum, Endpoint ID 30110)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://metadata.layerzero-api.com/v1/metadata/deployments",
+      "keyFunctions": [
+        {
+          "signature": "eid()",
+          "kind": "read",
+          "payable": false,
+          "description": "This chain's LayerZero Endpoint ID (for example 30101 on Ethereum). Destinations are addressed by Endpoint ID, not chain ID."
+        },
+        {
+          "signature": "quote((uint32,bytes32,bytes,bytes,bool),address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee for a message: (MessagingParams(dstEid, receiver as bytes32, message, options, payInLzToken), sender OApp). Returns (nativeFee, lzTokenFee). Agents normally call the OApp or OFT's own quoteSend instead."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x1a44076050125825900e736c501f859c50fE728c",
+      "name": "EndpointV2 (base, Endpoint ID 30184)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://metadata.layerzero-api.com/v1/metadata/deployments",
+      "keyFunctions": [
+        {
+          "signature": "eid()",
+          "kind": "read",
+          "payable": false,
+          "description": "This chain's LayerZero Endpoint ID (for example 30101 on Ethereum). Destinations are addressed by Endpoint ID, not chain ID."
+        },
+        {
+          "signature": "quote((uint32,bytes32,bytes,bytes,bool),address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee for a message: (MessagingParams(dstEid, receiver as bytes32, message, options, payInLzToken), sender OApp). Returns (nativeFee, lzTokenFee). Agents normally call the OApp or OFT's own quoteSend instead."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x1a44076050125825900e736c501f859c50fE728c",
+      "name": "EndpointV2 (optimism, Endpoint ID 30111)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://metadata.layerzero-api.com/v1/metadata/deployments",
+      "keyFunctions": [
+        {
+          "signature": "eid()",
+          "kind": "read",
+          "payable": false,
+          "description": "This chain's LayerZero Endpoint ID (for example 30101 on Ethereum). Destinations are addressed by Endpoint ID, not chain ID."
+        },
+        {
+          "signature": "quote((uint32,bytes32,bytes,bytes,bool),address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee for a message: (MessagingParams(dstEid, receiver as bytes32, message, options, payInLzToken), sender OApp). Returns (nativeFee, lzTokenFee). Agents normally call the OApp or OFT's own quoteSend instead."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x1a44076050125825900e736c501f859c50fE728c",
+      "name": "EndpointV2 (polygon, Endpoint ID 30109)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://metadata.layerzero-api.com/v1/metadata/deployments",
+      "keyFunctions": [
+        {
+          "signature": "eid()",
+          "kind": "read",
+          "payable": false,
+          "description": "This chain's LayerZero Endpoint ID (for example 30101 on Ethereum). Destinations are addressed by Endpoint ID, not chain ID."
+        },
+        {
+          "signature": "quote((uint32,bytes32,bytes,bytes,bool),address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee for a message: (MessagingParams(dstEid, receiver as bytes32, message, options, payInLzToken), sender OApp). Returns (nativeFee, lzTokenFee). Agents normally call the OApp or OFT's own quoteSend instead."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x1a44076050125825900e736c501f859c50fE728c",
+      "name": "EndpointV2 (bsc, Endpoint ID 30102)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://metadata.layerzero-api.com/v1/metadata/deployments",
+      "keyFunctions": [
+        {
+          "signature": "eid()",
+          "kind": "read",
+          "payable": false,
+          "description": "This chain's LayerZero Endpoint ID (for example 30101 on Ethereum). Destinations are addressed by Endpoint ID, not chain ID."
+        },
+        {
+          "signature": "quote((uint32,bytes32,bytes,bytes,bool),address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee for a message: (MessagingParams(dstEid, receiver as bytes32, message, options, payInLzToken), sender OApp). Returns (nativeFee, lzTokenFee). Agents normally call the OApp or OFT's own quoteSend instead."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x1a44076050125825900e736c501f859c50fE728c",
+      "name": "EndpointV2 (avalanche, Endpoint ID 30106)",
+      "role": "bridge",
+      "proxy": false,
+      "source": "https://metadata.layerzero-api.com/v1/metadata/deployments",
+      "keyFunctions": [
+        {
+          "signature": "eid()",
+          "kind": "read",
+          "payable": false,
+          "description": "This chain's LayerZero Endpoint ID (for example 30101 on Ethereum). Destinations are addressed by Endpoint ID, not chain ID."
+        },
+        {
+          "signature": "quote((uint32,bytes32,bytes,bytes,bool),address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Fee for a message: (MessagingParams(dstEid, receiver as bytes32, message, options, payInLzToken), sender OApp). Returns (nativeFee, lzTokenFee). Agents normally call the OApp or OFT's own quoteSend instead."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Deployments metadata",
+      "url": "https://metadata.layerzero-api.com/v1/metadata/deployments",
+      "auth": "none",
+      "use": "Every chain's Endpoint ID and LayerZero contract addresses (EndpointV2, message libraries, executor).",
+      "source": "https://metadata.layerzero-api.com/v1/metadata/deployments"
+    },
+    {
+      "name": "LayerZero Scan API",
+      "url": "https://scan.layerzero-api.com/v1/messages/tx/{txHash}",
+      "auth": "none",
+      "use": "Track a cross-chain message by its source transaction hash: status and destination transaction.",
+      "source": "https://docs.layerzero.network/v2/tools/layerzeroscan/overview"
+    }
+  ],
+  "actions": [
+    {
+      "name": "send-omnichain-token",
+      "description": "Move an OFT token to another chain",
+      "how": "get the token's OFT address for the source chain from its own registry entry or the token issuer's deployments page; call quoteSend(sendParam, false) for the native fee, approve the token if the OFT is an adapter, then send{value: nativeFee}(sendParam, fee, refundAddress). sendParam.dstEid is the destination Endpoint ID, sendParam.to is the recipient as bytes32."
+    },
+    {
+      "name": "find-endpoint-id",
+      "description": "Get the LayerZero Endpoint ID for a chain",
+      "how": "use the chain's entry on the LayerZero deployments page (mainnet IDs are in the 30xxx range, testnets 40xxx). Ethereum mainnet is 30101."
+    },
+    {
+      "name": "track-message",
+      "description": "Check the status of a cross-chain message",
+      "how": "look it up with the LayerZero Scan tool or API from the LayerZero docs using the source transaction hash."
+    }
+  ],
+  "risks": [
+    "Cross-chain messages are not final until the destination executor delivers them. Delivery can take minutes or longer, and a failed message can be retried.",
+    "Messaging depends on the configured DVNs (verifiers) and executor for each route. A route with weak verification has more trust risk.",
+    "OFT adapters lock tokens on the source chain and mint or unlock them on the destination. Only one adapter should exist for a token, or supply can break.",
+    "Sends need native gas on the source chain for the messaging fee. Set minAmountLD to avoid losing value to slippage.",
+    "Contracts are upgradeable and controlled by the protocol and app owners. Check the configured libraries before relying on a route."
+  ],
+  "notes": "No contract addresses are listed. The EndpointV2 deployment table could not be read during research, and a verified address was not found on an official page, so none was included. Get the EndpointV2, SendUln302, ReceiveUln302 and executor addresses for each chain from the LayerZero deployed contracts page (docs.layerzero.network/v2/deployments/deployed-contracts) and verify them there before use. DefiLlama lists about 89 chains for LayerZero V2; the chains field shows the main ones. OFT contract addresses for USDT0 and other tokens are in those tokens' own registry entries. EndpointV2 has the same address on these chains (from LayerZero's own deployments metadata); other chains are listed there too.",
+  "sources": [
+    "https://docs.layerzero.network",
+    "https://docs.layerzero.network/v2/deployments/deployed-contracts",
+    "https://docs.layerzero.network/v2/deployments/chains",
+    "https://docs.layerzero.network/v2/developers/evm/oft/quickstart",
+    "https://layerzero.network/",
+    "https://defillama.com/protocol/layerzero-v2",
+    "https://api.llama.fi/protocol/layerzero-v2",
+    "https://metadata.layerzero-api.com/v1/metadata/deployments"
+  ],
+  "researchedAt": "2026-11-28"
+}

@@ -1,0 +1,292 @@
+{
+  "slug": "convex-finance",
+  "name": "Convex Finance",
+  "category": "Yield",
+  "description": "Convex boosts Curve rewards. Agents can deposit Curve LP tokens through the Booster, stake cvxCRV for rewards, and read reward and token balances on Ethereum.",
+  "website": "https://www.convexfinance.com",
+  "docs": "https://docs.convexfinance.com",
+  "defillama": "https://defillama.com/protocol/convex-finance",
+  "chains": [
+    "ethereum",
+    "polygon",
+    "arbitrum",
+    "fraxtal"
+  ],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xF403C135812408BFbE8713b5A23a04b3D48AAE31",
+      "name": "Booster",
+      "role": "other",
+      "proxy": null,
+      "source": "https://docs.convexfinance.com/convexfinance/faq/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "deposit(uint256,uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit Curve LP tokens into pool _pid. Args: pool id, amount, and stake flag (true stakes the Convex LP token in the reward pool)."
+        },
+        {
+          "signature": "depositAll(uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit the caller's full LP token balance for pool id. Args: pool id, stake flag."
+        },
+        {
+          "signature": "withdraw(uint256,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw LP tokens from pool id. Args: pool id, amount."
+        },
+        {
+          "signature": "withdrawAll(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw all LP tokens from pool id."
+        },
+        {
+          "signature": "withdrawTo(uint256,uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw LP tokens from pool id to a given address. Args: pool id, amount, recipient."
+        },
+        {
+          "signature": "poolLength()",
+          "kind": "read",
+          "payable": false,
+          "description": "Number of pools added to the Booster."
+        },
+        {
+          "signature": "earmarkRewards(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Collect and distribute pending rewards for pool id."
+        },
+        {
+          "signature": "claimRewards(uint256,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim gauge rewards for pool id. Args: pool id, gauge address."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B",
+      "name": "CVX",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.convexfinance.com/convexfinance/faq/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send CVX to a recipient. Amount is in base units (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Amount is in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount in base units."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "CVX balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total CVX supply, in base units."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals. Returns 18."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x62B9c7356A2Dc64a1969e19C23e4f579F9810Aa7",
+      "name": "cvxCRV",
+      "role": "token",
+      "proxy": null,
+      "source": "https://docs.convexfinance.com/convexfinance/faq/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send cvxCRV to a recipient. Amount is in base units (18 decimals)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Amount is in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount in base units."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "cvxCRV balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total cvxCRV supply, in base units."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals. Returns 18."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x3Fe65692bfCD0e6CF84cB1E7d24108E434A7587e",
+      "name": "cvxCRV Rewards",
+      "role": "staking",
+      "proxy": null,
+      "source": "https://docs.convexfinance.com/convexfinance/faq/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "stake(uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake cvxCRV in the rewards pool. Amount is in base units."
+        },
+        {
+          "signature": "stakeAll()",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake the caller's full cvxCRV balance."
+        },
+        {
+          "signature": "stakeFor(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Stake cvxCRV on behalf of an address. Args: account, amount."
+        },
+        {
+          "signature": "withdraw(uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw staked cvxCRV. Args: amount, claim flag (true also claims extra rewards)."
+        },
+        {
+          "signature": "withdrawAndUnwrap(uint256,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Withdraw staked tokens and unwrap them to the underlying token. Args: amount, claim flag."
+        },
+        {
+          "signature": "getReward()",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim pending rewards for the caller."
+        },
+        {
+          "signature": "getReward(address,bool)",
+          "kind": "write",
+          "payable": false,
+          "description": "Claim pending rewards for an account. Args: account, claim extra rewards flag."
+        },
+        {
+          "signature": "earned(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Rewards earned by an account and not yet claimed."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Amount of cvxCRV an account has staked in the pool."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total staked amount in the pool."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "deposit LP into Convex",
+      "description": "Deposit Curve LP tokens for boosted rewards",
+      "how": "approve the LP token to the Booster, then call deposit(pid, amount, stake) on the Booster"
+    },
+    {
+      "name": "stake cvxCRV",
+      "description": "Stake cvxCRV for rewards",
+      "how": "approve cvxCRV to the cvxCRV Rewards contract, then call stake(amount)"
+    },
+    {
+      "name": "claim rewards",
+      "description": "Claim pending cvxCRV staking rewards",
+      "how": "call getReward() on the cvxCRV Rewards contract"
+    },
+    {
+      "name": "withdraw",
+      "description": "Withdraw LP tokens or staked cvxCRV",
+      "how": "withdraw or withdrawAll on the Booster, or withdraw on the cvxCRV Rewards contract"
+    }
+  ],
+  "risks": [
+    "The Booster owner can change pool and system settings. shutdownPool and shutdownSystem can stop pools.",
+    "Pool rewards depend on Curve gauge votes and emissions, which can change.",
+    "Withdrawal of LP tokens depends on the pool being active. Check the pool before depositing."
+  ],
+  "notes": "Only Ethereum contracts are listed. The official address page also lists Booster and reward contracts on Arbitrum and Polygon. CVX Rewards (0xCF50b810E57Ac33B91dCF525C6ddd9881B139332, labelled CVX Rewards on the official page) is not listed because its contract type and ABI were not confirmed. The CRV Depositor (0x8014595F2AB54cD7c604B00E9fb932176fDc86Ae) and platform contracts are also left out for the same reason. The Booster function list comes from the convex-eth platform source, and the cvxCRV Rewards function list comes from BaseRewardPool.sol in the same repo.",
+  "sources": [
+    "https://docs.convexfinance.com/convexfinance/faq/contract-addresses",
+    "https://raw.githubusercontent.com/convex-eth/platform/main/contracts/contracts/Booster.sol",
+    "https://raw.githubusercontent.com/convex-eth/platform/main/contracts/contracts/BaseRewardPool.sol",
+    "https://www.convexfinance.com",
+    "https://api.llama.fi/protocol/convex-finance"
+  ],
+  "researchedAt": "2026-11-28"
+}

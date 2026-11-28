@@ -1,0 +1,32 @@
+{
+  "slug": "concrete",
+  "name": "Concrete",
+  "category": "Onchain Capital Allocator",
+  "description": "Concrete builds risk-managed yield vaults (Earn vaults). Users deposit an asset such as WBTC or USDC and receive ctAsset shares. The docs describe the vaults as ERC-4626 contracts with a factory for deployment. No vault addresses could be confirmed from an official source, so this entry lists no contracts yet.",
+  "website": "https://concrete.xyz",
+  "docs": "https://docs.concrete.xyz",
+  "defillama": "https://defillama.com/protocol/concrete",
+  "chains": ["ethereum", "berachain", "arbitrum", "stable", "katana"],
+  "vm": "evm",
+  "agentAccess": "onchain",
+  "contracts": [],
+  "offchainApis": [],
+  "actions": [
+    { "name": "find a vault", "description": "Find the current Concrete vault for an asset", "how": "Use the Concrete app (app.concrete.xyz/earn) or the docs to find the vault address. Verify the address on the chain's block explorer before sending funds." }
+  ],
+  "risks": [
+    "No vault address is verified in this registry entry. Do not send funds to an address taken from a third-party listing without checking it against Concrete's own pages.",
+    "Vault strategies are managed by Concrete and its strategy modules. Losses in a strategy reduce the share price."
+  ],
+  "notes": "Concrete's docs confirm that Earn vaults are ERC-4626 contracts that wrap an underlying ERC-20 into ctAsset shares, and that a factory deploys them. The Concrete docs pages that could be read (deposit guide and search snippets of the Earn V2 pages) did not give any contract address, several pages came back empty, and no official GitHub repository was found. Addresses seen in third-party listings were not used. Add the vault contracts here once Concrete publishes them with a source.",
+  "sources": [
+    "https://api.llama.fi/protocol/concrete",
+    "https://defillama.com/protocol/concrete",
+    "https://docs.concrete.xyz/Using-Concrete-Vaults/deposit/",
+    "https://docs.concrete.xyz/Earn/ct-assets",
+    "https://docs.concrete.xyz/Earn-V2/overview",
+    "https://docs.concrete.xyz/Earn-V2/Smart-Contracts/architecture",
+    "https://docs.concrete.xyz/Live-Vaults/wbtc-vault/"
+  ],
+  "researchedAt": "2026-11-28"
+}

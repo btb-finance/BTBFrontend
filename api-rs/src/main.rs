@@ -14,6 +14,7 @@ mod indexers;
 mod overview;
 mod solana;
 mod portfolio;
+mod pumpmeta;
 mod lite;
 mod pools;
 mod rates;
@@ -137,6 +138,8 @@ async fn run() {
         .route("/mcp", post(mcp).get(mcp_get))
         .route("/api/v1/sign-status", post(sign_report))
         .route("/api/v1/sign-status/:id", get(sign_read))
+        .route("/api/v1/solana/pump/meta/:id", get(pump_meta))
+        .route("/api/v1/solana/pump/img/:id", get(pump_img))
         .fallback(forward_rest)
         .layer(tower_http::cors::CorsLayer::permissive())
         .with_state(app);
@@ -169,8 +172,30 @@ async fn snapshot_now(app: &App) -> Option<Arc<snapshot::Snapshot>> {
 
 async fn health(State(app): State<App>) -> Response {
     match snapshot_now(&app).await {
-        Some(s) => json_response(StatusCode::OK, &json!({ "ok": true, "pools": s.pools.len(), "updatedAt": s.updated_at })),
+        Some(s) => json_response(StatusCode::OK, &json!({ "ok": true, "pools": s.pools.len(), "updatedAt": s.updated_at, "database": app.index.db.is_some() })),
         None => json_response(StatusCode::SERVICE_UNAVAILABLE, &json!({ "ok": false, "note": "pool snapshot still loading" })),
+    }
+}
+
+/// Hosted coin metadata and images for Pump launches (pumpmeta.rs). Content-addressed, so cached for good.
+async fn pump_meta(State(app): State<App>, Path(id): Path<String>) -> Response {
+    match pumpmeta::meta(app.index.db.as_ref(), id.trim_end_matches(".json")).await {
+        Some(v) => {
+            let mut r = json_response(StatusCode::OK, &v);
+            r.headers_mut().insert(axum::http::header::CACHE_CONTROL, axum::http::HeaderValue::from_static("public, max-age=31536000, immutable"));
+            r
+        }
+        None => rest_error(StatusCode::NOT_FOUND, "not_found", "No coin metadata with that id."),
+    }
+}
+async fn pump_img(State(app): State<App>, Path(id): Path<String>) -> Response {
+    match pumpmeta::image(app.index.db.as_ref(), &id).await {
+        Some((ct, bytes)) => Response::builder()
+            .header(axum::http::header::CONTENT_TYPE, ct)
+            .header(axum::http::header::CACHE_CONTROL, "public, max-age=31536000, immutable")
+            .body(axum::body::Body::from(bytes))
+            .unwrap(),
+        None => rest_error(StatusCode::NOT_FOUND, "not_found", "No coin image with that id."),
     }
 }
 
@@ -334,6 +359,7 @@ fn rest_routes(r: Router<App>) -> Router<App> {
     let r = route_tool!(r, "/api/v1/wallets/:address/portfolio", "wallet_portfolio", &[("address", "wallet")]);
     let r = route_tool!(r, "/api/v1/wallets/:address/overview", "wallet_overview", &[("address", "wallet")]);
     let r = route_tool!(r, "/api/v1/solana/pump/claim", "build_pump_claim", &[]);
+    let r = route_tool!(r, "/api/v1/solana/pump/launch", "build_pump_launch", &[]);
     let r = route_tool!(r, "/api/v1/build/swap", "build_swap", &[]);
     let r = route_tool!(r, "/api/v1/build/lend", "build_lend", &[]);
     let r = route_tool!(r, "/api/v1/build/withdraw", "build_withdraw", &[]);
@@ -503,9 +529,12 @@ async fn sign_report(State(app): State<App>, body: Bytes) -> Response {
     let hash = v["hash"].as_str().unwrap_or("");
     let step = v["step"].as_u64().unwrap_or(0) as u32;
     let hex = |s: &str, n: usize| s.len() == n + 2 && s.starts_with("0x") && s[2..].chars().all(|c| c.is_ascii_hexdigit());
-    if !(16..=64).contains(&id.len()) || !id.chars().all(|c| c.is_ascii_hexdigit()) || !hex(hash, 64) || !(1..=10).contains(&step) {
-        return rest_error(StatusCode::BAD_REQUEST, "invalid_arguments", "Send {id, step (1-10), hash (0x + 64 hex)}.");
+    // EVM hashes are 0x + 64 hex; Solana signatures are base58 of 64 bytes (kept as they are: base58 is case sensitive).
+    let solana_sig = bs58::decode(hash).into_vec().map(|b| b.len() == 64).unwrap_or(false);
+    if !(16..=64).contains(&id.len()) || !id.chars().all(|c| c.is_ascii_hexdigit()) || !(hex(hash, 64) || solana_sig) || !(1..=10).contains(&step) {
+        return rest_error(StatusCode::BAD_REQUEST, "invalid_arguments", "Send {id, step (1-10), hash (0x + 64 hex, or a Solana signature)}.");
     }
+    let hash = if solana_sig { hash.to_string() } else { hash.to_lowercase() };
     let now = chrono::Utc::now().timestamp();
     if let Ok(mut m) = app.signed.lock() {
         m.retain(|_, steps| steps.iter().any(|s| now - s.2 < 86_400));
@@ -514,7 +543,7 @@ async fn sign_report(State(app): State<App>, body: Bytes) -> Response {
         }
         let steps = m.entry(id.to_lowercase()).or_default();
         steps.retain(|s| s.0 != step);
-        steps.push((step, hash.to_lowercase(), now));
+        steps.push((step, hash.clone(), now));
         steps.sort_by_key(|s| s.0);
     }
     json_response(StatusCode::ACCEPTED, &json!({ "ok": true }))
