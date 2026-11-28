@@ -472,10 +472,18 @@ export function buildServer(): McpServer {
 
   server.registerTool('build_lend', {
     title: 'Lend on Aave (ready to sign)',
-    description: 'Lend a token on Aave V3: the exact approval only if needed, then the supply, as ONE signLink for the person, with the live supply APY, what the amount earns a year, the wallet\'s health factor and a dry run. Use this, not build_tx, for Aave deposits.',
-    inputSchema: z.object({ ...lendArgs, amount: z.string().regex(/^(\d+(\.\d+)?|max)$/).describe('Whole units, e.g. "10", or "max" for the whole balance.') }),
+    description: 'Lend a token on Aave V3, or Aave V4 with protocol "aave-v4" (the Core markets on ethereum and avalanche): the exact approval only if needed, then the supply, as ONE signLink for the person, with the live supply APY, what the amount earns a year, the wallet\'s health factor (V3) and a dry run. Use this, not build_tx, for Aave deposits.',
+    inputSchema: z.object({ ...lendArgs, amount: z.string().regex(/^(\d+(\.\d+)?|max)$/).describe('Whole units, e.g. "10", or "max" for the whole balance.'), protocol: z.enum(['aave-v3', 'aave-v4']).optional().describe('Default aave-v3. aave-v4 lends in Aave V4\'s Core market (ethereum, avalanche).') }),
     annotations: WRITE_PREP,
   }, async (a) => {
+    if (a.protocol === 'aave-v4') {
+      // Built by BTB's Rust service on Flux.
+      try {
+        const r = await fetch(`${SIGN_STATUS_API}/api/v1/build/lend`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(a), signal: AbortSignal.timeout(25_000) });
+        const body = await r.json() as unknown;
+        return r.ok ? text(body) : fail(`The lending service answered ${r.status}: ${JSON.stringify(body).slice(0, 300)}`);
+      } catch (e) { return fail(`The lending service is not reachable right now (${(e as Error).message}).`); }
+    }
     try {
       const r = await buildLend(a);
       const sims: Sim[] = r.transactions.map((_, i) => (i === r.transactions.length - 1 ? r.simulation : undefined));

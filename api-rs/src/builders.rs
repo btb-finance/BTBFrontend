@@ -351,6 +351,9 @@ async fn account(http: &reqwest::Client, chain: i64, pool: &str, wallet: &str) -
 }
 
 pub async fn build_lend(a: &Map<String, Value>, ctx: &Ctx<'_>) -> Result<Value, ToolError> {
+    if opt_str(a, "protocol")?.map(|p| p.to_lowercase().replace([' ', '_'], "-")).as_deref().is_some_and(|p| p == "aave-v4" || p == "v4") {
+        return build_lend_v4(a, ctx).await;
+    }
     let http = ctx.http;
     let chain_in = opt_str(a, "chain")?.ok_or_else(|| bad("chain is required"))?;
     let token_in = opt_str(a, "token")?.ok_or_else(|| bad("token is required"))?;
@@ -390,6 +393,73 @@ pub async fn build_lend(a: &Map<String, Value>, ctx: &Ctx<'_>) -> Result<Value, 
         "warnings": if bal < amount { json!([format!("Not enough {sym}: the wallet holds {}.", units(bal, dec))]) } else { json!([]) },
     });
     let title = format!("Lend {human} {sym} on Aave");
+    let sims = last_sim(n, &r["simulation"]);
+    Ok(with_sign_link(r, &title, &wallet, &sims, None))
+}
+
+/// Aave V4 Main Spoke and its Core Hub per chain (registry aave-v4).
+fn aave_v4(chain: i64) -> Option<(&'static str, &'static str)> {
+    match chain {
+        1 => Some(("0x94e7A5dCbE816e498b89aB752661904E2F56c485", "0xCca852Bc40e560adC3b1Cc58CA5b55638ce826c9")),
+        43114 => Some(("0x435272CefF93a1E657E8ABfdf0A13e95900A3a56", "0xd07369fAE4A5BB13c9Ce446B052c7867B1AbDf6e")),
+        _ => None,
+    }
+}
+
+/// Lend on Aave V4: approve the Spoke, then Spoke.supply(reserveId, amount, wallet). reserveId comes from the Hub's
+/// asset id for the token (Hub.getAssetId, Spoke.getReserveId).
+async fn build_lend_v4(a: &Map<String, Value>, ctx: &Ctx<'_>) -> Result<Value, ToolError> {
+    let http = ctx.http;
+    let chain_in = opt_str(a, "chain")?.ok_or_else(|| bad("chain is required"))?;
+    let token_in = opt_str(a, "token")?.ok_or_else(|| bad("token is required"))?;
+    let amount_in = opt_str(a, "amount")?.ok_or_else(|| bad("amount is required"))?;
+    let wallet = wallet_arg(a)?;
+    let chain = token_chain_id(&chain_in).ok_or_else(|| ToolError(format!("Unknown chain \"{chain_in}\".")))?;
+    let (spoke, hub) = aave_v4(chain).ok_or_else(|| ToolError("Aave V4 lending is built for ethereum and avalanche (the Core markets).".into()))?;
+    let (asset, sym, dec) = resolve_token(http, ctx.tokens, chain, &token_in).await?;
+    let asset_id = swap::eth_call(http, chain, hub, &format!("0x{}{}", crate::launchpads::selector("getAssetId(address)"), pad_addr(&asset)), None)
+        .await
+        .map_err(|_| ToolError(format!("Aave V4 does not list {sym} on this chain's Core market.")))?;
+    let reserve_id = read_u(http, chain, spoke, format!("0x{}{}{}", crate::launchpads::selector("getReserveId(address,uint256)"), pad_addr(hub), asset_id.trim_start_matches("0x"))).await
+        .map_err(|_| ToolError(format!("Aave V4's main market does not take {sym} on this chain.")))?;
+    let (bal, allow) = futures::join!(balance_of(http, chain, &asset, &wallet), allowance(http, chain, &asset, &wallet, spoke));
+    let (bal, allow) = (bal?, allow?);
+    let amount = if amount_in == "max" { bal } else { parse_units(&amount_in, dec)? };
+    if amount == 0 {
+        return Err(ToolError(format!("The wallet holds no {sym} on this chain.")));
+    }
+    let human = units(amount, dec);
+    let mut calls = Vec::new();
+    if allow < amount {
+        calls.push(Call { to: asset.clone(), data: approve_data(spoke, amount), value: 0, gas: None, label: format!("Approve exactly {human} {sym} for Aave V4") });
+    }
+    let data = format!("0x{}{}{}{}", crate::launchpads::selector("supply(uint256,uint256,address)"), pad_u(reserve_id), pad_u(amount), pad_addr(&wallet));
+    calls.push(Call { to: spoke.to_string(), data: data.clone(), value: 0, gas: None, label: format!("Lend {human} {sym} on Aave V4") });
+    let sim = if bal < amount {
+        json!({ "status": "skipped", "reason": format!("The wallet holds {} {sym}, less than {human}.", units(bal, dec)) })
+    } else {
+        simulate(http, chain, &wallet, spoke, &data, 0, (calls.len() > 1).then_some("Runs once the approval in step 1 is confirmed.")).await
+    };
+    // Today's rate for this market, from the same feed as lending_rates.
+    let mut q = Map::new();
+    q.insert("token".into(), json!(sym));
+    q.insert("protocol".into(), json!("aave"));
+    let chain_name = if chain == 1 { "Ethereum" } else { "Avalanche" };
+    let apy = crate::rates::lending(&q, ctx.rates, http).await.ok().and_then(|v| {
+        v["markets"].as_array()?.iter().filter(|m| m["protocol"] == "Aave V4" && m["chain"].as_str().is_some_and(|c| c.eq_ignore_ascii_case(chain_name)))
+            .max_by(|x, y| x["tvlUsd"].as_f64().unwrap_or(0.0).total_cmp(&y["tvlUsd"].as_f64().unwrap_or(0.0)))
+            .and_then(|m| m["supplyApyPct"].as_f64())
+    });
+    let yearly = apy.map(|p| to_precision3(human.parse::<f64>().unwrap_or(0.0) * p / 100.0));
+    let n = calls.len();
+    let r = json!({
+        "chainId": chain, "protocol": "Aave V4", "action": "lend", "spoke": spoke, "hub": hub, "reserveId": reserve_id.to_string(),
+        "token": { "address": asset, "symbol": sym, "decimals": dec }, "amount": human, "supplyApyPct": apy.map(num),
+        "position": { "earnPerYearAtCurrentRate": yearly.map(|y| format!("{y} {sym}")) },
+        "simulation": sim, "transactions": tx_out(&calls, chain, &wallet),
+        "warnings": if bal < amount { json!([format!("Not enough {sym}: the wallet holds {}.", units(bal, dec))]) } else { json!([]) },
+    });
+    let title = format!("Lend {human} {sym} on Aave V4");
     let sims = last_sim(n, &r["simulation"]);
     Ok(with_sign_link(r, &title, &wallet, &sims, None))
 }
@@ -700,9 +770,10 @@ pub fn definitions() -> Vec<Value> {
                 "slippageBps": { "type": "integer", "minimum": 1, "maximum": 3000, "description": "Slippage tolerance in bps. Default 50 (0.5%)." }
             }, "required": ["chain", "tokenIn", "tokenOut", "amount", "wallet"] }, "annotations": w }),
         json!({ "name": "build_lend", "title": "Lend on Aave (ready to sign)",
-            "description": "Lend a token on Aave V3: the exact approval only if needed, then the supply, as ONE signLink for the person, with the live supply APY, what the amount earns a year, the wallet's health factor and a dry run. Use this, not build_tx, for Aave deposits.",
+            "description": "Lend a token on Aave V3, or Aave V4 with protocol \"aave-v4\" (the Core markets on ethereum and avalanche): the exact approval only if needed, then the supply, as ONE signLink for the person, with the live supply APY, what the amount earns a year, the wallet's health factor (V3) and a dry run. Use this, not build_tx, for Aave deposits.",
             "inputSchema": { "type": "object", "properties": {
                 "chain": { "type": "string", "description": "Chain name or id: ethereum, base, arbitrum, optimism, polygon, avalanche, bnb." },
+                "protocol": { "type": "string", "enum": ["aave-v3", "aave-v4"], "description": "Default aave-v3. aave-v4 lends in Aave V4's Core market (ethereum, avalanche)." },
                 "token": { "type": "string", "description": "Symbol or address, e.g. \"USDC\", \"WETH\". Aave takes the wrapped coin, not native ETH." },
                 "wallet": wallet.clone(), "amount": { "type": "string", "pattern": "^(\\d+(\\.\\d+)?|max)$", "description": "Whole units, e.g. \"10\", or \"max\" for the whole balance." }
             }, "required": ["chain", "token", "wallet", "amount"] }, "annotations": w }),
