@@ -81,6 +81,18 @@ pub fn definitions() -> Vec<Value> {
         "inputSchema": { "type": "object", "properties": { "wallet": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" } }, "required": ["wallet"] },
         "annotations": read,
     }));
+    more.push(json!({
+        "name": "build_btb",
+        "title": "BTB Bears, BTBB, wrapping and FLIP (ready to sign)",
+        "description": "BTB's own products on Ethereum, each as a sign link with a dry run. Bears: bear_status (Bears held and staked, BTBB waiting, mint price), bear_mint (count; ETH price read live; 1,000 XP per Bear on btb.finance), bear_stake (all Bears in the wallet or count; approval included once), bear_unstake (count), bear_claim (BTBB rewards: every BTBB transfer pays 1% to staked Bears). Tokens: btbb_wrap and btbb_unwrap (BTB to BTBB 1:1 and back), wrap and unwrap (BTB into the token used in BTB's pools, 1 to 1,000,000, and back; trades of it pay 1% into the Friday pot), flip_up (USDC into FLIP) and flip_down (FLIP into USDC). Mint and stake BTB Bears, then claim, to earn from BTBB activity.",
+        "inputSchema": { "type": "object", "properties": {
+            "wallet": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" },
+            "action": { "type": "string", "enum": ["bear_status", "bear_mint", "bear_stake", "bear_unstake", "bear_claim", "btbb_wrap", "btbb_unwrap", "wrap", "unwrap", "flip_up", "flip_down"] },
+            "count": { "type": "integer", "minimum": 1, "maximum": 200, "description": "Bears to mint, stake or unstake. Stake defaults to all in the wallet; unstake to all staked." },
+            "amount": { "type": "string", "pattern": "^\\d+(\\.\\d+)?$", "description": "Whole units for wrap, unwrap and flip actions (BTB, BTBB, pool token, USDC or FLIP)." }
+        }, "required": ["wallet", "action"] },
+        "annotations": read,
+    }));
     let mut list = vec![
         json!({
             "name": "top_pools",
@@ -214,7 +226,7 @@ pub fn has(name: &str) -> bool {
             | "list_protocols" | "get_protocol" | "quick_token_check" | "bridge_status"
             | "lending_rates" | "staking_rates" | "tx_status"
             | "find_token" | "quote_swap" | "sign_status"
-            | "wallet_portfolio" | "wallet_overview" | "build_pump_claim" | "build_pump_launch" | "build_token_launch" | "build_launch_claim"
+            | "wallet_portfolio" | "wallet_overview" | "build_pump_claim" | "build_pump_launch" | "build_token_launch" | "build_launch_claim" | "build_btb"
             | "build_swap" | "build_lend" | "build_withdraw" | "build_vault_deposit" | "build_vault_withdraw" | "build_bridge"
     )
 }
@@ -431,6 +443,15 @@ pub async fn call(name: &str, args: &Map<String, Value>, ctx: &Ctx<'_>) -> Resul
                 }
                 _ => Err(bad("launchpad must be clanker, zora, pons or flap (Pump on Solana is build_pump_launch)")),
             }
+        }
+        "build_btb" => {
+            let w = opt_str(args, "wallet")?.unwrap_or_default().trim().to_string();
+            if !crate::launchpads::is_addr(&w) {
+                return Err(bad("wallet must be a 0x address"));
+            }
+            let action = opt_str(args, "action")?.unwrap_or_default();
+            let count = opt_num(args, "count")?.map(|c| c.max(1.0) as u64);
+            crate::btb::build(ctx.http, &w, &action, count, opt_str(args, "amount")?).await.map_err(ToolError)
         }
         "build_launch_claim" => {
             let w = opt_str(args, "wallet")?.unwrap_or_default().trim().to_string();

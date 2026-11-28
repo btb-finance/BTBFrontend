@@ -35,7 +35,7 @@ fn hex(b: &[u8]) -> String {
     b.iter().map(|x| format!("{x:02x}")).collect()
 }
 
-fn unhex(s: &str) -> Vec<u8> {
+pub(crate) fn unhex(s: &str) -> Vec<u8> {
     let s = s.trim_start_matches("0x");
     (0..s.len() / 2).filter_map(|i| u8::from_str_radix(&s[2 * i..2 * i + 2], 16).ok()).collect()
 }
@@ -128,24 +128,24 @@ pub fn calldata(sig: &str, args: &[T]) -> String {
 
 // ---- chain reads ----
 
-async fn call(http: &reqwest::Client, chain: i64, to: &str, data: &str) -> Result<Vec<u8>, String> {
+pub(crate) async fn call(http: &reqwest::Client, chain: i64, to: &str, data: &str) -> Result<Vec<u8>, String> {
     swap::eth_call(http, chain, to, data, None).await.map(|h| unhex(&h))
 }
 
-fn word(b: &[u8], i: usize) -> u128 {
+pub(crate) fn word(b: &[u8], i: usize) -> u128 {
     b.get(i * 32 + 16..i * 32 + 32).map(|s| u128::from_be_bytes(s.try_into().unwrap())).unwrap_or(0)
 }
 
-fn word_addr(b: &[u8], i: usize) -> String {
+pub(crate) fn word_addr(b: &[u8], i: usize) -> String {
     b.get(i * 32 + 12..i * 32 + 32).map(|s| format!("0x{}", hex(s))).unwrap_or_default()
 }
 
-fn eth(wei: u128) -> String {
+pub(crate) fn eth(wei: u128) -> String {
     crate::lite::format_units(&wei.to_string(), 18)
 }
 
 /// A dry run from the wallet: "passed", or "reverted" with the revert data so a custom error can be read.
-async fn simulate(http: &reqwest::Client, chain: i64, from: &str, to: &str, data: &str, value: u128) -> Value {
+pub(crate) async fn simulate(http: &reqwest::Client, chain: i64, from: &str, to: &str, data: &str, value: u128) -> Value {
     let Some(url) = swap::rpc_url(chain) else { return json!({ "status": "reverted", "reason": "no RPC for this chain" }) };
     let mut c = json!({ "from": from, "to": to, "data": data });
     if value > 0 {
@@ -159,14 +159,14 @@ async fn simulate(http: &reqwest::Client, chain: i64, from: &str, to: &str, data
         Ok(v) if v.get("error").is_none() => json!({ "status": "passed", "result": v["result"] }),
         Ok(v) => {
             let msg = v["error"]["message"].as_str().unwrap_or("reverted");
-            let reason = if msg.contains("insufficient funds") { "The wallet does not hold enough for gas and the launch fee.".to_string() } else { msg.chars().take(200).collect() };
+            let reason = if msg.contains("insufficient funds") || msg.contains("OutOfFunds") { "The wallet does not hold enough ETH (or BNB) for this and gas.".to_string() } else { msg.chars().take(200).collect() };
             json!({ "status": "reverted", "reason": reason, "data": v["error"]["data"] })
         }
         Err(e) => json!({ "status": "reverted", "reason": e }),
     }
 }
 
-fn tx(chain: i64, from: &str, to: &str, data: &str, value: u128, label: &str) -> Value {
+pub(crate) fn tx(chain: i64, from: &str, to: &str, data: &str, value: u128, label: &str) -> Value {
     json!({ "step": 1, "label": label, "chainId": chain, "from": from, "to": to, "data": data, "value": format!("0x{value:x}") })
 }
 
