@@ -610,18 +610,18 @@ export function buildServer(): McpServer {
 
   server.registerTool('build_pump_launch', {
     title: 'Launch a Pump coin (ready to sign)',
-    description: 'Launch a new coin on Pump (Solana) from the creator\'s wallet: one transaction that creates the coin, sets the creator-fee split (BTB keeps a share of creator fees on coins launched through BTB; the creator gets the rest), and optionally makes the creator\'s first buy in the same transaction so nobody can buy before them. Returns the new mint address, the split, a dry run on Solana and the transaction, already signed by the new coin\'s mint key; the creator\'s wallet signs as fee payer and must send it within about a minute without changing the blockhash. Send the coin\'s picture (imageUrl, or imageBase64 and BTB hosts it), description and optional links, and BTB builds and hosts the metadata; or pass metadataUri if you host it yourself. Cost: about 0.02 to 0.03 SOL plus the first buy. Most new coins lose almost all their value.',
+    description: 'Launch a new coin on Pump (Solana) from the creator\'s wallet: one transaction that creates the coin, sets the creator-fee split (BTB keeps a share of creator fees on coins launched through BTB; the creator gets the rest), and optionally makes the creator\'s first buy in the same transaction so nobody can buy before them. Returns the new mint address, the split, a dry run on Solana and the transaction, already signed by the new coin\'s mint key; the creator\'s wallet signs as fee payer and must send it within about a minute without changing the blockhash. Send the coin\'s picture (imageUrl or imageBase64), description and optional links, and BTB pins them to IPFS; or pass metadataUri if you host it yourself. Cost: about 0.02 to 0.03 SOL plus the first buy. Most new coins lose almost all their value.',
     inputSchema: z.object({
       wallet: z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/).describe('The creator\'s Solana address: pays, signs and receives the creator\'s fee share.'),
       name: z.string().min(1).max(32).describe('Coin name, up to 32 characters.'),
       symbol: z.string().min(1).max(10).describe('Ticker, up to 10 characters, without the $.'),
       description: z.string().max(500).optional().describe('What the coin is about, shown on Pump.'),
       imageUrl: z.string().optional().describe('https or ipfs link to the coin\'s picture.'),
-      imageBase64: z.string().max(1_400_000).optional().describe('Or the picture itself: PNG, JPEG, GIF or WebP, up to 1000 KB, base64 (a data: URL works). BTB hosts it.'),
+      imageBase64: z.string().max(1_400_000).optional().describe('Or the picture itself: PNG, JPEG, GIF or WebP, up to 1000 KB, base64 (a data: URL works).'),
       twitter: z.string().optional().describe('Optional https link.'),
       telegram: z.string().optional().describe('Optional https link.'),
       website: z.string().optional().describe('Optional https link.'),
-      metadataUri: z.string().max(200).optional().describe('Only if you host the metadata JSON yourself (https or ipfs). Otherwise leave it out and BTB builds and hosts it from the fields above.'),
+      metadataUri: z.string().max(200).optional().describe('Only if you host the metadata JSON yourself (https or ipfs). Otherwise leave it out and BTB pins it from the fields above.'),
       devBuySol: z.number().min(0).max(85).optional().describe('SOL to spend on the creator\'s first buy, in the same transaction. Default 0.'),
     }),
     annotations: READ,

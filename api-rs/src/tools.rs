@@ -39,18 +39,18 @@ pub fn definitions() -> Vec<Value> {
     more.push(json!({
         "name": "build_pump_launch",
         "title": "Launch a Pump coin (ready to sign)",
-        "description": "Launch a new coin on Pump (Solana) from the creator's wallet: one transaction that creates the coin, sets the creator-fee split (BTB keeps a share of creator fees on coins launched through BTB; the creator gets the rest), and optionally makes the creator's first buy in the same transaction so nobody can buy before them. Returns the new mint address, the split, a dry run on Solana and the transaction, already signed by the new coin's mint key; the creator's wallet signs as fee payer and must send it within about a minute without changing the blockhash. Send the coin's picture (imageUrl, or imageBase64 and BTB hosts it), description and optional links, and BTB builds and hosts the metadata; or pass metadataUri if you host it yourself. Cost: about 0.02 to 0.03 SOL plus the first buy. Most new coins lose almost all their value.",
+        "description": "Launch a new coin on Pump (Solana) from the creator's wallet: one transaction that creates the coin, sets the creator-fee split (BTB keeps a share of creator fees on coins launched through BTB; the creator gets the rest), and optionally makes the creator's first buy in the same transaction so nobody can buy before them. Returns the new mint address, the split, a dry run on Solana and the transaction, already signed by the new coin's mint key; the creator's wallet signs as fee payer and must send it within about a minute without changing the blockhash. Send the coin's picture (imageUrl or imageBase64), description and optional links, and BTB pins them to IPFS; or pass metadataUri if you host it yourself. Cost: about 0.02 to 0.03 SOL plus the first buy. Most new coins lose almost all their value.",
         "inputSchema": { "type": "object", "properties": {
             "wallet": { "type": "string", "pattern": "^[1-9A-HJ-NP-Za-km-z]{32,44}$", "description": "The creator's Solana address: pays, signs and receives the creator's fee share." },
             "name": { "type": "string", "minLength": 1, "maxLength": 32, "description": "Coin name, up to 32 characters." },
             "symbol": { "type": "string", "minLength": 1, "maxLength": 10, "description": "Ticker, up to 10 characters, without the $." },
             "description": { "type": "string", "maxLength": 500, "description": "What the coin is about, shown on Pump." },
             "imageUrl": { "type": "string", "description": "https or ipfs link to the coin's picture." },
-            "imageBase64": { "type": "string", "description": "Or the picture itself: PNG, JPEG, GIF or WebP, up to 1000 KB, base64 (a data: URL works). BTB hosts it." },
+            "imageBase64": { "type": "string", "description": "Or the picture itself: PNG, JPEG, GIF or WebP, up to 1000 KB, base64 (a data: URL works)." },
             "twitter": { "type": "string", "description": "Optional https link." },
             "telegram": { "type": "string", "description": "Optional https link." },
             "website": { "type": "string", "description": "Optional https link." },
-            "metadataUri": { "type": "string", "maxLength": 200, "description": "Only if you host the metadata JSON yourself (https or ipfs). Otherwise leave it out and BTB builds and hosts it from the fields above." },
+            "metadataUri": { "type": "string", "maxLength": 200, "description": "Only if you host the metadata JSON yourself (https or ipfs). Otherwise leave it out and BTB pins it from the fields above." },
             "devBuySol": { "type": "number", "minimum": 0, "maximum": 85, "description": "SOL to spend on the creator's first buy, in the same transaction. Default 0." }
         }, "required": ["wallet", "name", "symbol"] },
         "annotations": read,
@@ -322,6 +322,7 @@ pub async fn call(name: &str, args: &Map<String, Value>, ctx: &Ctx<'_>) -> Resul
             }
             if uri.is_empty() {
                 let (link, _) = crate::pumpmeta::save(
+                    ctx.http,
                     ctx.index.db.as_ref(),
                     crate::pumpmeta::Meta {
                         name: name.clone(),

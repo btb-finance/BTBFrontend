@@ -55,9 +55,66 @@ pub struct Meta {
     pub website: Option<String>,
 }
 
-/// Stores the image (if sent as bytes) and the metadata JSON; returns (metadata link, image link).
-pub async fn save(db: Option<&sqlx::PgPool>, m: Meta) -> Result<(String, String), String> {
-    let db = db.ok_or("BTB cannot host coin metadata right now (no database on this server). Pass metadataUri: a link to your own metadata JSON.")?;
+/// The coin's picture as bytes: decoded from imageBase64, or downloaded from imageUrl. PNG, JPEG, GIF or WebP.
+async fn image_bytes(http: &reqwest::Client, m: &Meta) -> Result<(Vec<u8>, &'static str), String> {
+    let bytes = if let Some(b64) = m.image_base64.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        let raw = b64.split_once("base64,").map(|(_, r)| r).unwrap_or(b64);
+        base64::Engine::decode(&base64::engine::general_purpose::STANDARD, raw.trim()).map_err(|_| "imageBase64 is not valid base64.".to_string())?
+    } else if let Some(url) = m.image_url.as_deref().map(str::trim).filter(|s| s.starts_with("https://")) {
+        let r = http.get(url).timeout(std::time::Duration::from_secs(15)).send().await.map_err(|e| format!("Could not download the image: {e}"))?;
+        if !r.status().is_success() {
+            return Err(format!("Could not download the image ({}).", r.status()));
+        }
+        r.bytes().await.map_err(|e| format!("Could not download the image: {e}"))?.to_vec()
+    } else {
+        return Err("Send the coin's picture: imageUrl (https) or imageBase64 (PNG, JPEG, GIF or WebP, up to 1000 KB).".into());
+    };
+    if bytes.len() > MAX_IMAGE {
+        return Err(format!("The image is {} KB; the limit is 1000 KB.", bytes.len() / 1000));
+    }
+    let ct = image_type(&bytes).ok_or("The image must be PNG, JPEG, GIF or WebP.")?;
+    Ok((bytes, ct))
+}
+
+fn metadata_json(m: &Meta, image: &str) -> Value {
+    let mut body = json!({ "name": m.name, "symbol": m.symbol, "description": m.description, "image": image, "showName": true, "createdOn": "https://btb.finance" });
+    for (k, v) in [("twitter", &m.twitter), ("telegram", &m.telegram), ("website", &m.website)] {
+        if let Some(v) = v.as_deref().map(str::trim).filter(|v| v.starts_with("https://")) {
+            body[k] = json!(v);
+        }
+    }
+    body
+}
+
+/// Pins the picture and the metadata JSON to IPFS with Pinata (PINATA_JWT), as pump.fun's own launches are pinned.
+async fn pinata(http: &reqwest::Client, jwt: &str, m: &Meta) -> Result<(String, String), String> {
+    let image = if let Some(url) = m.image_url.as_deref().map(str::trim).filter(|u| u.starts_with("ipfs://") && m.image_base64.is_none()) {
+        url.to_string()
+    } else {
+        let (bytes, ct) = image_bytes(http, m).await?;
+        let part = reqwest::multipart::Part::bytes(bytes).file_name(format!("{}.{}", m.symbol, ct.trim_start_matches("image/"))).mime_str(ct).map_err(|e| e.to_string())?;
+        let form = reqwest::multipart::Form::new().part("file", part).text("pinataMetadata", json!({ "name": format!("{} image", m.symbol) }).to_string());
+        let r = http.post("https://api.pinata.cloud/pinning/pinFileToIPFS").bearer_auth(jwt).multipart(form).timeout(std::time::Duration::from_secs(45)).send().await.map_err(|e| format!("Pinata is not reachable: {e}"))?;
+        let status = r.status();
+        let v: Value = r.json().await.unwrap_or(Value::Null);
+        let cid = v["IpfsHash"].as_str().ok_or_else(|| format!("Pinata did not pin the image ({status}): {}", v["error"]))?;
+        format!("https://ipfs.io/ipfs/{cid}")
+    };
+    let body = json!({ "pinataContent": metadata_json(m, &image), "pinataMetadata": { "name": format!("{} metadata", m.symbol) } });
+    let r = http.post("https://api.pinata.cloud/pinning/pinJSONToIPFS").bearer_auth(jwt).json(&body).timeout(std::time::Duration::from_secs(30)).send().await.map_err(|e| format!("Pinata is not reachable: {e}"))?;
+    let status = r.status();
+    let v: Value = r.json().await.unwrap_or(Value::Null);
+    let cid = v["IpfsHash"].as_str().ok_or_else(|| format!("Pinata did not pin the metadata ({status}): {}", v["error"]))?;
+    Ok((format!("https://ipfs.io/ipfs/{cid}"), image))
+}
+
+/// Hosts the coin's picture and metadata: on IPFS through Pinata when PINATA_JWT is set, else in BTB's own
+/// database. Returns (metadata link, image link).
+pub async fn save(http: &reqwest::Client, db: Option<&sqlx::PgPool>, m: Meta) -> Result<(String, String), String> {
+    if let Some(jwt) = std::env::var("PINATA_JWT").ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
+        return pinata(http, &jwt, &m).await;
+    }
+    let db = db.ok_or("BTB cannot host coin metadata right now (no IPFS key or database on this server). Pass metadataUri: a link to your own metadata JSON.")?;
     ready(db).await;
     let image = match (m.image_base64.as_deref().map(str::trim).filter(|s| !s.is_empty()), m.image_url.as_deref().map(str::trim).filter(|s| !s.is_empty())) {
         (Some(b64), _) => {
