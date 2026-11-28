@@ -56,7 +56,7 @@ pub struct Meta {
 }
 
 /// The coin's picture as bytes: decoded from imageBase64, or downloaded from imageUrl. PNG, JPEG, GIF or WebP.
-async fn image_bytes(http: &reqwest::Client, m: &Meta) -> Result<(Vec<u8>, &'static str), String> {
+pub async fn image_bytes(http: &reqwest::Client, m: &Meta) -> Result<(Vec<u8>, &'static str), String> {
     let bytes = if let Some(b64) = m.image_base64.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         let raw = b64.split_once("base64,").map(|(_, r)| r).unwrap_or(b64);
         base64::Engine::decode(&base64::engine::general_purpose::STANDARD, raw.trim()).map_err(|_| "imageBase64 is not valid base64.".to_string())?

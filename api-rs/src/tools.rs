@@ -55,6 +55,32 @@ pub fn definitions() -> Vec<Value> {
         }, "required": ["wallet", "name", "symbol"] },
         "annotations": read,
     }));
+    more.push(json!({
+        "name": "build_token_launch",
+        "title": "Launch a coin on an EVM launchpad (ready to sign)",
+        "description": "Launch a new coin from the creator's wallet on an EVM launchpad, with BTB's share of fees built in where the launchpad allows it. launchpad: clanker (Base, BNB Chain, Robinhood Chain or Monad; Uniswap v4 pool with a 1-10% buy/sell tax; BTB is the integrator and keeps a share of the creator's part of the tax; claim with build_launch_claim), zora (Base; 1% pool fee, creator 0.5% of each trade, BTB 0.2% as platform referrer, paid automatically), pons (Robinhood Chain bonding curve, 0.0005 ETH launch fee, optional extra creator tax up to 10%; Pons pays creator fees to one address so BTB takes no share; optional first buy in the same transaction), flap (BNB Chain bonding curve tax token, 1-10% tax paid to the creator; BTB is the commission receiver; optional first buy). Send the picture (imageUrl or imageBase64), description and links; BTB pins them. Returns the coin address, the fee split, a dry run, the transaction and a sign link. Pump on Solana is build_pump_launch. Most new coins lose almost all their value.",
+        "inputSchema": { "type": "object", "properties": {
+            "wallet": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$", "description": "The creator's EVM address: pays, signs and receives the creator's fees." },
+            "launchpad": { "type": "string", "enum": ["clanker", "zora", "pons", "flap"] },
+            "chain": { "type": "string", "description": "Clanker only: base (default), bsc, robinhood or monad. The others have one chain each." },
+            "name": { "type": "string", "minLength": 1, "maxLength": 32 },
+            "symbol": { "type": "string", "minLength": 1, "maxLength": 10, "description": "Ticker without the $." },
+            "description": { "type": "string", "maxLength": 500 },
+            "imageUrl": { "type": "string", "description": "https or ipfs link to the coin's picture." },
+            "imageBase64": { "type": "string", "description": "Or the picture itself: PNG, JPEG, GIF or WebP, up to 1000 KB, base64." },
+            "twitter": { "type": "string" }, "telegram": { "type": "string" }, "website": { "type": "string" },
+            "taxPct": { "type": "number", "minimum": 0, "maximum": 10, "description": "clanker and flap: buy/sell tax in percent, 1 to 10 (default 3). pons: extra creator tax, 0 to 10 (default 0). Ignored for zora." },
+            "devBuy": { "type": "number", "minimum": 0, "maximum": 10, "description": "pons and flap: native coin (ETH or BNB) for the creator's first buy in the same transaction. Default 0." }
+        }, "required": ["wallet", "launchpad", "name", "symbol"] },
+        "annotations": read,
+    }));
+    more.push(json!({
+        "name": "build_launch_claim",
+        "title": "Claim launchpad creator fees (ready to sign)",
+        "description": "Find a creator's unclaimed fees on Clanker (Base, BNB Chain, Robinhood Chain, Monad) and Pons (Robinhood Chain) and build the claim transactions, one per chain, each with a dry run. Zora and Flap pay creators automatically. Claiming through BTB is free. Pump on Solana is build_pump_claim.",
+        "inputSchema": { "type": "object", "properties": { "wallet": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" } }, "required": ["wallet"] },
+        "annotations": read,
+    }));
     let mut list = vec![
         json!({
             "name": "top_pools",
@@ -188,7 +214,7 @@ pub fn has(name: &str) -> bool {
             | "list_protocols" | "get_protocol" | "quick_token_check" | "bridge_status"
             | "lending_rates" | "staking_rates" | "tx_status"
             | "find_token" | "quote_swap" | "sign_status"
-            | "wallet_portfolio" | "wallet_overview" | "build_pump_claim" | "build_pump_launch"
+            | "wallet_portfolio" | "wallet_overview" | "build_pump_claim" | "build_pump_launch" | "build_token_launch" | "build_launch_claim"
             | "build_swap" | "build_lend" | "build_withdraw" | "build_vault_deposit" | "build_vault_withdraw" | "build_bridge"
     )
 }
@@ -349,6 +375,72 @@ pub async fn call(name: &str, args: &Map<String, Value>, ctx: &Ctx<'_>) -> Resul
             crate::solana::build_pump_launch(ctx.http, crate::solana::Launch { wallet: w.trim().to_string(), name, symbol, uri, dev_buy_sol: dev })
                 .await
                 .map_err(ToolError)
+        }
+        "build_token_launch" => {
+            let w = opt_str(args, "wallet")?.unwrap_or_default().trim().to_string();
+            if !crate::launchpads::is_addr(&w) {
+                return Err(bad("wallet must be a 0x address (the coin's creator)"));
+            }
+            let pad = opt_str(args, "launchpad")?.unwrap_or_default().trim().to_lowercase();
+            let name = opt_str(args, "name")?.unwrap_or_default().trim().to_string();
+            let symbol = opt_str(args, "symbol")?.unwrap_or_default().trim().trim_start_matches('$').to_string();
+            if name.is_empty() || name.len() > 32 {
+                return Err(bad("name is required, up to 32 bytes"));
+            }
+            if symbol.is_empty() || symbol.len() > 10 {
+                return Err(bad("symbol is required, up to 10 bytes"));
+            }
+            let meta = crate::pumpmeta::Meta {
+                name: name.clone(),
+                symbol: symbol.clone(),
+                description: opt_str(args, "description")?.unwrap_or_default().chars().take(500).collect(),
+                image_url: opt_str(args, "imageUrl")?,
+                image_base64: opt_str(args, "imageBase64")?,
+                twitter: opt_str(args, "twitter")?,
+                telegram: opt_str(args, "telegram")?,
+                website: opt_str(args, "website")?,
+            };
+            if meta.image_url.as_deref().unwrap_or("").trim().is_empty() && meta.image_base64.as_deref().unwrap_or("").trim().is_empty() {
+                return Err(bad("send the coin's picture as imageUrl or imageBase64"));
+            }
+            let tax = opt_num(args, "taxPct")?;
+            let dev = opt_num(args, "devBuy")?.unwrap_or(0.0);
+            if !(0.0..=10.0).contains(&dev) {
+                return Err(bad("devBuy must be between 0 and 10"));
+            }
+            let desc = meta.description.clone();
+            let chain = opt_str(args, "chain")?.unwrap_or_else(|| "base".into());
+            let base = |uri: String, image: String, tax_pct: f64| crate::launchpads::Launch {
+                wallet: w.clone(),
+                chain: chain.clone(),
+                name: name.clone(),
+                symbol: symbol.clone(),
+                uri,
+                image,
+                description: desc.clone(),
+                tax_pct,
+            };
+            match pad.as_str() {
+                "flap" => crate::launchpads::build_flap_launch(ctx.http, base(String::new(), String::new(), tax.unwrap_or(3.0)), meta, dev).await.map_err(ToolError),
+                "clanker" | "zora" | "pons" => {
+                    let socials = crate::launchpads::Socials { twitter: meta.twitter.clone().unwrap_or_default(), telegram: meta.telegram.clone().unwrap_or_default(), website: meta.website.clone().unwrap_or_default() };
+                    let (uri, image) = crate::pumpmeta::save(ctx.http, ctx.index.db.as_ref(), meta).await.map_err(ToolError)?;
+                    match pad.as_str() {
+                        "clanker" => crate::launchpads::build_clanker_launch(ctx.http, base(uri, image, tax.unwrap_or(3.0))).await,
+                        "zora" => crate::launchpads::build_zora_launch(ctx.http, base(uri, image, 0.0)).await,
+                        _ => crate::launchpads::build_pons_launch(ctx.http, base(uri, image, tax.unwrap_or(0.0)), socials, dev).await,
+                    }
+                    .map_err(ToolError)
+                }
+                _ => Err(bad("launchpad must be clanker, zora, pons or flap (Pump on Solana is build_pump_launch)")),
+            }
+        }
+        "build_launch_claim" => {
+            let w = opt_str(args, "wallet")?.unwrap_or_default().trim().to_string();
+            if !crate::launchpads::is_addr(&w) {
+                return Err(bad("wallet must be a 0x address"));
+            }
+            Ok(crate::launchpads::build_launch_claim(ctx.http, &w).await)
         }
         "build_swap" => crate::builders::build_swap(args, ctx).await,
         "build_lend" => crate::builders::build_lend(args, ctx).await,

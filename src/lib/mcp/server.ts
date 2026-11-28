@@ -634,6 +634,47 @@ export function buildServer(): McpServer {
     } catch (e) { return fail(`The Solana service is not reachable right now (${(e as Error).message}).`); }
   });
 
+  server.registerTool('build_token_launch', {
+    title: 'Launch a coin on an EVM launchpad (ready to sign)',
+    description: 'Launch a new coin from the creator\'s wallet on an EVM launchpad, with BTB\'s share of fees built in where the launchpad allows it. launchpad: clanker (Base, BNB Chain, Robinhood Chain or Monad; Uniswap v4 pool with a 1-10% buy/sell tax; BTB is the integrator and keeps a share of the creator\'s part of the tax; claim with build_launch_claim), zora (Base; 1% pool fee, creator 0.5% of each trade, BTB 0.2% as platform referrer, paid automatically), pons (Robinhood Chain bonding curve, 0.0005 ETH launch fee, optional extra creator tax up to 10%; Pons pays creator fees to one address so BTB takes no share; optional first buy in the same transaction), flap (BNB Chain bonding curve tax token, 1-10% tax paid to the creator; BTB is the commission receiver; optional first buy). Send the picture (imageUrl or imageBase64), description and links; BTB pins them. Returns the coin address, the fee split, a dry run, the transaction and a sign link. Pump on Solana is build_pump_launch. Most new coins lose almost all their value.',
+    inputSchema: z.object({
+      wallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe('The creator\'s EVM address: pays, signs and receives the creator\'s fees.'),
+      launchpad: z.enum(['clanker', 'zora', 'pons', 'flap']),
+      chain: z.string().optional().describe('Clanker only: base (default), bsc, robinhood or monad. The others have one chain each.'),
+      name: z.string().min(1).max(32),
+      symbol: z.string().min(1).max(10).describe('Ticker without the $.'),
+      description: z.string().max(500).optional(),
+      imageUrl: z.string().optional().describe('https or ipfs link to the coin\'s picture.'),
+      imageBase64: z.string().max(1_400_000).optional().describe('Or the picture itself: PNG, JPEG, GIF or WebP, up to 1000 KB, base64.'),
+      twitter: z.string().optional(),
+      telegram: z.string().optional(),
+      website: z.string().optional(),
+      taxPct: z.number().min(0).max(10).optional().describe('clanker and flap: buy/sell tax in percent, 1 to 10 (default 3). pons: extra creator tax, 0 to 10 (default 0). Ignored for zora.'),
+      devBuy: z.number().min(0).max(10).optional().describe('pons and flap: native coin (ETH or BNB) for the creator\'s first buy in the same transaction. Default 0.'),
+    }),
+    annotations: READ,
+  }, async (a) => {
+    // Built by BTB's Rust service on Flux.
+    try {
+      const r = await fetch(`${SIGN_STATUS_API}/api/v1/launch`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(a), signal: AbortSignal.timeout(45_000) });
+      const body = await r.json() as unknown;
+      return r.ok ? text(body) : fail(`The launch service answered ${r.status}: ${JSON.stringify(body).slice(0, 300)}`);
+    } catch (e) { return fail(`The launch service is not reachable right now (${(e as Error).message}).`); }
+  });
+
+  server.registerTool('build_launch_claim', {
+    title: 'Claim launchpad creator fees (ready to sign)',
+    description: 'Find a creator\'s unclaimed fees on Clanker (Base, BNB Chain, Robinhood Chain, Monad) and Pons (Robinhood Chain) and build the claim transactions, one per chain, each with a dry run. Zora and Flap pay creators automatically. Claiming through BTB is free. Pump on Solana is build_pump_claim.',
+    inputSchema: z.object({ wallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/) }),
+    annotations: READ,
+  }, async (a) => {
+    try {
+      const r = await fetch(`${SIGN_STATUS_API}/api/v1/launch/claim`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(a), signal: AbortSignal.timeout(25_000) });
+      const body = await r.json() as unknown;
+      return r.ok ? text(body) : fail(`The launch service answered ${r.status}: ${JSON.stringify(body).slice(0, 300)}`);
+    } catch (e) { return fail(`The launch service is not reachable right now (${(e as Error).message}).`); }
+  });
+
   server.registerTool('wallet_overview', {
     title: 'Where a wallet stands, and what to do',
     description: 'Start here when someone asks about their portfolio (EVM or Solana address). One call: net worth across BTB\'s protocols (about 36 chains), liquidity pools and the wallet\'s own tokens, each counted once; warnings that need attention (Aave health factor low, pools out of range); and opportunities (idle stablecoins earning nothing, vaults well below the best rate on their chain), each with the yearly gain (on 7-day average rates, only into markets big enough to take the amount) and the exact build tool calls to act. Includes a one-line headline to show the person. Public on-chain data, read-only. Takes about 5 to 25 seconds.',
