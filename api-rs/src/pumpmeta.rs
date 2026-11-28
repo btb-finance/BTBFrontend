@@ -66,8 +66,10 @@ pub async fn image_bytes(http: &reqwest::Client, m: &Meta) -> Result<(Vec<u8>, &
             return Err(format!("Could not download the image ({}).", r.status()));
         }
         r.bytes().await.map_err(|e| format!("Could not download the image: {e}"))?.to_vec()
+    } else if m.image_url.as_deref().map(str::trim).unwrap_or("").is_empty() {
+        ticker_logo(&m.symbol)
     } else {
-        return Err("Send the coin's picture: imageUrl (https) or imageBase64 (PNG, JPEG, GIF or WebP, up to 1000 KB).".into());
+        return Err("imageUrl must be an https link (or send imageBase64: PNG, JPEG, GIF or WebP, up to 1000 KB).".into());
     };
     if bytes.len() > MAX_IMAGE {
         return Err(format!("The image is {} KB; the limit is 1000 KB.", bytes.len() / 1000));
@@ -127,7 +129,10 @@ async fn pinata(http: &reqwest::Client, auth: &PinataAuth, m: &Meta) -> Result<(
 
 /// Hosts the coin's picture and metadata: on IPFS through Pinata when its keys are set, else in BTB's own
 /// database. Returns (metadata link, image link).
-pub async fn save(http: &reqwest::Client, db: Option<&sqlx::PgPool>, m: Meta) -> Result<(String, String), String> {
+pub async fn save(http: &reqwest::Client, db: Option<&sqlx::PgPool>, mut m: Meta) -> Result<(String, String), String> {
+    if m.image_url.as_deref().unwrap_or("").trim().is_empty() && m.image_base64.as_deref().unwrap_or("").trim().is_empty() {
+        m.image_base64 = Some(base64::Engine::encode(&base64::engine::general_purpose::STANDARD, ticker_logo(&m.symbol)));
+    }
     if let Some(auth) = pinata_auth() {
         return pinata(http, &auth, &m).await;
     }
@@ -174,4 +179,87 @@ pub async fn image(db: Option<&sqlx::PgPool>, id: &str) -> Option<(String, Vec<u
     let db = db?;
     ready(db).await;
     sqlx::query_as::<_, (String, Vec<u8>)>("SELECT content_type, bytes FROM pump_img WHERE id = $1").bind(id).fetch_optional(db).await.ok().flatten()
+}
+
+
+// ---- a default picture: the ticker on a coloured coin, for when no picture is sent ----
+
+/// 5x7 bitmap glyphs, one byte per row, the low 5 bits left to right.
+fn glyph(c: char) -> [u8; 7] {
+    match c {
+        'A' => [14, 17, 17, 31, 17, 17, 17], 'B' => [30, 17, 17, 30, 17, 17, 30], 'C' => [14, 17, 16, 16, 16, 17, 14],
+        'D' => [30, 17, 17, 17, 17, 17, 30], 'E' => [31, 16, 16, 30, 16, 16, 31], 'F' => [31, 16, 16, 30, 16, 16, 16],
+        'G' => [14, 17, 16, 23, 17, 17, 15], 'H' => [17, 17, 17, 31, 17, 17, 17], 'I' => [14, 4, 4, 4, 4, 4, 14],
+        'J' => [7, 2, 2, 2, 2, 18, 12], 'K' => [17, 18, 20, 24, 20, 18, 17], 'L' => [16, 16, 16, 16, 16, 16, 31],
+        'M' => [17, 27, 21, 21, 17, 17, 17], 'N' => [17, 17, 25, 21, 19, 17, 17], 'O' => [14, 17, 17, 17, 17, 17, 14],
+        'P' => [30, 17, 17, 30, 16, 16, 16], 'Q' => [14, 17, 17, 17, 21, 18, 13], 'R' => [30, 17, 17, 30, 20, 18, 17],
+        'S' => [15, 16, 16, 14, 1, 1, 30], 'T' => [31, 4, 4, 4, 4, 4, 4], 'U' => [17, 17, 17, 17, 17, 17, 14],
+        'V' => [17, 17, 17, 17, 17, 10, 4], 'W' => [17, 17, 17, 21, 21, 21, 10], 'X' => [17, 17, 10, 4, 10, 17, 17],
+        'Y' => [17, 17, 10, 4, 4, 4, 4], 'Z' => [31, 1, 2, 4, 8, 16, 31], '0' => [14, 17, 19, 21, 25, 17, 14],
+        '1' => [4, 12, 4, 4, 4, 4, 14], '2' => [14, 17, 1, 2, 4, 8, 31], '3' => [31, 2, 4, 2, 1, 17, 14],
+        '4' => [2, 6, 10, 18, 31, 2, 2], '5' => [31, 16, 30, 1, 1, 17, 14], '6' => [6, 8, 16, 30, 17, 17, 14],
+        '7' => [31, 1, 2, 4, 8, 8, 8], '8' => [14, 17, 17, 14, 17, 17, 14], '9' => [14, 17, 17, 15, 1, 2, 12],
+        _ => [0; 7],
+    }
+}
+
+/// A 512x512 PNG: a coin in a colour picked from the ticker, with the ticker (up to 5 characters) in white.
+pub fn ticker_logo(symbol: &str) -> Vec<u8> {
+    const S: usize = 512;
+    let text: Vec<char> = symbol.to_uppercase().chars().filter(|c| c.is_ascii_alphanumeric()).take(5).collect();
+    let palette = [(229, 72, 61), (63, 191, 127), (108, 140, 255), (181, 124, 242), (242, 140, 40), (32, 160, 180)];
+    let h = symbol.bytes().fold(7u32, |a, b| a.wrapping_mul(31).wrapping_add(b as u32));
+    let (r, g, b) = palette[(h as usize) % palette.len()];
+    let scale = if text.len() <= 2 { 26 } else if text.len() == 3 { 21 } else if text.len() == 4 { 17 } else { 14 };
+    let (gw, gh) = (6 * scale, 7 * scale);
+    let tw = text.len() * gw - scale;
+    let (x0, y0) = ((S - tw.min(S)) / 2, (S - gh) / 2);
+    let mut raw = Vec::with_capacity(S * (S * 4 + 1));
+    for y in 0..S {
+        raw.push(0);
+        for x in 0..S {
+            let (dx, dy) = (x as f64 - 255.5, y as f64 - 255.5);
+            let d = (dx * dx + dy * dy).sqrt();
+            let mut px = if d > 250.0 { [0, 0, 0, 0] } else if d > 232.0 { [r / 2, g / 2, b / 2, 255] } else { [r, g, b, 255] };
+            if y >= y0 && y < y0 + gh && x >= x0 && x < x0 + tw {
+                let (i, gx) = ((x - x0) / gw, (x - x0) % gw / scale);
+                let gy = (y - y0) / scale;
+                if gx < 5 && i < text.len() && glyph(text[i])[gy] & (16 >> gx) != 0 {
+                    px = [255, 255, 255, 255];
+                }
+            }
+            raw.extend_from_slice(&px);
+        }
+    }
+    let mut z = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+    std::io::Write::write_all(&mut z, &raw).ok();
+    let idat = z.finish().unwrap_or_default();
+    let mut png = vec![137, 80, 78, 71, 13, 10, 26, 10];
+    let mut chunk = |kind: &[u8], data: &[u8]| {
+        png.extend_from_slice(&(data.len() as u32).to_be_bytes());
+        let mut crc = flate2::Crc::new();
+        crc.update(kind);
+        crc.update(data);
+        png.extend_from_slice(kind);
+        png.extend_from_slice(data);
+        png.extend_from_slice(&crc.sum().to_be_bytes());
+    };
+    let mut ihdr = Vec::new();
+    ihdr.extend_from_slice(&(S as u32).to_be_bytes());
+    ihdr.extend_from_slice(&(S as u32).to_be_bytes());
+    ihdr.extend_from_slice(&[8, 6, 0, 0, 0]);
+    chunk(b"IHDR", &ihdr);
+    chunk(b"IDAT", &idat);
+    chunk(b"IEND", &[]);
+    png
+}
+
+#[cfg(test)]
+mod logo_test {
+    #[test]
+    fn writes_png() {
+        let p = super::ticker_logo("WHISK");
+        assert_eq!(&p[..8], &[137, 80, 78, 71, 13, 10, 26, 10]);
+        std::fs::write(std::env::temp_dir().join("whisk.png"), &p).unwrap();
+    }
 }
